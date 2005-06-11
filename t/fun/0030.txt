@@ -1,0 +1,18 @@
+# Example from Graphviz extension
+# http://www.wickle.com/wiki/index.php/Graphviz_extension
+
+node { shape: circle; }
+
+[ main ] { shape: box; } # this is a comment
+-> [ parse ]
+-> [ execute ] 
+-> [ make_string ] { label: make a\n string; }
+
+[ main ] ..> [ init ]
+[ main ] -Testlabel--> [ cleanup ]
+
+[ init ] -> [ make_string ]
+
+[ main ] =100 times==> [ printf ] 	# red edge!
+
+[ execute ] -> [ compare ] { shape: box; background: #c1b2ff; }

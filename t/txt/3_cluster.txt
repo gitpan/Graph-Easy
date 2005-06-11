@@ -1,0 +1,4 @@
+[ HusumSchleswigFlensburg.0 ] { background: #ddaaff; label: Husum; }
+[ HusumSchleswigFlensburg.1 ] { background: #ddaaff; label: Schleswig; }
+[ HusumSchleswigFlensburg.2 ] { background: #ddaaff; label: Flensburg; }
+

@@ -1,0 +1,144 @@
+=pod
+
+=head1 Graph::Easy manual - Chapter 1 - Basics
+
+This chapter of the Graph::Easy manual covers the basic syntax and elements
+of the graph description language.
+
+=head2 Nodes
+
+=begin graph-common
+
+node { background: #ffdead; }
+
+=end graph-common
+
+A node is enclosed in square brackets, C<< [ ] >>. The text between the brackets
+will be the unique name of the node and is also what will usually displayed:
+
+=begin graph
+
+  [ Bonn ]
+  [ Berlin ]
+
+=end graph
+
+Note that spaces at the front and end, as well as double spaces are stripped out.
+Thus the following are all equivalent and the resulting graph will only have one
+node:
+
+=begin graph
+
+  [  Bonn and   Berlin  ]
+  [  Bonn
+    and
+    Berlin  ]
+  [Bonn and Berlin]
+
+=end graph
+
+You can embed linebreaks into the node text by using C<< \n >>:
+
+=begin graph
+
+  [  Bonn\n and\n Berlin ]
+
+=end graph
+
+See also the section on L<Escaping|Escaping>.
+
+=head2 Escaping
+
+When describing graphs, a few characters are used to start/end special
+features. These markers, like C<<[>>, C<<]>> or C<<#>>, cannot appear
+in names, labels, texts etc, without being escaped. The escape character
+is C<<\>> (backslash). Here is an example:
+
+=begin graph
+
+  [ \[ Bonn\n and\n Berlin are \#0 (really!) \] ]
+
+=end graph
+
+=head2 Definitions and Comments
+
+Comments in the source start with a C<< # >> and always comment out anything
+to the end of the line:
+
+=begin graph
+
+  # This is a comment
+  graph
+    {
+    background: #deadff; # another comment
+    }
+
+  [ Bonn ]
+  [ Berlin ]
+
+=end graph
+
+Note that the color definition does not start a comment, this is a special
+case that should be automatically handled right by the parser.
+
+If you want to embed a literal C<< # >> into a node name, use C<< \# >>.
+
+=head2 Edges
+
+I<Edges> connect nodes with each other.
+
+=begin graph
+
+  [ Bonn ] -> [ Berlin ]
+
+=end graph
+
+=head3 Styles and labels
+
+=begin graph
+
+  [ Bonn ] --> [ Berlin ]
+  [ A ] ==> [ B ]
+  [ B ] ..> [ C ]
+  [ B ] - > [ D ]
+  [ F ] -This is a label-> [ E ]
+
+=end graph
+
+You can also combine different styles and labels:
+
+=begin graph
+
+  [ F ] =This is a label=> [ E ]
+
+=end graph
+
+=head2 Attributes
+
+Attributes can appear either as global class definitions, or specifically on
+Nodes (and L<Edges>):
+
+=begin graph
+
+  graph { background: white; color: green; }
+
+  [ Bonn ] { color: red; }
+  -> { color: blue; }
+  [ Berlin ]
+
+=end graph
+
+If you want two nodes with the same text, or name a node different from
+what text is displayed, you need to use a node label:
+
+=head2 Two nodes with the same text
+
+=begin graph
+
+  [ Bonn ]
+  -> [ Berlin ]
+  -> [ Bonn1 ] { label: Bonn; }
+
+=end graph
+
+=cut

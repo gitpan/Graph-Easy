@@ -1,0 +1,24 @@
+#!/usr/bin/perl -w
+
+BEGIN { $|++; }
+
+use strict;
+use lib 'lib';
+use Graph::Easy::Parser;
+
+my $parser = Graph::Easy::Parser->new( debug => 0 );
+
+my $file = shift;
+my $id = shift || '';
+
+my $graph = $parser->from_file( $file );
+
+die ($parser->error()) unless defined $graph;
+
+$graph->id($id);
+$graph->layout();
+
+warn ($graph->error()) if $graph->error();
+
+print $graph->as_html_page();
+

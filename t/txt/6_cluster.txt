@@ -1,0 +1,7 @@
+[ ABCDEFGH.0 ] { label: A; }
+[ ABCDEFGH.1 ] { label: BCD; }
+[ ABCDEFGH.2 ] { label: E; }
+[ ABCDEFGH.3 ] { label: F; }
+[ ABCDEFGH.4 ] { label: G; }
+[ ABCDEFGH.5 ] { label: H; }
+

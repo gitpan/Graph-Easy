@@ -1,0 +1,113 @@
+#!/usr/bin/perl -w
+
+# Create the HTML version of the manual from POD files in manual/
+
+print "gen_manual v0.02 (c) by Tels 2005. Part of Graph::Easy.\n\n";
+
+use strict;
+use File::Spec;
+use File::Copy;
+use Getopt::Long;
+
+my $time = time;
+
+my $output = File::Spec->catdir(qw/manual html/);
+my $backlink;
+my $options = scalar @ARGV;
+my $version;
+ 
+my $rc = GetOptions (
+	"backlink" => \$backlink,
+	"output=s"   => \$output,
+	"version"   => \$version,
+	);
+
+if (!$rc || $options == 0 || $version)
+  {
+  print "\n  Generate Graph::Easy manual in HTML. Usage:\n\n";
+  print "   ./gen_manual [--output=path] [--backlink]\n\n";
+  exit unless $rc;
+  exit if $version;
+  }
+
+my $menulink = '';
+$menulink = "--menulink='Back|index.html|Back to the table of contents'" if $backlink;
+
+print "Arguments look good, generating manual.\n";
+
+print " Preparing output path $output...";
+
+if (!-d $output)
+  {
+  mkdir $output or die ("Cannot create output path '$output': $!");
+  }
+# copy the css file
+my $updir = File::Spec->updir();
+
+copy (
+  File::Spec->catfile($updir, qw/examples base.css/),
+  File::Spec->catfile($output, 'base.css')
+  );
+
+print "done.\n";
+
+my @files = glob ('manual/*.pod');
+
+print "Creating the individual chapters:\n";
+my $cmd = File::Spec->catfile($updir, qw/examples pod2html/);
+
+foreach my $in (sort @files)
+  {
+  my ($volume,$directories,$file) = File::Spec->splitpath($in);
+
+  $file =~ s/.pod/.html/;
+  my $out = File::Spec->catfile($output, $file);
+
+  # no backlinks for the index
+  my $menu = $menulink;
+  $menu = "--menulink='Main|../index.html|Back to the main graph page'" if $file =~ /^index/ && $backlink;
+
+  my $format = 'src,html'; $format = 'html' if $file =~ /^index/;
+
+  print "  $file ($menu --outputformat=$format)\n";
+  `$cmd $in $menu --outputformat=$format >$out`;
+  }
+
+#############################################################################
+# create the index
+
+print " Done.\nInserting the index into index.html...";
+
+my $idx_file = File::Spec->catfile($output, 'index.html');
+
+# read in index.html, then write it back
+open FILE, "$idx_file" or die ("Cannot read '$idx_file': $!");
+local $/ = undef;		# slurp
+my $index_tpl = <FILE>;
+close FILE;
+
+my $idx = "<ul>\n";
+
+foreach my $in (sort @files)
+  {
+  my ($volume,$directories,$file) = File::Spec->splitpath($in);
+
+  my $name = $file; $name =~ s/\.pod//; $name =~ s/^\d+_//;
+  next if $name =~ /^index/;
+
+  $file =~ s/.pod/.html/;
+  
+  my $link = File::Spec->catfile($output, $file);
+  $idx .= "<li><a href='$link'>$name</a>\n";
+  }
+$idx .= "</ul>";
+
+$index_tpl =~ s/##indextable##/$idx/;
+
+# write out index.pod
+open FILE, ">$idx_file" or die ("Cannot write '$idx_file': $!");
+print $idx_file;
+print FILE $index_tpl;
+close FILE;
+
+print "\nAll done, took " . (time - $time) . " seconds. Enjoy!\n\n";

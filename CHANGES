@@ -1,0 +1,291 @@
+Revision history for Graph::Easy (formerly known as Graph::Simple):
+
+2005-06-11 v0.18 Tels 573 tests - Shape, shape, shape, shape the nodes...
+  * renamed from Graph::Simple to Graph::Easy
+  * small cleanups (bumping $VERSIONS, remove unnec. error() routines etc)
+  * fix =begin graph/end graph in doc/manual/*
+  * Graph::Easy::Pod2HTML and examples/pod2html support outputformat,
+    especially "html" and "src,html"
+  * fix Graph::Easy::Pod2HTML to work almost (the graphs still appear
+    somewhat out-of-order in the output...)
+  * forgot to include doc/manual/index.pod
+  * add one more test for ASCII rendering of autosplit nodes (with hole)
+  * Parser: do not create empty nodes on autosplit clusters
+  * re-factor code to allow multi-edges (more than one edge from A to B)
+  * add tests for multiedges
+  * call "_correct_size_$format()" if possible
+  * As_svg: add _correct_size_svg() for Nodes and Edge/Cells
+  * As_svg: correctly center text for node labels
+  * As_svg: draw hor/ver lines for edges
+  * As_svg: draw arrow heads for edges
+  * As_svg: include a comment with edge type and source/target node
+  * As_svg: fix position/size for nodes with shape diamond/circle/ellipse
+  * _prepare_layout() expands cells sizes to maximum column/row size
+  * Node: add shape()
+
+2005-05-29 v0.17 Tels 559 tests - Edge, edge, edge, edge towards the node...
+  * rename examples/txt2ascii to examples/as_ascii
+  * fix examples/as_ascii to actually work
+  * add examples/as_html
+  * amend INSTALL, README
+  * add complete manual (doc/manual/*) and doc/gen_manual to generate HTML
+    version of the manual
+  * add Graph::Simple::Pod2HTML
+  * include tests for different node shapes
+  * suppress attribute "shape" in HTML output
+  * as_html: for "shape: invisible", output empty table cell
+  * as_html: for shape rounded and circle, use moz-rounded-border
+  * as_html: treat "\n" in edge labels properly
+  * as_svg: handle shape: invisible
+  * as_svg: fix output for "shape: rounded;"
+  * as_svg: fix general output to be valid
+  * as_txt: output [ name ], not wrongly [ label ]
+  * as_ascii: node size depends on label, not name
+  * as_ascii: handle multiline labels correctly
+  * as_ascii: avoid framebuffer underruns on certain layouts
+  * added Graph::Simple::Cluster - list of relatively positioned nodes
+  * Node  : added add_to_cluster(), origin(), cluster(), relpos(), place(),
+	    dimensions()
+  * Node  : allow label => 'label' to be passed to new()
+  * Node  : move as_graphviz() to As_graphviz.pm
+  * Node  : _correct_w() to _correct_size() and pass it the format name
+	    (ascii, svg etc)
+  * Simple: amended LIMITATIONS in pod
+  * Simple: added output_format(), output(), cluster(), clusters(),
+	    add_clusters()
+  * Parser: support clusters and autosplit nodes like "[ A |  | B || C ]"
+  * Parser: remove multiple spaces in node names to normalize them
+  * Parser: fix parse_error() and add tests for that
+  * Layout: make layouter more robust (better placement of nodes)
+  * Layout: finally find paths with one bend properly
+  * Layout: move pathfinding code to Graph::Simple::Layout::Scout
+  * Layout: move path management code to Graph::Simple::Layout::Path
+  * Layout: find path loops (from one node back to same node again)
+  * Layout: find U-shaped paths
+  * Edge  : add styles for EDGE_x_y (x = N/S, y = E/W)
+
+2005-05-17 v0.16 Tels 426 tests - Make, make, make, make the invisible nodes...
+  * forgot to include As_svg.pm
+  * Simple.pm: Note other formats in NAME and SYNOPSIS sections
+  * As_svg: small cleanups
+
+2005-05-16 v0.15 Tels 422 tests - Make, make, make, make the invisible nodes...
+  * load the As_*() modules on-demand
+  * fixed NAME in As_graphviz
+  * add basic support for node shapes
+  * Node: add del_attribute(), as_svg(), title()
+  * Parser: check attributes more closely
+  * Parser: support [] for anonymous, invisible nodes
+  * added Graph::Simple::Node::Anon
+  * Graph: move code to prepare layout from as_ascii() to _prepare_layout()
+    since it can be reused by as_svg()
+  * as_html: deal better with empty graphs
+  * as_graphviz: default node shape is rectangular
+  * Node: successor/predecessor did corrupt nodes w/o a graph
+  * Node: add _reset_id() for testsuite
+  * require Graph 0.65
+
+2005-04-11 v0.14 Tels 354 tests - Lay, lay, lay, lay out the edges...
+  * add experimental graphviz output
+  * require Graph 0.61
+
+2005-02-12 v0.13 Tels 345 tests - Group, group, group, group the nodes...
+  * shorten CSS considerable (especially for graphs with groups)
+  * fix CSS for Opera/Firefox for vertical edges
+  * fix node-borders for Firefox/Opera by inserting dummy cells at each row
+
+2005-02-07 v0.12 Tels 345 tests - Group, group, group, group the nodes...
+  * register groups with the graph when adding them
+  * Parser: parse attributes on groups like: "( Group [ Node ] ) { ... }"
+  * Parser: parse attributes on edges like: "[ 1 ] -> { ... } [ 2 ]"
+  * Group: handle attribute "nodeclass" - put nodes into that class
+  * Node: handle attribute "group" - puts node into that group
+  * Node: query "node.class" from graph before trying just "node"
+  * Node: convert literal "\n" in label/name to "<br>"
+  * Layout: padd around all cells with filler cells (to make group backgrounds
+    really work)
+  * Layout: cleanup on group output
+  * as_txt(): output attributes of a group
+  * add Graph::Simple::Node::Cell, Graph::Simple::Group::Cell
+  * moved Graph::Simple::Path to Graph::Simple::Edge::Cell
+  * Graph: shorten HTML output by combining table cells with colspan=X
+  * Graph: use CSS child selectors to shorten classnames (and remove
+    class='fill' or class='' from output)
+  * Graph: as_html(): fix IDs on labels, lines etc
+  * Graph: fix layout code for edges with labels: no longer needs position:
+    relative, allows better copy&paste and is not garbled on scrolling
+  * syntax.pl: support custom template name
+  * simplifiy and generalize t/simple.t
+  * always run test files under -w
+  * don't use warnings (for older perls)
+  * remove needless routines in subclasses of "Node"
+  * use Test::Differences if t/ascii.t fails
+
+2005-01-31 v0.11 Tels 294 tests - Close, close, close, close the ugly holes...
+  * Parser: add parsing of groups like in "( Groupname [ Node ] )"
+  * Parser: fix for "[1] -> [2] -> [3] { ... }" to not lose attributes on 3 
+  * Parser: can now handle "[1], [2], [3] -> [4]" correctly
+  * Parser: cut out rendundant parsing code
+  * Graph: add group(), add_group(), del_group(), groups()
+  * Graph: fix css(): 'link', 'label' and 'title' do not need to appear in CSS
+  * Graph: suppress default attributes from groups, too
+  * Graph: close "holes" in "arrows" (edges) with line-height & letter-spacing
+  * Graph: inherit background from page, no border as default
+  * Graph: as_html() - remove trailing empty tags for shorter output
+  * Node: add group(), groups(), add_to_groups()
+  * Node: rename as_txt_node() to as_pure_txt(), document it
+  * Node: add label() and the handling of the label-attribute
+  * Node: support "label" as property in autolink/autotitle
+  * Node: as_txt(): no need to quote ":" and " " in attribute values
+  * Node: as_html(): quote " " in URLs
+  * Move as_txt() to As_txt.pm to reduce code size
+  * Group: keep nodes indexed by their name
+  * Group: fix as_txt() to quote group name, and include nodes
+  * Group: fix: add_nodes() did include the group itself by accident
+  * include examples/base.css for output of syntax.pl
+  * fix examples/syntax.tpl to have a non-scrolling menu
+  * add command-line dirnames to syntax.pl
+  * include t/fun/ - fun with graph-examples
+  * added Graph::Simple::Path and refactored Edge code - an edge now only
+    knows as_txt(); The other two, as_html() and as_ascii() are handled by
+    Path.pm (for each element of the edge seperately)
+  * more syntax examples
+
+2005-01-24 v0.10 Tels 248 tests - Color, color, color, color the pretty graph...
+  * added more stress/syntax tests
+  * fix parser to not treat colors in attributes as comments (like in
+    "color: #808080")
+  * use a pre-compiled regexp to match edges (cut down code-duplication)
+  * parser now handles successfully node chains like:
+    [ Ulm ] -> [ Lahn ] -> [ Bonn ]
+    -> [ Trier ]
+    [ Stein ] -> [ Wahns ]
+  * Simple.pm: fix edges() in list context to actually work
+  * require Graph v0.55 (to be safe)
+  * Node: add attributes_as_txt(), as_txt_node() to allow $graph->as_txt() to
+    output node attributes only once
+  * Graph: as_txt(): output node attributes only once
+  * Graph: add set_attribute()
+  * examples/syntax.pl: generate headlines from comments in input, add footer
+  * Graph: support attributes: linkbase, autolink, autotitle, link, title
+  * Graph: as_html(): output title attributes, as well as links
+
+2005-01-12 v0.09 Tels 147 tests - Place, place, place, place the pesky nodes...
+  * Layout: try to place node with only one predecessor around the predecessor
+  * add a stress test with a star-shaped graph (5 nodes)
+  * add a syntax test with newlines and one without any spaces
+  * Parser: accumulate left-over fragments to parse examples broken by newlines
+  * Parser: use compiled regexps for nodes, attributes etc
+  * Parser: finally handle trailing attributes on nodes
+  * Node: add set_attributes() for setting multiple ones at once
+  * Node: setting attribute "class" will set subclass instead
+  * add tests for parsing:
+    [ node ] { attribute: value; }
+    [ node ] { attribute: value; } -> [ node2] { attribute: value }
+  * fix edges going to the left
+  * tests for quoting in node names
+
+2005-01-10 v0.08 Tels 133 tests - Fix, fix, fix, fix the stupid bugs...
+  * grapher tries to place nodes without any incoming edges into first column
+    (this fixes all the examples which have groups of not-connected nodes)
+  * in HTML, use monospaced font for edges (prepare for box-art)
+  * Layout: set error if layout stage fails
+  * Edge: add EDGE_N_E, EDGE_N_W, EDGE_N_E_W etc for corner pieces
+  * Edge: add clear_cells()
+  * make _trace_path() more general by having _trace_straight_path() creating
+    the edge types
+  * Node: as_html(): no longer outputs 'style="border: none"' for class="edge"
+  * Node: include attributes in as_txt() as well as classes (for subclasses)
+  * Node: add class()
+  * Graph: always register nodes/edges with the graph
+  * Graph: as_txt() includes attributes (unless they are the defaults)
+  * Node: postpone calculation of 'w' (called by as_ascii() from Graph)
+  * add a stress test with a bend edge
+
+2005-01-09 v0.07 Tels 124 tests
+  * Parser: ignore empty lines
+  * Parser: unquote all special chars, not only the first 
+  * Node: quote node name in as_txt()
+  * Parser: _parse_attributes();
+  * Graph: added attribute(), set_attributes()
+  * Graph: added id() to set/get a unique ID per graph
+  * Graph: default ID is '', CSS code contains ID in class names
+  * Parser: teach it to parse CSS and call $graph->set_attributes() 
+  * Edge: output name in as_txt()
+  * Layout: use strict, fix _trace_straight_path()
+  * t/layout.t: add tests for _trace_straight_path()
+  * Layout: simplify _trace_path() by using _trace_straight_path()
+  * Layout: can trace straight edges occupying multiple cells
+
+2005-01-08 v0.06 Tels 94 tests
+  * fix version in Layout
+  * Edge: add EDGE_START, EDGE_END, EDGE_HOR, EDGE_VER, EDGE_CROSS
+  * Edge: add cell_type(), add_cell()
+  * fix pod with "=end graph" (vs. "=end") sections
+  * fix error message in t/ascii.t when reading file fails
+  * fix parser: did not add edge if both nodes already existed
+  * Layout: add _trace_straight_path() - trace a path horizontal/vertical
+  * Layout: add _remove_path() - remove a traced path
+  * tests: add t/layout.t, t/syntax/*
+  * add examples/syntax.pl, examples/syntax.tpl to create automatic
+    syntax test page for website
+  * Parser: add reset() and call it from from_text()
+  * Parser: handle quoted characters in node names
+  * Parser: handle comments
+
+2005-01-03 v0.05 Tels 87 tests
+  * fix special paragraphs in pod to use =begin instead of =for
+  * typos in pod
+  * some more clarifications for LIMITATIONS
+  * move the layout code to Graph::Simple::Layout
+  * add a testcase with two not-connected node-pools in one graph
+  * amend README, INSTALL
+
+2005-01-03 v0.04 Tels 84 tests
+  * change code to work with Graph 0.50
+  * require Graph 0.50
+  * added: Group.pm -- a group of nodes
+  * added: examples/html.pl, examples/common.pl and TODO
+  * tests: use strict;, add t/edge.t
+  * Parser: document the different edge directions and styles
+  * Parser: construct edges with the proper style
+  * Parser: allow '..>' style
+  * Node: 
+    + document successorts()/predecessors(), as_txt(), as_html()
+    + implement as_html($tag)
+  * Graph:
+    + _trace_path() can also trace short, straight paths upwards
+    + as_txt() uses $edge->as_txt() to render edge
+    + as_ascii() generates proper output for edges with the right style
+    + as_ascii() no longer generates trailing whitespace on lines
+    + add css(), as_html_page(), html_page_footer(), html_page_header()
+    + extend documentation, fix typos, add list of limitations
+
+Renamed to Graph::Simple:
+
+2004-12-29 v0.03 Tels 52 tests
+  * is a subclass of Graph::Directed, so add it as prereq again :o)
+  * Graph::Layout::Simple::Parser - parse graph from text
+  * Graph::Layout::Simple::Edge - an edge between two nodes
+  * Graph: added node() -  find node by name
+  * Graph: add quite some more documentation
+  * Graph, Node: added as_txt()
+  * Node: added incoming(), and track incoming edges from other nodes
+  * added t/parser.t - test text parser
+  * added t/ascii.t - parse various text files to ascii
+
+2004-12-28 v0.02 Tels 20 tests
+  * added a stack-based, backtracking layout routine, that stuffs nodes and
+    paths between them into cells
+  * Simple.pm: as_ascii: deal with cell-layout and convert this to ASCII
+  * Simple.pm: add doc stub for METHODS
+  * Simple.pm: add score(), as_XXX() do layout if it hasn't done before
+  * Node.pm: revised code, and better parameter handling
+  * no longer needs Graph::Directed or Graph::Layout::Aesthetic as prereq
+  * added examples/ascii.pl
+  * forgot to add graph.t to MANIFEST
+
+2004-12-27 v0.01 Tels 18 tests
+  * original version; created by h2xs 1.23 with options
+    -A -X -n Graph::Layout::Simple -b 5.6.1 --skip-autoloader
+
