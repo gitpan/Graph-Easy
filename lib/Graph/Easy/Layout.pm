@@ -49,6 +49,12 @@ sub layout
     local $SIG{ALRM} = sub { die "layout did not finish in time\n" };
     alarm($self->{timeout} || 5);
 
+  # Reset the sequence of the random generator, so that for the same
+  # seed, the same layout will occur. Both for testing and repeatable
+  # layouts based on max score.
+
+  srand($self->{seed});
+
   ###########################################################################
   # prepare our stack of things we need to do before we are finished
 

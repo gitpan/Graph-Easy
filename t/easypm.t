@@ -13,7 +13,9 @@ BEGIN
 
 can_ok ("Graph::Easy", qw/
   new
-  css as_html as_html_page as_txt as_ascii
+  css as_html as_html_page as_txt
+  as_ascii as_ascii_html
+  as_graphviz as_svg
   html_page_header
   html_page_footer
   error

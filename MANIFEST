@@ -6,11 +6,6 @@ LICENSE
 README
 SIGNATURE
 TODO
-doc/manual/00_Overview.pod
-doc/manual/01_Basics.pod
-doc/manual/index.pod
-doc/README
-doc/gen_manual
 examples/common.pl		generate example graphs
 examples/ascii.pl		examples as ASCII
 examples/html.pl		examples as HTML
@@ -18,7 +13,6 @@ examples/syntax.pl		syntax tests
 examples/syntax.tpl		HTML template for syntax tests
 examples/history.html		progress of hTML output over the time
 examples/parse			parser for tests
-examples/pod2html		convert pod to HTML (with graphs!)
 examples/base.css		needed for the output of syntax.pl
 examples/history.txt		test-graph for version comparisations
 examples/fun.tpl
@@ -32,6 +26,7 @@ t/cell.t
 t/cluster.t
 t/graph.t
 t/graphviz.t
+t/easypm.t
 t/edge.t
 t/edge_cell.t
 t/group.t
@@ -42,8 +37,6 @@ t/path.t
 t/parser.t			general parser tests
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
-t/pod2html.t
-t/simple.t
 t/split.t			[ A | B | C ] || [ D | E | F ] tests
 t/svg.t				SVG output
 t/syntax/0000.txt		syntax tests for the parser
@@ -102,6 +95,8 @@ t/fun/0010.txt
 t/fun/0020.txt
 t/fun/0030.txt
 t/fun/0131.txt
+t/fun/0200.txt
+t/in/6borders.txt
 t/in/1node.txt
 t/in/2nodes.txt
 t/in/3nodes.txt
@@ -118,6 +113,7 @@ t/in/2_newlines.txt
 t/in/4_near.txt
 t/in/6_cluster.txt
 t/in/README
+t/out/6borders.txt
 t/out/1node.txt
 t/out/2nodes.txt
 t/out/2_edges.txt
@@ -133,6 +129,7 @@ t/out/3_invisible_both.txt
 t/out/2_newlines.txt
 t/out/4_near.txt
 t/out/6_cluster.txt
+t/txt/6borders.txt
 t/txt/4groups.txt
 t/txt/4groups_class.txt
 t/txt/2_invisible_left.txt
@@ -160,5 +157,4 @@ lib/Graph/Easy/Node.pm
 lib/Graph/Easy/Node/Anon.pm
 lib/Graph/Easy/Node/Cell.pm
 lib/Graph/Easy/Parser.pm
-lib/Graph/Easy/Pod2HTML.pm		pod => html with "=for graph" sections
 META.yml			Module meta-data (added by MakeMaker)

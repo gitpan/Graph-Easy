@@ -82,9 +82,31 @@ sub _formatted_label
   my $name = $self->label();
   $name =~ s/\\n/\n/g;                  # insert newlines
 
-  # split into lines, but don't extranous spacing
+  # split into lines, but don't remove extranous spacing
   my @lines = split /\n/, $name;
   @lines;
+  }
+
+sub as_ascii
+  {
+  my $self = shift;
+
+  my $border = $self->attribute('border') || 'none';
+
+  if ($border eq 'none')
+    { 
+    # XXX TODO: should center text instead of left-align
+    my @lines = $self->_formatted_label();
+    # '-->'
+    my $txt = "";
+    for my $l (@lines)
+      {
+      $txt .= "$l\n";
+      }
+    return $txt;
+    }
+
+  $self->SUPER::as_ascii();
   }
 
 #############################################################################

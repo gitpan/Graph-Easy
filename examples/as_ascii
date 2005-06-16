@@ -1,5 +1,12 @@
 #!/usr/bin/perl -w
 
+# Convert an input file containing a Graph::Easy description to
+# ASCII art.
+
+# Example usage:
+#  examples/as_ascii t/in/2nodes.txt
+#  echo "[ A ] -> [ B ]" | examples/as_ascii
+
 BEGIN { $|++; }
 
 use lib 'lib';
@@ -10,6 +17,7 @@ my $parser = Graph::Easy::Parser->new( debug => 0 );
 my $file = shift;
 my $id = shift || '';
 
+$file = \*STDIN unless defined $file;
 my $graph = $parser->from_file( $file );
 
 die ($parser->error()) unless defined $graph;

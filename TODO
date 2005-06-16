@@ -32,6 +32,10 @@ Output:
 	   work - argl!
 * as_ascii(): output group borders and labels
 * as_ascii(): node clusters need adjoining borders collapsed together
+  +---++---+      +---+---+
+  | A || B | vs.  | A | B |  (that als means A needs to be width-1!)
+  +---++---+      +---+---+
+* implement border-style "crossed" ('+++++') ?
 * as_ascii(): edges with multiple cells and a style other than "--" will
 		get their style only for one cell (should be all cells)
 * as_html(): output group labels
@@ -54,6 +58,7 @@ Output:
 
 Layout:
 
+* Use the seed to generate randomized layouts
 * for u-shaped edges, the starting cell must be EDGE_START_E etc, not just
   EDGE_HOR or EDGE_VER
 * u-shaped path's could be shorter by one cell (when we create an edge cell
@@ -70,6 +75,14 @@ Layout:
 * _trace_path(): use A* algorithmn as last resort to find path
 * make nodes occupy more than one cell (for making very wide/very high nodes
   fit better, as well as allowing more than 4 edges in/out of one node)
+* echo "[B] [A] -> [B]" | examples/as_ascii
+  +---+     +---+
+  | B | <-- | A |
+  +---+     +---+
+  That should actually be:
+  +---+     +---+
+  | A | --> | B |
+  +---+     +---+
 
 Optimizer:
 
@@ -83,4 +96,4 @@ Manual:
 Misc:
 
 * Add our format to Graph::ReadWrite
-
+* add test for bug "my $ox = $x - $self->{dx};" vs $x + $self->{dx}

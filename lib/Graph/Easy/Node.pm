@@ -6,7 +6,7 @@
 package Graph::Easy::Node;
 
 use 5.006001;
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 use strict;
 
@@ -27,6 +27,8 @@ sub OBJ () { 'obj' };
 
 sub new
   {
+  # Create a new object. This is a generic routine that is inherited
+  # by many other things like Edge, Cell etc.
   my $class = shift;
 
   my $args = $_[0];
@@ -40,13 +42,9 @@ sub new
 
 sub _init
   {
-  # generic init, override in subclasses
+  # Generic init routine, to be overriden in subclasses.
   my ($self,$args) = @_;
   
-  # +--------+
-  # | Sample |
-  # +--------+
-
   $self->{id} = new_id();
   $self->{name} = 'Node #' . $self->{id};
   
@@ -78,7 +76,6 @@ sub _init
   $self->{out} = {};
   $self->{in} = {};
   $self->{groups} = {};
-  # $self->{clusters} = {};
   
   $self;
   }
@@ -124,9 +121,11 @@ sub place
   # belongs to a cluster => check all nodes
   if (exists $self->{cluster} && defined $self->{cluster})
     {
-    # the coordinates of the origin node
-    my $ox = $x + $self->{dx};
-    my $oy = $y + $self->{dy};
+    # The coordinates of the origin node. Because 'dx' and 'dy' give
+    # our distance from the origin, we can compute the origin by doing
+    # "$x - $dx"
+    my $ox = $x - $self->{dx};
+    my $oy = $y - $self->{dy};
     
     my @nodes = $self->{cluster}->nodes();
     foreach my $node (@nodes)
@@ -150,11 +149,12 @@ sub place
     return 1;
     }
 
+  # place this node at the requested position
   $self->{x} = $x;
   $self->{y} = $y;
   $cells->{"$x,$y"} = $self;
 
-  1;
+  1;							# success
   }
 
 #############################################################################
@@ -178,6 +178,37 @@ sub _formatted_label
   @lines;
   }
 
+sub _framebuffer
+  {
+  # generate a actual framebuffer consisting of spaces
+  my ($self, $w, $h) = @_;
+
+  my @fb;
+  my $line = ' ' x $w;
+  for my $y (0..$h+1)
+    {
+    push @fb, $line;
+    }
+  \@fb;
+  }
+
+ # the array contains for each style:
+ # upper left edge
+ # upper right edge
+ # lower right edge
+ # lower left edge
+ # hor style
+ # ver style
+
+my $border_style  = {
+  solid =>	[ '+', '+', '+', '+', '-', '|' ],
+  dotted =>	[ '.', '.', '.', '.', '.', ':' ],
+  dashed =>	[ '+', '+', '+', '+', '- ', "'" ],
+  dotdashed =>	[ '+', '+', '+', '+', '.-', '!' ],
+  bold =>	[ '#', '#', '#', '#', '#', '#' ],
+  double =>	[ '#', '#', '#', '#', '=', 'H' ],
+  };
+
 sub as_ascii
   {
   my ($self) = @_;
@@ -190,46 +221,74 @@ sub as_ascii
   # XXX TODO: borders for groups in ASCII output
   $border = 'none' if ref($self) =~ /Group/;
 
+  # "3px" => "bold"
+  $border = 'bold' if $border =~ /(\d+)px/ && $1 > 2;
+ 
+  # normalize border name 
+  $border =~ /(bold|solid|dashed|dotted|dotdashed|none)/;
+  $border = $1 || 'none';
+
   # XXX TODO: should center text instead of left-align
   my @lines = $self->_formatted_label();
 
   my $txt;
+  # border "none" is a special case
   if ($border eq 'none')
     {
     # 'Sample'
-    $txt = "";
+    $txt = "\n";
     for my $l (@lines)
       {
-      $txt .= "$l\n";
+      $txt .= "  $l\n";
       }
+    return $txt;
     }
-  elsif ($border =~ /solid/)
+
+  # construct a framebuffer
+  my $fb = $self->_framebuffer($self->{w}, $self->{h});
+
+  # make a copy of the style, so that we can modify it for partial borders
+  my $style = [ @{ $border_style->{$border} } ];
+
+  # the top row '+--------+' etc
+  $txt = $style->[0] . $style->[4] x (($self->{w}-1)/ length($style->[4]));
+  chop($txt) if length($txt) > ($self->{w}-1);
+  $txt .= "$style->[1]\n";
+
+  # left and right side (ala '|', ':' etc)
+  my $left = $style->[5];
+  my $right = $style->[5];
+
+  # the bottom row '+--------+' etc
+  my $bottom = $style->[3] . $style->[4] x (($self->{w}-1) / length($style->[4]));
+  chop($bottom) if length($bottom) > ($self->{w}-1);
+  $bottom .= "$style->[2]\n";
+
+  # If the cell to our right is occupied by a node with
+  # a border:
+
+  my $cells = $self->{graph}->{cells};
+  my $x = $self->{x} + 1;
+  my $y = $self->{y};
+  if (exists $cells->{"$x,$y"})
     {
-    # +--------+
-    # | Sample |
-    # +--------+
-    $txt = '+' . '-' x ($self->{w}-2) . "+\n";
-    for my $l (@lines)
-      {
-      $l .= ' ' while length($l) < ($self->{w}-4); 
-      $txt .= "| $l |\n";
-      }
-    $txt .= '+' . '-' x ($self->{w}-2) . "+";
+#    $right = '';
+#    $txt =~ s/.\n/\n/;
+#    $bottom =~ s/.\n/\n/;
     }
-  else
+  $x = $self->{x};
+  $y = $self->{y} + 1;
+  if (exists $cells->{"$x,$y"})
     {
-    # ..........
-    # : Sample :
-    # ..........
-    $txt = '.' . '.' x ($self->{w}-2) . ".\n";
-    for my $l (@lines)
-      {
-      $l .= ' ' while length($l) < ($self->{w}-4); 
-      $txt .= ": $l :\n";
-      }
-    $txt .= '.' . '.' x ($self->{w}-2) . ".";
+#    $bottom = '';
     }
-  # XXX TODO: handle "dashed"
+
+  for my $l (@lines)
+    {
+    $l .= ' ' while length($l) < ($self->{w}-4); 
+    $txt .= "$left $l $right\n";
+    }
+  $txt .= $bottom;
 
   $txt;
   }

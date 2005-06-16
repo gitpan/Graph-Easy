@@ -5,11 +5,9 @@
 
 # Example usage:
 #  examples/as_graphviz t/in/2nodes.txt | dot -Tpng >test.png
+#  echo "[ A ] -> [ B ]" | examples/as_graphviz | dot -Tpng >test.png
 
-BEGIN
-  {
-  $|++; # output buffer off
-  }
+BEGIN { $|++; }
 
 use strict;
 use lib 'lib';
@@ -21,6 +19,8 @@ print "# Graph::Easy v$Graph::Easy::VERSION\n";
 print "# input: '$file'\n";
 
 my $parser = Graph::Easy::Parser->new( debug => 0 );
+
+$file = \*STDIN unless defined $file;
 my $graph = $parser->from_file( $file );
 
 die ($parser->error()) unless defined $graph;

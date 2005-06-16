@@ -1,5 +1,20 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-06-12 v0.19 Tels 573 tests - Shape, shape, shape, shape the nodes...
+  * moved manual and Pod2HTML to Graph::Easy::Manual to avoid dependency
+    on Pod::Simple
+  * Graph/Easy.pm: add seed(), randomize(), as_ascii_html()
+  * Graph/Easy.pm: rem stray debug print in add_edge()
+  * fix POD about limitations, multi-edges are possible since v0.18
+  * Parser: allow GLOB and similiar things as file to from_file()
+  * Easy: add/del of clusters/groups invalidates the current layout
+  * as_ascii(): fix output of nodes with "border: none;"
+  * as_ascii(): implement border "dashed;", "dotdashed" and "bold"
+  * Easy: add _framebuffer(): generate empty framebuffer for as_ascii()
+  * Easy: make _framebuffer() twice as fast
+ 
+Renamed to Graph::Easy:
+
 2005-06-11 v0.18 Tels 573 tests - Shape, shape, shape, shape the nodes...
   * renamed from Graph::Simple to Graph::Easy
   * small cleanups (bumping $VERSIONS, remove unnec. error() routines etc)

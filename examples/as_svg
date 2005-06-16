@@ -5,11 +5,9 @@
 
 # Example usage:
 #  examples/as_svg t/in/2nodes.txt >test.svg
+#  echo "[ A ] -> [ B ]" | examples/as_svg
 
-BEGIN
-  {
-  $|++; # output buffer off
-  }
+BEGIN { $|++; }
 
 use strict;
 use lib 'lib';
@@ -18,6 +16,8 @@ use Graph::Easy::Parser;
 my $file = shift;
 
 my $parser = Graph::Easy::Parser->new( debug => 0 );
+
+$file = \*STDIN unless defined $file;
 my $graph = $parser->from_file( $file );
 
 die ($parser->error()) unless defined $graph;

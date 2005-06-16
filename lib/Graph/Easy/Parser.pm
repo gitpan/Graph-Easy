@@ -62,10 +62,19 @@ sub from_file
   {
   my ($self,$file) = @_;
 
-  open PARSER_FILE, $file or die (ref($self).": Cannot read $file: $!");
+  my $doc;
   local $/ = undef;			# slurp mode
-  my $doc = <PARSER_FILE>;		# read entire file
-  close PARSER_FILE;
+  # if given a reference, assume it is a glob, or something like that
+  if (ref($file))
+    {
+    $doc = <$file>;
+    }
+  else
+    {
+    open PARSER_FILE, $file or die (ref($self).": Cannot read $file: $!");
+    $doc = <PARSER_FILE>;		# read entire file
+    close PARSER_FILE;
+    }
 
   $self->from_text($doc);
   }

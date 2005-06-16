@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 29;
+   plan tests => 30;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -14,12 +14,15 @@ BEGIN
 can_ok ('Graph::Easy', qw/
   output_format
   output
+  seed randomize
   /);
 
 #############################################################################
 my $graph = Graph::Easy->new();
 
 is (ref($graph), 'Graph::Easy');
+
+ok (defined $graph->{seed}, 'seed was initialized');
 
 is ($graph->error(), '', 'no error yet');
 is ($graph->output_format(), 'html', 'default output format is html');

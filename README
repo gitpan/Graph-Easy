@@ -36,8 +36,11 @@ The HTML output would look similiar except be more pretty :o)
 Manual
 ======
 
-The manual is in doc/manual in POD format. You can use doc/gen_manual
-to create an HTML version of it, or view the manual online at:
+The manual is contained in the extra package Graph::Easy::Manual, which
+also contains a Pod2HTML converter, that can handle embedded graphs
+in POD files.
+
+You can also view the manual online at:
 
 	http://bloodgate.com/perl/graph/manual/
 

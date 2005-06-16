@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph 0.65;
 use Graph::Directed;
 
-$VERSION = '0.18';
+$VERSION = '0.19';
 
 use strict;
 
@@ -116,6 +116,8 @@ sub _init
 
   $self->{score} = undef;
 
+  $self->randomize();
+
   $self;
   }
 
@@ -135,6 +137,25 @@ sub score
   my $self = shift;
 
   $self->{score};
+  }
+
+sub randomize
+  {
+  my $self = shift;
+
+  srand();
+  $self->{seed} = rand(2 ** 31);
+
+  $self->{seed};
+  }
+
+sub seed
+  {
+  my $self = shift;
+
+  $self->{seed} = $_[0] if @_ > 0;
+
+  $self->{seed};
   }
 
 sub error
@@ -201,8 +222,6 @@ sub edge
   # return an edge between two nodes as object
   my ($self, $x, $y) = @_;
 
-  print join(" ", caller()), "\n";
-
   # turn objects into names (e.g. unique key)
   $x = $x->{name} if ref $x;
   $y = $y->{name} if ref $y;
@@ -214,7 +233,6 @@ sub edge
     require Carp;
     Carp::croak ("There exist more than one edge from $x->{name} to $y->{name}");
     }
-  #$self->{graph}->get_edge_attribute( $x, $y, OBJ );
   $self->{graph}->get_edge_attribute_by_id( $x, $y, $ids[0], OBJ );
   }
 
@@ -636,25 +654,18 @@ sub as_html
   } 
 
 ############################################################################# 
-
+  
 sub as_ascii
   {
   # convert the graph to pretty ASCII art
   my ($self) = shift;
 
-  if (!defined $self->{score})
-    {
-    $self->layout();
-    }
-    
+  $self->layout() unless defined $self->{score};
+
   my ($rows,$cols,$max_x,$max_y,$cells) = $self->_prepare_layout('ascii');
 
   # generate the actual framebuffer
-  my @fb = ();
-  for my $y (0..$max_y+1)
-    {
-    $fb[$y] = ' ' x $max_x;
-    }
+  my $fb = Graph::Easy::Node->_framebuffer($max_x, $max_y);
 
   print STDERR "# Allocating framebuffer $max_x x $max_y\n" if $self->{debug};
 
@@ -670,15 +681,15 @@ sub as_ascii
       {
       next if length($lines[$i]) == 0;
       # XXX TODO: framebuffer shouldn't be to small!
-      $fb[$y+$i] = ' ' x $max_x if !defined $fb[$y+$i];
-      substr($fb[$y+$i], $x, length($lines[$i])) = $lines[$i]; 
+      $fb->[$y+$i] = ' ' x $max_x if !defined $fb->[$y+$i];
+      substr($fb->[$y+$i], $x, length($lines[$i])) = $lines[$i]; 
       }
     }
 
   my $out = '';
   for my $y (0..$max_y+1)
     {
-    my $line = $fb[$y];
+    my $line = $fb->[$y];
     $line =~ s/\s+\z//;		# remove trailing whitespace
     $out .= $line . "\n";
     }
@@ -687,6 +698,17 @@ sub as_ascii
 
   $out;				# return output
   }
+
+sub as_ascii_html
+  {
+  # Convert the graph to pretty ASCII art, then return it as a HTML chunk
+  # suitable to be embedded into an HTML page.
+  my ($self) = @_;
+
+  "<pre>\n" . $self->as_ascii() . "\n<pre>\n";
+  }
+
+#############################################################################
 
 sub _prepare_layout
   {
@@ -849,19 +871,17 @@ sub add_edge
   # on first call
   $edge_id = '0' if ref($edge_id);
 
-  # store the ID with the $edge object so that we can get at it later
   # register the nodes and the edge with our graph object
   $x->{graph} = $self;
   $y->{graph} = $self;
   $edge->{graph} = $self;
+  # Store at the edge from where to where it goes for easier reference
   $edge->{from} = $x;
   $edge->{to} = $y;
-  $edge->{graph_id} = $edge_id;
 
   # store obj pointers so that we can get them back later
   $g->set_vertex_attribute( $x->{name}, OBJ, $x);
   $g->set_vertex_attribute( $y->{name}, OBJ, $y);
-
   # store the $edge obj ptr with the graph 
   $g->set_edge_attribute_by_id( $x->{name}, $y->{name}, $edge_id, OBJ, $edge);
 
@@ -878,11 +898,10 @@ sub add_node
 
   $g->add_vertex( $x->{name} );
   $g->set_vertex_attribute( $x->{name}, OBJ, $x);
-
-  $self->{score} = undef;			# invalidate last layout
-  
   # register the node with our graph object
   $x->{graph} = $self;
+
+  $self->{score} = undef;			# invalidate last layout
 
   $self;
   }
@@ -901,6 +920,8 @@ sub add_group
   # register group with ourself  
   $group->{graph} = $self;
  
+  $self->{score} = undef;			# invalidate last layout
+
   $self;
   }
 
@@ -911,6 +932,8 @@ sub del_group
 
   delete $self->{groups}->{ $group->{name} };
  
+  $self->{score} = undef;			# invalidate last layout
+
   $self;
   }
 
@@ -953,6 +976,8 @@ sub add_cluster
   # register cluster with ourself  
   $cluster->{graph} = $self;
  
+  $self->{score} = undef;			# invalidate last layout
+
   $self;
   }
 
@@ -963,6 +988,8 @@ sub del_cluster
 
   delete $self->{clusters}->{ $cluster->{name} };
  
+  $self->{score} = undef;			# invalidate last layout
+
   $self;
   }
 
@@ -1098,6 +1125,14 @@ Uses the extended ASCII characters to draw seamless boxes.
 
 HTML tables with CSS making everything "pretty".
 
+=item SVG
+
+Creates a Scalable Vector Graphics output.
+
+=item Graphviz
+
+Creates a graphviz code that can be feed to 'dot' or similiar programs.
+
 =back
 
 =head1 EXAMPLES
@@ -1210,6 +1245,23 @@ valid options:
 
 	debug			if true, enables debug output
 
+=head2 seed()
+
+	my $seed = $graph->seed();
+	$graph->seed(2);
+
+Get/set the random seed for the graph object. See L<randomize()>
+for a method to set a random seed.
+
+The seed is used to create random numbers for the layouter, for
+the same graph, the same see will always lead to the same layout.
+
+=head2 randomize()
+
+	$graph->randomize();
+
+Set a random seed for the graph object. See L<seed()>.
+
 =head2 attribute()
 
 	my $value = $graph->attribute( $class, $name );
@@ -1278,8 +1330,13 @@ graph against each other:
 	  }
 
 	# redo the best layout
-	$graph->seed($seed);
-	$graph->layout();
+	if ($seed ne $graph->seed())
+	  {
+	  $graph->seed($seed);
+	  $graph->layout();
+	  }
+	# output graph:
+	print $graph->as_ascii();		# or as_html() etc
 
 =head2 error()
 
@@ -1299,6 +1356,13 @@ behind the scenes of you call any of the C<as_FOO> methods.
 	print $graph->as_ascii();
 
 Return the graph layout in ASCII art.
+
+=head2 as_ascii_html()
+
+	print $graph->as_ascii_html();
+
+Return the graph layout in ASCII art, suitable to be embedded into an HTML
+page. Basically wraps the output from L<as_ascii()> into C<< <pre> </pre> >>.
 
 =head2 as_html()
 
@@ -1343,7 +1407,7 @@ Return the graph as a textual representation, that can be parsed with
 C<Graph::Easy::Parser> back to a graph.
 
 This does not call L<layout()> since the actual text representation
-is more a dump of the grpah, then a certain layout.
+is more a dump of the graph, then a certain layout.
 
 =head2 add_edge()
 
@@ -1427,7 +1491,7 @@ L<http://bloodgate.com/perl/graph/>.
 
 =head1 LIMITATIONS
 
-This module is a proof-of-concept and has currently some serious limitations.
+This module is a proof-of-concept and has currently some limitations.
 Hopefully further development will lift these.
 
 =head2 Syntax
@@ -1450,22 +1514,6 @@ works, the second and third do not:
 
 =back
 
-=head2 Double edges
-
-It is not yet possible to have more than one edge going from Node A to Node B
-as in the following picture:
-
-	             +---------+
-	  +--------> | Koblenz | <--+
-	  |	     +---------+    |
-	  |		|	    |
-	  |		v	    |
-	+------+     +--------+     |
-	| Bonn | --> | Berlin |     |
-	+------+     +--------+     |
-	  |			    |
-	  +-------------------------+
-
 =head2 Paths
 
 =over 2
@@ -1474,7 +1522,7 @@ as in the following picture:
 
 Currently edges (paths from node to node) cannot cross each other.
 
-=item No double bends
+=item No more than two bends
 
 All nodes must be either in straight line of sight (up, down, left or right) of
 each other or connectable by a path with at most two bends, like shown here:
@@ -1544,7 +1592,7 @@ This means each node can have at most 4 edges leading to or from it.
 
 =item No optimizations
 
-The layouter will generate sometimes non-optimal layouts like this:
+The layouter will sometimes generate non-optimal layouts like this:
 
 	+------+     +--------+      +--------+
 	| Bonn | --> | Berlin | -- > | Kassel |
@@ -1567,7 +1615,7 @@ The layout above should really be converted to this:
 	  +--------> | Kassel  |
 	             +---------+
 
-Other non-optimal layouts like this one will also appear sometimes:
+Other non-optimal layouts like this one might also appear from time to time:
 
 	+------+     +--------+
 	| Bonn | --> | Berlin |
@@ -1619,18 +1667,19 @@ See the LICENSE file for information.
 =head1 NAME CHANGE
 
 The package is formerly know as C<Graph::Simple>. The name was changed
-for two reeasons:
+for two reasons:
 
 =over 2
 
 =item *
 
 In graph theory, a C<simple> graph is a special type of graph. This software,
-however, supports any graph type.
+however, supports more than simple graphs.
 
 =item *
 
-Creating graphs shouldbe easy, but the created graphs can also be quite complex.
+Creating graphs should be easy, but the created graphs can also be quite
+complex.
 
 =back
 
