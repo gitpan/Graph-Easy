@@ -12,7 +12,7 @@ use Graph::Easy::Edge;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #############################################################################
 
@@ -128,10 +128,13 @@ sub edge_type
 my $edge_styles = 
   {
   # style  hor, ver,   right, left, up, down, cross
-  '--' => [ '--', "|\n|",   '>',   '<',  '^',   'v',   '+' ],		# simple line
-  '==' => [ '==', "||\n||", '>',   '<',  '/\\', '\\/', "++\n++"],	# double line
-  '..' => [ '..', ":\n:",   '>',   '<',  '^',   'v',   ' ' ],		# dotted
-  '- ' => [ '- ', "|\n ",   '>',   '<',  '^',   'v',   '+' ],		# dashed
+  solid 	=> [ '--', "|\n|",   '>',   '<',  '^',   'v',   '+' ],		# simple line
+  double	=> [ '==', "||\n||", '>',   '<',  '/\\', '\\/', "++\n++"],	# double line
+  dotted	=> [ '..', ":\n:",   '>',   '<',  '^',   'v',   ' ' ],		# dotted
+  dashed	=> [ '- ', "|\n ",   '>',   '<',  '^',   'v',   '+' ],		# dashed
+  'dot-dash'	=> [ '.-', "|\n ",   '>',   '<',  '^',   'v',   '+' ],		# dot-dash
+  'dot-dot-dash' => [ '..-', "|\n ",   '>',   '<',  '^',   'v',   '+' ],	# dot-dot-dash
+  'wave' => [ '~~', "}\n ",   '>',   '<',  '^',   'v',   '+' ],			# wave
   };
 
 my @edge_content = 
@@ -252,6 +255,8 @@ sub as_html
 
   # XXX TODO: find out real size (aka length) of label
 
+  my $style = $edge_styles->{ $self->{style} };
+
   # if we have a label, and are a EDGE_SHORT_E/EDGE_SHORT_W
   my $type = $self->{type};
   if ($label ne '')
@@ -269,7 +274,7 @@ sub as_html
       
       $self->{name} = 
       "<span class='label'>$label</span><br>" .
-      "<span class='line'>$left" . ($self->{style} x $length) . "$right</span>\n";
+      "<span class='line'>$left" . ($style->[0] x $length) . "$right</span>\n";
       $noquote = 1;
       $self->{class} = 'edgel';
       } 
@@ -338,7 +343,7 @@ sub _correct_size
 
   if (!defined $self->{w})
     {
-    my $border = $self->{edge}->attribute('border') || 'none';
+    my $border = $self->{edge}->attribute('border-style') || 'none';
     # XXX TODO
     my @lines = split /\n/, $self->_content(0);
     
@@ -387,7 +392,7 @@ Graph::Easy::Edge::Cell - A path-element in an edge
 
 	my $ssl = Graph::Easy::Edge->new(
 		label => 'encrypted connection',
-		style => '-->',
+		style => 'solid',
 		color => 'red',
 	);
 	my $path = Graph::Easy::Path->new(

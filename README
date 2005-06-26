@@ -51,6 +51,12 @@ a Mediawiki installation, can be found at:
 
 Have fun!
 
+SVG Output
+==========
+
+You also might want to install Graph::Easy::As_svg from CPAN, it provides
+you with the ability to generate SVG (Scalable Vector Graphics) files.
+
 Installation
 ============
 

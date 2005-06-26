@@ -13,7 +13,7 @@ use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 #############################################################################
 
@@ -35,9 +35,7 @@ sub _init
   # generic init, override in subclasses
   my ($self,$args) = @_;
   
-  # '-->', '<->', '==>', '<==', '..>' etc
-  $self->{style} = '--';
-
+  $self->{style} = 'solid';
   $self->{class} = 'edge';
   $self->{cells} = { };
 
@@ -54,13 +52,15 @@ sub _init
   $self;
   }
 
-sub error
-  {
-  my $self = shift;
-
-  $self->{error} = $_[0] if defined $_[0];
-  $self->{error};
-  }
+my $styles = {
+  solid => '--',
+  dotted => '..',
+  double => '==',
+  dashed => '- ',
+  'dot-dash' => '.-',
+  'dot-dot-dash' => '..-',
+  wave => '~~',
+  };
 
 sub as_txt
   {
@@ -71,8 +71,13 @@ sub as_txt
 
   $n = '- ' . $n . ' ' if $n ne '';
 
+  if (!exists $styles->{$self->{style}})
+    {
+    require Carp;
+    Carp::croak ("Unknown edge style $self->{style}\n");
+    }
   # ' - Name -->' or ' --> '
-  ' ' . $n . $self->{style} . '> ';
+  ' ' . $n . $styles->{$self->{style}} . '> ';
   }
 
 sub _formatted_label
@@ -91,7 +96,7 @@ sub as_ascii
   {
   my $self = shift;
 
-  my $border = $self->attribute('border') || 'none';
+  my $border = $self->attribute('border-style') || 'none';
 
   if ($border eq 'none')
     { 
@@ -172,7 +177,7 @@ Graph::Easy::Edge - An edge (a path from one node to another)
 
 	my $ssl = Graph::Easy::Edge->new(
 		label => 'encrypted connection',
-		style => '-->',
+		style => 'solid',
 		color => 'red',
 	);
 
@@ -229,7 +234,7 @@ Returns the label (also known as 'name') of the edge.
 
 	my $style = $edge->style();
 
-Returns the style of the edge, like '--', '==', '..', '- '.
+Returns the style of the edge, like 'solid', 'dotted', 'double', etc.
 
 =head2 to_nodes()
 

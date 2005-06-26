@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 30;
+   plan tests => 35;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -15,6 +15,8 @@ can_ok ('Graph::Easy', qw/
   output_format
   output
   seed randomize
+
+  border_attribute
   /);
 
 #############################################################################
@@ -29,6 +31,10 @@ is ($graph->output_format(), 'html', 'default output format is html');
 
 is ($graph->nodes(), 0, '0 nodes');
 is ($graph->edges(), 0, '0 edges');
+is ($graph->border_attribute('graph'), '', 'graph border is none');
+is ($graph->border_attribute('group'), '1px dashed black', 'group border is 1px dashed black');
+is ($graph->border_attribute('node'), '1px solid black', 'node border is 1px solid black');
+is ($graph->border_attribute('edge'), '', 'edge border is none');
 
 is (join (',', $graph->edges()), '', '0 edges');
 
@@ -37,7 +43,9 @@ like ($graph->output(), qr/table/, 'default output worked');
 my $bonn = Graph::Easy::Node->new( name => 'Bonn' );
 my $berlin = Graph::Easy::Node->new( 'Berlin' );
 
-$graph->add_edge ($bonn, $berlin);
+my $edge = $graph->add_edge ($bonn, $berlin);
+
+is (ref($edge), 'Graph::Easy::Edge', 'add_edge() returns the new edge');
 
 is ($graph->nodes(), 2, '2 nodes added');
 is ($graph->edges(), 1, '1 edge');
@@ -57,7 +65,7 @@ for my $e (@E)
   $en .= $e->{style} . '.';
   }
 
-is ($en, '--.', 'edges() in list context');
+is ($en, 'solid.', 'edges() in list context');
 
 #############################################################################
 
@@ -109,11 +117,11 @@ $bonn->set_attribute('border', 'none');
 $bonn->set_attribute('color', 'red');
 $berlin->set_attribute('color', 'blue');
 
-# class is always the last attribute:
+# border is second-to-last, class is the last attribute:
 
 is ( $graph->as_txt(), <<HERE
 [ Berlin ] { color: blue; }
-[ Bonn ] { border: none; color: red; class: cities; }
+[ Bonn ] { color: red; border: none; class: cities; }
 
 [ Bonn ] --> [ Berlin ]
 [ Frankfurt a. M. ] --> [ Bonn ]
@@ -128,11 +136,11 @@ $graph->set_attribute('edge', 'border', 'blue solid 1px');
 # graph/node/edge attributes come first
 
 is ( $graph->as_txt(), <<HERE
-edge { border: blue solid 1px; }
+edge { border: 1px solid blue; }
 graph { border: 1px dashed; }
 
 [ Berlin ] { color: blue; }
-[ Bonn ] { border: none; color: red; class: cities; }
+[ Bonn ] { color: red; border: none; class: cities; }
 
 [ Bonn ] --> [ Berlin ]
 [ Frankfurt a. M. ] --> [ Bonn ]

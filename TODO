@@ -1,5 +1,5 @@
-Graph-Simple
-============
+Graph-Easy
+==========
 
 See Graph::Easy under LIMITATIONS for some hot topics.
 
@@ -27,34 +27,28 @@ Output:
   ----->  |----->  o----->  +----->  *----->  >>----->
 
 * as_txt(): output of node clusters is not optimal
-* as_html: node clusters have spacings between nodes:
-           The spacing comes from the filler cells to make groups
-	   work - argl!
 * as_ascii(): output group borders and labels
 * as_ascii(): node clusters need adjoining borders collapsed together
   +---++---+      +---+---+
   | A || B | vs.  | A | B |  (that als means A needs to be width-1!)
   +---++---+      +---+---+
-* implement border-style "crossed" ('+++++') ?
 * as_ascii(): edges with multiple cells and a style other than "--" will
 		get their style only for one cell (should be all cells)
-* as_html(): output group labels
 * as_ascii(), as_html(): grow edges to be seemless
+* as_html: node clusters have spacings between nodes:
+           The spacing comes from the filler cells to make groups
+	   work - argl!
+* as_html(): output group labels
+* as_html(): edges are borked in Opera, the table cell is not big enough
+	     to hold them (*sigh*)
 * as_html: for shape: circle, find out real dimensions by splitting
   the label into lines (instead of taking the overall label lenght
   as the in-width) (see t/fun/0030.txt as an example of overwide
   circles)
-* as_svg(): use stylesheets to make code shorter
-* as_svg(): implement rendering of different edge styles (dotted, dashed,
-	    double etc)
-* as_svg(): instead of rendering individual edge cells, we should create
-            one path, this would allow better rendering of non-solid
-	    edges, like dashed or dotted ones
-* as_svg(): different parts of one edge are scattered around the output,
-	    these should be output one after one at the same time
+* as_html(): add a class "link" to generated links (so they can be styled
+             differently)
 * better support for different shapes (circle, box, rounded, polygon etc)
-  in HTML/SVG/Graphviz
-* add a class "link" to generated links (so they can be styled differently)
+  in HTML/ASCII/Graphviz
 
 Layout:
 
@@ -87,6 +81,21 @@ Layout:
 Optimizer:
 
 * write an optimizer, that can optimize an already found layout
+* less memory: store border and edge styles as ints instead of "solid" etc
+* optimize attribute():
+
+%Time ExclSec CumulS #Calls sec/call Csec/c  Name
+ 52.1   0.440  0.440 130300   0.0000 0.0000  Graph::Easy::attribute
+ 39.3   0.332  0.818  44000   0.0000 0.0000  Graph::Easy::Node::attribute
+ 17.5   0.148  1.067   8800   0.0000 0.0001  Graph::Easy::Node::as_html
+ 13.1   0.111  1.217    100   0.0011 0.0122  Graph::Easy::as_html
+ 7.94   0.067  0.067  52600   0.0000 0.0000  Graph::Easy::Node::class
+ 7.58   0.064  0.370   8800   0.0000 0.0000  Graph::Easy::Node::title
+ 5.92   0.050  0.099     24   0.0021 0.0041  Graph::Easy::BEGIN
+ 2.37   0.020  0.129      5   0.0040 0.0258  main::BEGIN
+ 2.01   0.017  0.016   1400   0.0000 0.0000  Graph::Easy::Edge::Cell::_content
+ 1.90   0.016  0.143   7000   0.0000 0.0000  Graph::Easy::Edge::Cell::attribute
+ 1.90   0.016  0.218   1400   0.0000 0.0002  Graph::Easy::Edge::Cell::as_html
 
 Manual:
 

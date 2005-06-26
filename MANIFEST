@@ -38,7 +38,6 @@ t/parser.t			general parser tests
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
 t/split.t			[ A | B | C ] || [ D | E | F ] tests
-t/svg.t				SVG output
 t/syntax/0000.txt		syntax tests for the parser
 t/syntax/0001.txt
 t/syntax/0002.txt
@@ -89,14 +88,15 @@ t/stress/0010.txt
 t/stress/0011.txt
 t/stress/0012.txt
 t/stress/0020.txt
-t/svg/svg.txt
 t/fun/0000.txt			fun with graph examples
 t/fun/0010.txt
+t/fun/0011.txt
 t/fun/0020.txt
 t/fun/0030.txt
 t/fun/0131.txt
 t/fun/0200.txt
-t/in/6borders.txt
+t/fun/biofull.txt
+t/in/9borders.txt
 t/in/1node.txt
 t/in/2nodes.txt
 t/in/3nodes.txt
@@ -113,7 +113,7 @@ t/in/2_newlines.txt
 t/in/4_near.txt
 t/in/6_cluster.txt
 t/in/README
-t/out/6borders.txt
+t/out/9borders.txt
 t/out/1node.txt
 t/out/2nodes.txt
 t/out/2_edges.txt
@@ -129,7 +129,7 @@ t/out/3_invisible_both.txt
 t/out/2_newlines.txt
 t/out/4_near.txt
 t/out/6_cluster.txt
-t/txt/6borders.txt
+t/txt/9borders.txt
 t/txt/4groups.txt
 t/txt/4groups_class.txt
 t/txt/2_invisible_left.txt
@@ -144,7 +144,6 @@ t/group/0230.txt
 lib/Graph/Easy.pm
 lib/Graph/Easy/As_txt.pm		generate textual description
 lib/Graph/Easy/As_graphviz.pm		generate graphviz text
-lib/Graph/Easy/As_svg.pm		generate SVG output
 lib/Graph/Easy/Cluster.pm		nodes clustered (relative positioned)
 lib/Graph/Easy/Edge.pm
 lib/Graph/Easy/Edge/Cell.pm

@@ -89,10 +89,8 @@ sub _correct_size
 
   if (!defined $self->{w})
     {
-    my $txt = $self->label();
-
     my ($w,$h) = $self->dimensions();
-    my $border = $self->attribute('border') || 'none';
+    my $border = $self->attribute('border-style') || 'none';
     if ($border eq 'none')
       {
       $self->{w} = $w + 2;
@@ -183,6 +181,8 @@ sub _framebuffer
   # generate a actual framebuffer consisting of spaces
   my ($self, $w, $h) = @_;
 
+  print STDERR join (": ", caller(),"\n") if !defined $w;
+
   my @fb;
   my $line = ' ' x $w;
   for my $y (0..$h+1)
@@ -200,13 +200,15 @@ sub _framebuffer
  # hor style
  # ver style
 
-my $border_style  = {
-  solid =>	[ '+', '+', '+', '+', '-', '|' ],
-  dotted =>	[ '.', '.', '.', '.', '.', ':' ],
-  dashed =>	[ '+', '+', '+', '+', '- ', "'" ],
-  dotdashed =>	[ '+', '+', '+', '+', '.-', '!' ],
-  bold =>	[ '#', '#', '#', '#', '#', '#' ],
-  double =>	[ '#', '#', '#', '#', '=', 'H' ],
+my $border_styles  = {
+  solid =>		[ '+', '+', '+', '+', '-', '|' ],
+  dotted =>		[ '.', '.', '.', '.', '.', ':' ],
+  dashed =>		[ '+', '+', '+', '+', '- ', "'" ],
+  'dot-dash' =>		[ '+', '+', '+', '+', '.-', '!' ],
+  'dot-dot-dash' =>	[ '+', '+', '+', '+', '..-', '!' ],
+  bold =>		[ '#', '#', '#', '#', '#', '#' ],
+  double =>		[ '#', '#', '#', '#', '=', 'H' ],
+  wave =>		[ '+', '+', '+', '+', '~', '{' ],
   };
 
 sub as_ascii
@@ -216,24 +218,21 @@ sub as_ascii
   # invisible nodes
   return "" if ($self->attribute('shape')||'') eq 'invisible';
 
-  my $border = $self->attribute('border') || 'none';
+  my $border_style = $self->attribute('border-style') || 'solid';
+  my $border_width = $self->attribute('border-width') || '1';
 
   # XXX TODO: borders for groups in ASCII output
-  $border = 'none' if ref($self) =~ /Group/;
+  $border_style = 'none' if ref($self) =~ /Group/;
 
   # "3px" => "bold"
-  $border = 'bold' if $border =~ /(\d+)px/ && $1 > 2;
- 
-  # normalize border name 
-  $border =~ /(bold|solid|dashed|dotted|dotdashed|none)/;
-  $border = $1 || 'none';
+  $border_style = 'bold' if $border_width > 2;
 
   # XXX TODO: should center text instead of left-align
   my @lines = $self->_formatted_label();
 
   my $txt;
   # border "none" is a special case
-  if ($border eq 'none')
+  if ($border_style eq 'none')
     {
     # 'Sample'
     $txt = "\n";
@@ -248,7 +247,9 @@ sub as_ascii
   my $fb = $self->_framebuffer($self->{w}, $self->{h});
 
   # make a copy of the style, so that we can modify it for partial borders
-  my $style = [ @{ $border_style->{$border} } ];
+  my $style = [ @{ $border_styles->{$border_style} } ];
+
+  warn ("Unknown border style '$border_style'") if @$style == 0;
 
   # the top row '+--------+' etc
   $txt = $style->[0] . $style->[4] x (($self->{w}-1)/ length($style->[4]));
@@ -267,7 +268,10 @@ sub as_ascii
   # If the cell to our right is occupied by a node with
   # a border:
 
-  my $cells = $self->{graph}->{cells};
+  # if node doesn't belong to a graph, fail softly by ignoring cells
+  my $cells = {};
+  $cells = $self->{graph}->{cells} if exists $self->{graph};
+
   my $x = $self->{x} + 1;
   my $y = $self->{y};
   if (exists $cells->{"$x,$y"})
@@ -283,10 +287,13 @@ sub as_ascii
 #    $bottom = '';
     }
 
+  # '| test |' => 4 extra chars, 2 spaces and two for left/right
+  my $w = $self->{w} - length($left) - length ($right) - 2;
+  $right .= "\n";
   for my $l (@lines)
     {
-    $l .= ' ' while length($l) < ($self->{w}-4); 
-    $txt .= "$left $l $right\n";
+    $l .= ' ' while length($l) < $w; 
+    $txt .= "$left $l $right";
     }
   $txt .= $bottom;
 
@@ -309,15 +316,19 @@ sub attributes_as_txt
   my $att = '';
   my $class = $self->class();
   my $a = $self->{att};
+  my $g = $self->{graph};
+
   for my $atr (sort keys %$a)
     {
     # attribute not defined
     next if !defined $a->{$atr};
 
+    next if $atr =~ /^border/;			# handled special
+
     # attribute defined, but same as default
-    if (defined $self->{graph})
+    if (defined $g)
       {
-      my $DEF = $self->{graph}->attribute ($class, $atr);
+      my $DEF = $g->attribute ($class, $atr);
       next if defined $DEF && $a->{$atr} eq $DEF;
       }
 
@@ -327,6 +338,15 @@ sub attributes_as_txt
 
     $att .= "$atr: $val; ";
     }
+
+  my $border = $self->border_attribute() || '';
+
+  if (defined $g)
+    {
+    my $DEF = $g->border_attribute ($class);
+    $border = '' if $border eq $DEF;
+    }
+  $att .= "border: $border; " if $border ne '';
 
   # include our subclass as attribute
   $att .= "class: $1; " if $class =~ /\.(\w+)/;
@@ -385,7 +405,6 @@ sub as_html
 
   my $name = $self->label(); 
 
-#  print STDERR "at $self->{name} $noquote\n";
   if (!$noquote)
     {
 #    $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
@@ -406,7 +425,9 @@ sub as_html
   $style .= "-moz-border-radius: 100%; " if $shape eq 'ellipse';
   if ($shape eq 'circle')
     {
-    my $size = (length($name) * 0.7) . 'em';
+    my ($w, $h) = $self->dimensions();
+    my $r = $w; $r = $h if $h > $w;
+    my $size = ($r * 0.7) . 'em';
     $style .= "-moz-border-radius: 100%; height: $size; width: $size; ";
     }
 
@@ -494,10 +515,9 @@ sub title
     my $autotitle = $self->attribute('autotitle');
     if (defined $autotitle)
       {
-      $title = $self->{name} if $autotitle eq 'name';
+      $title = $self->{name};		# default
       # defined to avoid overriding "name" with the non-existant label attribute
       $title = $self->{att}->{label} if $autotitle eq 'label' && defined $self->{att}->{label};
-      $title = $self->{name} if $autotitle eq 'label' && !defined $self->{att}->{label};
 
       warn ("'$autotitle' not allowed for attribute 'autotitle' on node $self->{name}")
         if $autotitle !~ /^(name|label|none)\z/;
@@ -693,6 +713,27 @@ sub origin
 #############################################################################
 # attributes
 
+sub border_attribute
+  {
+  # return "1px solid red" from the border-(style|color|width) attributes
+  my ($self) = @_;
+
+  my $style = $self->{att}->{'border-style'} || '';
+
+  return $style if $style =~ /^(none|)\z/;
+
+  my $width = $self->{att}->{'border-width'} || '';
+  my $color = $self->{att}->{'border-color'} || '';
+
+  $width = $width.'px' if $width =~ /^\d+\z/;
+
+  my $val = join(" ", $width, $style, $color);
+  $val =~ s/^\s+//;
+  $val =~ s/\s+\z//;
+
+  $val;
+  }
+
 sub attribute
   {
   my ($self, $atr) = @_;
@@ -701,29 +742,31 @@ sub attribute
 
   return $self->{att}->{$atr} if exists $self->{att}->{$atr};
 
+  my $g = $self->{graph};
   # if we do not belong to a graph, we cannot inherit attributes
-  return unless defined $self->{graph};
+  return unless defined $g;
 
-  my $class = $self->class();
+  my $class = $self->{class};
   
   # See if we can inherit it from our groups:
   # XXX TODO: what about the order we search the groups in? undefined?
   for my $group (keys %{$self->{groups}})
     {
-    my $att = $self->{graph}->attribute ('group.' . $group, $atr);
+    my $att = $g->attribute ('group.' . $group, $atr);
     return $att if defined $att;
     }
   
-  # try "group.class" first:
-  my $att = $self->{graph}->attribute ($class, $atr);
+  # try "node.class" first:
+  my $att = $g->attribute ($class, $atr);
 
   my $c = $class; $c =~ s/\.(.*)//;		# remove subclass
 
-  $att = $self->{graph}->attribute ($c, $atr) unless defined $att;
+  # try "node" next
+  $att = $g->attribute ($c, $atr) unless defined $att;
 
   # If neither our group nor our parent class had the attribute, try to
-  # inherit it from "graph":
-  $att = $self->{graph}->attribute ('graph', $atr) unless defined $att;
+  # inherit it from "graph" as a last resort:
+  $att = $g->attribute ('graph', $atr) unless defined $att;
 
   $att;
   }
@@ -761,6 +804,17 @@ sub set_attribute
     $self->add_to_groups($val);
     return $self;
     }
+
+  if ($atr eq 'border')
+    {
+    my $c = $self->{att};
+
+    ( $c->{'border-style'}, $c->{'border-width'}, $c->{'border-color'} ) =
+        $self->border_attributes( $val );
+
+    return $val;
+    }
+
   $self->{att}->{$atr} = $val;
   $self;
   }
@@ -774,6 +828,32 @@ sub set_attributes
     $n eq 'class' ? $self->sub_class($atr->{$n}) : $self->set_attribute($n, $atr->{$n});
     }
   $self;
+  }
+
+sub border_attributes
+  {
+  # split "1px solid black" or "red dotted" into style, width and color
+  my ($self,$border) = @_;
+
+  # extract style
+  my $style;
+  $border =~ s/(solid|dotted|dot-dash|dot-dot-dash|dashed|double|bold|none|wave)/ $style = $1; ''/eg;
+
+  $style ||= 'solid';
+
+  # extract width
+  $border =~ s/(\d+(px|em))//g;
+
+  my $width = $1 || '1';
+  $width =~ s/\D+//g;				# leave only digits
+  $width = 0 if $style eq 'none';
+
+  $border =~ s/\s+//g;				# rem unnec. spaces
+
+#  print STDERR "border: ($val) style '$style' color '$border' width '$width'\n";
+
+  # XXX TODO: more strict checks on possible values
+  ($style,$width,$border || 0);			# left over must be color
   }
 
 #############################################################################
@@ -974,7 +1054,7 @@ Would print something like:
 
 =head2 attribute()
 
-	$node->attribute('border');
+	$node->attribute('border-style');
 
 Returns the respective attribute of the node or undef if it
 was not set. If there is a default attribute for all nodes
@@ -988,14 +1068,14 @@ Return the attributes of this node as text description.
 
 =head2 set_attribute()
 
-	$node->set_attribute('border', 'none');
+	$node->set_attribute('border-style', 'none');
 
 Sets the specified attribute of this (and only this!) node to the
 specified value.
 
 =head2 del_attribute()
 
-	$node->del_attribute('border');
+	$node->del_attribute('border-style');
 
 Deletes the specified attribute of this (and only this!) node.
 

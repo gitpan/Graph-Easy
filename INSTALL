@@ -8,11 +8,11 @@ To install this module type the following:
 
 Untar the package:
 
-	tar -xzf Graph-Easy-0.18.tar.gz
+	tar -xzf Graph-Easy-0.20.tar.gz
 
 Change into the directory:
 
-	chdir Graph-Easy-0.18/
+	chdir Graph-Easy-0.20/
 
 Verify the package:
 
@@ -33,6 +33,11 @@ upgrade/install these first. Then run the testsuite:
 If all tests pass, install the package:
 
         sudo make install
+
+You also might want to install the following packages from CPAN:
+
+	Graph::Easy::As_svg	provide SVG (Scalable Vector Graphics) output
+	Grpah::Easy::Manual	comprehensive manual in POD and HTML
 
 AUTHOR
 ======

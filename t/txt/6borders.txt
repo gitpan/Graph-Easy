@@ -1,9 +1,0 @@
-[ Bold ] { border: bold; }
-[ Dashed ] { border: dashed; }
-[ Dotted ] { border: dotted; }
-[ dotdashed ] { border: dotdashed; }
-[ none ] { border: none; }
-
-[ Solid ] --> [ Dotted ]
-[ Dashed ] --> [ none ]
-[ dotdashed ] --> [ Bold ]

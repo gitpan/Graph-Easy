@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 82;
+   plan tests => 88;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -37,6 +37,7 @@ can_ok ("Graph::Easy::Node", qw/
   set_attributes
   attribute
   attributes_as_txt
+  border_attribute
   as_pure_txt
   group groups add_to_groups
   add_to_cluster
@@ -62,6 +63,12 @@ is (join(",", $node->pos()), "0,0", 'pos = 0,0');
 is ($node->width(), undef, 'w = undef');	# no graph => thus no width yet
 is ($node->height(), 3, 'h = 3');
 is ($node->shape(), 'rect', 'default shape is "rect"');
+is ($node->border_attribute(), '', 'border_attribute()');
+
+# these are not set, because the node doesn't have a border and thus inherits
+# it
+is ($node->attribute('border'), undef, 'attribute("border")');
+is ($node->attribute('border-style'), undef, 'attribute("border-style")');
 
 is (join(",",$node->dimensions()), "7,1", 'dimensions = (7,1)');
 
@@ -76,6 +83,8 @@ my $edge = Graph::Easy::Node->new( class => 'edge', w => 19);
 
 is ($edge->class(), 'edge', 'class edge');
 is ($edge->width(), 19, 'specified w as 19');
+
+is ($edge->border_attribute(), '', 'border_attribute()');
 
 my $other = Graph::Easy::Node->new();
 
@@ -251,6 +260,13 @@ $node->set_attribute('autotitle', 'name');
 
 is ($node->title(), $node->name(), 'title equals name');
 
+$node->set_attribute('autotitle', 'label');
+
+is ($node->title(), $node->name(), 'title equals name');
+
+$node->set_attribute('label', 'label');
+is ($node->title(), 'label', 'title equals label');
+
 #############################################################################
 # invisible nodes
 
@@ -264,6 +280,8 @@ is ($node->as_ascii(), "", 'invisible text node');
 
 $node = Graph::Easy::Node->new( { name => "Node #0", label => 'label' } );
 is ($node->label(), 'label', 'node label eq "label"');
+
+$node->_correct_size();
 
 like ($node->as_ascii(), qr/label/, 'as_ascii uses label, not name');
 

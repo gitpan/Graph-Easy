@@ -94,7 +94,9 @@ foreach (<DATA>)
 
   for my $n ( sort { $a->{name} cmp $b->{name} } ($graph->nodes(), $graph->edges()) )
     {
-    $got .= ";" . $n->name() . "," . $n->label() . "=$n->{dx}.$n->{dy}." . $n->attribute('background');
+    # normalize color output
+    my $b = $graph->_color_as_hex($n->attribute('background'));
+    $got .= ";" . $n->name() . "," . $n->label() . "=$n->{dx}.$n->{dy}." . $b;
     } 
   
   is ($got, $result, $in);
@@ -102,11 +104,11 @@ foreach (<DATA>)
 
 __DATA__
 # split tests with attributes
-[A|B|C]|3;ABC.0,A=0.0.white;ABC.1,B=1.0.white;ABC.2,C=2.0.white
-[A|B|C] { background: red; }|3;ABC.0,A=0.0.red;ABC.1,B=1.0.red;ABC.2,C=2.0.red
-[A|B|C] { label: foo; background: red; }|3;ABC.0,foo=0.0.red;ABC.1,foo=1.0.red;ABC.2,foo=2.0.red
-[A| |C]|2;AC.0,A=0.0.white;AC.1,C=2.0.white
-[A||B|C]|3;ABC.0,A=0.0.white;ABC.1,B=0.1.white;ABC.2,C=1.1.white
-[A||B||C]|3;ABC.0,A=0.0.white;ABC.1,B=0.1.white;ABC.2,C=0.2.white
-[A|| |C]|2;AC.0,A=0.0.white;AC.1,C=1.1.white
+[A|B|C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=1.0.#ffffff;ABC.2,C=2.0.#ffffff
+[A|B|C] { background: red; }|3;ABC.0,A=0.0.#ff0000;ABC.1,B=1.0.#ff0000;ABC.2,C=2.0.#ff0000
+[A|B|C] { label: foo; background: red; }|3;ABC.0,foo=0.0.#ff0000;ABC.1,foo=1.0.#ff0000;ABC.2,foo=2.0.#ff0000
+[A| |C]|2;AC.0,A=0.0.#ffffff;AC.1,C=2.0.#ffffff
+[A||B|C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=0.1.#ffffff;ABC.2,C=1.1.#ffffff
+[A||B||C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=0.1.#ffffff;ABC.2,C=0.2.#ffffff
+[A|| |C]|2;AC.0,A=0.0.#ffffff;AC.1,C=1.1.#ffffff
 

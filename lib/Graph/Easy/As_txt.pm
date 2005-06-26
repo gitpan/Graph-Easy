@@ -8,7 +8,7 @@ package Graph::Easy::As_txt;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 #############################################################################
 #############################################################################
@@ -31,15 +31,20 @@ sub _as_txt
     {
     my $a = $att->{$class};
     my $att = '';
-    for my $atr (keys %$a)
+    for my $atr (sort keys %$a)
       {
-      # attribute not defined
-      next if !defined $a->{$atr};
+      # border is handled special below, or attribute not defined
+      next if $atr =~ /^border/ || !defined $a->{$atr};
 
       next if defined $self->{def_att}->{$class}->{$atr} &&
               $a->{$atr} eq $self->{def_att}->{$class}->{$atr};
       $att .= "  $atr: $a->{$atr};\n";
       }
+
+    my $border = $self->border_attribute($class) || '';
+    $border = '' if defined $self->{def_att}->{$class}->{border} &&
+              $border eq $self->{def_att}->{$class}->{border};
+    $att .= "  border: $border;\n" if $border ne '';
 
     if ($att ne '')
       {

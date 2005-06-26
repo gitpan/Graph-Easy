@@ -1,5 +1,0 @@
-# Different border styles
-[ Solid ] --> [ Dotted ] { border: dotted; }
-[ Dashed ] { border: dashed; } --> [ none ] { border: none; }
-[ dotdashed ] { border: dotdashed; } --> [ Bold ] { border: bold; } 
-# XXX TODO: other border styles

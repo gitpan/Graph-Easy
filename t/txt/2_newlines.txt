@@ -1,3 +1,3 @@
-[ Berlin\n (O) ] { border: dotted 1px black; }
+[ Berlin\n (O) ] { border: 1px dotted black; }
 
 [ Berlin\n (W) ] --> [ Berlin\n (O) ]

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 15;
+   plan tests => 18;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -33,7 +33,7 @@ like ($html, qr/<table/, 'looks like HTML to me');
 my $bonn = Graph::Easy::Node->new( name => 'Bonn' );
 my $berlin = Graph::Easy::Node->new( 'Berlin' );
 
-$graph->add_edge ($bonn, $berlin);
+my $edge = $graph->add_edge ($bonn, $berlin);
 
 $html = $graph->as_html();
 
@@ -74,4 +74,23 @@ $html = $graph->as_html();
 
 unlike ($html, qr/display:\s*none/, 'shape invisible is not display: none');
 like ($html, qr/td.*border:\s*none/, 'shape invisible results in border: none');
+
+#############################################################################
+# "==>" must result in "==" and not "doubledouble" (bug until v0.19)
+
+my $cell = $edge->cells()->{"1,0"};
+
+is (ref($cell), 'Graph::Easy::Edge::Cell', 'found edge cell');
+$cell->{style} = 'double';
+
+$css = $graph->css();
+$html = $graph->as_html();
+
+unlike ($html, qr/double/, '==> is not "doubledouble"');
+
+$cell->{att}->{label} = 'one label to bind them';
+$css = $graph->css();
+$html = $graph->as_html();
+
+unlike ($html, qr/double/, '==> is not "doubledouble"');
 

@@ -245,7 +245,7 @@ sub _correct_size
   {
   my ($self,$format) = @_;
 
-  my $border = $self->{group}->attribute('border') || 'none';
+  my $border = $self->{group}->attribute('border-style') || 'none';
   if (!defined $self->{w})
     {
     if ($border eq 'none')

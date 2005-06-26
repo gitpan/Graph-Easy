@@ -12,7 +12,7 @@ use Graph::Easy;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 sub new
   {
@@ -54,6 +54,7 @@ sub reset
   $self->{anon_id} = 0;
   $self->{cluster_id} = '';		# each cluster gets a unique ID
   $self->{line_nr} = -1;
+  $self->{graph} = undef;
 
   $self;
   }
@@ -61,6 +62,8 @@ sub reset
 sub from_file
   {
   my ($self,$file) = @_;
+
+  $self = $self->new() unless ref $self;
 
   my $doc;
   local $/ = undef;			# slurp mode
@@ -85,7 +88,8 @@ sub from_text
 
   $self->reset();
 
-  my $graph = Graph::Easy->new( { debug => $self->{debug} } );
+  $self->{graph} = Graph::Easy->new( { debug => $self->{debug} } );
+  my $graph = $self->{graph};
 
   return $graph if !defined $txt || $txt =~ /^\s*\z/;		# empty text?
 
@@ -241,10 +245,13 @@ sub from_text
 
       my @nodes_b = $self->_new_node ($graph, $n, \@group_stack, $a1);
       
-      my $style = '--';	# default
-      $style = '==' if $ed =~ /^=+\z/; 
-      $style = '..' if $ed =~ /^\.+\z/; 
-      $style = '- ' if $ed =~ /^(- )+\z/; 
+      my $style = 'solid';			# default
+      $style = 'double' if $ed =~ /^=+\z/; 
+      $style = 'dotted' if $ed =~ /^\.+\z/; 
+      $style = 'dashed' if $ed =~ /^(- )+\z/; 
+      $style = 'dot-dot-dash' if $ed =~ /^(..-)+\z/; 
+      $style = 'dot-dash' if $ed =~ /^(.-)+\z/; 
+      $style = '~~' if $ed =~ /^(~~)+\z/; 
 
       # add edges for all nodes in the left list
       foreach my $node (@stack)
@@ -252,8 +259,6 @@ sub from_text
         my $edge = $e->new( { style => $style, name => $en } );
         $edge->set_attributes($ea);
 #        print STDERR "# continued: edge from $node->{name} => $node_b->{name}\n";
-
-	# XXX TODO: what happens if edge already exists?
 
         foreach my $node_b (@nodes_b)
           {
@@ -286,6 +291,9 @@ sub from_text
 
   $graph;
   }
+
+#############################################################################
+# internal routines
 
 sub _new_node
   {
@@ -459,8 +467,9 @@ sub _match_edge
   # - Text -->
 
   # "- " must come before "-"!
+  # likewise, "..-" must come before ".-" must come before "."
 
-  qr/\s*(<?)(=|- |-|\.)+([^=\.>-]*?)(=|- |-|\.)*(>?)/;
+  qr/\s*(<?)(=|- |-|\.\.-|\.-|\.|~)+([^=\.>-]*?)(=|- |-|\.)*(>?)/;
   }
 
 sub _parse_attributes
@@ -478,15 +487,18 @@ sub _parse_attributes
 
   foreach my $a (@atts)
     {
-    $self->error ("Error in atttribute: '$a' doesn't look valid to me.")
+    $self->error ("Error in attribute: '$a' doesn't look valid to me.")
       and return undef 
     unless ($a =~ /^\s*([^:]+?)\s*:\s*(.+?)\s*\z/);	# "name: value"
 
     my ($name, $val) = ($1,$2);
 
-    $self->parse_error(1,$name,$val), return unless $self->valid_attribute($name,$val);
+    $val =~ s/\\#/#/g;					# unquote \#
 
-    $att->{$name} = $val;
+    my $v = $self->valid_attribute($name,$val);
+    return unless defined $v;				# error => stop
+
+    $att->{$name} = $v;
     }
   $att;
   }
@@ -499,6 +511,7 @@ sub parse_error
 
   # XXX TODO: should really use the msg nr mapping
   my $msg = "Value '##param2##' for attribute '##param1##' is invalid";
+  $msg = "Error in attribute: '##param1##' is not a valid ##param2##" if $msg_nr == 2;
 
   my $i = 1;
   foreach my $p (@_)
@@ -519,41 +532,57 @@ sub error
 
 sub valid_attribute
   {
-  # check that an attribute is valid
+  # Check that an name/value pair is an valid attribute, return new
+  # attribute if valid, undef for not valid.
   my ($self,$name,$value) = @_;
 
-  # different shapes:
+  # check color:
+  if ($name =~ /^(background|color|border-color)$/)
+    {
+    my $clr = $self->{graph}->_color_as_hex($value);
+    if (!defined $clr)
+      {
+      $self->parse_error(2,$value,$name);
+      return undef;
+      }
+    return $clr;
+    }
 
-  return $value =~ 
-   /^(
-  circle|
-  diamond|
-  egg|
-  ellipse|
-  hexagon|
-  house|
-  invisible|
-  invhouse|
-  invtrapezium|
-  invtriangle|
-  octagon|
-  parallelogram|
-  pentagon|
-  point|
-  polygon|
-  triangle|
-  trapezium|
-  septagon|
-  tripleoctagon|
-  # simple box
-  box|
-  rect|
-  rectangle|
-  rounded|
-  # these are shape rect, border none
-  plaintext|
-  none
-  )/x if $name eq 'shape';
+  if ($name eq 'shape')
+    {
+    # different shapes:
+    $self->parse_error(2,$value,$name), return undef
+     unless $value =~ 
+     /^(
+	circle|
+	diamond|
+	egg|
+	ellipse|
+	hexagon|
+	house|
+	invisible|
+	invhouse|
+	invtrapezium|
+	invtriangle|
+	octagon|
+	parallelogram|
+	pentagon|
+	point|
+	polygon|
+	triangle|
+	trapezium|
+	septagon|
+	tripleoctagon|
+	# simple box
+	box|
+	rect|
+	rectangle|
+	rounded|
+	# these are shape rect, border none
+	plaintext|
+	none
+	)/x;
+     }
 
   # these are not (yet?) supported:
   # Mdiamond|
@@ -561,9 +590,9 @@ sub valid_attribute
   # Mcircle|
   # doublecircle|
   # doubleoctagon|
- 
+
   # anything else is passed along for now
-  return 1; 
+  return $value; 
   }
 
 1;
@@ -605,10 +634,13 @@ See L<Output> for how this will be rendered in ASCII art.
 
 The edges between the nodes can have the following styles:
 
-	-->		line
-	==>		double line
+	-->		solid
+	==>		double
 	..>		dotted
 	- >		dashed
+	~~>		wave
+	.->		dot-dash
+	..->		dot-dot-dash
 
 In additon the following three directions are possible:
 
@@ -661,18 +693,42 @@ multiple times.
 =head2 from_file()
 
 	my $graph = $parser->from_file( $filename );
+	my $graph = Graph::Easy::Parser->from_file( $filename );
 
 Creates a L<Graph::Easy|Graph::Easy> object from the textual description in the file
 C<$filename>.
 
+The second calling style will create a temporary Graph::Easy::Parser object,
+parse the file and return the resulting Graph::Easy object.
+
 Returns undef for error, you can find out what the error was
-with L<error()>.
+with L<error()> when using the first calling style.
 
 =head2 error()
 
 	my $error = $parser->error();
 
 Returns the last error, or the empty string if no error occured.
+
+=head2 parse_error()
+
+	$parser->parse_error( $msg_nr, @params);
+
+Sets an error message from a message number and replaces embedded
+templates like C<##param1##> with the passed parameters.
+
+=head2 valid_attribute()
+
+	my $val = $parser->valid_attribute ($name, $value);
+
+Checkc that the given name/value pair is an valid attribute, and returns
+the new value or undef for invalid attributes.
+
+The returned attribute value might differ from what you pass in as:
+
+	my $val =
+	  $parser->valid_attribute ('color', 'red');
+	print $val;					# prints '#ff0000'
 
 =head2 _parse_attributes()
 

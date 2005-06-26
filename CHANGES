@@ -1,5 +1,26 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-06-25 v0.20 Tels 589 tests - Fix, fix, fix, fix the bugs...
+  * put SVG code into a seperate package, see there for CHANGES
+  * add some details to POD
+  * border-style "dotdashed" renamed to "dot-dash"
+  * added border and edge-styles: "dot-dot-dash", "wave"
+  * make "border" set the attributes border-width, border-style, border-color
+  * as_txt(): output "border" as it used to, even though only
+    /border-(style|width|color)/ exist now
+  * as_txt(): sort attributes by name on output to make it more predictable
+  * as_ascii(): render border styles: double, wave, dot-dash, dot-dot-dash
+  * as_ascii(): render edge styles: wave, dot-dash, dot-dot-dash
+  * as_html(): fix overly big circles on labels with line breaks
+  * as_html(): fix edge style on edges with labels
+  * Easy: add_edge() returns the newly added edge
+  * Parser: handle edge styles "~~" (wave), ".-" (dot-dash) and "..-" (dot-dot-dash)
+  * Parser: recognize all official W3C color names from SVG spec as input
+  * Parser: reject invalid colors and node shapes
+  * Parser: allow 'Graph::Easy::Parser->from_file(...);'
+  * Parser: improve POD
+  * Node: streamline attribute() and title()
+
 2005-06-12 v0.19 Tels 573 tests - Shape, shape, shape, shape the nodes...
   * moved manual and Pod2HTML to Graph::Easy::Manual to avoid dependency
     on Pod::Simple

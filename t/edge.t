@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 12;
+   plan tests => 14;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok qw/Graph::Easy::Edge/;
@@ -41,9 +41,14 @@ is ($edge->as_txt(), ' --> ', 'default is "-->"');
 #############################################################################
 # different styles
 
-$edge = Graph::Easy::Edge->new( style => '==' );
-
+$edge = Graph::Easy::Edge->new( style => 'double' );
 is ($edge->as_txt(), ' ==> ', '"==>"');
+
+$edge = Graph::Easy::Edge->new( style => 'wave' );
+is ($edge->as_txt(), ' ~~> ', '"~~>"');
+
+$edge = Graph::Easy::Edge->new( style => 'dot-dash' );
+is ($edge->as_txt(), ' .-> ', '".->"');
 
 #############################################################################
 # cells

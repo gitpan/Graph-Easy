@@ -29,6 +29,15 @@ sub MY::metafile {
   return "metafile:\n$dump";
 }
 
+eval { require Graph::Easy::As_svg; };
+
+if (!defined $Graph::Easy::As_svg::VERSION)
+  {
+  print "\n************\nWARNING: ";
+  print "You do not seem to have Graph::Easy::As_svg installed.\n";
+  print "         SVG output will not be possible until you install it.\n\n";
+  }
+
 WriteMakefile(
     NAME		=> 'Graph::Easy',
     VERSION_FROM	=> 'lib/Graph/Easy.pm', # finds $VERSION
