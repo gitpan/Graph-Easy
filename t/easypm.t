@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 65;
+   plan tests => 76;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -24,6 +24,7 @@ can_ok ("Graph::Easy", qw/
   add_node
   set_attributes
   set_attribute
+  get_attribute
   attribute
   score
   id
@@ -188,6 +189,37 @@ $graph->set_attributes ('node',
 $graph->set_attributes ('graph', { linkbase => '123/' } );
 
 good_css ($graph);
+
+# check that add_node( 'name' ) works
+
+$graph = Graph::Easy->new();
+
+my $bonn = $graph->add_node( 'Bonn' );
+
+is (scalar $graph->nodes(), 1, 'one node');
+is ($graph->node('Bonn'), $bonn, 'add_node returned $bonn');
+
+# already in graph, try to add as "name"
+my $bonn2 = $graph->add_node( 'Bonn' );
+
+is (scalar $graph->nodes(), 1, 'one node');
+is ($bonn2, $graph->node('Bonn'), 'add_node returned $bonn');
+is ($bonn, $bonn2, 'same node');
+
+# already in graph, try to add as node object
+my $bonn3 = $graph->add_node( $bonn );
+
+is (scalar $graph->nodes(), 1, 'one node');
+is ($bonn3, $graph->node('Bonn'), 'add_node returned $bonn');
+is ($bonn, $bonn3, 'same node');
+
+my $bonn5 = Graph::Easy::Node->new('Bonn');
+my $bonn4 = $graph->add_node( $bonn5);
+
+#make sure that $bonn is not replaced by $bonn5 in graph!
+is (scalar $graph->nodes(), 1, 'one node');
+is ($bonn4, $graph->node('Bonn'), 'add_node returned $bonn');
+is ($bonn, $bonn4, 'same node');
 
 1; # all tests done
 

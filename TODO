@@ -41,10 +41,6 @@ Output:
 * as_html(): output group labels
 * as_html(): edges are borked in Opera, the table cell is not big enough
 	     to hold them (*sigh*)
-* as_html: for shape: circle, find out real dimensions by splitting
-  the label into lines (instead of taking the overall label lenght
-  as the in-width) (see t/fun/0030.txt as an example of overwide
-  circles)
 * as_html(): add a class "link" to generated links (so they can be styled
              differently)
 * better support for different shapes (circle, box, rounded, polygon etc)

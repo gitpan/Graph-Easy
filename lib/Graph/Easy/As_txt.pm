@@ -29,16 +29,15 @@ sub _as_txt
   my $att =  $self->{att};
   for my $class (sort keys %$att)
     {
-    my $a = $att->{$class};
-    my $att = '';
-    for my $atr (sort keys %$a)
-      {
-      # border is handled special below, or attribute not defined
-      next if $atr =~ /^border/ || !defined $a->{$atr};
 
-      next if defined $self->{def_att}->{$class}->{$atr} &&
-              $a->{$atr} eq $self->{def_att}->{$class}->{$atr};
-      $att .= "  $atr: $a->{$atr};\n";
+    my $out = $self->remap_attributes( $class, $att->{$class}, {}, 'noquote');
+
+    my $att = '';
+    for my $atr (sort keys %$out)
+      {
+      # border is handled special below
+      next if $atr =~ /^border/;
+      $att .= "  $atr: $out->{$atr};\n";
       }
 
     my $border = $self->border_attribute($class) || '';

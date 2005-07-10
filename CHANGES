@@ -1,5 +1,15 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-07-10 v0.21 Tels 605 tests - Fix, fix, fix, fix the bugs...
+  * As_graphviz: default nodes to filled, fontsize 11
+  * As_graphviz: quote attribute values if nec.
+  * As_graphviz: remap attribute names (background => fillcolor etc)
+  * As_graphviz: output edge attributes
+  * As_txt: use remap_attribute()
+  * Easy: add remap_attributes(), as_svg_file(), as_ascii_file()
+  * Easy: fix POD for add_node(), rem doc about add_vertex(), vertices()
+  * Easy: add_node() returns newly added node and copes with ("name")
+
 2005-06-25 v0.20 Tels 589 tests - Fix, fix, fix, fix the bugs...
   * put SVG code into a seperate package, see there for CHANGES
   * add some details to POD

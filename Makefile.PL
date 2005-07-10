@@ -35,7 +35,7 @@ if (!defined $Graph::Easy::As_svg::VERSION)
   {
   print "\n************\nWARNING: ";
   print "You do not seem to have Graph::Easy::As_svg installed.\n";
-  print "         SVG output will not be possible until you install it.\n\n";
+  print "         SVG output is not possible until you install it afterwards.\n\n";
   }
 
 WriteMakefile(

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 13;
+   plan tests => 18;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -47,6 +47,15 @@ like ($graph->as_graphviz(), qr/"Berlin"/, 'contains Bonn');
 #print $graph->as_graphviz(),"\n";
 
 #############################################################################
+# with atributes on the graph
+
+$graph->set_attribute( 'graph', 'background' => 'red' );
+
+like ($graph->as_graphviz(), qr/bgcolor=red/, 'contains bgcolor=red');
+
+#print $graph->as_graphviz(),"\n";
+
+#############################################################################
 # with some nodes with atributes
 
 $bonn->set_attribute( 'shape' => 'box' );
@@ -54,6 +63,25 @@ $bonn->set_attribute( 'shape' => 'box' );
 like ($graph->as_graphviz(), qr/"Bonn"/, 'contains Bonn');
 like ($graph->as_graphviz(), qr/"Berlin"/, 'contains Bonn');
 like ($graph->as_graphviz(), qr/shape=box/, 'contains shape');
+
+#print $graph->as_graphviz(),"\n";
+
+#############################################################################
+# remapped attributes, quoted attributes
+
+$bonn->set_attributes( { 
+  background => '#808080', 
+  title => 'title string', 
+  color => 'red', 
+  'border-color' => 'brown',
+  } );
+
+my $grviz = $graph->as_graphviz();
+
+like ($grviz, qr/fillcolor="#808080"/, 'contains fillcolor');
+like ($grviz, qr/tooltip="title string"/, 'contains tooltip');
+like ($grviz, qr/color=brown/, 'contains color');
+like ($grviz, qr/fontcolor=red/, 'contains fontcolor');
 
 #print $graph->as_graphviz(),"\n";
 

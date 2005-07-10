@@ -318,6 +318,7 @@ sub attributes_as_txt
   my $a = $self->{att};
   my $g = $self->{graph};
 
+  # XXX TODO: could use remap_attributes()
   for my $atr (sort keys %$a)
     {
     # attribute not defined

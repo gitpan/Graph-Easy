@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #############################################################################
 #############################################################################
@@ -14,6 +14,28 @@ $VERSION = '0.03';
 package Graph::Easy;
 
 use strict;
+
+my $remap = {
+  'node' => {
+    'background' => 'fillcolor',
+    'title' => 'tooltip',
+    'color' => 'fontcolor',
+    'border-color' => 'color',
+    'font-size' => 'fontsize',
+    'font-weight' => undef,
+    },
+  'edge' => {
+    'title' => 'tooltip',
+    'background' => undef,
+    'font-weight' => undef,
+    'font-size' => 'fontsize',
+    },
+  'graph' => {
+    'background' => 'bgcolor',
+    'font-size' => 'fontsize',
+    'font-weight' => undef,
+    },
+  };
 
 sub _as_graphviz
   {
@@ -28,25 +50,20 @@ sub _as_graphviz
 	    " at " . scalar localtime() . "\n";
 
   # per default, our nodes are rectangular
-  $txt .= "  node [shape=record];\n\n";
+  $txt .= "  node [shape=record, style=filled, fontsize=11];\n\n";
 
-  # XXX TODO: attributes and groups are likely not correct yet
-
-  my $att =  $self->{att};
-  for my $class (sort keys %$att)
+  my $atts =  $self->{att};
+  for my $class (sort keys %$atts)
     {
-    my $a = $att->{$class};
-    my $att = '';
-    for my $atr (keys %$a)
-      {
-      # attribute not defined
-      next if !defined $a->{$atr};
+    my $out = $self->remap_attributes( $class, $atts->{$class}, $remap);
 
-      next if defined $self->{def_att}->{$class}->{$atr} &&
-              $a->{$atr} eq $self->{def_att}->{$class}->{$atr};
-      $att .= "  $atr: $a->{$atr};\n";
+    my $att = '';
+    for my $atr (keys %$out)
+      {
+      $att .= "  $atr=$out->{$atr},\n";
       }
 
+    $att =~ s/,\n/ /;
     if ($att ne '')
       {
       # the following makes short, single definitions to fit on one line
@@ -58,7 +75,7 @@ sub _as_graphviz
         {
         $att = "\n$att";
         }
-      $txt .= "$class {$att}\n";
+      $txt .= "  $class [$att]\n";
       }
     }
 
@@ -103,7 +120,8 @@ sub _as_graphviz
     foreach my $other (reverse @out)
       {
       my $edge = $self->edge( $n, $other );
-      $txt .= $first . " -> " . $other->as_graphviz_txt() . "\n";
+      my $edge_att = $edge->attributes_as_graphviz();
+      $txt .= $first . " -> " . $other->as_graphviz_txt() . "$edge_att\n";
       }
     }
 
@@ -119,24 +137,13 @@ sub attributes_as_graphviz
 
   my $att = '';
   my $class = $self->class();
-  my $a = $self->{att};
+
+  my $g = $self->{graph} || 'Graph::Easy';
+  my $a = $g->remap_attributes( $class, $self->{att}, $remap);
+
   for my $atr (sort keys %$a)
     {
-    # attribute not defined
-    next if !defined $a->{$atr};
-
-    # attribute defined, but same as default
-    if (defined $self->{graph})
-      {
-      my $DEF = $self->{graph}->attribute ($class, $atr);
-      next if defined $DEF && $a->{$atr} eq $DEF;
-      }
-
-    my $val = $a->{$atr};
-    # encode critical characters
-    $val =~ s/([;\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
-
-    $att .= "$atr=$val, ";
+    $att .= "$atr=$a->{$atr}, ";
     }
   # include our subclass as attribute
   $att .= "class: $1; " if $class =~ /\.(\w+)/;

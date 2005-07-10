@@ -17,13 +17,22 @@ use Graph::Easy::Node::Anon;
 use Graph 0.65;
 use Graph::Directed;
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 use strict;
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
 # If you change this, change it also in Node.pm!
 sub OBJ () { 'obj' };
+
+BEGIN 
+  {
+  # a few aliases for backwards compatibility
+  *attribute = \&get_attribute; 
+  *as_html_page = \&as_html_file;
+  *as_graphviz_file = \&as_graphviz;
+  *as_ascii_file = \&as_ascii;
+  }
 
 #############################################################################
 sub new
@@ -233,9 +242,12 @@ sub edge
   $y = $y->{name} if ref $y;
 
   my @ids = $self->{graph}->get_multiedge_ids($x, $y);
+  
+  return undef if @ids == 0;
 
   if (scalar @ids > 1)
     {
+    # XXX TODO: make it return a list
     require Carp;
     Carp::croak ("There exist more than one edge from $x->{name} to $y->{name}");
     }
@@ -451,7 +463,7 @@ sub border_attribute
   $val;
   }
 
-sub attribute
+sub get_attribute
   {
   # return the value of attribute $att from class $class
   my ($self, $class, $att) = @_;
@@ -528,6 +540,46 @@ sub set_attributes
     $self->{att}->{$class}->{$a} = $val;
     } 
   $self;
+  }
+
+sub remap_attributes
+  {
+  # Take a hash with:
+  # {
+  #   class => {
+  #     color => 'red'
+  #   }
+  # }
+  # and remap it according to the given remap hash (similiar structured).
+  # Also encode/quote the value. Suppresses default attributes. 
+  my ($self, $class, $att, $remap, $noquote ) = @_;
+
+  my $out = {};
+  my $r = $remap->{$class};
+  my $def = $self->{def_att}->{$class};
+  for my $atr (keys %$att)
+    {
+    # attribute not defined
+    next if !defined $att->{$atr} ||
+    # or $remap says we should suppress it
+       (exists $r->{$atr} && !defined $r->{$atr});
+    # || $atr =~ /border-(style|width)/;
+
+    # suppress default attributes
+    next if defined $def->{$atr} && $att->{$atr} eq $def->{$atr};
+
+    # rename the attribute name if nec.
+    my $atrn = $atr; $atrn = $r->{$atr} if exists $r->{$atr};
+
+    my $val = $att->{$atr};
+    # encode critical characters
+    $val =~ s/([;\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
+    # quote if nec.
+    $val = '"' . $val . '"' if !$noquote && $val =~ /[^a-zA-Z0-9]/;
+
+    $out->{$atrn} = $val;
+    }
+  $out;
   }
 
 #############################################################################
@@ -790,7 +842,7 @@ sub html_page_footer
   "\n</body></html>\n";
   }
 
-sub as_html_page
+sub as_html_file
   {
   my $self = shift;
 
@@ -1112,6 +1164,13 @@ sub as_svg
   _as_svg(@_);
   }
 
+sub as_svg_file
+  {
+  require Graph::Easy::As_svg;
+
+  _as_svg( { standalone => 1 } );
+  }
+
 sub as_txt
   {
   require Graph::Easy::As_txt;
@@ -1162,6 +1221,20 @@ sub add_node
   my ($self,$x) = @_;
 
   my $g = $self->{graph};
+  if (!ref($x))
+    {
+    my $n = $g->get_vertex_attribute( $x, OBJ );
+    # already in graph under that name
+    return $n if defined $n;
+    # convert plain name to Node object
+    $x = Graph::Easy::Node->new ( name => $x );
+    }
+  else
+    {
+    my $n = $g->get_vertex_attribute( $x->{name} || '', OBJ );
+    # x already in graph?
+    return $n if defined $n;
+    }
 
   $g->add_vertex( $x->{name} );
   $g->set_vertex_attribute( $x->{name}, OBJ, $x);
@@ -1170,7 +1243,7 @@ sub add_node
 
   $self->{score} = undef;			# invalidate last layout
 
-  $self;
+  $x;
   }
 
 #############################################################################
@@ -1529,15 +1602,21 @@ the same graph, the same see will always lead to the same layout.
 
 Set a random seed for the graph object. See L<seed()>.
 
-=head2 attribute()
+=head2 get_attribute()
 
-	my $value = $graph->attribute( $class, $name );
+	my $value = $graph->get_attribute( $class, $name );
 
 Return the value of attribute C<$name> from class C<$class>.
 
 Example:
 
 	my $color = $graph->attribute( 'node', 'color' );
+
+=head2 attribute()
+
+	my $value = $graph->attribute( $class, $name );
+
+C<attribute> is an alias for L<get_attribute>.
 
 =head2 set_attribute()
 
@@ -1687,19 +1766,13 @@ the style of the edge, if not present, a default object will be used.
 C<$x> and C<$y> should be objects of L<Graph::Easy::Node|Graph::Easy::Node>,
 while C<$edge> should be L<Graph::Easy::Edge|Graph::Easy::Edge>.
  
-=head2 add_vertex()
+=head2 add_node()
 
-	$graph->add_vertex( $x );
+	$graph->add_node( $x );
 
-Add a single node X to the graph. C<$x> should be a C<Graph::Easy::Node>.
-
-=head2 vertices()
-
-	my $vertices = $graph->vertices();
-
-In scalar context, returns the number of nodes/vertices the graph has.
-In list context returns a list of all vertices (as their unique keys). See
-also L<nodes()>.
+Add a single node X to the graph. C<$x> should be either a
+C<Graph::Easy::Node> object, or a unique name for the node. Will do
+nothing if the node already exists in the graph.
 
 =head2 nodes()
 
@@ -1721,7 +1794,8 @@ inserted).
 
 	my $node = $graph->node('node name');
 
-Return node by name (case sensitive). Returns undef of the node couldn't be found.
+Return node by unique name (case sensitive). Returns undef if the node
+does not exist in the graph.
 
 =head2 edge()
 
@@ -1729,6 +1803,8 @@ Return node by name (case sensitive). Returns undef of the node couldn't be foun
 
 Return edge object between nodes C<$node1> and C<$node2>. Both nodes can be
 either names or C<Graph::Easy::Node> objects.
+
+Returns undef if the edge does not yet exist.
 
 =head2 id()
 
