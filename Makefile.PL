@@ -1,5 +1,6 @@
 use 5.006001;
 use ExtUtils::MakeMaker;
+use strict;
 
 sub MY::metafile {
   package MY;
@@ -31,11 +32,20 @@ sub MY::metafile {
 
 eval { require Graph::Easy::As_svg; };
 
-if (!defined $Graph::Easy::As_svg::VERSION)
+my $ver = $Graph::Easy::As_svg::VERSION;
+
+if (!defined $ver)
   {
   print "\n************\nWARNING: ";
   print "You do not seem to have Graph::Easy::As_svg installed.\n";
   print "         SVG output is not possible until you install it afterwards.\n\n";
+  }
+
+if (defined $ver && $ver <= 0.05)
+  {
+  print "\n************\nWARNING: ";
+  print "Your Graph::Easy::As_svg version is outdated.\n";
+  print "         Please upgrade it after installing this package.\n\n";
   }
 
 WriteMakefile(

@@ -13,22 +13,9 @@ use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 #############################################################################
-
-sub new
-  {
-  my $class = shift;
-
-  my $args = $_[0];
-  $args = { contents => $_[0] } if ref($args) ne 'HASH' && @_ == 1;
-  $args = { @_ } if ref($args) ne 'HASH' && @_ > 1;
-  
-  my $self = bless {}, $class;
-
-  $self->_init($args);
-  }
 
 sub _init
   {

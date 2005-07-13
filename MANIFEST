@@ -31,8 +31,10 @@ t/edge.t
 t/edge_cell.t
 t/group.t
 t/html.t			HTML output
+t/layers.t
 t/layout.t
 t/node.t
+t/node_mc.t
 t/path.t
 t/parser.t			general parser tests
 t/parse_att.t			test parsing attributes
@@ -96,7 +98,6 @@ t/fun/0030.txt
 t/fun/0131.txt
 t/fun/0200.txt
 t/fun/biofull.txt
-t/in/9borders.txt
 t/in/1node.txt
 t/in/2nodes.txt
 t/in/3nodes.txt
@@ -112,10 +113,14 @@ t/in/3_invisible_both.txt
 t/in/2_newlines.txt
 t/in/4_near.txt
 t/in/6_cluster.txt
+t/in/8_chain.txt
+t/in/9_chain.txt
+t/in/9borders.txt
 t/in/README
 t/out/9borders.txt
 t/out/1node.txt
 t/out/2nodes.txt
+t/out/2_nodes_inv.txt
 t/out/2_edges.txt
 t/out/3nodes.txt
 t/out/3_cluster.txt
@@ -129,15 +134,21 @@ t/out/3_invisible_both.txt
 t/out/2_newlines.txt
 t/out/4_near.txt
 t/out/6_cluster.txt
-t/txt/9borders.txt
+t/out/8_chain.txt
+t/out/9_chain.txt
 t/txt/4groups.txt
 t/txt/4groups_class.txt
+t/txt/4_near.txt
+t/txt/4_2x2nodes.txt
 t/txt/2_invisible_left.txt
 t/txt/2_invisible_right.txt
 t/txt/3_invisible_both.txt
 t/txt/3_cluster.txt
 t/txt/2_newlines.txt
 t/txt/6_cluster.txt
+t/txt/8_chain.txt
+t/txt/9_chain.txt
+t/txt/9borders.txt
 t/group/0010.txt
 t/group/0131.txt
 t/group/0230.txt

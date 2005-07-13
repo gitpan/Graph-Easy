@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 88;
+   plan tests => 92;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -20,11 +20,16 @@ can_ok ("Graph::Easy::Node", qw/
   class
   dimensions
   name
+  sorted_successors
   successors
   predecessors
+  connections
   edges_to
   width
   height
+  columns
+  rows
+  grow
   pos
   x
   y
@@ -64,6 +69,7 @@ is ($node->width(), undef, 'w = undef');	# no graph => thus no width yet
 is ($node->height(), 3, 'h = 3');
 is ($node->shape(), 'rect', 'default shape is "rect"');
 is ($node->border_attribute(), '', 'border_attribute()');
+is ($node->connections(), 0, 'no connections yet');
 
 # these are not set, because the node doesn't have a border and thus inherits
 # it
@@ -77,6 +83,7 @@ is ($node->origin(), undef, 'not clustered');
 is (join(",",$node->relpos()), '0,0', 'not clustered');
 
 is (scalar $node->successors(), undef, 'no outgoing links');
+is (scalar $node->sorted_successors(), 0, 'no outgoing links');
 is (scalar $node->predecessors(), undef, 'no incoming links');
 
 my $edge = Graph::Easy::Node->new( class => 'edge', w => 19);
@@ -97,9 +104,11 @@ $other = Graph::Easy::Node->new( 'Name' );
 $graph->add_edge ($node, $other);
 
 is ($node->successors(), 1, '1 outgoing');
+is (scalar $node->sorted_successors(), 1, '1 outgoing');
 is ($node->predecessors(), 0, '0 incoming');
 
 is ($other->successors(), 0, '0 outgoing');
+is (scalar $other->sorted_successors(), 0, '0 outgoing');
 is ($other->predecessors(), 1, '1 incoming');
 
 #############################################################################

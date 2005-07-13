@@ -1,5 +1,20 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-07-13 v0.22 Tels 686 tests - Fix, fix, fix, fix the bugs...
+Fixed:
+  * Edge/Parser: edge style '~~' (wave)
+  * Layouter: assign layers, process nodes sorted by layers
+    (fixes the '"[B] [A]->[B]" being laid out different from "[A]->[B]"' bug)
+  * Edge.pm: remove needless new()
+  * Makefile.PL check for As_svg was borked
+Added:
+  * Node.pm: add columns(), rows(), grow(), connections()
+  * Layout.pm: add _assign_layers()
+  * Easy.pm: sorted_nodes() takes 1 or 2 optional field names to sort on
+  * _near_places() moved into Graph::Easy::Node, make it multi-cell aware
+  * started laying down the foundation for multi-celled nodes
+    support in Path.pm/Scout.pm
+
 2005-07-10 v0.21 Tels 605 tests - Fix, fix, fix, fix the bugs...
   * As_graphviz: default nodes to filled, fontsize 11
   * As_graphviz: quote attribute values if nec.

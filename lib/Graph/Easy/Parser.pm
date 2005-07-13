@@ -12,7 +12,7 @@ use Graph::Easy;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 sub new
   {
@@ -251,7 +251,7 @@ sub from_text
       $style = 'dashed' if $ed =~ /^(- )+\z/; 
       $style = 'dot-dot-dash' if $ed =~ /^(..-)+\z/; 
       $style = 'dot-dash' if $ed =~ /^(.-)+\z/; 
-      $style = '~~' if $ed =~ /^(~~)+\z/; 
+      $style = 'wave' if $ed =~ /^(\~)+\z/; 
 
       # add edges for all nodes in the left list
       foreach my $node (@stack)

@@ -8,11 +8,12 @@ package Graph::Easy::Edge::Cell;
 use 5.006001;
 use strict;
 use Graph::Easy::Edge;
+require Exporter;
 
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 
@@ -175,7 +176,7 @@ sub _init
   my ($self,$args) = @_;
   
   $self->{type} = EDGE_SHORT_E;
-  $self->{style} = '--';
+  $self->{style} = 'solid';
   
   $self->{x} = 0;
   $self->{y} = 0;

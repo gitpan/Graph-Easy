@@ -152,8 +152,8 @@ node.cities { color: #808080; }
 )
 
 [ Bonn ] --> [ Berlin ]
-[ Berlin ] --> [ Potsdam ]
 [ Berlin ] --> [ Frankfurt ]
+[ Berlin ] --> [ Potsdam ]
 [ Frankfurt ] --> [ Dresden ]
 [ Potsdam ] --> [ Cottbus ]
 HERE
@@ -173,8 +173,8 @@ node.cities { color: #808080; }
 )
 
 [ Bonn ] --> [ Berlin ]
-[ Berlin ] --> [ Potsdam ]
 [ Berlin ] --> [ Frankfurt ]
+[ Berlin ] --> [ Potsdam ]
 [ Frankfurt ] --> [ Dresden ]
 [ Potsdam ] --> [ Cottbus ]
 HERE

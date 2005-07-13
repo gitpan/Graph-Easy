@@ -81,8 +81,8 @@ is ($graph->edges (), 2, '2 edges');
 # as_txt() (simple nodes)
 
 is ( $graph->as_txt(), <<HERE
-[ Bonn ] --> [ Berlin ]
 [ Frankfurt a. M. ] --> [ Bonn ]
+[ Bonn ] --> [ Berlin ]
 HERE
 , 'as_txt() for 3 nodes with 2 edges');
 
@@ -93,9 +93,9 @@ is ($graph->nodes (), 4, '4 nodes');
 is ($graph->edges (), 3, '3 edges');
 
 is ( $graph->as_txt(), <<HERE
-[ Bonn ] --> [ Berlin ]
 [ Frankfurt a. M. ] --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]
+[ Bonn ] --> [ Berlin ]
 HERE
 , 'as_txt() for 4 nodes with 3 edges');
 
@@ -107,9 +107,9 @@ $bonn->set_attribute('class', 'cities');
 is ( $graph->as_txt(), <<HERE
 [ Bonn ] { class: cities; }
 
-[ Bonn ] --> [ Berlin ]
 [ Frankfurt a. M. ] --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]
+[ Bonn ] --> [ Berlin ]
 HERE
 , 'as_txt() for 4 nodes with 3 edges and attributes');
 
@@ -123,9 +123,9 @@ is ( $graph->as_txt(), <<HERE
 [ Berlin ] { color: blue; }
 [ Bonn ] { color: red; border: none; class: cities; }
 
-[ Bonn ] --> [ Berlin ]
 [ Frankfurt a. M. ] --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]
+[ Bonn ] --> [ Berlin ]
 HERE
 , 'as_txt() for 4 nodes with 3 edges and class attribute');
 
@@ -142,9 +142,9 @@ graph { border: 1px dashed; }
 [ Berlin ] { color: blue; }
 [ Bonn ] { color: red; border: none; class: cities; }
 
-[ Bonn ] --> [ Berlin ]
 [ Frankfurt a. M. ] --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]
+[ Bonn ] --> [ Berlin ]
 HERE
 , 'as_txt() for 4 nodes with 3 edges and graph/node/edge attributes');
 

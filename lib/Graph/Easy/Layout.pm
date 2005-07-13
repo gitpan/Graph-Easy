@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 #############################################################################
 #############################################################################
@@ -37,6 +37,82 @@ use Graph::Easy::Layout::Scout;	# pathfinding
 use Graph::Easy::Layout::Path;	# path management
 
 #############################################################################
+
+sub _assign_layers
+  {
+  # assign a layer to each node, so that they can be sorted into layers
+  my $self = shift;
+
+  my @N = $self->sorted_nodes();
+  my @todo = ();
+
+  # Put all nodes into layer 0 as default and gather all nodes that have
+  # outgoing connections, but no incoming ones
+  for my $n (@N)
+    {
+    $n->{layer} = 0;			# default is 0
+    push @todo, $n
+      if $n->successors() > 0 && $n->predecessors() == 0;
+    }
+
+  # The aboce step will create a list of todo nodes that start a chain, but
+  # it will miss circular chains like CDEC (e.g. only A appears in todo):
+  # A -> B;  C -> D -> E -> C;
+  # We fix this as last step
+
+  my $done = 0;
+  while ($done < 2)
+    {
+    # while we still have nodes to follow
+    while (@todo)
+      {
+      my $n = shift @todo;
+      my $l = $n->{layer} + 1;
+      for my $o ($n->successors())
+        {
+        if ($o->{layer} == 0)
+          {
+          #print "# Set $o->{name} to $l\n";
+          $o->{layer} = $l;
+          # XXX TODO: check that $o is not yet on @todo
+          push @todo, $o;
+          }
+        }
+      }
+    # done all nodes in TODO, get nodes in circular chains
+    $done++;
+
+    last if $done == 2;			# early out
+    for my $n (@N)
+      {
+      # node still in layer 0, but has incoming edges
+      push @todo, $n
+        if $n->{layer} == 0 && $n->predecessors() > 0;
+      }
+    } # while still something todo
+ 
+  $self;
+  }
+
+#############################################################################
+# grow nodes
+
+sub _grow_nodes
+  {
+  # grow nodes so that their connections do fit on their sides
+  my $self = shift;
+
+  my @V = $self->nodes();
+  for my $n (@V)
+    {
+    $n->{cx} = abs($n->attribute('cols')||1);
+    $n->{cy} = abs($n->attribute('rows')||1);
+    $n->grow();
+    }
+  $self;
+  }
+
+#############################################################################
 # layout the graph
 
 sub layout
@@ -56,9 +132,15 @@ sub layout
   srand($self->{seed});
 
   ###########################################################################
+  # do some assorted stuff beforehand
+
+  $self->_grow_nodes();
+  $self->_assign_layers();
+
+  ###########################################################################
   # prepare our stack of things we need to do before we are finished
 
-  my @V = $self->sorted_nodes();
+  my @V = $self->sorted_nodes('layer', 'name');
 
   my @todo;				# actions still to do
   # for all nodes, reset their pos and push them on the todo stack
@@ -66,8 +148,10 @@ sub layout
     {
     $n->{x} = undef;			# mark as not placed yet
     $n->{y} = undef;
-    push @todo, [ ACTION_NODE, $n ];		# node needs to be placed
-    foreach my $o ($n->successors())
+    push @todo, [ ACTION_NODE, $n ];	# node needs to be placed
+    # sort outgoing connections to create first the ones with further
+    # connections 
+    foreach my $o ($n->sorted_successors())
       {
       print STDERR "# push $n->{name} => $o->{name}\n" if $self->{debug};
       # in case there is more than one edge going from N to O
@@ -91,7 +175,7 @@ sub layout
 
   my @done = ();			# stack with already done actions
   my $step = 0;
-  my $tries = 4;
+  my $tries = 3;
 
   TRY:
   while (@todo > 0)			# all actions on stack done?
@@ -109,7 +193,7 @@ sub layout
 
     my ($src, $dst, $mod, $edge);
 
-    print STDERR "# Step $step: Action $action\n" if $self->{debug};
+    print STDERR "# Step $step: action type $action->[0]\n" if $self->{debug};
 
     if ($action_type == ACTION_NODE)
       {
@@ -154,15 +238,15 @@ sub layout
         unshift @todo, [ ACTION_NODE, $dst ];
 
 	# try to place node around the source node (e.g. near)
-        my @tries = $self->_near_places($src, $cells);
-        while (@tries > 0)
-          {
-          my $x = shift @tries;
-          my $y = shift @tries;
-	  # action to place $dst at $x and $y
-	# XXX TODO
+#        my @tries = $src->_near_places($cells);
+#        while (@tries > 0)
+#          {
+#          my $x = shift @tries;
+#          my $y = shift @tries;
+#	  # action to place $dst at $x and $y
+#	# XXX TODO
 #          unshift @todo, [ ACTION_PLACE, $dst, $x, $y ];
-          } 
+#          } 
         next TRY;
 	}        
 
@@ -182,22 +266,14 @@ sub layout
         { 
         print STDERR "# Step $step: Rewind stack for $action->{name}\n" if $self->{debug};
 
-        # free cells
-        # XXX TODO: free nodes that occupy more than one cell
+        # undo node placement and free all cells
         # XXX TODO: free all nodes in one cluster
-        delete $cells->{"$action->{x},$action->{y}"};
-        # mark node as tobeplaced
-        $action->{x} = undef;
-        $action->{y} = undef;
+        $action->unplace();
         }
       else
         {
         print STDERR "# Step $step: Rewind stack for path from $src->{name} to $dst->{name}\n" if $self->{debug};
     
-        # XXX TODO: free cell area
-
-        print STDERR "# Step $step: Rewound\n" if $self->{debug};
-          
         # if we couldn't find a path, we need to rewind one more action (just
 	# redoing the path would would fail again!)
 
@@ -210,11 +286,8 @@ sub layout
         if (($action_type == ACTION_NODE || $action_type == ACTION_PLACE))
           {
           # undo node placement
-          print STDERR ref($todo[0]),"\n";;
-          delete $cells->{"$action->{x},$action->{y}"};
-          # mark node as tobeplaced
-          $action->{x} = undef;
-          $action->{y} = undef;
+          # XXX TODO: free all nodes in one cluster
+          $action->unplace();
           }
   	$tries--;
 	last TRY if $tries == 0;
@@ -412,6 +485,24 @@ Graph::Easy::Layout - Layout the graph from Graph::Easy
 
 C<Graph::Easy::Layout> contains just the actual layout code for
 L<Graph::Easy|Graph::Easy>.
+
+=head1 METHODS
+
+C<Graph::Easy::Layout> injects the following methods into the C<Graph::Easy>
+namespace:
+
+=head2 layout()
+
+	$graph->layout();
+
+Layout the actual graph.
+
+=head2 _assign_layers()
+
+	$graph->_assign_layers();
+
+Used by C<layout()> to assign each node with a layer, so they can be sorted
+and grouped on these.
 
 =head1 EXPORT
 

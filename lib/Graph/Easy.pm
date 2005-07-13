@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph 0.65;
 use Graph::Directed;
 
-$VERSION = '0.21';
+$VERSION = '0.22';
 
 use strict;
 
@@ -187,9 +187,7 @@ sub nodes
   my ($self) = @_;
 
   my $g = $self->{graph};
-
   my @V = $g->vertices();
-  
   return scalar @V unless wantarray;		# shortcut
 
   my @nodes = ();
@@ -225,11 +223,26 @@ sub edges
 
 sub sorted_nodes
   {
-  # return all nodes as objects, sorted by their id
-  my ($self) = @_;
+  # return all nodes as objects, sorted by $field (defaults to id)
+  my ($self, $f1, $f2) = @_;
 
-  my @nodes = sort { $a->{id} <=> $b->{id} } $self->nodes();
-  @nodes;
+  my $sort = sub { $a->{id} <=> $b->{id} };
+  $sort = sub { $a->{$f1} <=> $b->{$f1} } if $f1;
+  $sort = sub { $a->{$f1} cmp $b->{$f1} } if $f1 && $f1 =~ /^(name|title|label)$/;
+  $sort = sub { $a->{$f1} <=> $b->{$f1} || $a->{$f2} <=> $b->{$f2} } if $f2;
+  $sort = sub { $a->{$f1} <=> $b->{$f1} || $a->{$f2} cmp $b->{$f2} } if $f2 &&
+           $f2 =~ /^(name|title|label)$/;
+
+  my $g = $self->{graph};
+  my @V = $g->vertices();
+  return scalar @V unless wantarray;		# shortcut
+
+  my @nodes = ();
+  foreach my $k (@V)
+    {
+    push @nodes, $g->get_vertex_attribute( $k, OBJ );
+    }
+  return sort $sort @nodes;
   }
 
 sub edge
@@ -417,7 +430,7 @@ my $color_names = {
 
 sub _color_as_hex
   {
-  # Turn "red" or rgb(255,0,0) into "#ff0000". Return undef for
+  # Turn "red" or rgb(255,0,0) or "#f00" into "#ff0000". Return undef for
   # invalid colors.
   my ($self, $color) = @_;
 
@@ -814,6 +827,7 @@ CSS
 
 sub html_page_header
   {
+  # return the HTML header for as_html_file()
   my $self = shift;
   
   my $html = <<HTML
@@ -837,6 +851,7 @@ HTML
 
 sub html_page_footer
   {
+  # return the HTML footer for as_html_file()
   my $self = shift;
 
   "\n</body></html>\n";
@@ -848,9 +863,7 @@ sub as_html_file
 
   $self->layout() unless defined $self->{score};
 
-  my $html = $self->html_page_header() . $self->as_html() . $self->html_page_footer();
-
-  $html;
+  $self->html_page_header() . $self->as_html() . $self->html_page_footer();
   }
 
 #############################################################################
@@ -1021,7 +1034,7 @@ sub as_ascii
 sub as_ascii_html
   {
   # Convert the graph to pretty ASCII art, then return it as a HTML chunk
-  # suitable to be embedded into an HTML page.
+  # suitable to be embedded into an HTML page. Does not yet do colors.
   my ($self) = @_;
 
   "<pre>\n" . $self->as_ascii() . "\n<pre>\n";
@@ -1055,7 +1068,7 @@ sub _prepare_layout
   my @V;
 
   # the last column/row
-  my $mx = -10000; my $my = -10000;
+  my $mx = -100000; my $my = -100000;
 
   # find all x and y occurances to sort them by row/columns
   for my $k (keys %$cells)
@@ -1426,7 +1439,7 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
 
 	# Graphviz:
 	my $graphviz = $graph->as_graphviz();
-	`dot -o graph.png $graphviz`;
+	`dot -Tpng -o graph.png $graphviz`;
 
 =head1 DESCRIPTION
 
@@ -1439,7 +1452,7 @@ most usefull for flow charts, network diagrams, or hirarchy trees.
 =head2 Input
 
 Apart from driving the module with Perl code, you can also use
-C<Graph::Easy::Parser> to parse simple graph descriptions like:
+C<Graph::Easy::Parser> to parse graph descriptions like:
 
 	[ Bonn ]      --> [ Berlin ]
 	[ Frankfurt ] <=> [ Dresden ]
@@ -1459,7 +1472,7 @@ Uses things like C<+>, C<-> C<< < >> and C<|> to render the boxes.
 
 =item BOX ART
 
-Uses the extended ASCII characters to draw seamless boxes.
+Uses the extended ASCII characters to draw seamless boxes. Not yet implemented.
 
 =item HTML
 
@@ -1471,7 +1484,7 @@ Creates a Scalable Vector Graphics output.
 
 =item Graphviz
 
-Creates a graphviz code that can be feed to 'dot' or similiar programs.
+Creates graphviz code that can be feed to 'dot' or similiar programs.
 
 =back
 
@@ -1564,9 +1577,7 @@ different possible edge styles.
 
 =end graph
 
-More examples at:
-
-L<http://bloodgate.com/perl/graph/>
+More examples at: L<http://bloodgate.com/perl/graph/>
 
 =head1 METHODS
 
@@ -1593,8 +1604,8 @@ valid options:
 Get/set the random seed for the graph object. See L<randomize()>
 for a method to set a random seed.
 
-The seed is used to create random numbers for the layouter, for
-the same graph, the same see will always lead to the same layout.
+The seed is used to create random numbers for the layouter. For
+the same graph, the same seed will always lead to the same layout.
 
 =head2 randomize()
 
@@ -1783,12 +1794,18 @@ In list context returns a list of all the node objects (as reference).
 
 =head2 sorted_nodes()
 
-	my $nodes = $graph->sorted_nodes();
+	my $nodes =
+	 $graph->sorted_nodes( );		# default sort on 'id'
+	my $nodes = 
+	 $graph->sorted_nodes( 'name' );	# sort on 'name'
+	my $nodes = 
+	 $graph->sorted_nodes( 'layer', 'id' );	# sort on 'layer', then on 'id'
 
 In scalar context, returns the number of nodes/vertices the graph has.
 In list context returns a list of all the node objects (as reference),
-sorted by their internal ID number (e.g. the order they have been
-inserted).
+sorted by their attribute(s) given as arguments. The default is 'id',
+e.g. their internal ID number, which amounts more or less to the order
+they have been inserted.
 
 =head2 node()
 

@@ -40,6 +40,15 @@ sub _find_path
   # possible, delegate to _find_path_hard(). Returns a list of cells.
   my ($self, $src, $dst) = @_;
 
+  # XXX TODO:
+  # This code assumes each starting/end point is one cell.
+  # It should really get all the starting possibilities via
+  # $src->_near_places() and then the possibilities from $dst->_near_places()
+  # and the try each @start with each @stop
+
+  my @start = $src->_near_places();
+  my @stop = $dst->_near_places();
+
   # one node pointing back to itself?
   return $self->_find_path_loop($src) if $src == $dst;
  
@@ -156,6 +165,8 @@ sub _find_path
     {
     # try straight path to target:
  
+    print "$src->{x},$src->{y} => $dst->{x},$dst->{y} - trying short path\n" if $self->{debug};
+
     # distance to node:
     my $dx1 = ($x1 - $x0);
     my $dy1 = ($y1 - $y0);

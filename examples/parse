@@ -9,6 +9,7 @@ use Graph::Easy::Parser;
 print "# Graph::Easy v$Graph::Easy::VERSION\n";
 
 my $file = shift;
+$file = \*STDIN unless defined $file;
 my $id = shift || '';
 my $debug = shift || 0;
 

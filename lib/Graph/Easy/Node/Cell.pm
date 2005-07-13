@@ -13,7 +13,7 @@ use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Easy::Node/;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 #############################################################################
 
@@ -30,6 +30,9 @@ sub _init
   $self->{w} = 0;
   $self->{h} = 0;
 
+  # default: belongs to no node
+  $self->{node} = undef;
+
   # XXX TODO check arguments
   foreach my $k (keys %$args)
     {
@@ -39,6 +42,14 @@ sub _init
   $self->{error} = '';
 
   $self;
+  }
+
+sub node
+  {
+  # return the node this cell belongs to
+  my $self = shift;
+
+  $self->{node};
   }
 
 sub as_ascii
@@ -85,7 +96,8 @@ Graph::Easy::Node::Cell - An empty filler cell
 =head1 DESCRIPTION
 
 A C<Graph::Easy::Group::Cell> represents an edge between two (or more) nodes in a
-simple graph.
+simple graph. It is also used to reserve a cell in the grid for nodes that
+occupy more than one cell.
 
 Each edge has a direction (from source to destination, or back and forth),
 plus a style (line width and style), colors etc. It can also have a name,

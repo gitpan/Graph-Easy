@@ -24,6 +24,8 @@ sub _as_txt
   # convert the graph to a textual representation
   # does not need a layout() before hand!
 
+  $self->_assign_layers();
+
   # generate the class attributes first
   my $txt = '';
   my $att =  $self->{att};
@@ -62,11 +64,11 @@ sub _as_txt
 
   $txt .= "\n" if $txt ne '';		# insert newline
 
-  my @nodes = $self->sorted_nodes();
+  my @nodes = $self->sorted_nodes('name');
 
   my $count = 0;
   # output nodes with attributes first, sorted by their name
-  foreach my $n (sort { $a->{name} cmp $b->{name} } @nodes)
+  foreach my $n (@nodes)
     {
     $n->{_p} = undef;			# mark as not yet processed
     my $att = $n->attributes_as_txt();
@@ -88,9 +90,21 @@ sub _as_txt
     $count++;
     }
 
+  # XXX TODO:
+  # Output all nodes with layer=0 first, and also follow their successors
+  # What is left will then be done next, with layer=1 etc.
+  # This output order let's us output node chains in compact form as:
+  # [A]->[B]->[C]->[D]
+  # [B]->[E]
+  # instead of having:
+  # [A]->[B]
+  # [B]->[E]
+  # [B]->[C] etc
+ 
+  @nodes = $self->sorted_nodes('layer','name');
   foreach my $n (@nodes)
     {
-    my @out = $n->successors();
+    my @out = $n->sorted_successors();
     my $first = $n->as_pure_txt();
     if ((@out == 0) && ( (scalar $n->predecessors() || 0) == 0))
       {
@@ -99,7 +113,7 @@ sub _as_txt
       }
 
     # for all outgoing connections
-    foreach my $other (reverse @out)
+    foreach my $other (@out)
       {
       # in case there exists more than one edge from $n --> $other
       my @edges = $n->edges_to($other);

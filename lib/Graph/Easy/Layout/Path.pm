@@ -30,29 +30,87 @@ use Graph::Easy::Edge::Cell qw/
   EDGE_LABEL_CELL
  /;
 
+package Graph::Easy::Node;
+
 sub _near_places
   {
-  # take a node and return a list of possible placements around it
+  # Take a node and return a list of possible placements around it
   # prunes out already occupied cells.
-  my ($self, $n, $cells) = @_;
+  my ($n, $cells) = @_;
 
-  my @tries  = (
+  my $cx = $n->{cx} || 1;
+  my $cy = $n->{cy} || 1;
+  
+  my @places = ();
+
+  if ($cx + $cy == 2)
+    {
+    my @tries  = (
   	$n->{x} + 2, $n->{y},		# right
 	$n->{x}, $n->{y} + 2,		# down
 	$n->{x} - 2, $n->{y},		# left
 	$n->{x}, $n->{y} - 2,		# up
-    );
-  my @places = ();
+      );
 
-  while (@tries > 0)
-    {
-    my $x = shift @tries;
-    my $y = shift @tries;
-    next if exists $cells->{"$x,$y"};
-    push @places, $x, $y;
+    while (@tries > 0)
+      {
+      my $x = shift @tries;
+      my $y = shift @tries;
+      # This quick check does not take node clusters or multi-celled nodes
+      # into account. These are handled in $node->place() later.
+      next if exists $cells->{"$x,$y"};
+      push @places, $x, $y;
+      }
+    return @places;
     }
+
+  # Handle a multi-celled node. For a 3x2 node:
+  #      A   B   C
+  #   J [00][10][20] D
+  #   I [10][11][21] E
+  #      H   G   F
+  # we have 10 (3 * 2 + 2 * 2) places to consider
+
+  my $nx = $n->{x};
+  my $ny = $n->{y};
+  my ($px,$py);
+
+  # right
+  for my $y (0 .. $cy-1)
+    {
+    $py = $y + $ny;
+    $px = $nx + $cx + 1;
+    push @places, $px, $py unless exists $cells->{"$px,$py"};
+    }
+
+  # below
+  for my $x (0 .. $cx-1)
+    {
+    $px = $x + $nx;
+    $py = $ny + $cy + 1;
+    push @places, $px, $py unless exists $cells->{"$px,$py"};
+    }
+
+  # left
+  for my $y (0 .. $cy-1)
+    {
+    $py = $y + $ny;
+    $px = $nx - 1;
+    push @places, $px, $py unless exists $cells->{"$px,$py"};
+    }
+
+  # top
+  for my $x (0 .. $cx-1)
+    {
+    $px = $x + $nx;
+    $py = $ny - 1;
+    push @places, $px, $py unless exists $cells->{"$px,$py"};
+    }
+
   @places;
   }
+
+package Graph::Easy;
 
 sub _find_node_place
   {
@@ -86,7 +144,7 @@ sub _find_node_place
       {
       # only one placed predecessor, so place $node near it
       print STDERR "# placing $node->{name} near predecessor\n" if $self->{debug};
-      @tries = $self->_near_places($pre[0], $cells); 
+      @tries = $pre[0]->_near_places($cells); 
       }
     else
       {
@@ -120,7 +178,7 @@ sub _find_node_place
       # different nodes:
       foreach $node (@pre)
         {
-        push @tries, $self->_near_places($node, $cells);
+        push @tries, $node->_near_places($cells);
         }
       }
     }
@@ -137,7 +195,7 @@ sub _find_node_place
     foreach my $s (@suc)
       {
       # for each successors (especially if there is only one), try to place near
-      push @tries, $self->_near_places($s, $cells); 
+      push @tries, $s->_near_places($cells); 
       }
     }
 

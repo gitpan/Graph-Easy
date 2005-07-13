@@ -5,8 +5,7 @@
 
 package Graph::Easy::Node;
 
-use 5.006001;
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 use strict;
 
@@ -72,6 +71,10 @@ sub _init
   $self->{x} = 0;
   $self->{y} = 0;
  
+  # size of node in cells (are != 1 for multi-celled nodes)
+  $self->{cx} = 1;
+  $self->{cy} = 1;
+ 
   # XXX TODO: these could be left undef (to save memory) until needed 
   $self->{out} = {};
   $self->{in} = {};
@@ -104,6 +107,32 @@ sub _correct_size
     }
   }
 
+sub unplace
+  {
+  # free the cells this node occupies from $cells
+  my ($self,$cells) = @_;
+
+  my $x = $self->{x}; my $y = $self->{y};
+  delete $cells->{"$x,$y"};
+  $self->{x} = undef;
+  $self->{y} = undef;
+
+  if ($self->{cx} + $self->{cy} > 2)	# one of them > 1!
+    {
+    for my $ax (1..$self->{cx})
+      {
+      my $sx = $x + $ax - 1;
+      for my $ay (1..$self->{cy})
+        {
+        my $sy = $y + $ay - 1;
+        # free cell
+        delete $cells->{"$sx,$sy"};
+        }
+      }
+    } # end handling multi-celled node
+  $self;
+  }
+
 sub place
   {
   # Tries to place the node at position ($x,$y) by checking that
@@ -115,6 +144,20 @@ sub place
 
   # node cannot be placed here
   return 0 if exists $cells->{"$x,$y"};
+
+  if ($self->{cx} + $self->{cy} > 2)	# one of them > 1!
+    {
+    for my $ax (1..$self->{cx})
+      {
+      my $sx = $x + $ax - 1;
+      for my $ay (1..$self->{cy})
+        {
+        my $sy = $y + $ay - 1;
+        # node cannot be placed here
+        return 0 if exists $cells->{"$sx,$sy"};
+        }
+      }
+    }
 
   # belongs to a cluster => check all nodes
   if (exists $self->{cluster} && defined $self->{cluster})
@@ -132,6 +175,20 @@ sub place
       my $y = $node->{dy} + $oy;
 #      print STDERR "# checking $x,$y against $node->{name}\n";
       return 0 if exists $cells->{"$x,$y"};	# cell already blocked
+
+      if ($node->{cx} + $node->{cy} > 2)	# one of them > 1!
+        {
+        for my $ax (1..$node->{cx})
+          {
+          my $sx = $x + $ax - 1;
+          for my $ay (1..$node->{cy})
+            {
+            # node cannot be placed here
+	    my $sy = $y + $ay - 1;
+            return 0 if exists $cells->{"$sx,$sy"};
+            }
+          }
+        } # end handling of multi-celled node
       }
 
     # place all the other nodes 
@@ -142,6 +199,25 @@ sub place
       $node->{x} = $x;
       $node->{y} = $y;
       $cells->{"$x,$y"} = $node;
+
+      if ($node->{cx} + $node->{cy} > 2)	# one of them > 1!
+        {
+        for my $ax (1..$node->{cx})
+          {
+          my $sx = $x + $ax - 1;
+          for my $ay (1..$node->{cy})
+            {
+            next if $ax == 1 && $ay == 1;	# skip left-upper most cell
+	    my $sy = $y + $ay - 1;
+	    # We might even get away with creating only one filler cell
+	    # although then it's "x" and "y" values would be "wrong".
+            my $filler = Graph::Easy::Node::Cell->new ( node => $node );
+            $filler->{x} = $sx;
+            $filler->{y} = $sy;
+            $cells->{"$sx,$sy"} = $filler;
+            }
+          }
+        } # end handling of multi-celled node
       }
     # we return early here, because $self was already handled above
     return 1;
@@ -151,6 +227,30 @@ sub place
   $self->{x} = $x;
   $self->{y} = $y;
   $cells->{"$x,$y"} = $self;
+
+  # a multi-celled node will be stored like this:
+  # [ node   ] [ filler ]
+  # [ filler ] [ filler ]
+  # [ filler ] [ filler ] etc.
+ 
+  if ($self->{cx} + $self->{cy} > 2)	# one of them > 1!
+    {
+    for my $ax (1..$self->{cx})
+      {
+      my $sx = $x + $ax - 1;
+      for my $ay (1..$self->{cy})
+        {
+        next if $ax == 1 && $ay == 1;	# skip left-upper most cell
+        my $sy = $y + $ay - 1;
+        # We might even get away with creating only one filler cell
+        # although then it's "x" and "y" values would be "wrong".
+        my $filler = Graph::Easy::Node::Cell->new ( node => $self );
+        $filler->{x} = $sx;
+        $filler->{y} = $sy;
+        $cells->{"$sx,$sy"} = $filler;
+        }
+      }
+    } # end handling of multi-celled node
 
   1;							# success
   }
@@ -501,6 +601,31 @@ sub as_html
   }
 
 #############################################################################
+# multi-celled nodes
+
+sub grow
+  {
+  # grows the node until it has sufficient cells for all incoming/outgoing
+  # edges
+  my $self = shift;
+
+  my $connections = $self->connections();
+
+#  my $direction = $self->attribute('direction') || 90;
+
+  while ( ($self->{cx} * 2 + $self->{cy} * 2) < $connections)
+    {
+    # find the minimum
+    # XXX TODO: use "direction" attribute to choose Y or X preference
+    my $grow = 'cy';		# first in Y direction
+    $grow = 'cx' if $self->{cx} < $self->{cy};
+    $self->{$grow}++;
+    }
+
+  $self;
+  }
+
+#############################################################################
 # accessor methods
 
 sub title
@@ -592,6 +717,20 @@ sub height
   $self->{h};
   }
 
+sub columns
+  {
+  my $self = shift;
+
+  $self->{cx};
+  }
+
+sub rows
+  {
+  my $self = shift;
+
+  $self->{cy};
+  }
+
 sub shape
   {
   my $self = shift;
@@ -636,6 +775,50 @@ sub edges_to
     push @E, $g->get_edge_attribute_by_id( $self->{name}, $other->{name}, $id, OBJ);
     }
   @E;
+  }
+
+sub connections
+  {
+  # return number of connections (incoming+outgoing)
+  my $self = shift;
+
+  return 0 unless defined $self->{graph};
+
+  my $g = $self->{graph}->{graph};
+  return 0 unless defined $g;
+
+  # It is not enough to just add successors+predecessors, because
+  # in a multi-edges graph "A -> B; A -> B", A has one successor,
+  # but two connections!
+
+  # XXX TODO find out, whether Graph has a method that returns this.
+
+  my $con = 0;
+  my $n = $self->{name};
+  my @nodes = $g->successors( $n );
+  for my $s (@nodes)
+    {
+    $con += $g->get_multiedge_ids( $n, $s );
+    }
+  @nodes = $g->predecessors( $n );
+  for my $s (@nodes)
+    {
+    $con += $g->get_multiedge_ids( $s, $n );
+    }
+  $con;
+  }
+
+sub sorted_successors
+  {
+  # return successors of the node sorted by their successor count
+  # (e.g. successors with more successors first) 
+  my $self = shift;
+ 
+  my @suc = sort {
+       scalar $b->successors() <=> scalar $a->successors() ||
+       scalar $a->{name} cmp scalar $b->{name}
+       } $self->successors();
+  @suc;
   }
 
 sub successors
@@ -1132,6 +1315,18 @@ Returns the width of the node. This is a unitless number.
 
 Returns the height of the node. This is a unitless number.
 
+=head2 columns()
+
+	my $cols = $node->columns();
+
+Returns the number of columns (in cells) that this node occupies.
+
+=head2 rows()
+
+	my $cols = $node->rows();
+
+Returns the number of rows (in cells) that this node occupies.
+
 =head2 pos()
 
 	my ($x,$y) = $node->pos();
@@ -1166,6 +1361,19 @@ set from C<Graph::Easy::layout>.
 	my $id = $node->id();
 
 Returns the node's unique ID number.
+
+=head2 grow()
+
+	$node->grow();
+
+Grows the node in C<columns()> and C<rows()> until all the outgoing/incoming
+connection fit at the borders.
+
+=head2 connections()
+
+	my $cnt = $node->connections();
+
+Returns the number of connections to (incoming) and from (outgoing) this node.
 
 =head2 predecessors()
 

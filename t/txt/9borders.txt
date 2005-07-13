@@ -7,8 +7,8 @@
 [ none ] { border: none; }
 [ wave ] { border: wave; }
 
-[ Solid ] ..> [ Dotted ]
 [ Dashed ] ==> [ none ]
+[ Solid ] ..> [ Dotted ]
 [ dot-dash ] - > [ Bold ]
 [ dot-dot-dash ] .-> [ wave ]
-[ wave ] --> [ Double ]
+[ wave ] ~~> [ Double ]

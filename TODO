@@ -17,6 +17,8 @@ Parser:
 
     "[ A || B | C ] { background: red,blue,green; }"
 
+* deal with ";" as an optional noop like in:
+  "[A]->[B]; [A]->[C]"
 * Nodes with both "|" and "\|" in their name are parsed wrongly
 
 Output:
@@ -27,6 +29,7 @@ Output:
   ----->  |----->  o----->  +----->  *----->  >>----->
 
 * as_txt(): output of node clusters is not optimal
+* as_txt(): output of node chains is not optimal
 * as_ascii(): output group borders and labels
 * as_ascii(): node clusters need adjoining borders collapsed together
   +---++---+      +---+---+
@@ -65,20 +68,14 @@ Layout:
 * _trace_path(): use A* algorithmn as last resort to find path
 * make nodes occupy more than one cell (for making very wide/very high nodes
   fit better, as well as allowing more than 4 edges in/out of one node)
-* echo "[B] [A] -> [B]" | examples/as_ascii
-  +---+     +---+
-  | B | <-- | A |
-  +---+     +---+
-  That should actually be:
-  +---+     +---+
-  | A | --> | B |
-  +---+     +---+
+  (fix the various output routines to deal with cx != 1 or cy != 1)
 
 Optimizer:
 
 * write an optimizer, that can optimize an already found layout
 * less memory: store border and edge styles as ints instead of "solid" etc
 * optimize attribute():
+* use AUTOLOAD for accessors in Node.pm: most are never used by normal code
 
 %Time ExclSec CumulS #Calls sec/call Csec/c  Name
  52.1   0.440  0.440 130300   0.0000 0.0000  Graph::Easy::attribute

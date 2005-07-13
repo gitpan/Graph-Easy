@@ -18,6 +18,7 @@ can_ok ("Graph::Easy", qw/
   _create_cell
   _find_path_hard
   _find_path_u_shaped
+  _assign_layers
   /);
 
 isnt ($Graph::Easy::VERSION, undef, 'VERSION in Layout');
@@ -91,5 +92,4 @@ is (scalar @coords, 4, 'straight path down');
 my $type = EDGE_VER();
 my $type_label = EDGE_VER() + EDGE_LABEL_CELL();
 is (join (":", @coords), "1,1,$type_label:1,2,$type:1,3,$type:1,4,$type", 'path 1,0 => 1,5');
-
 

@@ -12,10 +12,11 @@ BEGIN { $|++; }
 use lib 'lib';
 use Graph::Easy::Parser;
 
-my $parser = Graph::Easy::Parser->new( debug => 0 );
-
 my $file = shift;
 my $id = shift || '';
+my $debug = shift;
+
+my $parser = Graph::Easy::Parser->new( debug => $debug );
 
 $file = \*STDIN unless defined $file;
 my $graph = $parser->from_file( $file );
@@ -25,7 +26,7 @@ die ($parser->error()) unless defined $graph;
 $graph->id($id);
 $graph->layout();
 
-die ($parser->error()) if $graph->error();
+warn($graph->error()) if $graph->error();
 
 print $graph->as_ascii();
 

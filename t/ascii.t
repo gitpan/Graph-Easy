@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 52;
+   plan tests => 58;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -74,7 +74,7 @@ foreach my $f (@files)
   if (!
     is ($graph->as_txt(), $txt, "$f as_txt"))
     {
-    require Test::Differences;
+    eval { require Test::Differences; };
 
     if (defined $Test::Differences::VERSION)
       {
