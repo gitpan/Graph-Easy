@@ -4,6 +4,7 @@
 [ Double ] { border: double; }
 [ dot-dash ] { border: dot-dash; }
 [ dot-dot-dash ] { border: dot-dot-dash; }
+[ double-dash ] { border: double-dash; }
 [ none ] { border: none; }
 [ wave ] { border: wave; }
 
@@ -11,4 +12,4 @@
 [ Solid ] ..> [ Dotted ]
 [ dot-dash ] - > [ Bold ]
 [ dot-dot-dash ] .-> [ wave ]
-[ wave ] ~~> [ Double ]
+[ double-dash ] ~~> [ Double ]

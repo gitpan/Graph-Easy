@@ -48,6 +48,13 @@ if (defined $ver && $ver <= 0.05)
   print "         Please upgrade it after installing this package.\n\n";
   }
 
+eval { require Graph };
+
+my $ver = $Graph::VERSION;
+
+die ("Graph v0.66 is broken and cannot be used by Graph::Simple. Please either upgrade or downgrade it")
+  if (defined $ver && $ver == 0.66);
+
 WriteMakefile(
     NAME		=> 'Graph::Easy',
     VERSION_FROM	=> 'lib/Graph/Easy.pm', # finds $VERSION

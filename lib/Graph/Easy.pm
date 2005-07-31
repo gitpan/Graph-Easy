@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph 0.65;
 use Graph::Directed;
 
-$VERSION = '0.22';
+$VERSION = '0.23';
 
 use strict;
 
@@ -139,6 +139,22 @@ sub _init
 #############################################################################
 # accessors
 
+sub debug
+  {
+  my $self = shift;
+
+  $self->{debug} = $_[0] if @_;
+  $self->{debug};
+  }
+
+sub is_simple_graph
+  {
+  # return true if the graph does not have multiedges
+  my $self = shift;
+
+  $self->{graph}->is_simple_graph();
+  }
+
 sub id
   {
   my $self = shift;
@@ -223,8 +239,15 @@ sub edges
 
 sub sorted_nodes
   {
-  # return all nodes as objects, sorted by $field (defaults to id)
+  # return all nodes as objects, sorted by $f1 or $f1 and $f2
   my ($self, $f1, $f2) = @_;
+
+  return scalar $self->{graph}->vertices() unless wantarray;	# shortcut
+
+  $f1 = 'id' unless defined $f1;
+  # sorting on a non-unique field alone will result in unpredictable
+  # sorting order due to hashing
+  $f2 = 'name' if !defined $f2 && $f1 !~ /^(name|id)$/;
 
   my $sort = sub { $a->{id} <=> $b->{id} };
   $sort = sub { $a->{$f1} <=> $b->{$f1} } if $f1;
@@ -235,13 +258,12 @@ sub sorted_nodes
 
   my $g = $self->{graph};
   my @V = $g->vertices();
-  return scalar @V unless wantarray;		# shortcut
-
   my @nodes = ();
   foreach my $k (@V)
     {
     push @nodes, $g->get_vertex_attribute( $k, OBJ );
     }
+  # the return here should not be removed
   return sort $sort @nodes;
   }
 
@@ -274,182 +296,6 @@ sub node
   my $name = shift || '';
 
   $self->{graph}->get_vertex_attribute( $name, OBJ );
-  }
-
-#############################################################################
-# color handling
-
-my $color_names = {
-  aliceblue		=> '#f0f8ff',
-  antiquewhite		=> '#faebd7',
-  aquamarine		=> '#7fffd4',
-  aqua			=> '#00ffff',
-  azure			=> '#f0ffff',
-  beige			=> '#f5f5dc',
-  bisque		=> '#ffe4c4',
-  black			=> '#000000',
-  blanchedalmond	=> '#ffebcd',
-  blue			=> '#0000ff',
-  blueviolet		=> '#8a2be2',
-  brown			=> '#a52a2a',
-  burlywood		=> '#deb887',
-  cadetblue		=> '#5f9ea0',
-  chartreuse		=> '#7fff00',
-  chocolate		=> '#d2691e',
-  coral			=> '#ff7f50',
-  cornflowerblue	=> '#6495ed',
-  cornsilk		=> '#fff8dc',
-  crimson		=> '#dc143c',
-  cyan			=> '#00ffff',
-  darkblue		=> '#00008b',
-  darkcyan		=> '#008b8b',
-  darkgoldenrod		=> '#b8860b',
-  darkgray		=> '#a9a9a9',
-  darkgreen		=> '#006400',
-  darkgrey		=> '#a9a9a9',
-  darkkhaki		=> '#bdb76b',
-  darkmagenta		=> '#8b008b',
-  darkolivegreen	=> '#556b2f',
-  darkorange		=> '#ff8c00',
-  darkorchid		=> '#9932cc',
-  darkred		=> '#8b0000',
-  darksalmon		=> '#e9967a',
-  darkseagreen		=> '#8fbc8f',
-  darkslateblue		=> '#483d8b',
-  darkslategray		=> '#2f4f4f',
-  darkslategrey		=> '#2f4f4f',
-  darkturquoise		=> '#00ced1',
-  darkviolet		=> '#9400d3',
-  deeppink		=> '#ff1493',
-  deepskyblue		=> '#00bfff',
-  dimgray		=> '#696969',
-  dodgerblue		=> '#1e90ff',
-  firebrick		=> '#b22222',
-  floralwhite		=> '#fffaf0',
-  forestgreen		=> '#228b22',
-  fuchsia		=> '#ff00ff',
-  gainsboro		=> '#dcdcdc',
-  ghostwhite		=> '#f8f8ff',
-  goldenrod		=> '#daa520',
-  gold			=> '#ffd700',
-  gray			=> '#808080',
-  green			=> '#008000',
-  greenyellow		=> '#adff2f',
-  grey			=> '#808080',
-  honeydew		=> '#f0fff0',
-  hotpink		=> '#ff69b4',
-  indianred		=> '#cd5c5c',
-  indigo		=> '#4b0082',
-  ivory			=> '#fffff0',
-  khaki			=> '#f0e68c',
-  lavenderblush		=> '#fff0f5',
-  lavender		=> '#e6e6fa',
-  lawngreen		=> '#7cfc00',
-  lemonchiffon		=> '#fffacd',
-  lightblue		=> '#add8e6',
-  lightcoral		=> '#f08080',
-  lightcyan		=> '#e0ffff',
-  lightgoldenrodyellow	=> '#fafad2',
-  lightgray		=> '#d3d3d3',
-  lightgreen		=> '#90ee90',
-  lightgrey		=> '#d3d3d3',
-  lightpink		=> '#ffb6c1',
-  lightsalmon		=> '#ffa07a',
-  lightseagreen		=> '#20b2aa',
-  lightskyblue		=> '#87cefa',
-  lightslategray	=> '#778899',
-  lightslategrey	=> '#778899',
-  lightsteelblue	=> '#b0c4de',
-  lightyellow		=> '#ffffe0',
-  limegreen		=> '#32cd32',
-  lime			=> '#00ff00',
-  linen			=> '#faf0e6',
-  magenta		=> '#ff00ff',
-  maroon		=> '#800000',
-  mediumaquamarine	=> '#66cdaa',
-  mediumblue		=> '#0000cd',
-  mediumorchid		=> '#ba55d3',
-  mediumpurple		=> '#9370db',
-  mediumseagreen	=> '#3cb371',
-  mediumslateblue	=> '#7b68ee',
-  mediumspringgreen	=> '#00fa9a',
-  mediumturquoise	=> '#48d1cc',
-  mediumvioletred	=> '#c71585',
-  midnightblue		=> '#191970',
-  mintcream		=> '#f5fffa',
-  mistyrose		=> '#ffe4e1',
-  moccasin		=> '#ffe4b5',
-  navajowhite		=> '#ffdead',
-  navy			=> '#000080',
-  oldlace		=> '#fdf5e6',
-  olivedrab		=> '#6b8e23',
-  olive			=> '#808000',
-  orangered		=> '#ff4500',
-  orange		=> '#ffa500',
-  orchid		=> '#da70d6',
-  palegoldenrod		=> '#eee8aa',
-  palegreen		=> '#98fb98',
-  paleturquoise		=> '#afeeee',
-  palevioletred		=> '#db7093',
-  papayawhip		=> '#ffefd5',
-  peachpuff		=> '#ffdab9',
-  peru			=> '#cd853f',
-  pink			=> '#ffc0cb',
-  plum			=> '#dda0dd',
-  powderblue		=> '#b0e0e6',
-  purple		=> '#800080',
-  red			=> '#ff0000',
-  rosybrown		=> '#bc8f8f',
-  royalblue		=> '#4169e1',
-  saddlebrown		=> '#8b4513',
-  salmon		=> '#fa8072',
-  sandybrown		=> '#f4a460',
-  seagreen		=> '#2e8b57',
-  seashell		=> '#fff5ee',
-  sienna		=> '#a0522d',
-  silver		=> '#c0c0c0',
-  skyblue		=> '#87ceeb',
-  slateblue		=> '#6a5acd',
-  slategray		=> '#708090',
-  slategrey		=> '#708090',
-  snow			=> '#fffafa',
-  springgreen		=> '#00ff7f',
-  steelblue		=> '#4682b4',
-  tan			=> '#d2b48c',
-  teal			=> '#008080',
-  thistle		=> '#d8bfd8',
-  tomato		=> '#ff6347',
-  turquoise		=> '#40e0d0',
-  violet		=> '#ee82ee',
-  wheat			=> '#f5deb3',
-  white			=> '#ffffff',
-  whitesmoke		=> '#f5f5f5',
-  yellowgreen		=> '#9acd32',
-  yellow		=> '#ffff00',
-  };
-
-sub _color_as_hex
-  {
-  # Turn "red" or rgb(255,0,0) or "#f00" into "#ff0000". Return undef for
-  # invalid colors.
-  my ($self, $color) = @_;
-
-  $color = lc($color);
-
-  return $color_names->{$color} if exists $color_names->{$color};
- 
-  # rgb(255,0,0) => '#ff0000' 
-  $color = sprintf("#%02x%02x%02x", $1,$2,$3)
-    if $color =~ /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/ 
-    && $1 < 256 && $2 < 256 && $3 < 256;
-
-  # turn #ff0 into #ffff00
-  $color = "#$1$1$2$2$3$3" if $color =~ /^#([a-f0-9])([a-f0-9])([a-f[0-9])\z/;
-
-  # check final color value to be #RRGGBB
-  return undef unless $color =~ /^#[a-f0-9]{6}\z/;
-
-  $color;
   }
 
 #############################################################################
@@ -1019,7 +865,7 @@ sub as_ascii
     }
 
   my $out = '';
-  for my $y (0..$max_y+1)
+  for my $y (0..$max_y)
     {
     my $line = $fb->[$y];
     $line =~ s/\s+\z//;		# remove trailing whitespace
@@ -1058,9 +904,9 @@ sub _prepare_layout
   # 1,0 => 7,  3,  10, 0
   # 2,0 => 8,  3,  16, 0
 
-  # Technically, we also need to "compress" away non-existant columns/rows
+  # Technically, we also need to "compress" away non-existant columns/rows.
   # We achive that by simply rendering them with size 0, so they become
-  # invisible.
+  # practically invisible.
 
   my $cells = $self->{cells};
   my $rows = {};
@@ -1387,9 +1233,7 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
 		name => 'Bonn',
 		border => 'solid 1px black',
 	);
-	my $berlin = Graph::Easy::Node->new(
-		name => 'Berlin',
-	);
+	my $berlin = Graph::Easy::Node->new('Berlin');
 
 	$graph->add_edge ($bonn, $berlin);
 
@@ -1403,11 +1247,22 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
 	# | Bonn | --> | Berlin |
 	# +------+     +--------+
 
+	# adding edges with attributes:
+
+        my $edge = Graph::Easy::Edge->new(
+                label => 'train',
+                style => 'dotted',
+                color => 'red',
+        );
+
+	# with optional edge object
+	$graph->add_edge ($bonn, $berlin, $edge);
+
 	# raw HTML section
 	print $graph->as_html( );
 
 	# complete HTML page (with CSS)
-	print $graph->as_html_page( );
+	print $graph->as_html_file( );
 
 	# creating a graph from a textual description	
 	use Graph::Easy::Parser;
@@ -1434,7 +1289,7 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
 
 	# Other possibilities:
 
-	# SVG:
+	# SVG (possible after you installed Graph::Easy::As_svg):
 	print $graph->as_svg( );
 
 	# Graphviz:
@@ -1484,7 +1339,7 @@ Creates a Scalable Vector Graphics output.
 
 =item Graphviz
 
-Creates graphviz code that can be feed to 'dot' or similiar programs.
+Creates graphviz code that can be feed to 'dot', 'neato' or similiar programs.
 
 =back
 
@@ -1537,6 +1392,16 @@ A graph consisting of three nodes, and both are linked from the first:
 
 =end graph
 
+=head2 Three nodes in a chain
+
+A graph consisting of three nodes, showing that you can chain connections together:
+
+=begin graph
+
+	[ Bonn ] -> [ Berlin ] -> [ Hamburg ]
+
+=end graph
+
 =head2 Two not connected graphs
 
 A graph consisting of two seperate parts, both of them not connected
@@ -1569,11 +1434,13 @@ different possible edge styles.
 
 =begin graph
 
-	[ Bonn ] <-> [ Berlin ]        # bidirectional
-	[ Berlin ] ==> [ Rostock ]     # double
-	[ Hamburg ] ..> [ Altona ]     # dotted
-	[ Dresden ] - > [ Bautzen ]    # dashed
-	[ Magdeburg ] <=> [ Ulm ]      # bidrectional, double etc
+	[ Bonn ] <-> [ Berlin ]		# bidirectional
+	[ Berlin ] ==> [ Rostock ]	# double
+	[ Hamburg ] ..> [ Altona ]	# dotted
+	[ Dresden ] - > [ Bautzen ]	# dashed
+	[ Leipzig ] ~~> [ Kirchhain ]	# wave
+	[ Hof ] .-> [ Chemnitz ]	# dot-dash
+	[ Magdeburg ] <=> [ Ulm ]	# bidrectional, double etc
 
 =end graph
 
@@ -1596,22 +1463,33 @@ valid options:
 
 	debug			if true, enables debug output
 
-=head2 seed()
+=head2 error()
 
-	my $seed = $graph->seed();
-	$graph->seed(2);
+	my $error = $graph->error();
 
-Get/set the random seed for the graph object. See L<randomize()>
-for a method to set a random seed.
+Returns the last error or '' for none.
+Optionally, takes an error message to be set.
 
-The seed is used to create random numbers for the layouter. For
-the same graph, the same seed will always lead to the same layout.
+	$graph->error( 'Expected Foo, but found Bar.' );
 
-=head2 randomize()
+=head2 add_edge()
 
-	$graph->randomize();
+	$graph->add_edge( $x, $y, $edge);
+	$graph->add_edge( $x, $y);
 
-Set a random seed for the graph object. See L<seed()>.
+Add an edge between nodes X and Y. The optional edge object defines
+the style of the edge, if not present, a default object will be used.
+
+C<$x> and C<$y> should be objects of L<Graph::Easy::Node|Graph::Easy::Node>,
+while C<$edge> should be L<Graph::Easy::Edge|Graph::Easy::Edge>.
+ 
+=head2 add_node()
+
+	$graph->add_node( $x );
+
+Add a single node X to the graph. C<$x> should be either a
+C<Graph::Easy::Node> object, or a unique name for the node. Will do
+nothing if the node already exists in the graph.
 
 =head2 get_attribute()
 
@@ -1657,56 +1535,10 @@ Example:
 
 	$graph->set_attributes( 'node', { color => 'red', background => 'none' } );
 
-=head2 score()
-
-	my $score = $graph->score();
-
-Returns the score of the graph, or undef if L<layout()> has not yet been called.
-
-Higher scores are better, although you cannot compare scores for different
-graphs. The score should only be used to compare different layouts of the same
-graph against each other:
-
-	my $max = undef;
-
-	$graph->randomize();
-	my $seed = $graph->seed(); 
-
-	$graph->layout();
-	$max = $graph->score(); 
-
-	for (1..10)
-	  {
-	  $graph->randomize();			# select random seed
-	  $graph->layout();			# layout with that seed
-	  if ($graph->score() > $max)
-	    {
-	    $max = $graph->score();		# store the new max store
-	    $seed = $graph->seed();		# and it's seed
-	    }
-	  }
-
-	# redo the best layout
-	if ($seed ne $graph->seed())
-	  {
-	  $graph->seed($seed);
-	  $graph->layout();
-	  }
-	# output graph:
-	print $graph->as_ascii();		# or as_html() etc
-
-=head2 error()
-
-	my $error = $graph->error();
-
-Returns the last error. Optionally, takes an error message to be set.
-
-	$graph->error( 'Expected Foo, but found Bar.' );
-
 =head2 layout()
 
 Creates the internal structures to layout the graph. This will be done
-behind the scenes of you call any of the C<as_FOO> methods. 
+behind the scenes of you call any of the C<as_FOO> methods below: 
 
 =head2 as_ascii()
 
@@ -1727,11 +1559,11 @@ page. Basically wraps the output from L<as_ascii()> into C<< <pre> </pre> >>.
 
 Return the graph layout as HTML section. See L<css()> to get the
 CSS section to go with that HTML code. If you want a complete HTML page
-then use L<as_html_page()>.
+then use L<as_html_file()>.
 
-=head2 as_html_page()
+=head2 as_html_file()
 
-	print $graph->as_html_page();
+	print $graph->as_html_file();
 
 Return the graph layout as HTML complete with headers, CSS section and
 footer. Can be viewed in the browser of your choice.
@@ -1764,26 +1596,7 @@ Return the graph as a textual representation, that can be parsed with
 C<Graph::Easy::Parser> back to a graph.
 
 This does not call L<layout()> since the actual text representation
-is more a dump of the graph, then a certain layout.
-
-=head2 add_edge()
-
-	$graph->add_edge( $x, $y, $edge);
-	$graph->add_edge( $x, $y);
-
-Add an edge between nodes X and Y. The optional edge object defines
-the style of the edge, if not present, a default object will be used.
-
-C<$x> and C<$y> should be objects of L<Graph::Easy::Node|Graph::Easy::Node>,
-while C<$edge> should be L<Graph::Easy::Edge|Graph::Easy::Edge>.
- 
-=head2 add_node()
-
-	$graph->add_node( $x );
-
-Add a single node X to the graph. C<$x> should be either a
-C<Graph::Easy::Node> object, or a unique name for the node. Will do
-nothing if the node already exists in the graph.
+is more a dump of the graph, than a certain layout.
 
 =head2 nodes()
 
@@ -1834,13 +1647,77 @@ default is ''.
 The graph's ID is used to generate unique CSS classes for each graph, in the
 case you want to have more than one graph in an HTML page.
 
+=head2 seed()
+
+	my $seed = $graph->seed();
+	$graph->seed(2);
+
+Get/set the random seed for the graph object. See L<randomize()>
+for a method to set a random seed.
+
+The seed is used to create random numbers for the layouter. For
+the same graph, the same seed will always lead to the same layout.
+
+=head2 randomize()
+
+	$graph->randomize();
+
+Set a random seed for the graph object. See L<seed()>.
+
+=head2 debug()
+
+	my $debug = $graph->debug();	# get
+	$graph->debug(1);		# enable
+	$graph->debug(0);		# disable
+
+Enable, disable or read out the debug status. When the debug status is true,
+additional debug messages will be printed on STDERR.
+
+=head2 score()
+
+	my $score = $graph->score();
+
+Returns the score of the graph, or undef if L<layout()> has not yet been called.
+
+Higher scores are better, although you cannot compare scores for different
+graphs. The score should only be used to compare different layouts of the same
+graph against each other:
+
+	my $max = undef;
+
+	$graph->randomize();
+	my $seed = $graph->seed(); 
+
+	$graph->layout();
+	$max = $graph->score(); 
+
+	for (1..10)
+	  {
+	  $graph->randomize();			# select random seed
+	  $graph->layout();			# layout with that seed
+	  if ($graph->score() > $max)
+	    {
+	    $max = $graph->score();		# store the new max store
+	    $seed = $graph->seed();		# and it's seed
+	    }
+	  }
+
+	# redo the best layout
+	if ($seed ne $graph->seed())
+	  {
+	  $graph->seed($seed);
+	  $graph->layout();
+	  }
+	# output graph:
+	print $graph->as_ascii();		# or as_html() etc
+
 =head1 EXPORT
 
 Exports nothing.
 
 =head1 SEE ALSO
 
-L<Graph::Layout::Aesthetic>, L<Graph> and L<Graph::Easy::Parser>.
+L<Graph::Easy::As_svg>, L<Graph::Layout::Aesthetic>, L<Graph> and L<Graph::Easy::Parser>.
 
 There is also an very old, unrelated project from ca. 1995, which does something similiar.
 See L<http://rw4.cs.uni-sb.de/users/sander/html/gsvcg1.html>.
@@ -1853,6 +1730,11 @@ L<http://bloodgate.com/perl/graph/>.
 
 This module is a proof-of-concept and has currently some limitations.
 Hopefully further development will lift these.
+
+=head2 Scoring
+
+Scoring is not yet implemented, each generated graph will be the same regardless
+of the random seed.
 
 =head2 Syntax
 
@@ -1872,6 +1754,8 @@ works, the second and third do not:
 	[ Frankfurt ] -> [ Hamburg ], [ Dresden ]
 	[ Cottbus ], [ Kamenz ] -> [ Plauen ], [ Bamberg ]
 
+=item scopes
+
 =back
 
 =head2 Paths
@@ -1882,57 +1766,11 @@ works, the second and third do not:
 
 Currently edges (paths from node to node) cannot cross each other.
 
-=item No more than two bends
+=item Too bendy paths
 
-All nodes must be either in straight line of sight (up, down, left or right) of
-each other or connectable by a path with at most two bends, like shown here:
-
-	+------+     +--------+
-	| Bonn | --> | Berlin |
-	+------+     +--------+
-	  |            |
-	  |            |
-	  |            v
-	  |          +---------+
-	  +--------> | Potsdam |
-	             +---------+
-
-	+------+     +--------+      +--------+
-	| Bonn | --> | Berlin | -- > | Kassel |
-	+------+     +--------+      +--------+
-	  |		|		^
-	  |		|		|
-	  |		v		|
-	  |          +--------+		|
-	  |	     | Ulm    |		|
-	  |          +--------+		|
-	  |				|
-	  +-----------------------------+
-
-Thus the following graph output is not yet possible:
-
-	             +---------+
-	  +--------> | Koblenz | <---------------+
-	  |	     +---------+		 |
-	  |		|			 |
-	  |		|			 |
-	  |		v			 |
-	+------+     +--------+      +--------+  |
-	| Bonn | --> | Berlin | -- > | Kassel |  |
-	+------+     +--------+      +--------+	 |
-	  |		^			 |
-	  |		|			 |
-	  v		|			 |
-	+------+     +---------+      		 |
-	| Ulm  | --> | Bautzen | 		 |
-	+------+     +---------+ 		 |
-	  |					 |
-	  |					 |
-	  +--------------------------------------+
-
-
-For that to work a general path-finding algorithm like C<< A* >> must
-be implemented.
+The A* algorithmn sometimes create unnecessary bends in a path. A tweak which
+will prevent would be decreasing the value of an already open node, but
+this has not yet been implemented.
 
 =item No joints
 
@@ -1948,34 +1786,9 @@ Currently it is not possible that an edge joins another edge like this:
 	  +-----------------------> | Potsdam |
 	             		    +---------+
 
-This means each node can have at most 4 edges leading to or from it.
-
 =item No optimizations
 
-The layouter will sometimes generate non-optimal layouts like this:
-
-	+------+     +--------+      +--------+
-	| Bonn | --> | Berlin | -- > | Kassel |
-	+------+     +--------+      +--------+
-	  |				^
-	  |				|
-	  |				|
-	  |				|
-	  +-----------------------------+
-
-The layout above should really be converted to this:
-
-	+------+     +--------+
-	| Bonn | --> | Berlin |
-	+------+     +--------+
-	  |            |
-	  |            |
-	  |            v
-	  |          +---------+
-	  +--------> | Kassel  |
-	             +---------+
-
-Other non-optimal layouts like this one might also appear from time to time:
+Non-optimal layouts like this one might appear from time to time:
 
 	+------+     +--------+
 	| Bonn | --> | Berlin |
@@ -1987,45 +1800,31 @@ Other non-optimal layouts like this one might also appear from time to time:
 	| Kassel  | ---+
 	+---------+
 
-A second-stage optimizer that simplifies these layouts does not yet exist.
+A second-stage optimizer that simplifies these layouts is not yet implemented.
 
-=back
+In addition the general placement/processing strategy as well as the local
+strategy might be improved.
 
-All the flaws with the edges can be corrected easily, but there was simple
-not enough time for that yet.
+=item ASCII edge labels
 
-=head2 Node-Size
+Edges in ASCII miss their edge labels.
 
-A node is currently always one cell big. Overly broad/wide nodes, or nodes
-with multiple lines shoud occupy more than one cell. This would also
-enable them to have more than 4 incoming/outgoing edges.
-
-=head2 Placement
-
-Currently the node placement is dependend on the order the nodes were
-inserted into the graph. In reality it should start with nodes having
-no or little incoming edges and then progress to nodes with more 
-incoming edges.
-
-A side-effect of this problem is that:
-
-	[ Bonn ] -> [ Berlin ]
-
-results in:
+	# [ Bonn ] - train -> [ Berlin ] will be rendered as:
 
 	+------+     +--------+
 	| Bonn | --> | Berlin |
 	+------+     +--------+
 
-while this equivalent graph:
+=back
 
-	[ Berlin ] [ Bonn ] -> [ Berlin ]
+=head2 Node-Size
 
-results in something like this:
+A node consisting of multiple cells will be rendered incorrectly
+on ouput.
 
-	+--------+     +------+
-	| Berlin | <-- | Bonn |
-	+--------+     +------+
+Nodes with more than one cell are automatically generated when they
+are overly wide or high, or when they have more than four
+incoming/outgoing edges.
 
 =head2 Grouping
 
@@ -2046,7 +1845,7 @@ See the LICENSE file for information.
 
 =head1 NAME CHANGE
 
-The package is formerly know as C<Graph::Simple>. The name was changed
+The package was formerly known as C<Graph::Simple>. The name was changed
 for two reasons:
 
 =over 2
@@ -2058,8 +1857,7 @@ however, supports more than simple graphs.
 
 =item *
 
-Creating graphs should be easy, but the created graphs can also be quite
-complex.
+Creating graphs should be easy even when the graphs are quite complex.
 
 =back
 

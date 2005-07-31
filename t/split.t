@@ -95,7 +95,7 @@ foreach (<DATA>)
   for my $n ( sort { $a->{name} cmp $b->{name} } ($graph->nodes(), $graph->edges()) )
     {
     # normalize color output
-    my $b = $graph->_color_as_hex($n->attribute('background'));
+    my $b = Graph::Easy::Attributes->color_as_hex($n->attribute('background'));
     $got .= ";" . $n->name() . "," . $n->label() . "=$n->{dx}.$n->{dy}." . $b;
     } 
   

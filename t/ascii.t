@@ -3,11 +3,11 @@
 use Test::More;
 use strict;
 
-# test text file input => ASCII output and back to as_txt() again
+# test text file input => ASCII output, and back to as_txt() again
 
 BEGIN
    {
-   plan tests => 58;
+   plan tests => 64;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -24,6 +24,8 @@ is ($parser->error(), '', 'no error yet');
 
 opendir DIR, "in" or die ("Cannot read dir 'in': $!");
 my @files = readdir(DIR); closedir(DIR);
+
+eval { require Test::Differences; };
 
 foreach my $f (@files)
   {
@@ -51,14 +53,25 @@ foreach my $f (@files)
 
   my $ascii = $graph->as_ascii();
   my $out = readfile("out/$f");
-  $out =~ s/(^|\n)\s*#[^#].*\n//g;		# remove comments
+  $out =~ s/(^|\n)\s*#[^#=].*\n//g;		# remove comments
   $out =~ s/\n\n/\n/g;				# remove empty lines
 
-#  print "txt: $txt\n";
+# print "txt: $txt\n";
 # print "ascii: $ascii\n";
 # print "should: $out\n";
 
-  is ($ascii, $out, "from $f");
+  if (!
+    is ($ascii, $out, "from $f"))
+    {
+    if (defined $Test::Differences::VERSION)
+      {
+      Test::Differences::eq_or_diff ($ascii, $out);
+      }
+    else
+      {
+      fail ("Test::Differences not installed");
+      }
+    }
 
   # if the txt output differes, read it in
   if (-f "txt/$f")
@@ -74,11 +87,13 @@ foreach my $f (@files)
   if (!
     is ($graph->as_txt(), $txt, "$f as_txt"))
     {
-    eval { require Test::Differences; };
-
     if (defined $Test::Differences::VERSION)
       {
       Test::Differences::eq_or_diff ($graph->as_txt(), $txt);
+      }
+    else
+      {
+      fail ("Test::Differences not installed");
       }
     }
 

@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 19;
+   plan tests => 20;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -56,6 +56,7 @@ $node->grow();
 is ($node->connections(), 5, '5 connections');
 is ($node->columns(), 1, '1 column');
 is ($node->rows(), 2, '2 rows');
+is ($node->is_multicelled(), 1, 'is multicelled');
 
 #############################################################################
 # node placement (multi-cell)

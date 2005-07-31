@@ -12,9 +12,13 @@ BEGIN
    };
 
 can_ok ('Graph::Easy', qw/
+  new
+  _init
+
   output_format
   output
   seed randomize
+  debug
 
   border_attribute
   /);
@@ -62,7 +66,7 @@ my @E = $graph->edges();
 my $en = '';
 for my $e (@E)
   {
-  $en .= $e->{style} . '.';
+  $en .= $e->style() . '.';
   }
 
 is ($en, 'solid.', 'edges() in list context');

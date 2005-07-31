@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 13;
+   plan tests => 18;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Layout") or die($@);
@@ -16,8 +16,8 @@ can_ok ("Graph::Easy", qw/
   _find_path
   _remove_path
   _create_cell
-  _find_path_hard
-  _find_path_u_shaped
+  _find_path_astar
+  _find_path_loop
   _assign_layers
   /);
 
@@ -39,25 +39,47 @@ is (ref($graph), 'Graph::Easy');
 
 is ($graph->error(), '', 'no error yet');
 
-#############################################################################
-# _find_path()
-
 my $src = Graph::Easy::Node->new( name => 'Bonn' );
 my $dst = Graph::Easy::Node->new( 'Berlin' );
+my $e = 3;				# elements per path cell (x,y,type)
+
+#############################################################################
+# _near_places()
+
+$src->{x} = 1; $src->{y} = 1;
+
+my $cells = {};
+my @places = $src->_near_places($cells);
+is (scalar @places, 4 * 2, '4 places');
+
+@places = $src->_near_places($cells,2);		# $d == 2
+is (scalar @places, 4 * 2, '4 places');
+
+@places = $src->_near_places($cells,3);		# $d == 3
+is (scalar @places, 4 * 2, '4 places');
+
+@places = $src->_near_places($cells,3,0);	# $d == 3, type is 0
+is (scalar @places, 4 * $e, '4 places');
+
+#                        #1+3,1+0,1 ...
+is (join (',', @places), '4,1,0,1,4,1,-2,1,2,1,-2,3', 'places');
+
+#############################################################################
+# _find_path()
 
 $src->{x} = 1; $src->{y} = 1;
 $dst->{x} = 1; $dst->{y} = 1;
 
-my @coords = $graph->_find_path( $src, $dst);
+my $coords = $graph->_find_path( $src, $dst);
 
-is (scalar @coords, 1, 'same cell => short edge path');
+is (scalar @$coords, 1*$e, 'same cell => short edge path');
 
 $src->{x} = 1; $src->{y} = 1;
 $dst->{x} = 2; $dst->{y} = 2;
 
-@coords = $graph->_find_path( $src, $dst);
+$coords = $graph->_find_path( $src, $dst);
 
-is (scalar @coords, 1, 'path with a bend');
+is (scalar @$coords, 1*$e, 'path with a bend');
 
 # mark one cell as already occupied
 $graph->{cells}->{"1,2"} = $src;
@@ -65,31 +87,32 @@ $graph->{cells}->{"1,2"} = $src;
 $src->{x} = 1; $src->{y} = 1;
 $dst->{x} = 1; $dst->{y} = 3;
 
-@coords = $graph->_find_path( $src, $dst);
+$coords = $graph->_find_path( $src, $dst);
 
-is (scalar @coords, 5, 'u shaped path');
+is (scalar @$coords, 5*$e, 'u shaped path');
 
 # block src over/under to avoid an U-shaped path
 $graph->{cells}->{"2,1"} = $src;
 $graph->{cells}->{"0,1"} = $src;
 
-@coords = $graph->_find_path( $src, $dst);
-is (scalar @coords, 0, 'cell already blocked (test might fail if A* is implemented!)');
+$coords = $graph->_find_path( $src, $dst);
+# XXX TODO: check what path is actually generated here
+is (scalar @$coords, 9*$e, 'cell already blocked');
 
 delete $graph->{cells}->{"1,2"};
 
-@coords = $graph->_find_path( $src, $dst);
+$coords = $graph->_find_path( $src, $dst);
 
-is (scalar @coords, 1, 'straight path down');
-is (join (":", @coords), '1,2,' . (EDGE_SHORT_S() + EDGE_LABEL_CELL()), 'path 1,1 => 1,3');
+is (scalar @$coords, 1*$e, 'straight path down');
+is (join (":", @$coords), '1:2:' . (EDGE_SHORT_S() + EDGE_LABEL_CELL()), 'path 1,1 => 1,3');
 
 $src->{x} = 1; $src->{y} = 0;
 $dst->{x} = 1; $dst->{y} = 5;
 
-@coords = $graph->_find_path( $src, $dst);
+$coords = $graph->_find_path( $src, $dst);
 
-is (scalar @coords, 4, 'straight path down');
+is (scalar @$coords, 4*$e, 'straight path down');
 my $type = EDGE_VER();
 my $type_label = EDGE_VER() + EDGE_LABEL_CELL();
-is (join (":", @coords), "1,1,$type_label:1,2,$type:1,3,$type:1,4,$type", 'path 1,0 => 1,5');
+is (join (":", @$coords), "1:1:$type_label:1:2:$type:1:3:$type:1:4:$type", 'path 1,0 => 1,5');
 

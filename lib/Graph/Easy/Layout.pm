@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 #############################################################################
 #############################################################################
@@ -198,7 +198,7 @@ sub layout
     if ($action_type == ACTION_NODE)
       {
       my ($node) = $action->[1];
-      print STDERR "# step $step: got place '$node->{name}'\n" if $self->{debug};
+      print STDERR "# step $step: action place '$node->{name}'\n" if $self->{debug};
 
       # $action is node to be placed, generic placement at "random" location
       if (!defined $node->{x})
@@ -222,7 +222,7 @@ sub layout
 
       ($action_type,$src,$dst,$edge) = @$action;
 
-      print STDERR "# step $step: got trace '$src->{name}' => '$dst->{name}'\n" if $self->{debug};
+      print STDERR "# step $step: action trace '$src->{name}' => '$dst->{name}'\n" if $self->{debug};
 
       # if target node not yet placed
       if (!defined $dst->{x})

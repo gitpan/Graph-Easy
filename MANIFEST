@@ -20,10 +20,16 @@ examples/as_graphviz		parse text and output as graphviz
 examples/as_svg			parse text and output as standalone SVG
 examples/as_ascii		parse text and output it as ASCII art
 examples/as_html		parse text and output it as standalone HTML page
+todo/layouter.txt
+todo/layouter_chain.txt
+todo/edge_label.txt
 t/anon.t
+t/attributes.t
 t/ascii.t
+t/astar.t
 t/cell.t
 t/cluster.t
+t/fb.t
 t/graph.t
 t/graphviz.t
 t/easypm.t
@@ -104,6 +110,8 @@ t/in/3nodes.txt
 t/in/2_edges.txt
 t/in/3_cluster.txt
 t/in/4nodes.txt
+t/in/4_nodes_5_edges.txt
+t/in/4_nodes_6_edges.txt
 t/in/4_2x2nodes.txt
 t/in/4groups.txt
 t/in/4groups_class.txt
@@ -115,9 +123,9 @@ t/in/4_near.txt
 t/in/6_cluster.txt
 t/in/8_chain.txt
 t/in/9_chain.txt
-t/in/9borders.txt
+t/in/10borders.txt
 t/in/README
-t/out/9borders.txt
+t/out/10borders.txt
 t/out/1node.txt
 t/out/2nodes.txt
 t/out/2_nodes_inv.txt
@@ -133,6 +141,8 @@ t/out/2_invisible_right.txt
 t/out/3_invisible_both.txt
 t/out/2_newlines.txt
 t/out/4_near.txt
+t/out/4_nodes_5_edges.txt
+t/out/4_nodes_6_edges.txt
 t/out/6_cluster.txt
 t/out/8_chain.txt
 t/out/9_chain.txt
@@ -140,6 +150,8 @@ t/txt/4groups.txt
 t/txt/4groups_class.txt
 t/txt/4_near.txt
 t/txt/4_2x2nodes.txt
+t/txt/4_nodes_5_edges.txt
+t/txt/4_nodes_6_edges.txt
 t/txt/2_invisible_left.txt
 t/txt/2_invisible_right.txt
 t/txt/3_invisible_both.txt
@@ -148,23 +160,24 @@ t/txt/2_newlines.txt
 t/txt/6_cluster.txt
 t/txt/8_chain.txt
 t/txt/9_chain.txt
-t/txt/9borders.txt
+t/txt/10borders.txt
 t/group/0010.txt
 t/group/0131.txt
 t/group/0230.txt
 lib/Graph/Easy.pm
 lib/Graph/Easy/As_txt.pm		generate textual description
 lib/Graph/Easy/As_graphviz.pm		generate graphviz text
+lib/Graph/Easy/Attributes.pm		define and check attributes
 lib/Graph/Easy/Cluster.pm		nodes clustered (relative positioned)
 lib/Graph/Easy/Edge.pm
 lib/Graph/Easy/Edge/Cell.pm
 lib/Graph/Easy/Group.pm
 lib/Graph/Easy/Group/Cell.pm
 lib/Graph/Easy/Layout.pm		actual layout routines
-lib/Graph/Easy/Layout/Scout.pm	pathfinding
+lib/Graph/Easy/Layout/Scout.pm		pathfinding (including A*)
 lib/Graph/Easy/Layout/Path.pm		path management
 lib/Graph/Easy/Node.pm
 lib/Graph/Easy/Node/Anon.pm
 lib/Graph/Easy/Node/Cell.pm
-lib/Graph/Easy/Parser.pm
-META.yml			Module meta-data (added by MakeMaker)
+lib/Graph/Easy/Parser.pm		parse textual descriptions
+META.yml				Module meta-data

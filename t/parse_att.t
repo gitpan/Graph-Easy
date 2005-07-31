@@ -53,7 +53,8 @@ foreach (<DATA>)
       }
     else
       {
-      print '# Got unexpected error: ' . $parser->error();
+      print '# Got unexpected error: ' . $parser->error(), "\n";
+      fail ("$txt");
       }
     next;
     }

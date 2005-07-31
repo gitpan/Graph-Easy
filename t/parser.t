@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 62;
+   plan tests => 66;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -31,6 +31,10 @@ is ($parser->error(), '', 'no error yet');
 $parser->{line_nr} = 0;
 is ($parser->parse_error(1,'foo','bar'),
     "Value 'bar' for attribute 'foo' is invalid at line 0");
+
+$parser->{line_nr} = 0;
+is ($parser->parse_error(2,'boldly','style','edge'),
+    "Error in attribute: 'boldly' is not a valid style for edge at line 0");
 
 #############################################################################
 # matching nodes
@@ -78,7 +82,8 @@ foreach (<DATA>)
 
   $got .= '+' . $es if $es > 0;
 
-  for my $n ( sort { $a->{name} cmp $b->{name} } ($graph->nodes(), $graph->edges()) )
+  for my $n ( sort { $a->{name} cmp $b->{name} || $b->{att}->{label} cmp $a->{att}->{label} }
+   ($graph->nodes(), $graph->edges()) )
     {
     $got .= "," . $n->label() unless $n->label() eq '' || $n->label() eq $n->name();
     $got .= "," . $n->name() unless $n->name() eq '';
@@ -116,6 +121,9 @@ __DATA__
 [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ] -> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] ==> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
+[ Bonn ] = > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
+[ Bonn ] ~~> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
+[ Bonn ] . > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] ..> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] - > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn \( \#1 \) ] - > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn ( #1 ),Frankfurt

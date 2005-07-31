@@ -66,8 +66,15 @@ is ($path->attribute('color'), 'blue');
 #print $path->as_ascii();
 #print $path->as_html();
 
-is ($path->as_ascii(), "\n <--\n", 'as ascii');
+$path->_correct_size();
+
+my $ascii = $path->as_ascii();
+$ascii =~ s/^\s+//;
+$ascii =~ s/\s+\z//;
+
+is ($ascii, "<--", 'as ascii');
 is ($path->as_html(), "<td class='edge'>&lt;------<\/td>\n", 'as html');
+
 #############################################################################
 # edge_type()
 

@@ -13,7 +13,7 @@ use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 #############################################################################
 
@@ -22,7 +22,6 @@ sub _init
   # generic init, override in subclasses
   my ($self,$args) = @_;
   
-  $self->{style} = 'solid';
   $self->{class} = 'edge';
   $self->{cells} = { };
 
@@ -33,7 +32,10 @@ sub _init
     }
 
   $self->{att}->{label} = $self->{name};
-  
+  $self->{att}->{'border-style'} = 'none';
+  $self->{att}->{style} = $self->{style} || 'solid';
+  delete $self->{style};
+ 
   $self->{error} = '';
 
   $self;
@@ -43,10 +45,12 @@ my $styles = {
   solid => '--',
   dotted => '..',
   double => '==',
+  'double-dash' => '= ',
   dashed => '- ',
   'dot-dash' => '.-',
   'dot-dot-dash' => '..-',
   wave => '~~',
+  bold => '##',
   };
 
 sub as_txt
@@ -58,18 +62,20 @@ sub as_txt
 
   $n = '- ' . $n . ' ' if $n ne '';
 
-  if (!exists $styles->{$self->{style}})
+  if (!exists $styles->{$self->{att}->{style}})
     {
     require Carp;
-    Carp::croak ("Unknown edge style $self->{style}\n");
+    Carp::croak ("Unknown edge style $self->{att}->{style}\n");
     }
   # ' - Name -->' or ' --> '
-  ' ' . $n . $styles->{$self->{style}} . '> ';
+  ' ' . $n . $styles->{$self->{att}->{style}} . '> ';
   }
 
 sub _formatted_label
   {
   my $self = shift;
+
+  # XXX TODO: this can be optimized
 
   my $name = $self->label();
   $name =~ s/\\n/\n/g;                  # insert newlines
@@ -79,28 +85,6 @@ sub _formatted_label
   @lines;
   }
 
-sub as_ascii
-  {
-  my $self = shift;
-
-  my $border = $self->attribute('border-style') || 'none';
-
-  if ($border eq 'none')
-    { 
-    # XXX TODO: should center text instead of left-align
-    my @lines = $self->_formatted_label();
-    # '-->'
-    my $txt = "";
-    for my $l (@lines)
-      {
-      $txt .= "$l\n";
-      }
-    return $txt;
-    }
-
-  $self->SUPER::as_ascii();
-  }
-
 #############################################################################
 # accessor methods
 
@@ -108,7 +92,7 @@ sub style
   {
   my $self = shift;
 
-  $self->{style};
+  $self->{att}->{style};
   }
 
 sub cells

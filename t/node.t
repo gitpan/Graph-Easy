@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 92;
+   plan tests => 97;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -48,6 +48,8 @@ can_ok ("Graph::Easy::Node", qw/
   add_to_cluster
   cluster
   origin
+
+  is_multicelled
   /);
 
 #############################################################################
@@ -70,6 +72,9 @@ is ($node->height(), 3, 'h = 3');
 is ($node->shape(), 'rect', 'default shape is "rect"');
 is ($node->border_attribute(), '', 'border_attribute()');
 is ($node->connections(), 0, 'no connections yet');
+is ($node->is_multicelled(), 0, 'no multicelled');
+is ($node->rows(), 1, '1 row');
+is ($node->columns(), 1, '1 column');
 
 # these are not set, because the node doesn't have a border and thus inherits
 # it
@@ -291,6 +296,9 @@ $node = Graph::Easy::Node->new( { name => "Node #0", label => 'label' } );
 is ($node->label(), 'label', 'node label eq "label"');
 
 $node->_correct_size();
+
+is ($node->width(), '7', 'width 7');
+is ($node->height(), '3', 'height 3');
 
 like ($node->as_ascii(), qr/label/, 'as_ascii uses label, not name');
 

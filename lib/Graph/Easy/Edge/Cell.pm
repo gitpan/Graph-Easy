@@ -13,25 +13,25 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 #############################################################################
 
 # The different types for a path:
 sub EDGE_SHORT_E	() { 0; }		# |->	a start/end at the same cell
-sub EDGE_SHORT_N	() { 1; }		# v	a start/end at the same cell
+sub EDGE_SHORT_S	() { 1; }		# v	a start/end at the same cell
 sub EDGE_SHORT_W	() { 2; }		# <-|	a start/end at the same cell
-sub EDGE_SHORT_S	() { 3; }		# ^	a start/end at the same cell
+sub EDGE_SHORT_N	() { 3; }		# ^	a start/end at the same cell
 
 sub EDGE_START_E	() { 4; }		# |--	starting-point
-sub EDGE_START_N	() { 5; }		# |	starting-point
+sub EDGE_START_S	() { 5; }		# |	starting-point
 sub EDGE_START_W	() { 6; }		# --|	starting-point
-sub EDGE_START_S	() { 7; }		# |	starting-point
+sub EDGE_START_N	() { 7; }		# |	starting-point
 
-sub EDGE_END_E		() { 8; }		# -->	end-point
-sub EDGE_END_N		() { 9; }		# ^	end-point
-sub EDGE_END_W		() { 10; }		# <--	end-point
-sub EDGE_END_S		() { 11; }		# v	end-point
+sub EDGE_END_W		() { 8; }		# <--	end-point
+sub EDGE_END_N		() { 9; }		# v	end-point
+sub EDGE_END_E		() { 10;}		# -->	end-point
+sub EDGE_END_S		() { 11; }		# ^	end-point
 
 sub EDGE_HOR		() { 12; }		# --	horizontal line
 sub EDGE_VER		() { 13; }		# |	vertical line
@@ -50,7 +50,7 @@ sub EDGE_W_N_S		() { 22; }		#  |-	three-sided corner (W to S and N)
 sub EDGE_MAX_TYPE () { 22; }	# last valid type
 
 sub EDGE_LABEL_CELL	() { 0x1000; }		# add to EDGE type to signal: label here
-sub EDGE_TYPE_MASK	() { 0x0FFF; }		# mask out to leave onyl the type
+sub EDGE_TYPE_MASK	() { 0x0FFF; }		# mask out to leave only the type
 
 @EXPORT_OK = qw/
   EDGE_SHORT_E
@@ -128,14 +128,15 @@ sub edge_type
 
 my $edge_styles = 
   {
-  # style  hor, ver,   right, left, up, down, cross
-  solid 	=> [ '--', "|\n|",   '>',   '<',  '^',   'v',   '+' ],		# simple line
-  double	=> [ '==', "||\n||", '>',   '<',  '/\\', '\\/', "++\n++"],	# double line
-  dotted	=> [ '..', ":\n:",   '>',   '<',  '^',   'v',   ' ' ],		# dotted
-  dashed	=> [ '- ', "|\n ",   '>',   '<',  '^',   'v',   '+' ],		# dashed
-  'dot-dash'	=> [ '.-', "|\n ",   '>',   '<',  '^',   'v',   '+' ],		# dot-dash
-  'dot-dot-dash' => [ '..-', "|\n ",   '>',   '<',  '^',   'v',   '+' ],	# dot-dot-dash
-  'wave' => [ '~~', "}\n ",   '>',   '<',  '^',   'v',   '+' ],			# wave
+  # style            hor, ver, right, left, up, down, cross, corner
+  solid 	 => [ '--',  "|", '>', '<',  '^', 'v', '+', '+' ],	# simple line
+  double	 => [ '==',  "H", '>', '<',  '^', 'v', "#", '#' ],	# double line
+  'double-dash'	 => [ '= ',  '"', '>', '<',  '^', 'v', "#", '#' ],	# double dashed line
+  dotted	 => [ '..',  ":", '>', '<',  '^', 'v', ':', '.' ],	# dotted
+  dashed	 => [ '- ',  "'", '>', '<',  '^', 'v', '+', '+' ],	# dashed
+  'dot-dash'	 => [ '.-',  "!", '>', '<',  '^', 'v', '+', '+' ],	# dot-dash
+  'dot-dot-dash' => [ '..-', "!", '>', '<',  '^', 'v', '+', '+' ],	# dot-dot-dash
+  'wave' 	 => [ '~~',  "}", '>', '<',  '^', 'v', '+', '*' ],	# wave
   };
 
 my @edge_content = 
@@ -144,29 +145,33 @@ my @edge_content =
 
   # ASCII,		HTML,			# type
   "\n -->",		'------>',		# EDGE_SHORT_E
-  "  ^\n  |  \n  |",	"^\n|\n|",		# EDGE_SHORT_N
-  "\n <--",		'<------',		# EDGE_SHORT_W
   "  |\n  |\n  v",	"|\n|\nv",		# EDGE_SHORT_S
+  "\n <--",		'<------',		# EDGE_SHORT_W
+  "  ^\n  |  \n  |",	"^\n|\n|",		# EDGE_SHORT_N
 
-  "\n ----",	'------',			# EDGE_START_E
-  "|\n|\n",	"|\n|\n|\n|\n",			# EDGE_START_N
-  "\n---- ",	'------',			# EDGE_START_W
-  "\n |\n |\n",	"\n|\n|\n|\n|",			# EDGE_START_S
+  "\n ----",		'------',		# EDGE_START_E
+  "  |\n  |\n  |\n",	"\n|\n|\n|\n|",		# EDGE_START_S
+  "\n---- ",		'------',		# EDGE_START_W
+  "  |\n  |\n  |\n",	"|\n|\n|\n|\n",		# EDGE_START_N
 
-  "\n--> ",	'------>',			# EDGE_END_E
+  "\n <--",		'<------',		# EDGE_END_W
   "  ^\n  |  \n  |",	"^\n|\n|",		# EDGE_END_N
-  "\n <--",	'<------',			# EDGE_END_W
-  " |\n |\n v",	"|\n|\nv",			# EDGE_END_S
+  "\n -->",		'------>',		# EDGE_END_E
+  "  |\n  |\n  v",	"|\n|\nv",		# EDGE_END_S
 
-  "\n----",	'------',			# EDGE_HOR
-  " |\n |\n |\n |\n |",	"|\n|\n|",		# EDGE_VER
-  " |\n-+-\n|",	"|\n--+--\n|",			# EDGE_CROSS
+  "\n----",		'------',		# EDGE_HOR
+  "  |\n  |\n  |\n",	"|\n|\n|\n|\n|",	# EDGE_VER
+  " |\n-*-\n|",		"|\n--*--\n|",		# EDGE_CROSS
 
-  " |\n +-",	"   |\n  +--",			# EDGE_N_E
-  " |\n-+",	"   |\n--+",			# EDGE_N_W
-  "\n +-\n |",	"\n  +--\n   |",		# EDGE_S_E
-  "\n-+\n |",	"\n--+\n   |",			# EDGE_S_W
+  "  |\n  *--",		"   |\n  *--",		# EDGE_N_E
+  "  |\n--*",		"   |\n--*",		# EDGE_N_W
+  "\n  *--\n  |",	"\n  *--\n   |",	# EDGE_S_E
+  "\n--*\n  |",		"\n--*\n   |",		# EDGE_S_W
   );
+
+# the last entry is '*' and '', to replace the '*' with '+', because '*' ne ''
+my @replace_qr = ( qr/\-\-/, qr/\|/, qr/>/, qr/</, qr/\^/, qr/v/, qr/\+/, qr/\*/, ); 
+my @replace    = ( '--', '|', '>', '<', '^', 'v', '+', '' ); 
 
 #############################################################################
 
@@ -188,13 +193,17 @@ sub _init
     {
     $self->{$k} = $args->{$k};
     }
+
+  # XXX TODO: if no edge present, create one, then use edge
+  # attributes directly instead of copying them, that saves
+  # four hash entries per edge-cell!
  
   if (defined $self->{edge})
     {
     # register ourselves at this edge
     $self->{edge}->add_cell ($self);
     # take over settings from edge
-    $self->{style} = $self->{edge}->{style};
+    $self->{style} = $self->{edge}->{att}->{style};
     $self->{class} = $self->{edge}->{class};
     $self->{graph} = $self->{edge}->{graph};
     $self->{att} = $self->{edge}->{att};
@@ -209,19 +218,24 @@ sub _init
 
 sub _content
   {
+  # generate the content of the cell, aka the edge (like: '---', '-->' etc)
   my ($self, $offset) = @_;
 
   my $nr = ($self->{type} << 1);
-  my $name = $edge_content[ $nr + $offset];
+  my $name = $edge_content[ $nr + ($offset||0)];
 
   my $style = $edge_styles->{ $self->{style} };
-  # '--' => [ "|\n|",   '>',   '<',  '^',   'v',   '+' ],		# simple line
-  my @replace = ( '--', qr/\|\n\s*\|/, '>', '<', '^', 'v', "+" ); 
+
+  # XXX TODO: this code will not work in case it needs to replace two lines like:
+
+  # dot-dot-dash:
+  # |     |
+  # | --> :
 
   my $i = 0;
   for my $repl (@$style)
     {
-    my $q = quotemeta($replace[$i]);
+    my $q = $replace_qr[$i];
     $name =~ s/$q/$repl/g if $replace[$i] ne $repl;
     $i++;
     }
@@ -229,15 +243,59 @@ sub _content
   $name;
   }
 
-sub as_ascii
+sub _draw_hor
   {
-  my $self = shift;
+  # draw a HOR edge piece
+  my ($self, $fb) = @_;
 
-  # XXX TODO: include our label
+  my $style = $edge_styles->{ $self->{style} };
+  
+  my $w = $self->{w};
+  # '-' => '-----', '.-' => '.-.-.-'
+  my $line = $style->[0] x (1 + $w / length($style->[0])); 
+  $line = substr($line, 0, $w) if length($line) > $w;
+
+  $self->_printfb ($fb, 0,1, $line);
+  }
+
+sub _draw_ver
+  {
+  # draw a VER edge piece
+  my ($self, $fb) = @_;
+
+  my $style = $edge_styles->{ $self->{style} };
+  
+  my $h = $self->{h};
+  # '|' => '|||||', '{}' => '{}{}{}'
+  my $line = $style->[1] x (1 + $h / length($style->[1])); 
+  $line = substr($line, 0, $h) if length($line) > $h;
+
+  my @pices = split //, $line;
+  $self->_printfb ($fb, 2, 0, @pices);
+  }
+
+sub _draw_label
+  {
+  # insert the label into the framebuffer
+  my ($self, $fb) = @_;
+
+  # XXX TODO: honor an offset, to create seemless dashed etc lines
+
+  return $self->_draw_hor($fb) if $self->{type} == EDGE_HOR;
+  return $self->_draw_ver($fb) if $self->{type} == EDGE_VER;
+
+  # XXX TODO: draw CROSS sections, and also the edge pieces S_E and N_E
+
+  # return $self->_draw_cross($fb) if $self->{type} == EDGE_CROSS;
+  # return $self->_draw_edge_s_e($fb) if $self->{type} == EDGE_S_E;
+  # return $self->_draw_edge_n_e($fb) if $self->{type} == EDGE_N_E;
+
+  # for everything else (short edges, start/end pieces, SW and NW corners),
+  # fall back to the generic method  
+
   $self->{name} = $self->_content(0);
-
-  # let Graph::Easy::Edge (aka Node) handle the output: 
-  $self->SUPER::as_ascii(@_);
+  my @lines = $self->_formatted_label();
+  $self->_printfb ($fb, 0,0, @lines);
   }
 
 sub as_html
@@ -345,7 +403,7 @@ sub _correct_size
   if (!defined $self->{w})
     {
     my $border = $self->{edge}->attribute('border-style') || 'none';
-    # XXX TODO
+    # XXX TODO do label here
     my @lines = split /\n/, $self->_content(0);
     
     # find longest line
@@ -376,6 +434,7 @@ sub attribute
   return $self->{att}->{$atr} if exists $self->{att}->{$atr};
 
   # if not set, path simple uses the attributes from the edge it belongs to
+  # XXX TODO: inline this call?
   $self->{edge}->attribute($atr);
   }
 

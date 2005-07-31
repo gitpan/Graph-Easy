@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 76;
+   plan tests => 68;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -29,7 +29,7 @@ can_ok ("Graph::Easy", qw/
   score
   id
   group groups add_group del_group
-  _color_as_hex
+  is_simple_graph
   /);
 
 #############################################################################
@@ -73,20 +73,6 @@ my $node6 = Graph::Easy::Node->new( name => 'Cottbus' );
 $graph->add_edge( $node5, $node6 );
 
 #print $graph->as_ascii();
-
-#############################################################################
-# _color_as_hex()
-
-is ($graph->_color_as_hex('red'), '#ff0000', 'color red');
-is ($graph->_color_as_hex('rgb(255,0,0)'), '#ff0000', 'color rgb(255,0,0)');
-is ($graph->_color_as_hex('rgb( 255, 0, 0)'), '#ff0000', 'color rgb( 255, 0, 0)');
-is ($graph->_color_as_hex('rgb( 255 , 0 , 0 )'), '#ff0000', 'color rgb( 255 , 0 , 0 )');
-is ($graph->_color_as_hex('#ff0000'), '#ff0000', 'color #ff0000 stays');
-
-is ($graph->_color_as_hex('lavender'), '#e6e6fa', 'color lavender');
-is ($graph->_color_as_hex('lavenderblush'), '#fff0f5', 'color lavenderblush');
-
-is ($graph->_color_as_hex('lavenderbush'), undef, 'color lavenderbush does not exist');
 
 #############################################################################
 # attribute tests

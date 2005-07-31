@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 51;
+   plan tests => 54;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Layout") or die($@);
@@ -107,7 +107,10 @@ $graph->add_edge( $A, $B );
 $graph->add_edge( $C, $B );
 $graph->add_edge( $B, $D );
 $graph->_assign_layers();
+is ($A->connections(), 1);
 is ($B->connections(), 3);
+is ($C->connections(), 1);
+is ($D->connections(), 1);
 is_layer($A, 0);
 is_layer($B, 1);
 is_layer($C, 0);

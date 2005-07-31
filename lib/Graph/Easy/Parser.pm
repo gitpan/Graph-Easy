@@ -9,10 +9,11 @@ package Graph::Easy::Parser;
 use 5.006001;
 use strict;
 use Graph::Easy;
+use Graph::Easy::Attributes;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 sub new
   {
@@ -237,7 +238,7 @@ sub from_text
       my $ea = $6 || '';				# save edge attributes
       my $a1 = $self->_parse_attributes($8||'');	# node attributes
       return undef if $self->{error};
-      $ea = $self->_parse_attributes($ea);		# parse edge attributes
+      $ea = $self->_parse_attributes($ea, 'edge');	# parse edge attributes
       return undef if $self->{error};
 
       # strip trailing spaces
@@ -246,6 +247,7 @@ sub from_text
       my @nodes_b = $self->_new_node ($graph, $n, \@group_stack, $a1);
       
       my $style = 'solid';			# default
+      $style = 'double-dash' if $ed =~ /^(= )+\z/; 
       $style = 'double' if $ed =~ /^=+\z/; 
       $style = 'dotted' if $ed =~ /^\.+\z/; 
       $style = 'dashed' if $ed =~ /^(- )+\z/; 
@@ -475,9 +477,10 @@ sub _match_edge
 sub _parse_attributes
   {
   # takes a text like "attribute: value;  attribute2 : value2;" and
-  # returns a hash with the attributes
-  my ($self,$text) = @_;
+  # returns a hash with the attributes. $class defaults to 'node'.
+  my ($self,$text,$class) = @_;
 
+  $class ||= 'node';
   my $att = {};
 
   $text =~ s/^\s*\{//;		# remove left-over {
@@ -495,8 +498,9 @@ sub _parse_attributes
 
     $val =~ s/\\#/#/g;					# unquote \#
 
-    my $v = $self->valid_attribute($name,$val);
-    return unless defined $v;				# error => stop
+    my $v = Graph::Easy::Attributes->valid_attribute($name,$val,$class);
+    $self->parse_error(2,$val,$name,$class), return
+      unless defined $v;				# stop on error
 
     $att->{$name} = $v;
     }
@@ -511,7 +515,7 @@ sub parse_error
 
   # XXX TODO: should really use the msg nr mapping
   my $msg = "Value '##param2##' for attribute '##param1##' is invalid";
-  $msg = "Error in attribute: '##param1##' is not a valid ##param2##" if $msg_nr == 2;
+  $msg = "Error in attribute: '##param1##' is not a valid ##param2## for ##param3##" if $msg_nr == 2;
 
   my $i = 1;
   foreach my $p (@_)
@@ -528,71 +532,6 @@ sub error
 
   $self->{error} = $_[0] if defined $_[0];
   $self->{error};
-  }
-
-sub valid_attribute
-  {
-  # Check that an name/value pair is an valid attribute, return new
-  # attribute if valid, undef for not valid.
-  my ($self,$name,$value) = @_;
-
-  # check color:
-  if ($name =~ /^(background|color|border-color)$/)
-    {
-    my $clr = $self->{graph}->_color_as_hex($value);
-    if (!defined $clr)
-      {
-      $self->parse_error(2,$value,$name);
-      return undef;
-      }
-    return $clr;
-    }
-
-  if ($name eq 'shape')
-    {
-    # different shapes:
-    $self->parse_error(2,$value,$name), return undef
-     unless $value =~ 
-     /^(
-	circle|
-	diamond|
-	egg|
-	ellipse|
-	hexagon|
-	house|
-	invisible|
-	invhouse|
-	invtrapezium|
-	invtriangle|
-	octagon|
-	parallelogram|
-	pentagon|
-	point|
-	polygon|
-	triangle|
-	trapezium|
-	septagon|
-	tripleoctagon|
-	# simple box
-	box|
-	rect|
-	rectangle|
-	rounded|
-	# these are shape rect, border none
-	plaintext|
-	none
-	)/x;
-     }
-
-  # these are not (yet?) supported:
-  # Mdiamond|
-  # Msquare|
-  # Mcircle|
-  # doublecircle|
-  # doubleoctagon|
-
-  # anything else is passed along for now
-  return $value; 
   }
 
 1;
@@ -628,28 +567,30 @@ The input consists of text describing the graph.
 	[ Bonn ]      --> [ Berlin ]
 	[ Frankfurt ] <=> [ Dresden ]
 	[ Bonn ]      --> [ Frankfurt ]
-	[ Bonn ]      ==> [ Frankfurt ]
+	[ Bonn ]      = > [ Frankfurt ]
 
-See L<Output> for how this will be rendered in ASCII art.
+The output will be a L<Graph::Easy|Graph::Easy> object, see there for what you
+can do with it.
 
 The edges between the nodes can have the following styles:
 
 	-->		solid
 	==>		double
+	##>		bold
 	..>		dotted
 	- >		dashed
 	~~>		wave
 	.->		dot-dash
 	..->		dot-dot-dash
+	= >		double-dash
 
-In additon the following three directions are possible:
+In additon the following two directions are possible:
 
 	 -->		connect the node on the left to the node on the right
 	<-->		the direction between the nodes
 			goes into both directions at once
-	<--		connect the node on the right to the node on the left
 
-Of course you can combine all three directions with all styles.
+Of course you can combine all directions with all styles.
 
 =head2 Output
 
@@ -716,19 +657,6 @@ Returns the last error, or the empty string if no error occured.
 
 Sets an error message from a message number and replaces embedded
 templates like C<##param1##> with the passed parameters.
-
-=head2 valid_attribute()
-
-	my $val = $parser->valid_attribute ($name, $value);
-
-Checkc that the given name/value pair is an valid attribute, and returns
-the new value or undef for invalid attributes.
-
-The returned attribute value might differ from what you pass in as:
-
-	my $val =
-	  $parser->valid_attribute ('color', 'red');
-	print $val;					# prints '#ff0000'
 
 =head2 _parse_attributes()
 

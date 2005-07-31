@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 #############################################################################
 #############################################################################
@@ -18,49 +18,51 @@ package Graph::Easy;
 use strict;
 use Graph::Easy::Node::Cell;
 use Graph::Easy::Edge::Cell qw/
-  EDGE_SHORT_E EDGE_SHORT_W EDGE_SHORT_N EDGE_SHORT_S
-
-  EDGE_START_E EDGE_START_W EDGE_START_N EDGE_START_S
-
-  EDGE_END_E EDGE_END_W EDGE_END_N EDGE_END_S
-
-  EDGE_N_E EDGE_N_W EDGE_S_E EDGE_S_W
-
   EDGE_HOR EDGE_VER EDGE_CROSS
   EDGE_LABEL_CELL
+  EDGE_TYPE_MASK
  /;
 
 package Graph::Easy::Node;
 
 sub _near_places
   {
-  # Take a node and return a list of possible placements around it
-  # prunes out already occupied cells.
-  my ($n, $cells) = @_;
+  # Take a node and return a list of possible placements around it and
+  # prune out already occupied cells. $d is the distance from the node
+  # border and defaults to two (for placements). Set it to one for
+  # adjacent cells. if $t is true, will also return the direction
+  # of the places ($t + 0,1,2,3 depending on direction) so that the
+  # resulting types are EDGE_START_S, EDGE_END_S etc depending on $t.
+  my ($n, $cells, $d, $t) = @_;
 
   my $cx = $n->{cx} || 1;
   my $cy = $n->{cy} || 1;
   
+  $d = 2 unless defined $d;		# default is distance = 2
+
   my @places = ();
 
   if ($cx + $cy == 2)
     {
     my @tries  = (
-  	$n->{x} + 2, $n->{y},		# right
-	$n->{x}, $n->{y} + 2,		# down
-	$n->{x} - 2, $n->{y},		# left
-	$n->{x}, $n->{y} - 2,		# up
+  	$n->{x} + $d, $n->{y},		# right
+	$n->{x}, $n->{y} + $d,		# down
+	$n->{x} - $d, $n->{y},		# left
+	$n->{x}, $n->{y} - $d,		# up
       );
 
+    my $type = 0;
     while (@tries > 0)
       {
       my $x = shift @tries;
       my $y = shift @tries;
+
       # This quick check does not take node clusters or multi-celled nodes
       # into account. These are handled in $node->place() later.
       next if exists $cells->{"$x,$y"};
       push @places, $x, $y;
-      }
+      push @places, $t + $type if defined $t;
+      } continue { $type++; }
     return @places;
     }
 
@@ -75,36 +77,41 @@ sub _near_places
   my $ny = $n->{y};
   my ($px,$py);
 
+  $cy--; $cx--; my $type = $t;
   # right
-  for my $y (0 .. $cy-1)
+  $px = $nx + $cx + $d;
+  for my $y (0 .. $cy)
     {
     $py = $y + $ny;
-    $px = $nx + $cx + 1;
     push @places, $px, $py unless exists $cells->{"$px,$py"};
+    push @places, $type if defined $type && !exists $cells->{"$px,$py"};
     }
 
   # below
-  for my $x (0 .. $cx-1)
+  $py = $ny + $cy + $d; $type = $t + 1 if defined $t;
+  for my $x (0 .. $cx)
     {
     $px = $x + $nx;
-    $py = $ny + $cy + 1;
     push @places, $px, $py unless exists $cells->{"$px,$py"};
+    push @places, $type if defined $type && !exists $cells->{"$px,$py"};
     }
 
   # left
-  for my $y (0 .. $cy-1)
+  $px = $nx - $d; $type = $t + 2 if defined $t;
+  for my $y (0 .. $cy)
     {
     $py = $y + $ny;
-    $px = $nx - 1;
     push @places, $px, $py unless exists $cells->{"$px,$py"};
+    push @places, $type if defined $type && !exists $cells->{"$px,$py"};
     }
 
   # top
-  for my $x (0 .. $cx-1)
+  $py = $ny - $d; $type = $t + 3 if defined $t;
+  for my $x (0 .. $cx)
     {
     $px = $x + $nx;
-    $py = $ny - 1;
     push @places, $px, $py unless exists $cells->{"$px,$py"};
+    push @places, $type if defined $type && !exists $cells->{"$px,$py"};
     }
 
   @places;
@@ -119,7 +126,8 @@ sub _find_node_place
 
   print STDERR "# Finding place for $node->{name}\n" if $self->{debug};
 
-  # try to place node at upper left corner
+  # Try to place node at upper left corner (the very first node to be
+  # placed will usually end up there).
   return 0 if $node->place(0,0,$cells);
 
   # try to place node near the predecessor(s)
@@ -157,6 +165,7 @@ sub _find_node_place
       # are both nodes NOT on a straight line?
       if ($dx != 0 && $dy != 0)
         {
+        # ok, so try to place at the crossing point
 	@tries = ( 
 	  $pre[0]->{x}, $pre[1]->{y},
 	  $pre[0]->{y}, $pre[1]->{x},
@@ -167,18 +176,21 @@ sub _find_node_place
         # two nodes on a line, try to place node in the middle
         if ($dx == 0)
           {
-	  @tries = ( $pre[0]->{x}, $pre[0]->{y} + $dy / 2 );
+	  @tries = ( $pre[1]->{x}, $pre[1]->{y} + $dy / 2 );
           }
         else
           {
-	  @tries = ( $pre[0]->{x} + $dx / 2, $pre[0]->{y} );
+	  @tries = ( $pre[1]->{x} + $dx / 2, $pre[1]->{y} );
           }
         }
+      # XXX TODO BUG: shouldnt we also try this if we have more than 2 placed
+      # predecessors?
+
       # In addition, we can also try to place the node around the
       # different nodes:
-      foreach $node (@pre)
+      foreach my $n (@pre)
         {
-        push @tries, $node->_near_places($cells);
+        push @tries, $n->_near_places($cells);
         }
       }
     }
@@ -220,7 +232,7 @@ sub _find_node_place
   $y +=2 while (exists $cells->{"$col,$y"});
   $y += 1 if exists $cells->{"$col," . ($y-1)};		# leave one cell spacing
 
-  # no try to place node (or node cluster)
+  # now try to place node (or node cluster)
   $y +=2 while (! $node->place($col,$y,$cells));
 
   0;							# success, score 0 
@@ -228,63 +240,50 @@ sub _find_node_place
 
 sub _trace_path
   {
-  # find a free way from $src to $dst (both need to be placed)
+  # find a free way from $src to $dst (both need to be placed beforehand)
   my ($self, $src, $dst, $edge) = @_;
 
-  my $cells = $self->{cells};
-  my $mod = 0;
-
   print STDERR "# Finding path from $src->{name} to $dst->{name}\n" if $self->{debug};
-
   print STDERR "# src: $src->{x}, $src->{y} dst: $dst->{x}, $dst->{y}\n" if $self->{debug};
 
-  #my ($dx,$dy,@coords) = $self->_find_path ($src, $dst);
-  my @coords = $self->_find_path ($src, $dst);
+  my $coords = $self->_find_path ($src, $dst, { direction => [ 90, 180, 270, 0 ] } );
 
-  # fond a path, so compute a score
-  if (@coords != 0)
-    {
-    $mod = 1;				# for straight paths: score +1
-    $mod++ if @coords == 1;		# for short paths: score +1
-
-    if ($src->{x} == $dst->{x}-2 && $src->{y} == $dst->{y})
-      {
-      $mod += 2;			# +2 if right
-      }
-   elsif ($src->{x} == $dst->{x} && $src->{y} == $dst->{y} - 2)
-      {
-      $mod += 1;			# +1 if down
-      }
-
-#   my $edge = $self->edge($src,$dst);
-
-   # Create all cells like "start" cell, "end" cell and intermidiate pieces
-   foreach my $coord (@coords)
-     {
-     $self->_create_cell($edge,$coord);
-     }
-    }
-  else
+  # found no path?
+  if (@$coords == 0)
     {
     # XXX TODO
     print STDERR "# Unable to find path from $src->{name} ($src->{x},$src->{y}) to $dst->{name} ($dst->{x},$dst->{y})\n";
     sleep(1);
     return undef;
     }
-  $mod;
+
+  # Create all cells from the returned list and score path (lower score: better)
+  my $i = 0;
+  my $score = 0;
+  while ($i < scalar @$coords)
+    {
+    my $type = $coords->[$i+2];
+    $self->_create_cell($edge,$coords->[$i],$coords->[$i+1],$type);
+    $score ++;					# each element: one point
+    $type &= ~EDGE_LABEL_CELL;			# mask flags like EDGE_LABEL_CELL etc
+    # edge bend or cross: one point extra
+    $score ++ if $type != EDGE_HOR && $type != EDGE_VER;
+    $score += 3 if $type == EDGE_CROSS;		# crossings are doubleplusungood
+    $i += 3;
+    }
+
+  $score;
   }
 
 sub _create_cell
   {
-  my ($self,$edge,$coord) = @_;
-
-  my ($x,$y,$type) = split /,/, $coord;
+  my ($self,$edge,$x,$y,$type) = @_;
 
   # XXX TODO: set the label of the cell_
   if ($type & EDGE_LABEL_CELL != 0)
     {
     }
-  $type &= ~EDGE_LABEL_CELL;
+  $type &= ~EDGE_LABEL_CELL;		# mask flags like EDGE_LABEL_CELL etc
 
   my $path = Graph::Easy::Edge::Cell->new( type => $type, edge => $edge, x => $x, y => $y );
   $path->{graph} = $self;		# register path elements with ourself
@@ -301,8 +300,7 @@ sub _remove_path
 
   for my $key (keys %$covered)
     {
-    # XXX TODO: handle crossed edges here differently (from CROSS => HOR
-    # or VER)
+    # XXX TODO: handle crossed edges differently (from CROSS => HOR or VER)
     # free in our cells area
     delete $cells->{$key};
     }
@@ -312,16 +310,17 @@ sub _remove_path
 sub _path_is_clear
   {
   # For all points (x,y pairs) in the path, check that the cell is still free
-  # $path points to a list of [ [x,y,type], [x,y,type], ...]
+  # $path points to a list of [ x,y,type, x,y,type, ...]
   my ($self,$path) = @_;
 
   my $cells = $self->{cells};
-  foreach my $elem (@$path)
+  my $i = 0;
+  while ($i < scalar @$path)
     {
-    my ($x,$y,$type);
-
-    ($x,$y,$type) = split(/,/,$elem) if ref($elem) ne 'ARRAY';
-    ($x,$y,$type) = @$elem if ref($elem) eq 'ARRAY';
+    my $x = $path->[$i];
+    my $y = $path->[$i+1];
+    # my $t = $path->[$i+2];
+    $i += 3;
 
     return 0 if exists $cells->{"$x,$y"};	# obstacle hit
     } 

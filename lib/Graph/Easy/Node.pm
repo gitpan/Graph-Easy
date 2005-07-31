@@ -1,11 +1,12 @@
 #############################################################################
-# (c) by Tels 2004. Part of Graph::Easy
+# Represents one node in a Graph::Easy
 #
+# (c) by Tels 2004-2005. Part of Graph::Easy
 #############################################################################
 
 package Graph::Easy::Node;
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 use strict;
 
@@ -83,6 +84,22 @@ sub _init
   $self;
   }
 
+sub _border_styles
+  {
+  # return the four border styles (right, bottom, left, top)
+  my $self = shift;
+
+  my $border = $self->attribute('border-style') || 'none';
+  my $width = $self->attribute('border-width') || '1';
+  my $color = $self->attribute('border-color') || 'black';
+
+  # XXX TODO:
+  ($border, $width, $color, 
+   $border, $width, $color, 
+   $border, $width, $color, 
+   $border, $width, $color);
+  }
+
 sub _correct_size
   {
   # Correct {w} and {h} after parsing. This is a fallback in case
@@ -90,20 +107,19 @@ sub _correct_size
   # not exist.
   my $self = shift;
 
-  if (!defined $self->{w})
+  return if defined $self->{w};
+
+  my ($w,$h) = $self->dimensions();
+  my $border = $self->attribute('border-style') || 'none';
+  if ($border eq 'none')
     {
-    my ($w,$h) = $self->dimensions();
-    my $border = $self->attribute('border-style') || 'none';
-    if ($border eq 'none')
-      {
-      $self->{w} = $w + 2;
-      $self->{h} = $h;
-      }
-    else
-      {
-      $self->{w} = $w + 4;
-      $self->{h} = $h + 2;
-      }
+    $self->{w} = $w + 2;
+    $self->{h} = $h + 2;
+    }
+  else
+    {
+    $self->{w} = $w + 4;
+    $self->{h} = $h + 2;
     }
   }
 
@@ -278,18 +294,35 @@ sub _formatted_label
 
 sub _framebuffer
   {
-  # generate a actual framebuffer consisting of spaces
+  # generate an actual framebuffer consisting of spaces
   my ($self, $w, $h) = @_;
 
-  print STDERR join (": ", caller(),"\n") if !defined $w;
+  print STDERR "# trying to generate framebuffer of undefined width for $self->{name}\n",
+               join (": ", caller(),"\n") if !defined $w;
 
   my @fb;
   my $line = ' ' x $w;
-  for my $y (0..$h+1)
+  for my $y (1..$h)
     {
     push @fb, $line;
     }
   \@fb;
+  }
+
+sub _printfb
+  {
+  # Print (potential a multiline) text into a framebuffer
+  # Caller MUST ensure proper size of FB, for speed reasons,
+  # we do not check whether text fits!
+  my ($self, $fb, $x, $y, @lines) = @_;
+
+  # [0] = '0123456789...'
+  # [1] = '0123456789...' etc
+
+  for my $l (@lines)
+    {
+    substr ( $fb->[$y], $x, length($l)) = $l; $y++;
+    }
   }
 
  # the array contains for each style:
@@ -298,21 +331,107 @@ sub _framebuffer
  # lower right edge
  # lower left edge
  # hor style
- # ver style
+ # ver style (multiple characters possible)
 
 my $border_styles  = {
-  solid =>		[ '+', '+', '+', '+', '-', '|' ],
-  dotted =>		[ '.', '.', '.', '.', '.', ':' ],
-  dashed =>		[ '+', '+', '+', '+', '- ', "'" ],
-  'dot-dash' =>		[ '+', '+', '+', '+', '.-', '!' ],
-  'dot-dot-dash' =>	[ '+', '+', '+', '+', '..-', '!' ],
-  bold =>		[ '#', '#', '#', '#', '#', '#' ],
-  double =>		[ '#', '#', '#', '#', '=', 'H' ],
-  wave =>		[ '+', '+', '+', '+', '~', '{' ],
+  solid =>		[ '+', '+', '+', '+', '-',   [ '|'      ] ],
+  dotted =>		[ '.', '.', '.', '.', '.',   [ ':'      ] ],
+  dashed =>		[ '+', '+', '+', '+', '- ',  [ "'"      ] ],
+  'dot-dash' =>		[ '+', '+', '+', '+', '.-',  [ '!'      ] ],
+  'dot-dot-dash' =>	[ '+', '+', '+', '+', '..-', [ '|', ':' ] ],
+  bold =>		[ '#', '#', '#', '#', '#',   [ '#'      ] ],
+  double =>		[ '#', '#', '#', '#', '=',   [ 'H'      ] ],
+  'double-dash' =>	[ '#', '#', '#', '#', '= ',  [ '"'      ] ],
+  wave =>		[ '+', '+', '+', '+', '~',   [ '{', '}' ] ],
   };
+
+sub _draw_border
+  {
+  # draws a border into the framebuffer
+  my ($self, $fb, $do_right, $do_bottom, $do_left, $do_top) = @_;
+
+  return if $do_right.$do_left.$do_bottom.$do_top eq 'nonenonenonenone';
+
+  if ($do_top ne 'none')
+    {
+    # make a copy of the style, so that we can modify it for partial borders
+    my $style = [ @{ $border_styles->{$do_top} } ];
+    die ("Unknown top border style '$do_top'") if @$style == 0;
+
+    # generate the top border
+    my $top = $style->[0] . $style->[4] x (($self->{w}-1) / length($style->[4]));
+    chop($top) if length($top) >= $self->{w};
+    $top .= $style->[1];
+    # insert top row into FB
+    $self->_printfb( $fb, 0,0, $top);
+    }
+
+  if ($do_bottom ne 'none')
+    {
+    # make a copy of the style, so that we can modify it for partial borders
+    my $style = [ @{ $border_styles->{$do_bottom} } ];
+    die ("Unknown bottom border style '$do_bottom'") if @$style == 0;
+
+    # the bottom row '+--------+' etc
+    my $bottom = $style->[3] . $style->[4] x (($self->{w}-1) / length($style->[4]));
+    chop($bottom) if length($bottom) >= $self->{w};
+    $bottom .= $style->[2];
+    # insert bottom row into FB
+    $self->_printfb( $fb, 0,$self->{h}-1, $bottom);
+    }
+
+  return if $do_right.$do_left eq 'nonenone';	# both none => done
+
+  # make a copy of the style, so that we can modify it for partial borders
+  my $style = [ @{ $border_styles->{$do_left} } ];
+  die ("Unknown left border style '$do_left'") if @$style == 0;
+  my $left = $style->[5];
+  my $lc = scalar @{ $style->[5] } - 1;		# count of characters
+
+  # make a copy of the style, so that we can modify it for partial borders
+  $style = [ @{ $border_styles->{$do_right} } ];
+  die ("Unknown left border style '$do_right'") if @$style == 0;
+  my $right = $style->[5];
+  my $rc = scalar @{ $style->[5] } - 1;		# count of characters
+
+  my (@left, @right);
+  my $l = 0; my $r = 0;				# start with first character
+  for (1..$self->{h}-2)
+    {
+    push @left, $left->[$l]; $l ++; $l = 0 if $l > $lc;
+    push @right, $right->[$r]; $r ++; $r = 0 if $r > $rc;
+    }
+  # insert left/right columns into FB
+  $self->_printfb( $fb, 0,1, @left) unless $do_left eq 'none';
+  $self->_printfb( $fb, $self->{w}-1, 1, @right) unless $do_right eq 'none';
+
+  $self;
+  }
+
+sub _draw_label
+  {
+  # insert the label into the framebuffer
+  my ($self, $fb) = @_;
+
+  my @lines = $self->_formatted_label();
+
+  #        +----
+  #        | Label  
+  # 2,1: ----^
+
+  # XXX TODO: center label? align left/right/center/top/bottom?
+  #my $border = $self->attribute('border-style') || 'none';
+  #my $y = 1; $y = 0 if $border eq 'none';
+
+  $self->_printfb ($fb, 2, 1, @lines);
+  }
 
 sub as_ascii
   {
+  # renders a node like:
+  # +--------+    ..........    ""
+  # | A node | or : A node : or " --> "
+  # +--------+    ..........    "" 
   my ($self) = @_;
 
   # invisible nodes
@@ -327,77 +446,18 @@ sub as_ascii
   # "3px" => "bold"
   $border_style = 'bold' if $border_width > 2;
 
-  # XXX TODO: should center text instead of left-align
-  my @lines = $self->_formatted_label();
-
-  my $txt;
-  # border "none" is a special case
-  if ($border_style eq 'none')
-    {
-    # 'Sample'
-    $txt = "\n";
-    for my $l (@lines)
-      {
-      $txt .= "  $l\n";
-      }
-    return $txt;
-    }
-
-  # construct a framebuffer
   my $fb = $self->_framebuffer($self->{w}, $self->{h});
 
-  # make a copy of the style, so that we can modify it for partial borders
-  my $style = [ @{ $border_styles->{$border_style} } ];
+  my $style = $border_style;
 
-  warn ("Unknown border style '$border_style'") if @$style == 0;
+  # draw our border into the framebuffer
+  # XXX TODO: different styles for the different borders
+  $self->_draw_border($fb, $style, $style, $style, $style) unless $style eq 'none';
 
-  # the top row '+--------+' etc
-  $txt = $style->[0] . $style->[4] x (($self->{w}-1)/ length($style->[4]));
-  chop($txt) if length($txt) > ($self->{w}-1);
-  $txt .= "$style->[1]\n";
-
-  # left and right side (ala '|', ':' etc)
-  my $left = $style->[5];
-  my $right = $style->[5];
-
-  # the bottom row '+--------+' etc
-  my $bottom = $style->[3] . $style->[4] x (($self->{w}-1) / length($style->[4]));
-  chop($bottom) if length($bottom) > ($self->{w}-1);
-  $bottom .= "$style->[2]\n";
-
-  # If the cell to our right is occupied by a node with
-  # a border:
-
-  # if node doesn't belong to a graph, fail softly by ignoring cells
-  my $cells = {};
-  $cells = $self->{graph}->{cells} if exists $self->{graph};
-
-  my $x = $self->{x} + 1;
-  my $y = $self->{y};
-  if (exists $cells->{"$x,$y"})
-    {
-#    $right = '';
-#    $txt =~ s/.\n/\n/;
-#    $bottom =~ s/.\n/\n/;
-    }
-  $x = $self->{x};
-  $y = $self->{y} + 1;
-  if (exists $cells->{"$x,$y"})
-    {
-#    $bottom = '';
-    }
-
-  # '| test |' => 4 extra chars, 2 spaces and two for left/right
-  my $w = $self->{w} - length($left) - length ($right) - 2;
-  $right .= "\n";
-  for my $l (@lines)
-    {
-    $l .= ' ' while length($l) < $w; 
-    $txt .= "$left $l $right";
-    }
-  $txt .= $bottom;
-
-  $txt;
+  # "draw" the label into the framebuffer
+  $self->_draw_label($fb);
+  
+  join ("\n", @$fb);
   }
 
 sub error
@@ -622,7 +682,18 @@ sub grow
     $self->{$grow}++;
     }
 
+  # XXX TODO: grow the node based on it's label dimensions
+  my ($w,$h) = $self->dimensions();
+
   $self;
+  }
+
+sub is_multicelled
+  {
+  # return true if node consist of more than one cell
+  my $self = shift;
+
+  $self->{cx} + $self->{cy} <=> 2;	# 1 + 1 == 2: no, cx + xy != 2: yes
   }
 
 #############################################################################
@@ -795,15 +866,27 @@ sub connections
 
   my $con = 0;
   my $n = $self->{name};
+
+#  print " suc: ", scalar $g->successors( $n ), " pre: ", scalar $g->predecessors( $n ), "\n";
+
   my @nodes = $g->successors( $n );
   for my $s (@nodes)
     {
-    $con += $g->get_multiedge_ids( $n, $s );
+
+    my $c = scalar $g->get_multiedge_ids( $n, $s );
+    my @C = $g->get_multiedge_ids( $n, $s );
+#    print "ids $n => $s: ", join (" ",@C), " count $c\n";
+
+    $con += scalar $g->get_multiedge_ids( $n, $s );
     }
   @nodes = $g->predecessors( $n );
   for my $s (@nodes)
     {
-    $con += $g->get_multiedge_ids( $s, $n );
+    $con += scalar $g->get_multiedge_ids( $s, $n );
+
+    my $c = scalar $g->get_multiedge_ids( $s, $n );
+    my @C = $g->get_multiedge_ids( $s, $n );
+#    print "ids $s => $n: ", join (" ",@C), " count $c\n";
     }
   $con;
   }
@@ -1021,7 +1104,7 @@ sub border_attributes
 
   # extract style
   my $style;
-  $border =~ s/(solid|dotted|dot-dash|dot-dot-dash|dashed|double|bold|none|wave)/ $style = $1; ''/eg;
+  $border =~ s/(solid|dotted|dot-dash|dot-dot-dash|dashed|double-dash|double|bold|none|wave)/ $style = $1; ''/eg;
 
   $style ||= 'solid';
 
@@ -1326,6 +1409,16 @@ Returns the number of columns (in cells) that this node occupies.
 	my $cols = $node->rows();
 
 Returns the number of rows (in cells) that this node occupies.
+
+=head2 is_multicelled()
+
+	if ($node->is_multicelled())
+	  {
+	  ...
+	  }
+
+Returns true if the node consists of more than one cell. See als
+L<rows()> and L<cols()>.
 
 =head2 pos()
 

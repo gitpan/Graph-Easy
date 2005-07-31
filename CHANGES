@@ -1,5 +1,58 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-07-30 v0.23 Tels 765 tests - Fix, fix, fix, fix the bugs...
+Fixed:
+  * update POD to reflect that the overall placement strategy is now better
+  * warn on broken Graph 0.66
+  * t/parser.t: sort edges on label to avoid hash key ordering tripping us up
+  * sorted_nodes(): use "name" as second field if a non-unique first field
+                    sorting was requested (like sorted_nodes("layer"))
+  * _near_places() works correctly on multi-cell nodes and add a
+    parameter $d to it, so that the distance can be adjusted by the caller.
+    It can also return direction of place from/to node via third paremeter.
+  * Layout/Scout: removed _find_path_u_shaped() (use A* instead)
+  * cleaned up path finding/scoring/handling code
+  * EDGE_SHORT_N vs EDGE_SHORT_S to be 0,1,2,3 in order E,S,W,N
+  * self-loop paths (from A to A) correctly set EDGE_LABEL_CELL on the HOR
+    edge pice
+  * finding paths is now slightly faster:
+      self-loop : 20,000 tries/s (vs. 15,000 tries/s)
+      short edge: 74,000 tries/s (vs. 21,000 tries/s)
+  * Paths with one bend now have always the correct edge piece.
+  * Placement of node with two predecessors in a straigght line was wrong
+    (instead of trying to place the node in the center, it placed it 1/2
+     the distance to the right/bottom - Thanx to Scott Beuker for providing
+     a testcase!)
+  * as_ascii(): align the different edges better
+  * as_ascii(): the border is now drawn into a framebuffer, this makes it
+                possible for collating borders or to have "border-top: none"
+  * Edge are nown drawn seemless, except these pieces:
+      CROSS
+      S_W
+      N_W
+    In addition, the seems break sometimes on edge styles "- ", "= ", ".-"
+    and "..-" due to non-alignment.
+  * move color checking/converting code to Graph::Easy::Attributes
+  * check border-styles against list of valid names
+  * as_ascii(): added the ability to have different pieces for corners
+  * as_ascii(): border styles 'wave' and 'dot-dot-dash' have now two different
+                vertical characters, rendering these borders now like:
+    *~~~~~~~~* +..-..-..+
+    {  Test  { |  Test  |
+    }  Node  } :  Node  :
+    *~~~~~~~~* +..-..-..+
+Added:
+  * border-style: double-dash:
+    #= = = = #
+    "  Test  "
+    "  Node  "
+    #= = = = #
+  * edge style: double-dash: "= = = >"
+  * Graph::Easy::Attributes and tests for it
+  * Node: is_multicelled()
+  * Graph: is_simple_graph(), debug()
+  * A* implementation to find arbitrary paths (even with multi-celled nodes)
+
 2005-07-13 v0.22 Tels 686 tests - Fix, fix, fix, fix the bugs...
 Fixed:
   * Edge/Parser: edge style '~~' (wave)
@@ -12,8 +65,8 @@ Added:
   * Layout.pm: add _assign_layers()
   * Easy.pm: sorted_nodes() takes 1 or 2 optional field names to sort on
   * _near_places() moved into Graph::Easy::Node, make it multi-cell aware
-  * started laying down the foundation for multi-celled nodes
-    support in Path.pm/Scout.pm
+  * started laying down the foundation for multi-celled nodes support
+    in Path.pm/Scout.pm
 
 2005-07-10 v0.21 Tels 605 tests - Fix, fix, fix, fix the bugs...
   * As_graphviz: default nodes to filled, fontsize 11
