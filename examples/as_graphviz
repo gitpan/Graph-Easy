@@ -15,9 +15,6 @@ use Graph::Easy::Parser;
 
 my $file = shift;
 
-print "# Graph::Easy v$Graph::Easy::VERSION\n";
-print "# input: '$file'\n";
-
 my $parser = Graph::Easy::Parser->new( debug => 0 );
 
 $file = \*STDIN unless defined $file;

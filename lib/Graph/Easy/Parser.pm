@@ -232,38 +232,47 @@ sub from_text
     # node chain continued like "-> { ... } [ Kassel ] { ... }"
     elsif (@stack != 0 && $line =~ /^$qr_edge$qr_oatr$qr_node$qr_oatr/)
       {
-      my $n = $7;					# node name
-      my $ed = $2 || ''; my $en = $3 || '';		# edge style and label
-      my $ed2 = $4 || '';
-      my $ea = $6 || '';				# save edge attributes
-      my $a1 = $self->_parse_attributes($8||'');	# node attributes
+      my $eg = $1;					# entire edge ("-- label -->" etc)
+
+      my $edge_bd = $2 || $4;				# bidirectional edge ('<') ?
+      my $edge_label = $7 || '';			# optional edge label
+      my $ed = $3 || $5;				# edge pattern/style ("--")
+
+      my $edge_atr = $11 || '';				# save edge attributes
+
+      my $n = $12;					# node name
+      my $a1 = $self->_parse_attributes($13||'');	# node attributes
       return undef if $self->{error};
-      $ea = $self->_parse_attributes($ea, 'edge');	# parse edge attributes
+
+      $edge_atr = $self->_parse_attributes($edge_atr, 'edge');
       return undef if $self->{error};
 
       # strip trailing spaces
-      $en =~ s/\s*\z//;
+      $edge_label =~ s/\s*\z//;
 
       my @nodes_b = $self->_new_node ($graph, $n, \@group_stack, $a1);
-      
+
       my $style = 'solid';			# default
       $style = 'double-dash' if $ed =~ /^(= )+\z/; 
       $style = 'double' if $ed =~ /^=+\z/; 
       $style = 'dotted' if $ed =~ /^\.+\z/; 
       $style = 'dashed' if $ed =~ /^(- )+\z/; 
       $style = 'dot-dot-dash' if $ed =~ /^(..-)+\z/; 
-      $style = 'dot-dash' if $ed =~ /^(.-)+\z/; 
-      $style = 'wave' if $ed =~ /^(\~)+\z/; 
+      $style = 'dot-dash' if $ed =~ /^(\.-)+\z/; 
+      $style = 'wave' if $ed =~ /^\~+\z/; 
+      $style = 'bold' if $ed =~ /^#+\z/; 
 
       # add edges for all nodes in the left list
       foreach my $node (@stack)
         {
-        my $edge = $e->new( { style => $style, name => $en } );
-        $edge->set_attributes($ea);
 #        print STDERR "# continued: edge from $node->{name} => $node_b->{name}\n";
 
         foreach my $node_b (@nodes_b)
           {
+          my $edge = $e->new( { style => $style, name => $edge_label } );
+          $edge->set_attributes($edge_atr);
+	  # "<--->": bidirectional
+          $edge->bidirectional(1) if $edge_bd;
           $graph->add_edge ( $node, $node_b, $edge );
           }
         }
@@ -357,12 +366,8 @@ sub _new_node
 
       $part =~ s/^\s*//;	# rem spaces at front
       $part =~ s/\s*$//;	# rem spaces at end
-#      $part =~ s/\\\|/\|/;	# unquote "|"
 
-      # unquoe \|
-#      print STDERR "# $base_name.$idx\n";
-      my $node_name = "$base_name.$idx"; #$node_name =~ s/\\\|/\|/g;
-#      print STDERR "# => $node_name\n";
+      my $node_name = "$base_name.$idx";
 
       if ($part ne '')
         {
@@ -460,19 +465,46 @@ sub _match_group_end
   qr/\s*\)\s*/;
   }
 
+sub _match_edge_simple
+  {
+  # matches edges like "--", "- - ", "..-" etc
+
+  qr/\s*
+     (
+       (\.\.-|\.-)+			 # pattern (style) of edge (at least once)
+     |
+       (=\s|=|-\s|-|\.|~){2,}		 # these at least two times
+     )/x;
+  }
+
 sub _match_edge
   {
-  # matches an edge, like:
-  # <--, <==, <.. etc
+  # Matches all possible edge variants like:
   # -->, ---->, ==> etc
   # <-->, <---->, <==>, <..> etc
-  # - Text -->
+  # <-- label -->, <.- label .-> etc  
+  # -- label -->, .- label .-> etc  
 
   # "- " must come before "-"!
   # likewise, "..-" must come before ".-" must come before "."
 
-  qr/\s*(<?)(=|- |-|\.\.-|\.-|\.|~)+([^=\.>-]*?)(=|- |-|\.)*(>?)/;
-  }
+  qr/\s*
+     (					# egde without label ("-->")
+       (<?) 				 # optional left "<"
+       (=\s|=|-\s|-|\.\.-|\.-|\.|~)+>	 # pattern (style) of edge
+     |					# edge with label ("-- label -->")
+       (<?) 				 # optional left "<"
+       ((=\s|=|-\s|-|\.\.-|\.-|\.|~)+)	 # pattern (style) of edge
+       \s*				 # followed by at least a space
+       ([^>]*?)				 # many label chars (but not ">"!)
+       (\s+\5)>				 # a space and pattern before ">"
+     |					# edge with label ("-- label -->")
+       (\.\.-|\.-)+			 # pattern (style) of edge (at least once)
+     |
+       (=\s|=|-\s|-|\.|~){2,}		 # these at least two times
+     )
+     /x;
+   }
 
 sub _parse_attributes
   {
@@ -572,25 +604,107 @@ The input consists of text describing the graph.
 The output will be a L<Graph::Easy|Graph::Easy> object, see there for what you
 can do with it.
 
+=over 2
+
+=item nodes
+
+Nodes are rendered (or "quoted", if you wish) with enclosing square brackets:
+
+	[ Single node ]
+	[ Node A ] --> [ Node B ]
+
+=item edges
+
 The edges between the nodes can have the following styles:
 
-	-->		solid
-	==>		double
-	##>		bold
-	..>		dotted
+	->		solid
+	=>		double
+	.>		dotted
+	~>		wave
+
 	- >		dashed
-	~~>		wave
 	.->		dot-dash
 	..->		dot-dot-dash
 	= >		double-dash
 
-In additon the following two directions are possible:
+There is also the style "bold". Unlike the others, this can only be
+set via the (optional) edge attributes:
 
-	 -->		connect the node on the left to the node on the right
-	<-->		the direction between the nodes
-			goes into both directions at once
+	[ AB ] --> { style: bold; } [ ABC ]
 
-Of course you can combine all directions with all styles.
+You can repeat each of the style-patterns as much as you like:
+
+	--->
+	==>
+	=>
+	~~~~~>
+	..-..-..->
+
+Note that in patterns longer than one character, the entire
+pattern must be repeated e.g. all characters of the pattern must be
+present. Thus:
+
+	..-..-..->	# valid dot-dot-dash
+	..-..-..>	# invalid!
+
+	.-.-.->		# valid dot-dash
+	.-.->		# invalid!
+
+In additon to the styles, the following two directions are possible:
+
+	 --		edge without arrow heads
+	 -->		arrow at target node (end point)
+	<-->		arrow on both the source and target node
+			(end and start point)
+
+Of course you can combine all directions with all styles. However,
+note that edges without arrows cannot use the shortcuts for styles:
+
+	---		# valid
+	.-.-		# valid
+	.-		# invalid!
+	-		# invalid!
+	~		# invalid!
+
+Just remember to use at least two repititions of the full pattern
+for arrow-less edges.
+
+You can also give edges a label, either by inlining it into the style,
+or by setting it via the attributes:
+
+	[ AB ] --> { style: bold; label: foo; } [ ABC ]
+
+	-- foo -->
+	... baz ...>
+
+	-- solid -->
+	== double ==>
+	.. dotted ..>
+	~~ wave ~~>
+
+	-  dashed - >
+	=  double-dash = >
+	.- dot-dash .->
+	..- dot-dot-dash ..->
+
+Note that the two patterns on the left and right of the label must be
+the same, and that there is a space between the left pattern and the
+label, as well as the label and the right pattern.
+
+You may use inline label only with edges that have an arrow. Thus:
+
+	<-- label -->	# valid
+	-- label -->	# valid
+
+	-- label --	# invalid!
+
+To use a label with an edge without arrow heads, use the attributes:
+
+	[ AB ] -- { label: edgelabel; } [ CD ]
+
+=back
+
+Please see the manual for a full description of the syntax rules.
 
 =head2 Output
 

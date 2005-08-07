@@ -32,6 +32,11 @@ is (ref($group), 'Graph::Easy::Group');
 
 is ($group->error(), '', 'no error yet');
 
+my $graph = Graph::Easy->new();
+
+# "insert" into a graph to get default attributes
+$group->{graph} = $graph;
+
 is ($group->as_txt(), "( Group \\#0\n)\n\n", 'as_txt (empty group)');
 is (scalar $group->nodes(), 0, 'no nodes in group');
 

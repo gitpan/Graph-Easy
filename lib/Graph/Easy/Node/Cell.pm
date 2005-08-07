@@ -13,7 +13,7 @@ use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Easy::Node/;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #############################################################################
 
@@ -95,24 +95,28 @@ Graph::Easy::Node::Cell - An empty filler cell
 
 =head1 DESCRIPTION
 
-A C<Graph::Easy::Group::Cell> represents an edge between two (or more) nodes in a
-simple graph. It is also used to reserve a cell in the grid for nodes that
+A C<Graph::Easy::Node::Cell> represents an edge between two (or more) nodes in a
+Graph::Easy. It is also used to reserve a cell in the grid for nodes that
 occupy more than one cell.
 
-Each edge has a direction (from source to destination, or back and forth),
-plus a style (line width and style), colors etc. It can also have a name,
-e.g. a text associated with it.
+You should not need to use this class directly.
 
 =head1 METHODS
 
 =head2 error()
 
-	$last_error = $edge->error();
+	$last_error = $cell->error();
 
 	$cvt->error($error);			# set new messags
 	$cvt->error('');			# clear error
 
 Returns the last error message, or '' for no error.
+
+=head2 node()
+
+	my $node = $cell->node();
+
+Returns the node this filler cell belongs to.
 
 =head1 SEE ALSO
 

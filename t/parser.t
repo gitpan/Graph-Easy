@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 66;
+   plan tests => 73;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -123,7 +123,6 @@ __DATA__
 [ Bonn ] ==> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] = > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] ~~> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
-[ Bonn ] . > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] ..> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] - > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn \( \#1 \) ] - > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn ( #1 ),Frankfurt
@@ -145,10 +144,20 @@ __DATA__
 # attributes with ":" in their value
 [ Bonn ] { link: http://www.bloodgate.com/Bonn; }|1,Bonn
 # edges with label
-[ Bonn ] - Auto--> [ Berlin ]|2+1,Auto,Berlin,Bonn
-[ Bonn ] - Auto --> [ Berlin ]|2+1,Auto,Berlin,Bonn
+# matching sides
+[ Bonn ] - Auto -> [ Berlin ]|2+1,Auto,Berlin,Bonn
+[ Bonn ] ~ Auto ~> [ Berlin ]|2+1,Auto,Berlin,Bonn
+[ Bonn ] . Auto .> [ Berlin ]|2+1,Auto,Berlin,Bonn
+[ Bonn ] = Auto => [ Berlin ]|2+1,Auto,Berlin,Bonn
+[ Bonn ] -- Auto --> [ Berlin ]|2+1,Auto,Berlin,Bonn
+[ Bonn ] == Auto ==> [ Berlin ]|2+1,Auto,Berlin,Bonn
+[ Bonn ] ~~ Auto ~~> [ Berlin ]|2+1,Auto,Berlin,Bonn
+[ Bonn ] .. Auto ..> [ Berlin ]|2+1,Auto,Berlin,Bonn
+# with pattern in the middle
+[ Bonn ] -- Au-to --> [ Berlin ]|2+1,Au-to,Berlin,Bonn
+[ Bonn ] == Au--to ==> [ Berlin ]|2+1,Au--to,Berlin,Bonn
 # groups
-( Group [ Bonn ] - Auto --> [ Berlin ] )|2+1,Auto,Berlin,Bonn
+( Group [ Bonn ] -- Auto --> [ Berlin ] )|2+1,Auto,Berlin,Bonn
 ( Group [ Bonn ] --> [ Berlin ] )|2,Berlin,Bonn
 # lists
 [ Bonn ], [ Berlin ]\n --> [ Hamburg ]|3,Berlin,Bonn,Hamburg
@@ -161,4 +170,11 @@ __DATA__
 [ Bonn ] --> { label: test; } [ Berlin ] { color: blue; }|2+1,test,Berlin,Bonn
 [ Bonn ] --> { label: test; } [ Berlin ] { color: blue; }|2+1,test,Berlin,Bonn
 [ Bonn ] --> { label: test; } [ Berlin ] { color: blue; } --> { label: test2; } [ Leipzig ]|3+2,test2,test,Berlin,Bonn,Leipzig
+# XXX TODO: error testing
+# mismatching left/right side
+#[ Bonn ] - Auto--> [ Berlin ]|2+1,Auto--,Berlin,Bonn
+#[ Bonn ] - Auto --> [ Berlin ]|2+1,Auto --,Berlin,Bonn
+#[ Bonn ] == Auto --> [ Berlin ]|2+1,Auto --,Berlin,Bonn
+# unknown edge style
+#[ Bonn ] . > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 

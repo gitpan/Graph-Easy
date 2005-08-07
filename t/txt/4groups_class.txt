@@ -12,4 +12,4 @@ node.city { color: #801010; }
   [ Hamburg ]
 ) { nodeclass: city; }
 
-[ Cuxhaven ] --> [ Bremen ]
+[ Cuxhaven ] --> { background: #a0d0ff; } [ Bremen ]

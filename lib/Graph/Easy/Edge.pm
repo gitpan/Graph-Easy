@@ -13,7 +13,7 @@ use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 #############################################################################
 
@@ -31,7 +31,10 @@ sub _init
     $self->{$k} = $args->{$k};
     }
 
-  $self->{att}->{label} = $self->{name};
+  $self->{att}->{label} = $self->{name} unless defined $self->{att}->{label};
+  $self->{att}->{label} = $self->{label} unless defined $self->{att}->{label};
+  delete $self->{label};
+
   $self->{att}->{'border-style'} = 'none';
   $self->{att}->{style} = $self->{style} || 'solid';
   delete $self->{style};
@@ -60,22 +63,42 @@ sub as_txt
   # '- Name ' or ''
   my $n = $self->{att}->{label}; $n = '' unless defined $n;
 
-  $n = '- ' . $n . ' ' if $n ne '';
+  my $left = ' '; $left = ' <' if $self->{bidirectional};
+  my $right = '> '; $right = ' <' if $self->{undirected};
 
-  if (!exists $styles->{$self->{att}->{style}})
+  my $style = $styles->{$self->{att}->{style}};
+  if (!defined $style)
     {
     require Carp;
     Carp::croak ("Unknown edge style $self->{att}->{style}\n");
     }
-  # ' - Name -->' or ' --> '
-  ' ' . $n . $styles->{$self->{att}->{style}} . '> ';
+
+  # suppress border on edges
+  my $suppress = { all => { label => undef } };
+  if ($self->{att}->{style} eq 'bold')
+    {
+    # output "--> { style: bold; }"
+    $style = '--';
+    }
+  else
+    {
+    # output "-->" or "..>" etc
+    $suppress->{all}->{style} = undef;
+    }
+ 
+  $n = $style . " $n " if $n ne '';
+
+  # make " -  " into " - -  "
+  $style = $style . $style if $self->{undirected} && substr($style,1,1) == ' ';
+
+  # ' - Name -->' or ' --> ' or ' -- '
+  my $a = $self->attributes_as_txt($suppress) . ' '; $a =~ s/^\s//;
+  $left . $n . $style . $right . $a;
   }
 
 sub _formatted_label
   {
   my $self = shift;
-
-  # XXX TODO: this can be optimized
 
   my $name = $self->label();
   $name =~ s/\\n/\n/g;                  # insert newlines
@@ -87,6 +110,24 @@ sub _formatted_label
 
 #############################################################################
 # accessor methods
+
+sub bidirectional
+  {
+  my $self = shift;
+
+  $self->{bidirectional} = 1 if $_[0];
+
+  $self->{bidirectional};
+  }
+
+sub undirected
+  {
+  my $self = shift;
+
+  $self->{undirected} = 1 if $_[0];
+
+  $self->{undirected};
+  }
 
 sub style
   {

@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 64;
+   plan tests => 76;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -27,7 +27,7 @@ my @files = readdir(DIR); closedir(DIR);
 
 eval { require Test::Differences; };
 
-foreach my $f (@files)
+foreach my $f (sort @files)
   {
   next unless -f "in/$f";			# only files
   

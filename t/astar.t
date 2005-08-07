@@ -65,17 +65,11 @@ is (&$typ( 2,0, 1,0, 1,1 ), EDGE_S_E, 'EDGE_S_E');
 is (&$typ( 0,0, 1,0, 1,-1 ), EDGE_N_W, 'EDGE_N_W');
 is (&$typ( 1,-1, 1,0, 0,0 ), EDGE_N_W, 'EDGE_N_W');
 
-#type  for (1,2, 2, 2, 2,1)
-#type 12 for (0,2, 1, 2, 2,2)
-#Use of uninitialized value in concatenation (.) or string at ../lib/Graph/Easy/Layout/Scout.pm line 595.
-#type  for (0,1, 0, 2, 1,2)
-
 print &$typ( 1,2, 2,2, 2,1),"\n";
 print &$typ( 0,2, 1,2, 2,2),"\n";
 print &$typ( 0,1, 0,2, 1,2),"\n";
 
 }
-
 
 exit;
 
@@ -134,7 +128,10 @@ block ($cells,16,14);
 #block ($cells,15,16);
 #block ($cells,14,17);
 #block ($cells,3,16);
-my ($p, $closed, $open) = $graph->_find_path_astar( $cells, $node, $node2 );
+
+$graph->{cells} = $cells;
+$graph->{_astar_bias} = 0;
+my ($p, $closed, $open) = $graph->_find_path_astar($node, $node2 );
 
 #use Data::Dumper; print Dumper($cells);
 

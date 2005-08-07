@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 65;
+   plan tests => 83;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -33,6 +33,19 @@ is ($parser->error(), '', 'no error yet');
 
 my $line = 0;
 my $qr_edge = $parser->_match_edge();
+my $qr_node = $parser->_match_node();
+my $qr_oatr = $parser->_match_optional_attributes();
+
+#my $r = '-- Label --> [ AA ]';
+#$r = '--> [ AB ]';
+#$r = '<--> [ AB ]';
+#$r = '<- Label -> [ AB ]';
+#$r = '--> { color: red; } [ AB ]';
+
+#if ($r =~ /^$qr_edge$qr_oatr$qr_node$qr_oatr/)
+#  {
+#  print STDERR "# '$1' '$2' '$3' '$4' '$5' '$6' '$7' '$8' '$9' '$10' '$11' '$12'\n";
+#  }
 
 foreach my $l (<DATA>)
   {
@@ -40,36 +53,36 @@ foreach my $l (<DATA>)
   next if $l =~ /^\s*\z/;			# skip empty ones
   next if $l =~ /^#/;				# skip comments
 
-  my ($in,$type,$style) = split /\|/, $l;
+  my ($in,$type,$style,$label) = split /\|/, $l;
 
   if ($type < 0)
     {
     if (!unlike ($in, qr/^$qr_edge\z/, "$in"))
       {
       $in =~ /^$qr_edge/;
-      print STDERR "# '$1' '$2' '$3' '$4' '$5'\n";
+      print STDERR "# '$1' '$2' '$3' '$4' '$5' '$6'\n";
       }
     next;
     }
 
   # XXX TODO check edge style and type:
   # 0 - undirected 
-  # 1 - left
   # 2 - right 
-  # 3 - left and right 
-  if (! like ($in, qr/^$qr_edge\z/, "$in"))
-    {
-    $in =~ /^$qr_edge/;
-    print STDERR "# '$1' '$2' '$3' '$4' '$5'\n";
-    }
+  # 3 - left and right
+ 
+  like ($in, qr/^$qr_edge\z/, "$in");
 
+#  $in =~ /^$qr_edge\z/;
+#  print STDERR "# '$1' '$2' '$3' '$4' '$5' '$6' '$7' '$8' '$9'\n";
   }
 
 __DATA__
+# edges without arrows
 --|0|--
 ==|0|==
 ..|0|..
-- |0| -
+- |-1| -
+- - |0| -
 ---|0|--
 ===|0|==
 ...|0|..
@@ -96,37 +109,57 @@ __DATA__
 -->|2|--
 ==>|2|==
 ..>|2|..
+~~>|2|~~
+= >|2|= 
 - - >|2| -
 --->|2|--
 ===>|2|==
 ...>|2|..
 - - >|2| -
-<-|1|--
-<=|1|==
-<.|1|..
-<- |1| -
-<--|1|--
-<==|1|==
-<..|1|..
-<- -|1| - 
-<- ->|3| -
 # with labels
-- Landstrasse --|0|--
-= Autobahn ==>|0|==
-. Im Bau ..>|0|..
-- Tunnel - >|0| -
-<-- Landstrasse -|0|--
-<== Autobahn =|0|==
-<.. Im Bau .|0|..
-<- - Tunnel -|0| -
-<-- Landstrasse -->|0|--
-<== Autobahn ==>|0|==
-<.. Im Bau ..>|0|..
-<- Tunnel - >|0| -
-# failures
+<- ->|3| -
+- Landstrasse --|-1|--
+== Autobahn ==>|2|==
+.. Im Bau ..>|2|..
+-  Tunnel - >|2| -
+= label =>|2|==|label
+<-- Landstrasse -->|3|--
+<== Autobahn ==>|3|==
+<.. Im Bau ..>|3|..
+<- Tunnel - >|3| -
+<- Tunnel -->|-1|
+<-- Tunnel -->|3|
+<-- Landstrasse -->|3|--
+<~~ Landstrasse ~~>|3|~~
+<== Landstrasse ==>|3|==
+<.- Landstrasse .->|3|.-
+<..- Landstrasse ..->|3|..-
+-- Landstrasse -->|2|--
+~~ Landstrasse ~~>|2|~~
+== Landstrasse ==>|2|==
+.- Landstrasse .->|2|.-
+..- Landstrasse ..->|2|..-
+##################
+# Failures
+# no left-only edges allowed
+<-|-1|--
+<=|-1|==
+<.|-1|..
+<- |-1| -
+<--|-1|--
+<==|-1|==
+<..|-1|..
+<- -|-1| - 
+<-- Landstrasse -|-1|
+<== Autobahn =|-1|
+<.. Im Bau .|-1|
+<- - Tunnel -|-1|
+<--|-1|
+# mismatching pattern
+<-- Landstrasse ==>|-1|
+# double "<<" or ">>" are not good
 <<--|-1|
 <<--|-1|
 <<-->>|-1|
 <<. -.->>|-1|
 < - Tunnel - >|-1|
-

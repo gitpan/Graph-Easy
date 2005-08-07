@@ -32,7 +32,7 @@ sub _as_txt
   for my $class (sort keys %$att)
     {
 
-    my $out = $self->remap_attributes( $class, $att->{$class}, {}, 'noquote');
+    my $out = $self->_remap_attributes( $class, $att->{$class}, {}, 'noquote');
 
     my $att = '';
     for my $atr (sort keys %$out)
@@ -174,3 +174,4 @@ Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
 See the LICENSE file for information.
 
 =cut
+

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 19;
+   plan tests => 20;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok qw/Graph::Easy::Edge/;
@@ -27,10 +27,19 @@ can_ok ("Graph::Easy::Edge", qw/
   /);
   
 use Graph::Easy::Edge::Cell qw/EDGE_SHORT_E/;
+use Graph::Easy;
 
 #############################################################################
 
+# We need a graph to insert the edge into it, so that the edge gets the
+# default settings from it. 
+# XXX TODO: should we change the above?
+
+my $graph = Graph::Easy->new();
+
 my $edge = Graph::Easy::Edge->new();
+
+$edge->{graph} = $graph;
 
 is (ref($edge), 'Graph::Easy::Edge');
 
@@ -42,28 +51,42 @@ is ($edge->as_txt(), ' --> ', 'default is "-->"');
 # different styles
 
 $edge = Graph::Easy::Edge->new( style => 'double' );
+$edge->{graph} = $graph;
 is ($edge->as_txt(), ' ==> ', '"==>"');
 
 $edge = Graph::Easy::Edge->new( style => 'dotted' );
+$edge->{graph} = $graph;
 is ($edge->as_txt(), ' ..> ', '"..>"');
 
 $edge = Graph::Easy::Edge->new( style => 'dashed' );
+$edge->{graph} = $graph;
 is ($edge->as_txt(), ' - > ', '"- >"');
 
 $edge = Graph::Easy::Edge->new( style => 'wave' );
+$edge->{graph} = $graph;
 is ($edge->as_txt(), ' ~~> ', '"~~>"');
 
 $edge = Graph::Easy::Edge->new( style => 'dot-dash' );
+$edge->{graph} = $graph;
 is ($edge->as_txt(), ' .-> ', '".->"');
 
 $edge = Graph::Easy::Edge->new( style => 'double-dash' );
+$edge->{graph} = $graph;
 is ($edge->as_txt(), ' = > ', '"= >"');
 
 $edge = Graph::Easy::Edge->new( style => 'dot-dot-dash' );
+$edge->{graph} = $graph;
 is ($edge->as_txt(), ' ..-> ', '"= >"');
 
 $edge = Graph::Easy::Edge->new( style => 'bold' );
-is ($edge->as_txt(), ' ##> ', '"##>"');
+$edge->{graph} = $graph;
+is ($edge->as_txt(), ' --> { style: bold; } ', ' --> { style: bold; }');
+
+#############################################################################
+
+$edge = Graph::Easy::Edge->new( label => 'train' );
+$edge->{graph} = $graph;
+is ($edge->as_txt(), ' -- train --> ', ' -- train -->');
 
 #############################################################################
 # cells

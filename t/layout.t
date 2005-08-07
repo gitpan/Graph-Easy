@@ -62,7 +62,7 @@ is (scalar @places, 4 * 2, '4 places');
 is (scalar @places, 4 * $e, '4 places');
 
 #                        #1+3,1+0,1 ...
-is (join (',', @places), '4,1,0,1,4,1,-2,1,2,1,-2,3', 'places');
+is (join (',', @places), '4,1,16,1,4,32,-2,1,64,1,-2,128', 'places');
 
 #############################################################################
 # _find_path()
@@ -89,7 +89,7 @@ $dst->{x} = 1; $dst->{y} = 3;
 
 $coords = $graph->_find_path( $src, $dst);
 
-is (scalar @$coords, 5*$e, 'u shaped path');
+is (scalar @$coords, 3*$e, 'u shaped path (|---^)');
 
 # block src over/under to avoid an U-shaped path
 $graph->{cells}->{"2,1"} = $src;
@@ -97,7 +97,7 @@ $graph->{cells}->{"0,1"} = $src;
 
 $coords = $graph->_find_path( $src, $dst);
 # XXX TODO: check what path is actually generated here
-is (scalar @$coords, 9*$e, 'cell already blocked');
+is (scalar @$coords, 7*$e, 'cell already blocked');
 
 delete $graph->{cells}->{"1,2"};
 

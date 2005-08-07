@@ -9,7 +9,7 @@ package Graph::Easy::Attributes;
 use strict;
 use vars qw/$VERSION/;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 #############################################################################
 # color handling
@@ -204,21 +204,29 @@ sub valid_attribute
 
   if ($name eq 'border-shape')
     {
-    return $value =~
+    return unless $value =~
       /^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/;
     }
 
-  if ($name eq 'style' && $class eq 'edge')
+  if ($class eq 'edge')
     {
-    return $value =~
-      /^(solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/;
-    }
+    if ($name eq 'style')
+      {
+      return unless $value =~
+        /^(solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/;
+      }
 
-  if ($name eq 'shape')
+    return $value;	# pass through for now
+
+    } # end edge attributes
+
+  if ($class eq 'node')
     {
-    # different shapes:
-    return undef if $value !~
-     /^(
+    if ($name eq 'shape')
+      {
+      # different shapes:
+      return undef if $value !~
+       /^(
         circle|
         diamond|
         egg|
@@ -246,18 +254,33 @@ sub valid_attribute
         # these are shape rect, border none
         plaintext|
         none
-        )\z/x;
-     }
+       )\z/x;
 
-  # these are not (yet?) supported:
-  # Mdiamond|
-  # Msquare|
-  # Mcircle|
-  # doublecircle|
-  # doubleoctagon|
+	# these are not (yet?) supported:
+	 # Mdiamond|
+	 # Msquare|
+	 # Mcircle|
+	 # doublecircle|
+	 # doubleoctagon|
+       }
+    if ($name eq 'point-style')
+      {
+      # different point-styles
+      return undef if $value !~
+       /^(
+        circle|		# * (filled circle)
+        square|		# #
+        ring|		# o
+        dot|		# .
+	cross|		# +
+	star|		# *
+	none		# 
+       )\z/x;
+       }
+    } # end node attributes
 
   # anything else is passed along for now
-  return $value;
+  $value;
   }
 
 1;

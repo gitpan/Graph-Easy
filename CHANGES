@@ -1,6 +1,41 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
-2005-07-30 v0.23 Tels 765 tests - Fix, fix, fix, fix the bugs...
+2005-08-07 v0.24 Tels 820 tests - Fix, fix, fix, fix the bugs...
+Added:
+  * node attribute: "point-style" - set style for nodes with "shape: point"
+  * remappig of attributes can take code-ref for special handling
+  * A*: create crossings, and proper edge end/start pieces, fix bias
+Fixed:
+  * Graph::Easy POD: add note to add_edge() about multi-edges
+  * correct POD in Graph::Easy::Node::Cell
+  * Graph::Easy::Edge->new( label => 'foo' ); did not work
+  * remap_attributes(): suppress empty attributes (fixes as_graphviz)
+  * as_graphviz: suppress "border-style" on edges and nodes
+  * as_graphviz: properly remap edge attribute "style"
+  * as_graphviz: do not include class as attribute in output
+  * as_graphviz: fix broken comment (graphviz uses //, not #)
+  * as_graphviz: default node settings are included in class "node"
+  * as_graphviz: escape '"' (double quoting char) to avoid issues with node
+		 names like '2"'. Also avoid quoting plain node names when
+		 possible.
+  * as_graphviz: output nodes with their name, not their label
+  * as_graphviz: multi-edged graphs work now correctly
+  * as_ascii: implement rendering of nodes with "shape: point"
+  * as_ascii: render edges with style 'bold'
+  * as_ascii: properly render edge pieces without gaps
+  * as_ascii: render edges seemless (".-.-.-.-" vs. ".-.--.-.-.-")
+  * as_ascii: render all combinations of edge pieces and start/end points
+  * as_svg_file: did not pass $self to _as_svg(), inducing a fatal failure
+  * Parser: drop support for parsing reversed edges ("<--"), this never
+	    worked reliable and made parsing of normal edges with labels
+	    much harder and error-prone due to ambigitous cases.
+  * Parser: fix parsing of bidirectional edges
+  * Parser: fix parsing of edges with labels containing "-", "[" etc
+	    (edges labels can now contain any character unescaped except ">",
+	    which must be escaped with "\" as "\>")
+  * Layouter: weed out positions for a node that are too close to a successor
+
+2005-07-31 v0.23 Tels 765 tests - Fix, fix, fix, fix the bugs...
 Fixed:
   * update POD to reflect that the overall placement strategy is now better
   * warn on broken Graph 0.66

@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Scout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 #############################################################################
 #############################################################################
@@ -26,9 +26,11 @@ use Graph::Easy::Edge::Cell qw/
 
   EDGE_N_E EDGE_N_W EDGE_S_E EDGE_S_W
 
-  EDGE_HOR EDGE_VER EDGE_CROSS
+  EDGE_HOR EDGE_VER
 
   EDGE_LABEL_CELL
+  EDGE_TYPE_MASK
+  EDGE_FLAG_MASK
  /;
 
 # for A* pathfinding:
@@ -85,7 +87,7 @@ sub _find_path
         $type = EDGE_SHORT_S if ($dx ==  0 && $dy ==  1);
         $type = EDGE_SHORT_W if ($dx == -1 && $dy ==  0);
         $type = EDGE_SHORT_N if ($dx ==  0 && $dy == -1);
-        $type |= EDGE_LABEL_CELL;
+        $type += EDGE_LABEL_CELL;
 
         return [ $x, $y, $type ];			# return a short EDGE
         }
@@ -189,17 +191,25 @@ sub _find_path
         }
       }
 
-    # modify last field of path to be the correct endpoint:
+    # modify last field of path to be the correct endpoint and first field
+    # to be the correct startpoint:
     if ($done == 0)
       {
       print STDERR "# success for ", scalar @coords, " steps in path\n" if $self->{debug};
-      my $type_last;
+      my $type_last = 0;
       $type_last = EDGE_END_E if $type == EDGE_HOR && $dx == 1;
       $type_last = EDGE_END_W if $type == EDGE_HOR && $dx == -1;
       $type_last = EDGE_END_S if $type == EDGE_VER && $dy == 1;
       $type_last = EDGE_END_N if $type == EDGE_VER && $dy == -1;
-
-      $coords[-1] = $type_last;
+      $coords[-1] |= $type_last;
+ 
+      $type = $coords[2];
+      $type_last = 0;
+      $type_last = EDGE_START_W if $type == EDGE_HOR && $dx == 1;
+      $type_last = EDGE_START_E if $type == EDGE_HOR && $dx == -1;
+      $type_last = EDGE_START_N if $type == EDGE_VER && $dy == 1;
+      $type_last = EDGE_START_S if $type == EDGE_VER && $dy == -1;
+      $coords[2] |= $type_last;
  
       return \@coords;			# return all fields of path
       }
@@ -233,32 +243,32 @@ sub _find_path_loop
   # We define them here relative to (0,0):    
   my @loops = (
      [
-       [ 0,-1, EDGE_S_E],
+       [ 0,-1, EDGE_S_E + EDGE_START_S],
        [ 1,-1, EDGE_HOR + EDGE_LABEL_CELL],
        [ 2,-1, EDGE_S_W],
        [ 2, 0, EDGE_N_W],
-       [ 1, 0, EDGE_END_W],
+       [ 1, 0, EDGE_END_W + EDGE_HOR],
      ],
      [
-       [ 0, 1, EDGE_N_W],
+       [ 0, 1, EDGE_N_W + EDGE_START_S],
        [-1, 1, EDGE_HOR + EDGE_LABEL_CELL],
        [-2, 1, EDGE_N_E],
        [-2, 0, EDGE_S_E],
-       [-1, 0, EDGE_END_E],
+       [-1, 0, EDGE_END_E + EDGE_HOR],
      ],
      [
-       [ 0, 1, EDGE_N_E],
+       [ 0, 1, EDGE_N_E + EDGE_START_N ],
        [ 1, 1, EDGE_HOR + EDGE_LABEL_CELL],
        [ 2, 1, EDGE_N_W],
        [ 2, 0, EDGE_S_W],
-       [ 1, 0, EDGE_END_W],
+       [ 1, 0, EDGE_END_W + EDGE_HOR],
      ],
      [
-       [ 0,-1, EDGE_S_W],
+       [ 0,-1, EDGE_S_W + EDGE_START_N ],
        [-1,-1, EDGE_HOR + EDGE_LABEL_CELL],
        [-2,-1, EDGE_S_E],
        [-2, 0, EDGE_N_E],
-       [-1, 0, EDGE_END_E],
+       [-1, 0, EDGE_END_E + EDGE_HOR],
      ],
    );
   # where does the final edge point to?
@@ -362,10 +372,15 @@ package Graph::Easy;
 
 sub _astar_modifier
   {
-  my ($x1,$y1,$x,$y,$px,$py) = @_;
+  my ($x1,$y1,$x,$y,$px,$py, $cells) = @_;
 
   my $add = 1;
 
+  my $xy = "$x1,$y1";
+  # add a harsh penalty for crossing an edge
+  # 50 means we could travel 50 fields to go around the crossing
+  $add += 50 if ref($cells->{$xy}) =~ /^Graph::Easy::Edge/;
+ 
   if (defined $px)
     {
     # see whether the new position $x1,$y1 is a continuation from $px,$py => $x,$y
@@ -395,18 +410,7 @@ sub _astar_distance
   $dx + $dy + $add; 
   }
 
-sub _astar_edge_type
-  {
-  # from three consecutive positions calculate the edge type (VER, HOR, N_W etc)
-  my ($x,$y, $x1,$y1, $x2, $y2) = @_;
-
-  my $dx1 = ($x1 - $x) <=> 0;
-  my $dy1 = ($y1 - $y) <=> 0;
-  
-  my $dx2 = ($x2 - $x1) <=> 0;
-  my $dy2 = ($y2 - $y1) <=> 0;
-  
-  my $type = {
+my $edge_type = {
     '0,1,-1,0' => EDGE_N_W,
     '0,1,0,1' => EDGE_VER,
     '0,1,1,0' => EDGE_N_E,
@@ -424,43 +428,49 @@ sub _astar_edge_type
     '1,0,0,1' => EDGE_S_W,
   };
 
+sub _astar_edge_type
+  {
+  # from three consecutive positions calculate the edge type (VER, HOR, N_W etc)
+  my ($x,$y, $x1,$y1, $x2, $y2) = @_;
+
+  my $dx1 = ($x1 - $x) <=> 0;
+  my $dy1 = ($y1 - $y) <=> 0;
+  
+  my $dx2 = ($x2 - $x1) <=> 0;
+  my $dy2 = ($y2 - $y1) <=> 0;
+  
   # return correct type depending on differences
-  $type->{"$dx1,$dy1,$dx2,$dy2"} || EDGE_CROSS;
+  $edge_type->{"$dx1,$dy1,$dx2,$dy2"} || EDGE_HOR;
   }
 
 sub _astar_near_nodes
   {
   # return possible next nodes from $x,$y
-  my ($nx, $ny, $type, $cells, $open, $closed) = @_;
+  my ($nx, $ny, $cells, $open, $closed) = @_;
 
   my @places = ();
 
-  my $start = 0; my $end = 8;		# all of them
-  if (defined $type)
-    {
-    ($start, $end) = (0,2) if $type == EDGE_START_E;
-    ($start, $end) = (2,4) if $type == EDGE_START_S;
-    ($start, $end) = (4,6) if $type == EDGE_START_W;
-    ($start, $end) = (6,8) if $type == EDGE_START_N;
-    }
   my @tries  = (	# ordered E,S,W,N:
-    $nx + 1, $ny,	# right
+    $nx + 1, $ny, 	# right
     $nx, $ny + 1,	# down
     $nx - 1, $ny,	# left
     $nx, $ny - 1,	# up
     );
 
-  for (my $i = $start; $i < $end; $i += 2)
+  my $i = 0;
+  while ($i < @tries)
     {
     my ($x,$y) = ($tries[$i], $tries[$i+1]);
     my $p = "$x,$y";
 
-    if (exists $cells->{$p})
+    if (ref($cells->{$p}) =~ /^Graph::Easy::Edge/)
       {
-      # XXX TODO
       # if the existing cell is an VER/HOR edge, then we may cross it
+      my $type = $cells->{$p}->{type} & EDGE_TYPE_MASK;
+      push @places, $x, $y if ($type == EDGE_HOR) || ($type == EDGE_VER);
       next;
       }
+    next if exists $cells->{$p};	# uncrossable cell
 
     # XXX TODO:
     # If it is in open, but we reached it with a lower g(), then lower
@@ -468,7 +478,8 @@ sub _astar_near_nodes
     next if exists $closed->{$p};
     next if exists $open->{$p};
     push @places, $x, $y;
-    }
+
+    } continue { $i += 2; }
  
   @places;
   }
@@ -488,10 +499,10 @@ sub _find_path_astar
   print STDERR "# A* from $src->{x},$src->{x} to $dx,$dy\n" if $self->{debug};
 
   # get all the starting positions and add them to OPEN:
-  # distance = 1: slots, type = EDGE_START_E+direction
-  my @start = $src->_near_places($cells, 1, EDGE_START_E);
+  # distance = 1: slots, generate starting types
+  my @start = $src->_near_places($cells, 1, 'start');
 
-  my $i = 0;
+  my $i = 0; my $bias = $self->{_astar_bias};
   while ($i < scalar @start)
     {
     my $sx = $start[$i]; my $sy = $start[$i+1]; my $type = $start[$i+2]; $i += 3;
@@ -499,15 +510,17 @@ sub _find_path_astar
     $open->add( Graph::Easy::Astar::Node->new(
       _astar_distance($sx,$sy, $dst->{x}, $dst->{y}),
       $sx, $sy, undef, undef, $type ));
-    # The cost to reach the starting node is obviously 0, 1, 2 or 3, depending
-    # on type. That means going down will be prefered over up, and right over
-    # left, when there would be otherwise no difference between these
-    # two possibilities.
-    $open_by_pos->{"$sx,$sy"} = $type;
+
+    # The cost to reach the starting node is obviously 0. That means that there is
+    # a tie between going down/up if both possibilities are equal likely. We insert
+    # a small bias here that makes the prefered order east/south/west/north. Instead
+    # the algorithmn exploring both way and terminating arbitrarily on the one that
+    # first hits the target, it will explore only one.
+    $open_by_pos->{"$sx,$sy"} = $bias; $bias += $self->{_astar_bias};
     }
 
   # potential stop positions
-  my @stop = $dst->_near_places($cells, 1, EDGE_END_W);	# distance = 1: slots
+  my @stop = $dst->_near_places($cells, 1, 'stop');	# distance = 1: slots
   my $stop = scalar @stop;
 
   return unless $stop > 0;			# no free slots on target node?
@@ -525,12 +538,10 @@ sub _find_path_astar
     my ($val, $x,$y, $px,$py, $type) = $elem->fields();
 
     my $key = "$x,$y";
-    # move node into $close and remove from open
+    # move node into CLOSE and remove from OPEN
     my $g = $open_by_pos->{$key};
     $closed->{$key} = [ $px, $py, $val - $g, $g, $type ];
     delete $open_by_pos->{$key};
-
-    #print STDERR "# examining $x,$y\n";
 
     # we are done when we hit one of the potential stop positions
     for (my $i = 0; $i < $stop; $i += 3)
@@ -542,16 +553,14 @@ sub _find_path_astar
         }
       }
 
-    my @p = _astar_near_nodes($x,$y, $type, $cells, $open_by_pos, $closed);
+    # get list of potential positions we need to explore from the current one
+    my @p = _astar_near_nodes($x,$y, $cells, $open_by_pos, $closed);
     my $n = 0;
     while ($n < scalar @p)
       {
       my $nx = $p[$n]; my $ny = $p[$n+1]; $n += 2;
 
-      my $lg = $g + _astar_modifier($nx,$ny,$x,$y,$px,$py);
-
-      # print STDERR "# opening $nx,$ny with distance ", 
-      #  _astar_distance($nx,$ny,$dx,$dy)," + $lg\n";
+      my $lg = $g + _astar_modifier($nx,$ny,$x,$y,$px,$py,$cells);
 
       # calculate distance to each possible stop position, and
       # use the lowest one
@@ -562,6 +571,7 @@ sub _find_path_astar
         $lowest_distance = $d if $d < $lowest_distance; 
         }
 
+      # open new position into OPEN
       $open->add( Graph::Easy::Astar::Node->new(
         $lowest_distance + $lg,
          $nx, $ny, $x, $y, undef ));
@@ -577,6 +587,8 @@ sub _find_path_astar
   my ($lx,$ly);
   my $type;
 
+  my $label_cell = 0;		# found a cell to attach the label to?
+
   # follow $elem back to the source to find the path
   while (defined $cx)
     {
@@ -585,26 +597,63 @@ sub _find_path_astar
     $type = $closed->{"$cx,$cy"}->[ 4 ];
 
     my ($px,$py) = @{ $closed->{"$cx,$cy"} };	# get X,Y of parent cell
-    if (!defined $type && defined $lx && defined $px)
+
+    my $edge_type = ($type||0) & EDGE_TYPE_MASK;
+    if ($edge_type == 0)
       {
-      # figure out correct type here
-      $type = _astar_edge_type($px, $py, $cx, $cy, $lx,$ly);
+      my $edge_flags = ($type||0) & EDGE_FLAG_MASK;
+      # either a start or a stop cell
+      if (!defined $px)
+        {
+        # We can figure out from the flag of the position of cx,cy
+        #         ................
+        #         : EDGE_START_S :
+        # .......................................
+        # START_E :    px,py     : EDGE_START_W :
+        # .......................................
+        #         : EDGE_START_N :
+        #         ................
+        ($px,$py) = ($cx, $cy);		# start with same cell
+        $py ++ if ($edge_flags & EDGE_START_S) != 0; 
+        $py -- if ($edge_flags & EDGE_START_N) != 0; 
+
+        $px ++ if ($edge_flags & EDGE_START_E) != 0; 
+        $px -- if ($edge_flags & EDGE_START_W) != 0; 
+        }
+      if (!defined $lx)
+        {
+        # We can figure out from the flag of the position of cx,cy
+        #       ..............
+        #       : EDGE_END_S :
+        # .................................
+        # END_E :    lx,ly   : EDGE_END_W :
+        # .................................
+        #       : EDGE_END_N :
+        #       ..............
+        ($lx,$ly) = ($cx, $cy);		# start with same cell
+
+        $ly ++ if ($edge_flags & EDGE_END_S) != 0; 
+        $ly -- if ($edge_flags & EDGE_END_N) != 0; 
+
+        $lx ++ if ($edge_flags & EDGE_END_E) != 0; 
+        $lx -- if ($edge_flags & EDGE_END_W) != 0; 
+        }
+      # now figure out correct type for this cell from positions of
+      # parent/following cell
+      $type += _astar_edge_type($px, $py, $cx, $cy, $lx,$ly);
       }
-    $type = EDGE_HOR if !defined $type;		# last resort
+    $type = EDGE_HOR if ($type & EDGE_TYPE_MASK) == 0;		# last resort
+
+    # if this is the first hor edge, attach the label to it
+    # XXX TODO: This clearly is not optimal.
+    $type += EDGE_LABEL_CELL if
+     ($label_cell++ == 0) &&
+     ($type & EDGE_TYPE_MASK) == EDGE_HOR;
+
     unshift @$path, $cx, $cy, $type;		# unshift to reverse the path
     ($lx,$ly) = ($cx,$cy);
     ($cx,$cy) = @{ $closed->{"$cx,$cy"} };	# get X,Y of parent cell
     }
-
-  my $remap_edges = {
-    EDGE_END_E() => 0,
-    EDGE_END_S() => 1,
-    EDGE_END_W() => 2,
-    EDGE_END_N() => 3,
-    };
-
-  # if path is only one step long, set the type to EDGE_SHORT_E + $type
-  $path->[-1] = $remap_edges->{$path->[-1]} if (@$path == scalar 3);
 
   return ($path,$closed,$open_by_pos) if wantarray;
   $path;
@@ -612,7 +661,10 @@ sub _find_path_astar
 
 sub _map_as_html
   {
-  my ($self, $cells, $p, $closed, $open) = @_;
+  my ($self, $cells, $p, $closed, $open, $w, $h) = @_;
+
+  $w ||= 20;
+  $h ||= 20;
 
   my $html = <<EOF
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
@@ -625,14 +677,13 @@ sub _map_as_html
    border: #606060 solid 1px;
    font-size: 0.75em;
  }
- td.b {
+ td.b, td.b, td.c {
    background: #404040;
    border: #606060 solid 1px;
    }
- td.p {
+ td.c {
    background: #ffffff;
-   border: #606060 solid 1px;
- }
+   }
  table.map {
    border-collapse: collapse;
    border: black solid 1px;
@@ -642,50 +693,61 @@ sub _map_as_html
 </head>
 <body>
 
-<h1>map</h1>
+<h1>A* Map</h1>
+
+<p>
+Nodes examined: <b>##closed##</b> <br>
+Nodes still to do (open): <b>##open##</b> <br>
+Nodes in path: <b>##path##</b>
+</p>
 EOF
 ;
 
+  $html =~ s/##closed##/keys %$closed /eg;
+  $html =~ s/##open##/keys %$open /eg;
   my $path = {};
   while (@$p)
     {
     my $x = shift @$p;
     my $y = shift @$p;
-    $path->{$x,$y} = undef;
+    my $t = shift @$p;
+    $path->{"$x,$y"} = undef;
     }
+  $html =~ s/##path##/keys %$path /eg;
   $html .= '<table class="map">' . "\n";
 
-  for my $y (0..20)
+  for my $y (0..$h)
     {
     $html .= " <tr>\n";
-    for my $x (0..25)
+    for my $x (0..$w)
       {
+      my $xy = "$x,$y";
       my $c = '&nbsp;' x 4;
-      $html .= "  <td class='p'>$c</td>\n" and next if
-        exists $cells->{"$x,$y"} and ref $cells->{"$x,$y"};
+      $html .= "  <td class='c'>$c</td>\n" and next if
+        exists $cells->{$xy} and ref($cells->{$xy}) =~ /Node/;
       $html .= "  <td class='b'>$c</td>\n" and next if
-        exists $cells->{"$x,$y"};
+        exists $cells->{$xy} && !exists $path->{$xy};
 
       $html .= "  <td>$c</td>\n" and next unless
-        exists $closed->{"$x,$y"} ||
-        exists $open->{"$x,$y"};
+        exists $closed->{$xy} ||
+        exists $open->{$xy};
 
       my $clr = '#a0a0a0';
-      if (exists $closed->{"$x,$y"})
+      if (exists $closed->{$xy})
         {
-        $c =  ($closed->{"$x,$y"}->[3] || '0') . '+' . ($closed->{"$x,$y"}->[2] || '0');
-        my $color = 0x10 + 8 * (($closed->{"$x,$y"}->[2] || 0));
-        my $color2 = 0x10 + 8 * (($closed->{"$x,$y"}->[3] || 0));
+        $c =  ($closed->{$xy}->[3] || '0') . '+' . ($closed->{$xy}->[2] || '0');
+        my $color = 0x10 + 8 * (($closed->{$xy}->[2] || 0));
+        my $color2 = 0x10 + 8 * (($closed->{$xy}->[3] || 0));
         $clr = sprintf("%02x%02x",$color,$color2) . 'a0';
         }
-      elsif (exists $open->{"$x,$y"})
+      elsif (exists $open->{$xy})
         {
-        $c = '&nbsp;' . $open->{"$x,$y"} || '0';
-        my $color = 0xff - 8 * ($open->{"$x,$y"} || 0);
+        $c = '&nbsp;' . $open->{$xy} || '0';
+        my $color = 0xff - 8 * ($open->{$xy} || 0);
         $clr = 'a0' . sprintf("%02x",$color) . '00';
         }
       my $b = '';
-      $b = 'border: 1px white solid;' if exists $path->{$x,$y};
+      $b = 'border: 2px white solid;' if exists $path->{$xy};
       $html .= "  <td style='background: #$clr;$b'>$c</td>\n";
       }
     $html .= " </tr>\n";

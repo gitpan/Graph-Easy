@@ -14,10 +14,10 @@ use Graph::Easy::Group::Cell qw/GROUP_MAX/;
 use Graph::Easy::Layout;
 use Graph::Easy::Node;
 use Graph::Easy::Node::Anon;
-use Graph 0.65;
+use Graph 0.67;
 use Graph::Directed;
 
-$VERSION = '0.23';
+$VERSION = '0.24';
 
 use strict;
 
@@ -62,6 +62,8 @@ sub _init
   $self->{html_footer} = '';
   $self->{html_style} = '';
 
+  $self->{_astar_bias} = 0.001;
+
   $self->{att} = {
   node => {
     'border' => '1px solid black',
@@ -84,6 +86,7 @@ sub _init
     },
   edge => { 
     border => 'none',
+    'border-style' => 'none',
     background => 'inherit',
     padding => '0.2em',
     margin => '0.1em',
@@ -313,7 +316,7 @@ sub border_attribute
   my $width = $self->attribute($class, 'border-width') || '';
   my $color = $self->attribute($class, 'border-color') || '';
 
-  $width = $width.'px' if $width =~ /^\d+\z/;
+  $width = $width.'px' if $width =~ /^\s*\d+\s*\z/;
 
   my $val = join(" ", $width, $style, $color);
   $val =~ s/^\s+//;
@@ -401,7 +404,7 @@ sub set_attributes
   $self;
   }
 
-sub remap_attributes
+sub _remap_attributes
   {
   # Take a hash with:
   # {
@@ -414,29 +417,46 @@ sub remap_attributes
   my ($self, $class, $att, $remap, $noquote ) = @_;
 
   my $out = {};
+  $class =~ s/\..*//;			# remove subclass 
   my $r = $remap->{$class};
+  my $ra = $remap->{all};
   my $def = $self->{def_att}->{$class};
   for my $atr (keys %$att)
     {
+    my $val = $att->{$atr};
+
     # attribute not defined
-    next if !defined $att->{$atr} ||
+    next if !defined $val || $val eq '' ||
     # or $remap says we should suppress it
-       (exists $r->{$atr} && !defined $r->{$atr});
-    # || $atr =~ /border-(style|width)/;
+       (exists $r->{$atr} && !defined $r->{$atr}) ||
+       (exists $ra->{$atr} && !defined $ra->{$atr});
 
     # suppress default attributes
-    next if defined $def->{$atr} && $att->{$atr} eq $def->{$atr};
+    next if defined $def->{$atr} && $val eq $def->{$atr};
 
-    # rename the attribute name if nec.
-    my $atrn = $atr; $atrn = $r->{$atr} if exists $r->{$atr};
+    # if given a code ref, call it to remap name and/or value
+    if (exists $r->{$atr})
+      {
+      my $rc = $r->{$atr};
+      if (ref($rc) eq 'CODE')
+        {
+        ($atr,$val) = &{$rc}($self,$atr,$val);
+        next if !defined $atr || !defined $val;
+        }
+      else
+        {
+        # otherwise, rename the attribute name if nec.
+        $atr = $rc;
+        }
+      }
 
-    my $val = $att->{$atr};
-    # encode critical characters
-    $val =~ s/([;\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
+    # encode critical characters (including ")
+    $val =~ s/([;"\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
     # quote if nec.
-    $val = '"' . $val . '"' if !$noquote && $val =~ /[^a-zA-Z0-9]/;
+    $val = '"' . $val . '"' if !$noquote;# && 
+#     ($val !~ /^#[a-zA-Z0-9]{6}\z/);# && $val =~ /[,\s]/;
 
-    $out->{$atrn} = $val;
+    $out->{$atr} = $val;
     }
   $out;
   }
@@ -840,21 +860,24 @@ sub as_ascii
 
   $self->layout() unless defined $self->{score};
 
+  # generate for each cell the width/height etc
   my ($rows,$cols,$max_x,$max_y,$cells) = $self->_prepare_layout('ascii');
 
-  # generate the actual framebuffer
+  # generate the actual framebuffer for the output
   my $fb = Graph::Easy::Node->_framebuffer($max_x, $max_y);
 
   print STDERR "# Allocating framebuffer $max_x x $max_y\n" if $self->{debug};
 
-  # insert all cells into it
+  # draw all cells into framebuffer
   foreach my $v (@$cells)
     {
+    next if ref($v) =~ /::Node::Cell/;		# skip empty cells
+
     # get as ASCII box
-    my @lines = split /\n/, $v->as_ascii();
-    # get position from cell
     my $x = $cols->{ $v->{x} };
     my $y = $rows->{ $v->{y} };
+    my @lines = split /\n/, $v->as_ascii($x,$y);
+    # get position from cell
     for my $i (0 .. scalar @lines-1)
       {
       next if length($lines[$i]) == 0;
@@ -1027,7 +1050,7 @@ sub as_svg_file
   {
   require Graph::Easy::As_svg;
 
-  _as_svg( { standalone => 1 } );
+  _as_svg( $_[0], { standalone => 1 } );
   }
 
 sub as_txt
@@ -1482,6 +1505,9 @@ the style of the edge, if not present, a default object will be used.
 
 C<$x> and C<$y> should be objects of L<Graph::Easy::Node|Graph::Easy::Node>,
 while C<$edge> should be L<Graph::Easy::Edge|Graph::Easy::Edge>.
+
+Note: C<Graph::Easy> graphs are multi-edged, and adding the same edge
+twice will result in two edges going from C<$x> to C<$y>!
  
 =head2 add_node()
 
@@ -1537,8 +1563,11 @@ Example:
 
 =head2 layout()
 
-Creates the internal structures to layout the graph. This will be done
-behind the scenes of you call any of the C<as_FOO> methods below: 
+	$graph->layout();
+
+Creates the internal structures to layout the graph. Usually you need
+not to call this method, because it will be done automatically when you
+call any of the C<as_FOO> methods below:
 
 =head2 as_ascii()
 
@@ -1762,13 +1791,9 @@ works, the second and third do not:
 
 =over 2
 
-=item No crossing
-
-Currently edges (paths from node to node) cannot cross each other.
-
 =item Too bendy paths
 
-The A* algorithmn sometimes create unnecessary bends in a path. A tweak which
+The A* algorithm sometimes creates unnecessary bends in a path. A tweak which
 will prevent would be decreasing the value of an already open node, but
 this has not yet been implemented.
 
@@ -1820,7 +1845,7 @@ Edges in ASCII miss their edge labels.
 =head2 Node-Size
 
 A node consisting of multiple cells will be rendered incorrectly
-on ouput.
+on output.
 
 Nodes with more than one cell are automatically generated when they
 are overly wide or high, or when they have more than four

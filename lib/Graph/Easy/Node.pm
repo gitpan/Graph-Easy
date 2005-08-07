@@ -109,6 +109,14 @@ sub _correct_size
 
   return if defined $self->{w};
 
+  my $shape = $self->attribute('shape') || 'box';
+  if ($shape eq 'point')
+    {
+    $self->{w} = 3;
+    $self->{h} = 3;
+    return;
+    }
+
   my ($w,$h) = $self->dimensions();
   my $border = $self->attribute('border-style') || 'none';
   if ($border eq 'none')
@@ -325,6 +333,8 @@ sub _printfb
     }
   }
 
+ # ASCII:
+
  # the array contains for each style:
  # upper left edge
  # upper right edge
@@ -413,6 +423,11 @@ sub _draw_label
   # insert the label into the framebuffer
   my ($self, $fb) = @_;
 
+  my $shape = $self->attribute('shape') || 'box';
+
+  # point-shaped nodes do not show their label in ASCII
+  return if $shape eq 'point';
+
   my @lines = $self->_formatted_label();
 
   #        +----
@@ -426,17 +441,43 @@ sub _draw_label
   $self->_printfb ($fb, 2, 1, @lines);
   }
 
+ # ASCII: the different point styles
+
+my $point_styles = {
+  'star' => '*',
+  'square' => '#',
+  'dot' => '.',
+  'circle' => '*', 	# unfortunately, we do not have a filled o
+  'ring' => 'o',
+  'none' => ' ',
+  'cross' => '+',
+  };  
+
 sub as_ascii
   {
   # renders a node like:
   # +--------+    ..........    ""
   # | A node | or : A node : or " --> "
   # +--------+    ..........    "" 
-  my ($self) = @_;
+  my ($self, $x,$y) = @_;
+
+  my $shape = $self->attribute('shape') || 'box';
 
   # invisible nodes
-  return "" if ($self->attribute('shape')||'') eq 'invisible';
+  return '' if $shape eq 'invisible';
 
+  # point-shaped are simple, no border and always 3x3 chars big
+  if ($shape eq 'point')
+    {
+    #  ___
+    # |   |
+    # | * |
+    # |___|
+    #
+    my $style = $self->attribute('point-style') || 'point';
+    return "\n " . ($point_styles->{$style} || '*');
+    }
+ 
   my $border_style = $self->attribute('border-style') || 'solid';
   my $border_width = $self->attribute('border-width') || '1';
 
@@ -455,7 +496,7 @@ sub as_ascii
   $self->_draw_border($fb, $style, $style, $style, $style) unless $style eq 'none';
 
   # "draw" the label into the framebuffer
-  $self->_draw_label($fb);
+  $self->_draw_label($fb, $x, $y);
   
   join ("\n", @$fb);
   }
@@ -471,33 +512,19 @@ sub error
 sub attributes_as_txt
   {
   # return the attributes of this node as text description
-  my $self = shift;
-
+  my ($self, $remap) = @_;
+  
   my $att = '';
   my $class = $self->class();
-  my $a = $self->{att};
   my $g = $self->{graph};
 
-  # XXX TODO: could use remap_attributes()
-  for my $atr (sort keys %$a)
-    {
-    # attribute not defined
-    next if !defined $a->{$atr};
+  my $new = $g->_remap_attributes( $class, $self->{att}, $remap, 'noquote');
 
+  for my $atr (sort keys %$new)
+    {
     next if $atr =~ /^border/;			# handled special
 
-    # attribute defined, but same as default
-    if (defined $g)
-      {
-      my $DEF = $g->attribute ($class, $atr);
-      next if defined $DEF && $a->{$atr} eq $DEF;
-      }
-
-    my $val = $a->{$atr};
-    # encode critical characters
-    $val =~ s/([;\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
-
-    $att .= "$atr: $val; ";
+    $att .= "$atr: $new->{$atr}; ";
     }
 
   my $border = $self->border_attribute() || '';
@@ -992,7 +1019,7 @@ sub border_attribute
   my $width = $self->{att}->{'border-width'} || '';
   my $color = $self->{att}->{'border-color'} || '';
 
-  $width = $width.'px' if $width =~ /^\d+\z/;
+  $width = $width.'px' if $width =~ /^\s*\d+\s*\z/;
 
   my $val = join(" ", $width, $style, $color);
   $val =~ s/^\s+//;

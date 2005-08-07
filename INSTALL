@@ -8,11 +8,11 @@ To install this module type the following:
 
 Untar the package:
 
-	tar -xzf Graph-Easy-0.20.tar.gz
+	tar -xzf Graph-Easy-x.xx.tar.gz
 
 Change into the directory:
 
-	chdir Graph-Easy-0.20/
+	chdir Graph-Easy-x.xx/
 
 Verify the package:
 

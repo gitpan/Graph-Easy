@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 18;
+   plan tests => 28;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -24,6 +24,8 @@ is ($graph->edges(), 0, '0 edges');
 is (join (',', $graph->edges()), '', '0 edges');
 
 like ($graph->as_graphviz(), qr/digraph.*\{/, 'looks like digraph');
+unlike ($graph->as_graphviz(), qr/#/, 'and has proper comment');
+like ($graph->as_graphviz(), qr#// Generated#, 'and has proper comment');
 
 #############################################################################
 # after first call to as_graphviz, these should now exist:
@@ -41,8 +43,10 @@ my $berlin = Graph::Easy::Node->new( 'Berlin' );
 
 $graph->add_edge ($bonn, $berlin);
 
-like ($graph->as_graphviz(), qr/"Bonn"/, 'contains Bonn');
-like ($graph->as_graphviz(), qr/"Berlin"/, 'contains Bonn');
+like ($graph->as_graphviz(), qr/Bonn/, 'contains Bonn');
+like ($graph->as_graphviz(), qr/Berlin/, 'contains Bonn');
+
+unlike ($graph->as_graphviz(), qr/\w+=,/, "doesn't contain empty defintions");
 
 #print $graph->as_graphviz(),"\n";
 
@@ -60,8 +64,8 @@ like ($graph->as_graphviz(), qr/bgcolor=red/, 'contains bgcolor=red');
 
 $bonn->set_attribute( 'shape' => 'box' );
 
-like ($graph->as_graphviz(), qr/"Bonn"/, 'contains Bonn');
-like ($graph->as_graphviz(), qr/"Berlin"/, 'contains Bonn');
+like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($graph->as_graphviz(), qr/[^"]Berlin[^"]/, 'contains Bonn unquoted');
 like ($graph->as_graphviz(), qr/shape=box/, 'contains shape');
 
 #print $graph->as_graphviz(),"\n";
@@ -74,6 +78,7 @@ $bonn->set_attributes( {
   title => 'title string', 
   color => 'red', 
   'border-color' => 'brown',
+  class => 'city',
   } );
 
 my $grviz = $graph->as_graphviz();
@@ -82,6 +87,28 @@ like ($grviz, qr/fillcolor="#808080"/, 'contains fillcolor');
 like ($grviz, qr/tooltip="title string"/, 'contains tooltip');
 like ($grviz, qr/color=brown/, 'contains color');
 like ($grviz, qr/fontcolor=red/, 'contains fontcolor');
+unlike ($grviz, qr/(city|class)/, "doesn't contain class");
 
 #print $graph->as_graphviz(),"\n";
+
+#############################################################################
+# quoting (including " in node names)
+
+$bonn->{name} = 'Bonn"';
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/"Bonn\\""/, 'quoted Bonn"');
+
+$bonn->{name} = 'Bonn und Umgebung';
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/"Bonn und Umgebung"/, 'quoted "Bonn und Umgebung"');
+
+is (join(",", $graph->_graphviz_remap_edge_style('style', 'bold')), 'style,bold', 'style,bold');
+is (join(",", $graph->_graphviz_remap_edge_style('style', 'double')), 'style,bold', 'style,double => style, bold');
+
+my ($name,$style) = $graph->_graphviz_remap_edge_style('style', 'solid');
+
+is ($name, undef, 'style=solid suppressed');
+is ($style, undef, 'style=solid suppressed');
 

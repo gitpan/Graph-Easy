@@ -38,7 +38,7 @@ is ($graph->edges(), 0, '0 edges');
 is ($graph->border_attribute('graph'), '', 'graph border is none');
 is ($graph->border_attribute('group'), '1px dashed black', 'group border is 1px dashed black');
 is ($graph->border_attribute('node'), '1px solid black', 'node border is 1px solid black');
-is ($graph->border_attribute('edge'), '', 'edge border is none');
+is ($graph->border_attribute('edge'), 'none', 'edge border is none');
 
 is (join (',', $graph->edges()), '', '0 edges');
 
@@ -135,13 +135,13 @@ HERE
 
 
 $graph->set_attribute('graph', 'border', '1px dashed');
-$graph->set_attribute('edge', 'border', 'blue solid 1px');
+$graph->set_attribute('node', 'border', 'blue solid 1px');
 
 # graph/node/edge attributes come first
 
 is ( $graph->as_txt(), <<HERE
-edge { border: 1px solid blue; }
 graph { border: 1px dashed; }
+node { border: 1px solid blue; }
 
 [ Berlin ] { color: blue; }
 [ Bonn ] { color: red; border: none; class: cities; }
