@@ -3,8 +3,6 @@ Graph-Easy
 
 See Graph::Easy under LIMITATIONS for some hot topics.
 
-as_html: "border-width: 1" should be "border-width: 1px"
-
 In addition:
 
 Graph:
@@ -16,6 +14,9 @@ Graph:
   + Also add an option 'strict', when set to false, will disable attribute
     checking. This can then be used by the Parser (which does it's own
     attribute checks).
+  + document all attributes along with default and example values and a
+    description, then auto-generate doc from this table
+* is_simple_graph() needs implementing after removal of Graph module
 
 Parser:
 
@@ -48,6 +49,7 @@ Output:
   +---++---+      +---+---+
   | A || B | vs.  | A | B |  (that als means A needs to be width-1!)
   +---++---+      +---+---+
+* as_html: "border-width: 1" should be "border-width: 1px"
 * as_html(): grow all edge pieces to be seemless
 * as_html: node clusters have spacings between nodes:
            The spacing comes from the filler cells to make groups
@@ -60,18 +62,42 @@ Output:
 * better support for different shapes (circle, box, rounded, polygon etc)
   in HTML/ASCII/Graphviz
 * better support for different edge styles in HTML/Graphviz
-* nodes that occupy more than one cell:
-    * fix the various output routines to deal with cx != 1 or cy != 1
+* as_html: deal with multi-celled nodes
+* self-loops: Instead of the 5-piece, 2-port blocking loops, we could build
+	      special pieces:
+
+          +--+
+          v  |
+	+------+
+    +-> | test | <-+
+    |   | node |   |
+    +-- | test | --+
+        +------+
+          ^  |
+          +--+
 
 Layout:
 
-* find longest-chain (walk recursively children of startig node) and lay them
-  out longest first. This will make flowchars with forward branches look
-  better. See todo/astar.txt for an example, Bonn->Ulm->Bautzen->Berlin->Kassel
-  should be in one line, with the rest branching off.
+* the longest-chain code (walk recursively children of startig node) needs
+  some tuning, especially when it encounters loops in the graph.
+* A* fails to do loops from $src to $src. This happens if the self-loop code
+  failed to find a path, too.
+* We could allow crossing of a horizontal edge-piece with an end/start point
+  by making the cross routine more flexible.
+
+   +------------------+
+   | some random node | <-+
+   +------------------+   |        <-- the code will generate this crossing
+     ^                    |      
+   --+--------------------+---     <-- some passing edge underneath the node
+     |                    |
+
+        ^- this should be generated
+
 * allow user to specify max graph width (in cells) to avoid overly wide graphs
 * auto-grow nodes to be multicelled depending on the dimensions of their label
   ("main page" gets 2x1, while "a \nb \nc \nd \ne \n" gets 1x2 cells)
+  This currently causes problems and wierd layouts.
 * Use the seed to generate randomized layouts
 * allow user to specifiy prefered direction of edges, as well as
   relatively placed nodes (in position relativ to another node)
@@ -84,25 +110,9 @@ Optimizer:
 
 * use Heap::Binary instead of Fibonacci?
 * inline $elems->fields() call in A*
-* use weaken() of refs in nodes back to graph to allow correct memory release
 * write an optimizer for already laid out graphs to optimize layout
 * less memory: store border and edge styles as ints instead of "solid" etc
 * use AUTOLOAD for accessors in Node.pm: most are never used by normal code
-* optimize attribute() (by not calling G::E::attribute from
-  G::E::N::attribute()?):
-
- %Time ExclSec CumulS #Calls sec/call Csec/c  Name
-  52.1   0.440  0.440 130300   0.0000 0.0000  Graph::Easy::attribute
-  39.3   0.332  0.818  44000   0.0000 0.0000  Graph::Easy::Node::attribute
-  17.5   0.148  1.067   8800   0.0000 0.0001  Graph::Easy::Node::as_html
-  13.1   0.111  1.217    100   0.0011 0.0122  Graph::Easy::as_html
-  7.94   0.067  0.067  52600   0.0000 0.0000  Graph::Easy::Node::class
-  7.58   0.064  0.370   8800   0.0000 0.0000  Graph::Easy::Node::title
-  5.92   0.050  0.099     24   0.0021 0.0041  Graph::Easy::BEGIN
-  2.37   0.020  0.129      5   0.0040 0.0258  main::BEGIN
-  2.01   0.017  0.016   1400   0.0000 0.0000  Graph::Easy::Edge::Cell::_content
-  1.90   0.016  0.143   7000   0.0000 0.0000  Graph::Easy::Edge::Cell::attribute
-  1.90   0.016  0.218   1400   0.0000 0.0002  Graph::Easy::Edge::Cell::as_html
 
 Manual:
 

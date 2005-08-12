@@ -99,7 +99,10 @@ __DATA__
 []->[]|2,#0,#1
 [Bonn]->[]|2,#1,Bonn
 []->[Bonn]|2,#0,Bonn
-[]->[Bonn]->[]|3,#0,#2,Bonn
+# First "#0" and "#1" are created, and ID 2 goes to the edge.
+# then "#3" is created, and ID 4 goes to the second edge. Therefore
+# "#0" and "#3" are the two anon nodes.
+[]->[Bonn]->[]|3,#0,#3,Bonn
 # multiple spaces in nodes
 [ Bonn and Berlin ]|1,Bonn and Berlin
 [ Bonn  and  Berlin  ]|1,Bonn and Berlin

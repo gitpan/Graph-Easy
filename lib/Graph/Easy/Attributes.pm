@@ -9,7 +9,7 @@ package Graph::Easy::Attributes;
 use strict;
 use vars qw/$VERSION/;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 #############################################################################
 # color handling
@@ -189,6 +189,97 @@ sub color_as_hex
 
 #############################################################################
 # attribute checking
+
+# different types of attributes with pre-defined handling
+sub ATTR_COLOR () { 0; }
+
+# lists the names along with
+# * a short description, 
+# * regexp to match valid attributes
+# * default value and
+# * an example
+
+my $names = {
+  all => {
+    background => [
+     'The background color. See the section about color names and values for reference.',
+     undef,
+     'white',
+     'rgb(255,0,0)',
+     ],
+    class => [
+     'The subclass. See the section about class names for reference.',
+     undef,
+     '',
+     'mynodeclass',
+     ],
+    'border-shape' => [
+     'The shape of the border One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double or wave.',
+     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
+    'solid',
+     'dotted',
+     ],
+   },
+
+  node => {
+    size => [
+     'The size of the node in columns and rows. See also L<size>',
+     qr/^\d+,\d+\z/,
+     '1,1',
+     '3,2',
+     ],
+    rows => [
+     'The size of the node in rows.',
+     qr/^\d+\z/,
+     '1',
+     '3',
+     ],
+    columns => [
+     'The size of the node in columns. See also L<size>.',
+     qr/^\d+\z/,
+     '1',
+     '2',
+     ],
+    offset => [
+     'The offset of this node from the center node of the cluster, in columns and rows. Only valid if the node is a part of a node cluster. See L<cluster>.',
+     qr/^\d+,\d+\z/,
+     '0,0',
+     '3,2',
+     ],
+    cluster => [
+     'The name of the cluster this node belongs to. See also L<offset>.',
+     undef,
+     '',
+     'Cluster A',
+     ],
+
+    background => [
+     'The background color of the node. See the section about color names and values.',
+     undef,
+     'white',
+     'rgb(255,0,0)',
+     ],
+    'border-shape' => [
+     'The shape of the border One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double or wave.',
+     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
+     'solid',
+     'dotted',
+     ],
+  },
+
+  graph => {
+    'border-shape' => [
+     'The shape of the border One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double or wave.',
+     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
+     'none',
+     'dotted',
+     ],
+  },
+
+  edge => {
+  },
+
+  };
 
 sub valid_attribute
   {

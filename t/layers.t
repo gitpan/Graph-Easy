@@ -14,7 +14,7 @@ BEGIN
 use Graph::Easy;
 
 #############################################################################
-# layer tests
+# rank tests
 
 my $graph = Graph::Easy->new();
 
@@ -28,37 +28,37 @@ my $D = Graph::Easy::Node->new( 'D' );
 my $E = Graph::Easy::Node->new( 'E' );
 
 is ($B->name(), 'B');
-is ($A->{layer}, undef, 'no layers assigned yet');
+is ($A->{rank}, undef, 'no ranks assigned yet');
 
-$graph->_assign_layers();
-is ($A->{layer}, undef, 'A not part of graph');
+$graph->_assign_ranks();
+is ($A->{rank}, undef, 'A not part of graph');
 is ($A->connections(), 0);
 
 $graph->add_edge( $A, $B );
-$graph->_assign_layers();
+$graph->_assign_ranks();
 is ($A->connections(), 1);
 is ($B->connections(), 1);
-is_layer($A, 0); is_layer($B, 1);
+is_rank($A, 0); is_rank($B, 1);
 
 $graph->add_edge( $B, $C );
-$graph->_assign_layers();
-is_layer($A, 0); is_layer($B, 1); is_layer($C, 2);
+$graph->_assign_ranks();
+is_rank($A, 0); is_rank($B, 1); is_rank($C, 2);
 
 $graph->add_edge( $C, $D );
-$graph->_assign_layers();
-is_layer($A, 0); is_layer($B, 1); is_layer($C, 2); is_layer($D, 3);
+$graph->_assign_ranks();
+is_rank($A, 0); is_rank($B, 1); is_rank($C, 2); is_rank($D, 3);
 
 $graph = Graph::Easy->new();
 $graph->add_edge( $C, $D );
 $graph->add_edge( $A, $B );
-$graph->_assign_layers();
-is_layer($A, 0); is_layer($B, 1);
-is_layer($C, 0); is_layer($D, 1);
+$graph->_assign_ranks();
+is_rank($A, 0); is_rank($B, 1);
+is_rank($C, 0); is_rank($D, 1);
 
 $graph->add_edge( $D, $E );
-$graph->_assign_layers();
-is_layer($A, 0); is_layer($B, 1);
-is_layer($C, 0); is_layer($D, 1); is_layer($E, 2);
+$graph->_assign_ranks();
+is_rank($A, 0); is_rank($B, 1);
+is_rank($C, 0); is_rank($D, 1); is_rank($E, 2);
 
 print "# IDs A B C D E: ".
       $A->{id}. " ".
@@ -69,20 +69,20 @@ print "# IDs A B C D E: ".
 
 # circular path C->D->E->C
 $graph->add_edge( $E, $C );
-$graph->_assign_layers();
-is_layer($A, 0); is_layer($B, 1);
+$graph->_assign_ranks();
+is_rank($A, 0); is_rank($B, 1);
 # D => 1, then E => 2, then C => 3 (since C is still 0)
-is_layer($C, 3); is_layer($D, 1); is_layer($E, 2);
+is_rank($C, 3); is_rank($D, 1); is_rank($E, 2);
 
 #############################################################################
 # looping node
 
 $graph = Graph::Easy->new();
 $graph->add_edge( $A, $A );
-$graph->_assign_layers();
+$graph->_assign_ranks();
 is ($A->connections(), 2);
 # since A = 0, it will get 1
-is_layer($A, 1);
+is_rank($A, 1);
 
 #############################################################################
 # multiedged graph
@@ -90,59 +90,59 @@ is_layer($A, 1);
 $graph = Graph::Easy->new();
 $graph->add_edge( $A, $B );
 $graph->add_edge( $A, $B ); # add second edge
-$graph->_assign_layers();
+$graph->_assign_ranks();
 # second edge does not alter result
 is (scalar $A->successors(), 1);
 is ($A->connections(), 2);
 is (scalar $B->predecessors(), 1);
 is ($B->connections(), 2);
-is_layer($A, 0);
-is_layer($B, 1);
+is_rank($A, 0);
+is_rank($B, 1);
 
 #############################################################################
-# near nodes (2 in layer 0, one in layer 1, 1 in layer 2)
+# near nodes (2 in rank 0, one in rank 1, 1 in rank 2)
 
 $graph = Graph::Easy->new();
 $graph->add_edge( $A, $B );
 $graph->add_edge( $C, $B );
 $graph->add_edge( $B, $D );
-$graph->_assign_layers();
+$graph->_assign_ranks();
 is ($A->connections(), 1);
 is ($B->connections(), 3);
 is ($C->connections(), 1);
 is ($D->connections(), 1);
-is_layer($A, 0);
-is_layer($B, 1);
-is_layer($C, 0);
-is_layer($D, 2);
+is_rank($A, 0);
+is_rank($B, 1);
+is_rank($C, 0);
+is_rank($D, 2);
 
 my @nodes = $graph->sorted_nodes();
 is_deeply (\@nodes, [ $A, $B, $C, $D ], 'nodes sorted on id');
 
-@nodes = $graph->sorted_nodes('layer');
-is_deeply (\@nodes, [ $A, $C, $B, $D ], 'nodes sorted on layer');
+@nodes = $graph->sorted_nodes('rank');
+is_deeply (\@nodes, [ $A, $C, $B, $D ], 'nodes sorted on rank');
 
-@nodes = $graph->sorted_nodes('layer', 'name');
-is_deeply (\@nodes, [ $A, $C, $B, $D ], 'nodes sorted on layer and name');
+@nodes = $graph->sorted_nodes('rank', 'name');
+is_deeply (\@nodes, [ $A, $C, $B, $D ], 'nodes sorted on rank and name');
 
 $A->{name} = 'a';
-@nodes = $graph->sorted_nodes('layer', 'name');
-is_deeply (\@nodes, [ $C, $A, $B, $D ], 'nodes sorted on layer and name');
+@nodes = $graph->sorted_nodes('rank', 'name');
+is_deeply (\@nodes, [ $C, $A, $B, $D ], 'nodes sorted on rank and name');
 
 $A->{name} = 'Z';
-@nodes = $graph->sorted_nodes('layer', 'name');
-is_deeply (\@nodes, [ $C, $A, $B, $D ], 'nodes sorted on layer and name');
+@nodes = $graph->sorted_nodes('rank', 'name');
+is_deeply (\@nodes, [ $C, $A, $B, $D ], 'nodes sorted on rank and name');
 
-@nodes = $graph->sorted_nodes('layer', 'id');
-is_deeply (\@nodes, [ $A, $C, $B, $D ], 'nodes sorted on layer and id');
+@nodes = $graph->sorted_nodes('rank', 'id');
+is_deeply (\@nodes, [ $A, $C, $B, $D ], 'nodes sorted on rank and id');
 
 1;
 
 #############################################################################
 
-sub is_layer
+sub is_rank
   {
   my ($n, $l) = @_;
 
-  is ($n->{layer}, $l, "$n->{name} is layer $l");
+  is ($n->{rank}, $l, "$n->{name} has rank $l");
   }

@@ -6,15 +6,11 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 use strict;
 
 #############################################################################
-
-# Name of attribute under which the pointer to each Node/Edge object is stored
-# If you change this, change it also in Easy.pm!
-sub OBJ () { 'obj' };
 
 {
   # protected vars
@@ -37,6 +33,8 @@ sub new
   
   my $self = bless {}, $class;
 
+  $self->{id} = new_id();
+
   $self->_init($args);
   }
 
@@ -45,15 +43,12 @@ sub _init
   # Generic init routine, to be overriden in subclasses.
   my ($self,$args) = @_;
   
-  $self->{id} = new_id();
   $self->{name} = 'Node #' . $self->{id};
   
   # attributes
   $self->{att} = { };
   $self->{class} = 'node';		# default class
 
-  $self->{contains} = undef;
-  $self->{origin} = undef;	# not relative to any other node
   $self->{dx} = 0;		# relative to no other node
   $self->{dy} = 0;
  
@@ -76,10 +71,9 @@ sub _init
   $self->{cx} = 1;
   $self->{cy} = 1;
  
-  # XXX TODO: these could be left undef (to save memory) until needed 
-  $self->{out} = {};
-  $self->{in} = {};
-  $self->{groups} = {};
+  # These are undef (to save memory) until needed 
+  #$self->{groups} = {};
+  #$self->{contains} = undef;
   
   $self;
   }
@@ -285,7 +279,7 @@ sub _formatted_label
   {
   my $self = shift;
 
-  my $name = $self->label();
+  my $name = $self->label() || '';
   $name =~ s/\\n/\n/g;			# insert newlines
 
   # split into lines, remove extranous spacing
@@ -321,7 +315,7 @@ sub _printfb
   {
   # Print (potential a multiline) text into a framebuffer
   # Caller MUST ensure proper size of FB, for speed reasons,
-  # we do not check whether text fits!
+  # we do not check wether text fits!
   my ($self, $fb, $x, $y, @lines) = @_;
 
   # [0] = '0123456789...'
@@ -329,11 +323,32 @@ sub _printfb
 
   for my $l (@lines)
     {
-    substr ( $fb->[$y], $x, length($l)) = $l; $y++;
+
+#    # XXX DEBUG:
+#    if ( $x + length($l) > length($fb->[$y]))
+#      {
+#      require Carp;
+#      Carp::confess("substr outside framebuffer");
+#      }
+
+    substr ($fb->[$y], $x, length($l)) = $l; $y++;
     }
   }
 
- # ASCII:
+sub _printfb_ver
+  {
+  # Print a string vertical into a framebuffer.
+  # Caller MUST ensure proper size of FB, for speed reasons,
+  # we do not check wether text fits!
+  my ($self, $fb, $x, $y, $line) = @_;
+
+  for my $i (0 .. length($line)-1)
+    {
+    substr ($fb->[$y], $x, 1) = substr($line,$i,1); $y++;
+    }
+  }
+
+ # for ASCII:
 
  # the array contains for each style:
  # upper left edge
@@ -696,6 +711,10 @@ sub grow
   # edges
   my $self = shift;
 
+  # XXX TODO: grow the node based on it's label dimensions
+#  my ($w,$h) = $self->dimensions();
+
+
   my $connections = $self->connections();
 
 #  my $direction = $self->attribute('direction') || 90;
@@ -708,9 +727,6 @@ sub grow
     $grow = 'cx' if $self->{cx} < $self->{cy};
     $self->{$grow}++;
     }
-
-  # XXX TODO: grow the node based on it's label dimensions
-  my ($w,$h) = $self->dimensions();
 
   $self;
   }
@@ -862,17 +878,16 @@ sub edges_to
   # Return all the edge objects that start at this vertex and go to $other.
   my ($self, $other) = @_;
 
-  my $g = $self->{graph}->{graph};
-  my @ids = $g->get_multiedge_ids( $self->{name}, $other->{name} );
+  # no graph, no dice
+  return unless ref $self->{graph};
 
-  return scalar @ids unless wantarray;			# short cut
-
-  my @E;
-  foreach my $id (@ids)
+  my @edges;
+  for my $edge (values %{$self->{edges}})
     {
-    push @E, $g->get_edge_attribute_by_id( $self->{name}, $other->{name}, $id, OBJ);
+    next unless $edge->{to} == $other;
+    push @edges, $edge;
     }
-  @E;
+  @edges;
   }
 
 sub connections
@@ -881,39 +896,14 @@ sub connections
   my $self = shift;
 
   return 0 unless defined $self->{graph};
-
-  my $g = $self->{graph}->{graph};
-  return 0 unless defined $g;
-
-  # It is not enough to just add successors+predecessors, because
-  # in a multi-edges graph "A -> B; A -> B", A has one successor,
-  # but two connections!
-
-  # XXX TODO find out, whether Graph has a method that returns this.
-
+ 
+  # We need to count the connections, because "[A]->[A]" creates
+  # two connections on "A", but only one edge! 
   my $con = 0;
-  my $n = $self->{name};
-
-#  print " suc: ", scalar $g->successors( $n ), " pre: ", scalar $g->predecessors( $n ), "\n";
-
-  my @nodes = $g->successors( $n );
-  for my $s (@nodes)
+  for my $edge (values %{$self->{edges}})
     {
-
-    my $c = scalar $g->get_multiedge_ids( $n, $s );
-    my @C = $g->get_multiedge_ids( $n, $s );
-#    print "ids $n => $s: ", join (" ",@C), " count $c\n";
-
-    $con += scalar $g->get_multiedge_ids( $n, $s );
-    }
-  @nodes = $g->predecessors( $n );
-  for my $s (@nodes)
-    {
-    $con += scalar $g->get_multiedge_ids( $s, $n );
-
-    my $c = scalar $g->get_multiedge_ids( $s, $n );
-    my @C = $g->get_multiedge_ids( $s, $n );
-#    print "ids $s => $n: ", join (" ",@C), " count $c\n";
+    $con ++ if $edge->{to} == $self;
+    $con ++ if $edge->{from} == $self;
     }
   $con;
   }
@@ -938,17 +928,13 @@ sub successors
 
   return () unless defined $self->{graph};
 
-  my $g = $self->{graph}->{graph};
-  return () unless defined $g;
-
-  my @s = $g->successors( $self->{name} );
-
-  my @N;
-  foreach my $su (@s)
+  my %suc;
+  for my $edge (values %{$self->{edges}})
     {
-    push @N, $g->get_vertex_attribute( $su, OBJ );
+    next unless $edge->{from}->{id} == $self->{id};
+    $suc{$edge->{to}->{id}} = $edge->{to};	# weed out doubles
     }
-  @N;
+  values %suc;
   }
 
 sub predecessors
@@ -957,17 +943,14 @@ sub predecessors
   my $self = shift;
 
   return () unless defined $self->{graph};
-  my $g = $self->{graph}->{graph};
-  return () unless defined $g;
 
-  my @p = $g->predecessors( $self->{name} );
-
-  my @N;
-  foreach my $pr (@p)
+  my %pre;
+  for my $edge (values %{$self->{edges}})
     {
-    push @N, $g->get_vertex_attribute( $pr, OBJ );
+    next unless $edge->{to}->{id} == $self->{id};
+    $pre{$edge->{from}->{id}} = $edge->{from};	# weed out doubles
     }
-  @N;
+  values %pre;
   }
 
 sub class
@@ -996,12 +979,9 @@ sub origin
   # any cluster)
   my $self = shift;
 
-  if ($_[0])
-    {
-    $self->{origin} = shift;
-    }
+  return undef unless ref $self->{cluster};
 
-  $self->{origin};
+  $self->{cluster}->center_node();
   }
 
 #############################################################################
@@ -1204,6 +1184,14 @@ sub add_to_groups
 #############################################################################
 # cluster handling
 
+sub _add_to_cluster
+  {
+  # called by Graph::Easy::Cluster to add ourself to the cluster of nodes
+  my $self = shift;
+
+  $self->{cluster} = $_[0];
+  }
+
 sub add_to_cluster
   {
   # add the node to the specified cluster
@@ -1212,27 +1200,17 @@ sub add_to_cluster
   my $graph = $self->{graph};				# shortcut
 
   # if passed a cluster name, create or find cluster object
-  if (!ref($cluster) && $graph)
-    {
-    my $g = $graph->cluster($cluster);
-    $g = Graph::Easy::Cluster->new( { name => $cluster } ) unless defined $g;
-    $cluster = $g;
-    }
+  $cluster = $graph->add_cluster($cluster) if !ref($cluster) && $graph;
 
-  # store the cluster
-  $self->{cluster} = $cluster;
-  $cluster->add_node($self);
+  $cluster->add_node($self) if ref($cluster);
   $self;
   }
 
 sub cluster
   {
-  # set/get the cluster
+  # Get the cluster this node belongs to
   my ($self) = shift;
 
-  $self->{cluster} = shift if $_[0];
-  
-  # return the cluster
   $self->{cluster};
   }
 
@@ -1264,12 +1242,15 @@ like L<Graph::Easy>.
 
 =head1 METHODS
 
-        my $node = Graph::Easy::Group->new( $options );
+        my $node = Graph::Easy::Node->new( name => 'node name' );
+        my $node = Graph::Easy::Node->new( 'node name' );
 
-Create a new node. C<$options> are the possible options:
+Creates a new node. If you want to add the node to a Graph::Easy object,
+then please use the following to create the node object:
 
-	name		Name of the node
-	border		Border style and color
+	my $node = $graph->add_node('Node name');
+
+You can then use C<< $node->set_attribute(); >>.
 
 =head2 error()
 
@@ -1538,10 +1519,15 @@ othrwise undef.
 
 	my $cluster = $node->cluster();
 
-	$node->cluster('clustername');
-	$node->cluster($cluster);
+Get the cluster that this node belongs to. See also C<add_to_cluster()>.
 
-Get or set the cluster that this node belongs to.
+=head2 origin()
+
+	my $origin_node = $node->origin();
+
+Returns the node this node is relativ to, if in a cluster. Undef otherwise.
+
+If the node itself is the center of the cluster, will return C<$self>.
 
 =head2 add_to_cluster()
 

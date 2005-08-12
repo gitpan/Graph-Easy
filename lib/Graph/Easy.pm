@@ -14,16 +14,11 @@ use Graph::Easy::Group::Cell qw/GROUP_MAX/;
 use Graph::Easy::Layout;
 use Graph::Easy::Node;
 use Graph::Easy::Node::Anon;
-use Graph 0.67;
-use Graph::Directed;
+use Scalar::Util qw/weaken/;
 
-$VERSION = '0.24';
+$VERSION = '0.25';
 
 use strict;
-
-# Name of attribute under which the pointer to each Node/Edge object is stored
-# If you change this, change it also in Node.pm!
-sub OBJ () { 'obj' };
 
 BEGIN 
   {
@@ -47,15 +42,37 @@ sub new
   $self->_init($args);
   }
 
+sub DESTROY
+  {
+  my $self = shift;
+
+  # clean out pointers in child-objects so that they can safely be reused
+  for my $n (values %{$self->{nodes}})
+    {
+    $n->{edges} = undef if ref($n);
+    }
+  for my $e (values %{$self->{edges}})
+    {
+    $e->{to} = undef if ref($e);
+    $e->{from} = undef if ref($e);
+    }
+  }
+
 sub _init
   {
   my ($self,$args) = @_;
 
   $self->{error} = '';
   $self->{debug} = 0;
+  $self->{timeout} = 5;			# in seconds
   
   $self->{id} = '';
   $self->{groups} = {};
+
+  # node objects, indexed by their unique name
+  $self->{nodes} = {};
+  # edge objects, indexed by unique ID
+  $self->{edges} = {};
 
   $self->{output_format} = 'html';
   $self->{html_header} = '';
@@ -120,15 +137,12 @@ sub _init
       }
     }
 
-  # create our internal graph object
-  $self->{graph} = Graph::Directed->new( multiedged => 1 );
-  
   foreach my $k (keys %$args)
     {
-#    if ($k !~ /^(|debug)\z/)
-#      {
-#      $self->error ("Unknown option '$k'");
-#      }
+    if ($k !~ /^(timeout|debug)\z/)
+      {
+      $self->error ("Unknown option '$k'");
+      }
     $self->{$k} = $args->{$k};
     }
 
@@ -141,6 +155,14 @@ sub _init
 
 #############################################################################
 # accessors
+
+sub timeout
+  {
+  my $self = shift;
+
+  $self->{timeout} = $_[0] if @_;
+  $self->{timeout};
+  }
 
 sub debug
   {
@@ -155,7 +177,9 @@ sub is_simple_graph
   # return true if the graph does not have multiedges
   my $self = shift;
 
-  $self->{graph}->is_simple_graph();
+  # XXX TODO:
+#  $self->{graph}->is_simple_graph();
+  0;
   }
 
 sub id
@@ -205,16 +229,11 @@ sub nodes
   # return all nodes as objects
   my ($self) = @_;
 
-  my $g = $self->{graph};
-  my @V = $g->vertices();
-  return scalar @V unless wantarray;		# shortcut
+  my $n = $self->{nodes};
 
-  my @nodes = ();
-  foreach my $k (@V)
-    {
-    push @nodes, $g->get_vertex_attribute( $k, OBJ );
-    }
-  @nodes;
+  return scalar keys %$n unless wantarray;	# shortcut
+
+  values %$n;
   }
 
 sub edges
@@ -222,22 +241,11 @@ sub edges
   # return all the edges as objects
   my ($self) = @_;
 
-  my $g = $self->{graph};
+  my $e = $self->{edges};
 
-  my @E = $g->edges();
+  return scalar keys %$e unless wantarray;	# shortcut
 
-  return scalar @E unless wantarray;		# shortcut
-
-  my @edges = ();
-  foreach my $k (@E)
-    {
-    my @ids = $g->get_multiedge_ids(@$k);
-    foreach my $id (@ids)
-      {
-      push @edges, $g->get_edge_attribute_by_id( @$k, $id, OBJ );
-      }
-    }
-  @edges;
+  values %$e;
   }
 
 sub sorted_nodes
@@ -245,7 +253,7 @@ sub sorted_nodes
   # return all nodes as objects, sorted by $f1 or $f1 and $f2
   my ($self, $f1, $f2) = @_;
 
-  return scalar $self->{graph}->vertices() unless wantarray;	# shortcut
+  return scalar $self->nodes() unless wantarray;	# shortcut
 
   $f1 = 'id' unless defined $f1;
   # sorting on a non-unique field alone will result in unpredictable
@@ -259,14 +267,9 @@ sub sorted_nodes
   $sort = sub { $a->{$f1} <=> $b->{$f1} || $a->{$f2} cmp $b->{$f2} } if $f2 &&
            $f2 =~ /^(name|title|label)$/;
 
-  my $g = $self->{graph};
-  my @V = $g->vertices();
-  my @nodes = ();
-  foreach my $k (@V)
-    {
-    push @nodes, $g->get_vertex_attribute( $k, OBJ );
-    }
-  # the return here should not be removed
+  my @nodes = values %{$self->{nodes}};
+
+  # the 'return' here should not be removed
   return sort $sort @nodes;
   }
 
@@ -276,12 +279,19 @@ sub edge
   my ($self, $x, $y) = @_;
 
   # turn objects into names (e.g. unique key)
-  $x = $x->{name} if ref $x;
-  $y = $y->{name} if ref $y;
+  my $xn = $x; $xn = $x->{name} if ref $xn;
+  my $yn = $y; $yn = $y->{name} if ref $yn;
 
-  my @ids = $self->{graph}->get_multiedge_ids($x, $y);
+  # turn plaintext scalars into objects 
+  $x = $self->{nodes}->{$x} unless ref $x;
+  $y = $self->{nodes}->{$y} unless ref $y;
+
+  # node does not exist => edge does not exist
+  return undef unless ref($x) && ref($y);
+
+  my @ids = $x->edges_to($y);
   
-  return undef if @ids == 0;
+ # return undef if @ids == 0;		# node has no edges
 
   if (scalar @ids > 1)
     {
@@ -289,7 +299,8 @@ sub edge
     require Carp;
     Carp::croak ("There exist more than one edge from $x->{name} to $y->{name}");
     }
-  $self->{graph}->get_edge_attribute_by_id( $x, $y, $ids[0], OBJ );
+ 
+  $ids[0];
   }
 
 sub node
@@ -298,7 +309,7 @@ sub node
   my $self = shift;
   my $name = shift || '';
 
-  $self->{graph}->get_vertex_attribute( $name, OBJ );
+  $self->{nodes}->{$name};
   }
 
 #############################################################################
@@ -453,8 +464,7 @@ sub _remap_attributes
     # encode critical characters (including ")
     $val =~ s/([;"\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
     # quote if nec.
-    $val = '"' . $val . '"' if !$noquote;# && 
-#     ($val !~ /^#[a-zA-Z0-9]{6}\z/);# && $val =~ /[,\s]/;
+    $val = '"' . $val . '"' if !$noquote;
 
     $out->{$atr} = $val;
     }
@@ -992,8 +1002,10 @@ sub _prepare_layout
 
   # find out max. dimensions for framebuffer
   my $max_y = 0; my $max_x = 0;
+
   foreach my $v (@V)
     {
+    next if ($v->{cx}||1) + ($v->{cy}||1) != 2;
 
     # X and Y are col/row, so translate them to real pos
     my $x = $cols->{ $v->{x} };
@@ -1001,7 +1013,7 @@ sub _prepare_layout
 
     # Also set correct the width/height of each cell to be the maximum
     # width/height of that colum and store the previous size in 'minw'
-    # and 'minh', respectively. 
+    # and 'minh', respectively. Skip multi-celled nodes for later. 
 
     $v->{minw} = $v->{w};
     $v->{minh} = $v->{h};
@@ -1010,6 +1022,37 @@ sub _prepare_layout
     my $nx = $v->{x} + 1;
     my $next_col = $cols->{ $nx };
     my $ny = $v->{y} + 1;
+    my $next_row = $rows->{ $ny };
+
+    $next_col = $cols->{ ++$nx } while (!defined $next_col);
+    $next_row = $rows->{ ++$ny } while (!defined $next_row);
+
+    $v->{w} = $next_col - $x;
+    $v->{h} = $next_row - $y;
+
+    my $m = $y + $v->{h} - 1;
+    $max_y = $m if $m > $max_y;
+    $m = $x + $v->{w} - 1;
+    $max_x = $m if $m > $max_x;
+    }
+
+  # repeat the previous step, now for multi-celled nodes
+  # Looping over nodes should be faster
+  foreach my $v (values %{$self->{nodes}})
+    {
+    next unless defined $v->{x} && (($v->{cx}||1) + ($v->{cy}||1) > 2);
+
+    # X and Y are col/row, so translate them to real pos
+    my $x = $cols->{ $v->{x} };
+    my $y = $rows->{ $v->{y} };
+
+    $v->{minw} = $v->{w};
+    $v->{minh} = $v->{h};
+
+    # find next col/row
+    my $nx = $v->{x} + $v->{cx};
+    my $next_col = $cols->{ $nx };
+    my $ny = $v->{y} + $v->{cy};
     my $next_row = $rows->{ $ny };
 
     $next_col = $cols->{ ++$nx } while (!defined $next_col);
@@ -1066,62 +1109,81 @@ sub add_edge
   {
   my ($self,$x,$y,$edge) = @_;
   
-  my $g = $self->{graph};
-
-  print STDERR " add_edge $x->{name} -> $y->{name}\n" if $self->{debug};
-
   $edge = Graph::Easy::Edge->new() unless defined $edge;
 
-  # add edge from X to Y and get the ID of the edge
-  my $edge_id = $g->add_edge_get_id( $x->{name}, $y->{name} );
+  if (exists ($self->{edges}->{$edge->{id}}))
+    {
+    require Carp;
+    Carp::confess("Adding an edge object twice is not possible");
+    }
+  my $nodes = $self->{nodes};
 
-  # work around bug in Graph v0.65 returning something else instead of '0'
-  # on first call
-  $edge_id = '0' if ref($edge_id);
+  my $xn = $x; my $yn = $y;
+  $xn = $x->{name} if ref($x);
+  $yn = $y->{name} if ref($y);
+
+  # convert plain scalars to Node objects if nec.
+  $x = $nodes->{$xn} if exists $nodes->{$xn};		# first look them up
+  $y = $nodes->{$yn} if exists $nodes->{$yn};
+
+  $x = Graph::Easy::Node->new( $x ) unless ref $x;	# if this fails, create
+  $y = Graph::Easy::Node->new( $y ) unless ref $y;
+
+  print STDERR " add_edge '$x->{name}' ($x->{id}) -> '$y->{name}' ($y->{id}) (edge $edge->{id})\n" if $self->{debug};
 
   # register the nodes and the edge with our graph object
   $x->{graph} = $self;
   $y->{graph} = $self;
   $edge->{graph} = $self;
+  # and weaken the references
+  {
+    no warnings; # dont warn on already weak references
+    weaken($x->{graph});
+    weaken($y->{graph});
+    weaken($edge->{graph});
+  }
+
   # Store at the edge from where to where it goes for easier reference
   $edge->{from} = $x;
   $edge->{to} = $y;
+ 
+  # store the edge at the nodes, too
+  $x->{edges}->{$edge->{id}} = $edge;
+  $y->{edges}->{$edge->{id}} = $edge;
 
-  # store obj pointers so that we can get them back later
-  $g->set_vertex_attribute( $x->{name}, OBJ, $x);
-  $g->set_vertex_attribute( $y->{name}, OBJ, $y);
-  # store the $edge obj ptr with the graph 
-  $g->set_edge_attribute_by_id( $x->{name}, $y->{name}, $edge_id, OBJ, $edge);
+  # index nodes by their name so that we can find $x from $x->{name} fast
+  $nodes->{$x->{name}} = $x;
+  $nodes->{$y->{name}} = $y;
+
+  # index edges by "id1,id2,edgeid" so we can find them fast
+  $self->{edges}->{$edge->{id}} = $edge;
 
   $self->{score} = undef;			# invalidate last layout
 
-  $edge;
+  wantarray ? ($x,$y,$edge) : $edge;
   }
 
 sub add_node
   {
   my ($self,$x) = @_;
 
-  my $g = $self->{graph};
-  if (!ref($x))
-    {
-    my $n = $g->get_vertex_attribute( $x, OBJ );
-    # already in graph under that name
-    return $n if defined $n;
-    # convert plain name to Node object
-    $x = Graph::Easy::Node->new ( name => $x );
-    }
-  else
-    {
-    my $n = $g->get_vertex_attribute( $x->{name} || '', OBJ );
-    # x already in graph?
-    return $n if defined $n;
-    }
+  my $n = $x; $n = ($x->{name}||'') if ref($x);
 
-  $g->add_vertex( $x->{name} );
-  $g->set_vertex_attribute( $x->{name}, OBJ, $x);
-  # register the node with our graph object
+  my $no = $self->{nodes};
+
+  return $no->{$n} if exists $no->{$n};
+
+  $x = Graph::Easy::Node->new( $x ) unless ref $x;
+
+  # store the node
+  $no->{$n} = $x;
+
+  # register node with ourself and weaken the reference
   $x->{graph} = $self;
+  {
+    no warnings; # dont warn on already weak references
+    weaken($x->{graph});
+  }
 
   $self->{score} = undef;			# invalidate last layout
 
@@ -1139,9 +1201,12 @@ sub add_group
   # index under the group name for easier lookup
   $self->{groups}->{ $group->{name} } = $group;
 
-  # register group with ourself  
+  # register group with ourself and weaken the reference
   $group->{graph} = $self;
- 
+  {
+    no warnings; # dont warn on already weak references
+    weaken($group->{graph});
+  } 
   $self->{score} = undef;			# invalidate last layout
 
   $self;
@@ -1190,23 +1255,44 @@ sub groups
 sub add_cluster
   {
   # add a cluster object
-  my ($self,$cluster) = @_;
+  my ($self, $cluster) = @_;
+  
+  my $c = $self->{clusters};
+
+  # take an existing one
+  $cluster = $c->{$cluster} if !ref($cluster) && exists $c->{$cluster};
+
+  # or create a new one from scratch
+  $cluster = Graph::Easy::Cluster->new($cluster) unless ref($cluster);
 
   # index under the cluster name for easier lookup
-  $self->{clusters}->{ $cluster->{name} } = $cluster;
+  $c->{ $cluster->{name} } = $cluster;
 
-  # register cluster with ourself  
+  # register cluster with ourself and weaken the reference
   $cluster->{graph} = $self;
+  {
+    no warnings; # dont warn on already weak references
+    weaken($cluster->{graph});
+  } 
  
   $self->{score} = undef;			# invalidate last layout
 
-  $self;
+  $cluster;
   }
 
 sub del_cluster
   {
   # delete cluster
   my ($self,$cluster) = @_;
+
+  my $c = $self->{clusters};
+
+  # take an existing one
+  $cluster = $c->{$cluster} if !ref($cluster) && exists $c->{$cluster};
+
+  return unless ref($cluster);			# doesn't exist?
+
+  # XXX TODO: for all nodes in cluster, delete them?
 
   delete $self->{clusters}->{ $cluster->{name} };
  
@@ -1228,15 +1314,8 @@ sub clusters
   # return number of clusters (or clusters as object list)
   my ($self) = @_;
 
-  if (wantarray)
-    {
-    my @clusters;
-    for my $g (sort keys %{$self->{clusters}})
-      {
-      push @clusters, $self->{clusters}->{$g};
-      }
-    return @clusters;
-    }
+  return values %{$self->{clusters}} if wantarray;
+
   scalar keys %{$self->{clusters}};
   }
 
@@ -1252,15 +1331,7 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
 	
 	my $graph = Graph::Easy->new();
 
-	my $bonn = Graph::Easy::Node->new(
-		name => 'Bonn',
-		border => 'solid 1px black',
-	);
-	my $berlin = Graph::Easy::Node->new('Berlin');
-
-	$graph->add_edge ($bonn, $berlin);
-
-	$graph->layout();
+	$graph->add_edge ('Bonn', 'Berlin');
 
 	print $graph->as_ascii( );
 
@@ -1270,6 +1341,19 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
 	# | Bonn | --> | Berlin |
 	# +------+     +--------+
 
+	# slightly more verbose way:
+
+	my $graph = Graph::Easy->new();
+
+	my $bonn = Graph::Easy->add_node('Bonn');
+	$bonn->set_attribute('border', 'solid 1px black')
+
+	my $berlin = $graph->add_node('Berlin');
+
+	$graph->add_edge ($bonn, $berlin);
+
+	print $graph->as_ascii( );
+
 	# adding edges with attributes:
 
         my $edge = Graph::Easy::Edge->new(
@@ -1278,7 +1362,7 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
                 color => 'red',
         );
 
-	# with optional edge object
+	# now with the optional edge object
 	$graph->add_edge ($bonn, $berlin, $edge);
 
 	# raw HTML section
@@ -1338,6 +1422,41 @@ C<Graph::Easy::Parser> to parse graph descriptions like:
 
 See L<EXAMPLES> for how this might be rendered.
 
+=head2 Creating graphs
+
+First, create a graph object:
+
+	my $graph = Graph::Easy->new();
+
+Then add a node to it:
+
+	my $node = $graph->add_node('Koblenz');
+
+Don't worry, adding the node again will do nothing:
+
+	$node = $graph->add_node('Koblenz');
+
+You can get back a node by its name with C<node()>:
+
+	$node = $graph->node('Koblenz');
+
+You can either add another node:
+
+	my $second = $graph->node('Frankfurt');
+
+Or add an edge straight-away:
+
+	my ($first,$second,$edge) = $graph->add_edge('Mainz','Ulm');
+
+Adding the edge the second time creates another edge from 'Mainz' to 'Ulm':
+
+	my $other_edge;
+	 ($first,$second,$other_edge) = $graph->add_edge('Mainz','Ulm');
+
+You can even add a self-loop:
+
+	$graph->add_edge('Bremen','Bremen');
+
 =head2 Output
 
 The output can be done in various styles:
@@ -1347,10 +1466,6 @@ The output can be done in various styles:
 =item ASCII ART
 
 Uses things like C<+>, C<-> C<< < >> and C<|> to render the boxes.
-
-=item BOX ART
-
-Uses the extended ASCII characters to draw seamless boxes. Not yet implemented.
 
 =item HTML
 
@@ -1371,15 +1486,7 @@ Creates graphviz code that can be feed to 'dot', 'neato' or similiar programs.
 The following examples are given in the simple text format that is understood
 by L<Graph::Easy::Parser|Graph::Easy::Parser>.
 
-If you see no ASCII/HTML graph output in the following examples, then your
-C<pod2html> or C<pod2txt> converter did not recognize the special graph
-paragraphs.
-
-You can use the converters in C<examples/> like C<pod2txt> and C<pod2html>
-in this distribution to generate a pretty page with nice graph "drawings" from
-this document.
-
-You can also see many different examples at:
+You can also see many more examples at:
 
 L<http://bloodgate.com/perl/graph/>
 
@@ -1388,74 +1495,48 @@ L<http://bloodgate.com/perl/graph/>
 The most simple graph (apart from the empty one :) is a graph consisting of
 only one node:
 
-=begin graph
-
 	[ Dresden ]
-
-=end graph
 
 =head2 Two nodes
 
 A simple graph consisting of two nodes, linked together by a directed edge:
 
-=begin graph
-
 	[ Bonn ] -> [ Berlin ]
-
-=end graph
 
 =head2 Three nodes
 
 A graph consisting of three nodes, and both are linked from the first:
 
-=begin graph
-
 	[ Bonn ] -> [ Berlin ]
 	[ Bonn ] -> [ Hamburg ]
-
-=end graph
 
 =head2 Three nodes in a chain
 
 A graph consisting of three nodes, showing that you can chain connections together:
 
-=begin graph
-
 	[ Bonn ] -> [ Berlin ] -> [ Hamburg ]
-
-=end graph
 
 =head2 Two not connected graphs
 
 A graph consisting of two seperate parts, both of them not connected
 to each other:
 
-=begin graph
-
 	[ Bonn ] -> [ Berlin ]
 	[ Freiburg ] -> [ Hamburg ]
-
-=end graph
 
 =head2 Three nodes, interlinked
 
 A graph consisting of three nodes, and two of the are connected from
 the first node:
 
-=begin graph
-
 	[ Bonn ] -> [ Berlin ]
 	[ Berlin ] -> [ Hamburg ]
 	[ Bonn ] -> [ Hamburg ]
-
-=end graph
 
 =head2 Different edge styles
 
 A graph consisting of a couple of nodes, linked with the
 different possible edge styles.
-
-=begin graph
 
 	[ Bonn ] <-> [ Berlin ]		# bidirectional
 	[ Berlin ] ==> [ Rostock ]	# double
@@ -1464,8 +1545,7 @@ different possible edge styles.
 	[ Leipzig ] ~~> [ Kirchhain ]	# wave
 	[ Hof ] .-> [ Chemnitz ]	# dot-dash
 	[ Magdeburg ] <=> [ Ulm ]	# bidrectional, double etc
-
-=end graph
+	[ Magdeburg ] -- [ Ulm ]	# arrow-less edge
 
 More examples at: L<http://bloodgate.com/perl/graph/>
 
@@ -1497,25 +1577,51 @@ Optionally, takes an error message to be set.
 
 =head2 add_edge()
 
-	$graph->add_edge( $x, $y, $edge);
+	my ($first, $second, $edge) = $graph->add_edge( 'node 1', 'node 2');
+	my $edge = $graph->add_edge( $x, $y, $edge);
 	$graph->add_edge( $x, $y);
 
 Add an edge between nodes X and Y. The optional edge object defines
 the style of the edge, if not present, a default object will be used.
 
-C<$x> and C<$y> should be objects of L<Graph::Easy::Node|Graph::Easy::Node>,
-while C<$edge> should be L<Graph::Easy::Edge|Graph::Easy::Edge>.
+When called in scalar context, will return C<$edge>. In array/list context
+it will return the two nodes and the edge object.
+
+C<$x> and C<$y> should be either plain scalars with the names of
+the nodes, or objects of L<Graph::Easy::Node|Graph::Easy::Node>,
+while the optional C<$edge> should be L<Graph::Easy::Edge|Graph::Easy::Edge>.
 
 Note: C<Graph::Easy> graphs are multi-edged, and adding the same edge
 twice will result in two edges going from C<$x> to C<$y>!
+
+You can use C<edge()> to check whether an edge from X to Y already exists
+in the graph.
  
 =head2 add_node()
 
+	my $node = $graph->add_node( 'Node 1' );
 	$graph->add_node( $x );
 
 Add a single node X to the graph. C<$x> should be either a
 C<Graph::Easy::Node> object, or a unique name for the node. Will do
 nothing if the node already exists in the graph.
+
+It returns an C<Graph::Easy::Node> object.
+
+=head2 add_cluster()
+
+	$cluster = $graph->add_cluster( 'cluster name' );
+
+Create a cluster with the given name, and add it to the graph. The
+cluster is initially empty, you can add nodes to it with:
+
+	$cluster->add_node( $node );
+
+and set it's center node with:
+
+	$cluster->center( $node );
+
+Please see C<Graph::Easy::Cluster> for more information.
 
 =head2 get_attribute()
 
@@ -1561,13 +1667,23 @@ Example:
 
 	$graph->set_attributes( 'node', { color => 'red', background => 'none' } );
 
+=head2 timeout()
+
+	print $graph->timeout(), " seconds timeout for layouts.\n";
+	$graph->timeout(12);
+
+Get/set the timeut for layouts in seconds. If the layout process did not
+finish after that time, it will be stopped and a warning will be printed.
+
 =head2 layout()
 
 	$graph->layout();
 
 Creates the internal structures to layout the graph. Usually you need
 not to call this method, because it will be done automatically when you
-call any of the C<as_FOO> methods below:
+call any of the C<as_FOO> methods below.
+
+See also: C<timeout()>.
 
 =head2 as_ascii()
 
@@ -1658,13 +1774,23 @@ does not exist in the graph.
 
 =head2 edge()
 
-	my $edge = $graph->edge( $node1, $node2 );
+	my $edge = $graph->edge( $x, $y );
 
-Return edge object between nodes C<$node1> and C<$node2>. Both nodes can be
-either names or C<Graph::Easy::Node> objects.
+Returns the edge object between nodes C<$x> and C<$y>. Both C<$x> and C<$y>
+can be either scalars with names or C<Graph::Easy::Node> objects.
 
 Returns undef if the edge does not yet exist.
 
+If there exist more than one edge from C<$x> to C<$y>, then only the
+first edge object will be returned.
+
+=head2 cluster()
+
+	my $cluster = $graph->cluster( 'name' );
+
+Returns a C<Graph::Easy::Cluster> object or undef if it doesn't exist in this
+graph.
+ 
 =head2 id()
 
 	my $graph_id = $graph->id();

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 35;
+   plan tests => 36;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -15,6 +15,7 @@ can_ok ('Graph::Easy', qw/
   new
   _init
 
+  timeout
   output_format
   output
   seed randomize
@@ -33,6 +34,7 @@ ok (defined $graph->{seed}, 'seed was initialized');
 is ($graph->error(), '', 'no error yet');
 is ($graph->output_format(), 'html', 'default output format is html');
 
+is ($graph->timeout(), 5, '5 seconds');
 is ($graph->nodes(), 0, '0 nodes');
 is ($graph->edges(), 0, '0 edges');
 is ($graph->border_attribute('graph'), '', 'graph border is none');

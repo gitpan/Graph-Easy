@@ -41,7 +41,9 @@ use Graph::Easy::Edge;
 
 #############################################################################
 
-my $path = Graph::Easy::Edge::Cell->new();
+my $edge = Graph::Easy::Edge->new();
+
+my $path = Graph::Easy::Edge::Cell->new( edge => $edge );
 
 is (ref($path), 'Graph::Easy::Edge::Cell');
 
@@ -49,18 +51,16 @@ is ($path->error(), '', 'no error yet');
 
 is ($path->x(), 0, 'x == 0');
 is ($path->y(), 0, 'x == 0');
-is ($path->label(), '', 'label');
+is ($path->label(), undef, 'no label');
 is (join(",", $path->pos()), "0,0", 'pos = 0,0');
 is ($path->width(), undef, 'w = undef');	# no graph => thus no width yet
 
-$path = Graph::Easy::Edge::Cell->new( type => EDGE_SHORT_W);
+$path = Graph::Easy::Edge::Cell->new( edge => $edge, type => EDGE_SHORT_W);
 
 is ($path->type(), EDGE_SHORT_W, 'edge to the left');
 
 #############################################################################
 # attribute()
-
-my $edge = Graph::Easy::Edge->new();
 
 $edge->set_attribute( color => 'blue', border => 'none');
 

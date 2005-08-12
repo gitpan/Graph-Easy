@@ -42,7 +42,7 @@ is (scalar $graph->clusters(), 1, '1 cluster');
 
 my $A = $graph->node('ABC.0');
 is (ref($A), 'Graph::Easy::Node', 'node is node');
-is ($A->origin(), undef, 'A is the origin itself');
+is ($A->origin(), $A, 'A is the origin itself');
 
 my $B = $graph->node('ABC.1');
 is (ref($B), 'Graph::Easy::Node', 'node is node');

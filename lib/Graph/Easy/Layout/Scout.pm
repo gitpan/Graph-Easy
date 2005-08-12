@@ -47,7 +47,11 @@ sub _find_path
   my ($self, $src, $dst, $options) = @_;
 
   # one node pointing back to itself?
-  return $self->_find_path_loop($src,$options) if $src == $dst;
+  if ($src == $dst)
+    {
+    my $rc = $self->_find_path_loop($src,$options);
+    return $rc unless scalar @$rc == 0;
+    }
 
   # If one of the two nodes is bigger than 1 cell, use _find_path_astar(),
   # because it automatically handles all the possibilities:
@@ -291,10 +295,10 @@ sub _find_path_loop
       }
     next unless $self->_path_is_clear(\@rc);
     print STDERR "# Found looping path $i\n" if $self->{debug};
-    last;
+    return \@rc;
     }
 
-  \@rc;					# return findings
+  [];		# no path found
   }
 
 #############################################################################
@@ -496,13 +500,13 @@ sub _find_path_astar
 
   my $dx = $dst->{x}; my $dy = $dst->{y};
   
-  print STDERR "# A* from $src->{x},$src->{x} to $dx,$dy\n" if $self->{debug};
+  print STDERR "# A* from $src->{x},$src->{y} to $dx,$dy\n" if $self->{debug};
 
   # get all the starting positions and add them to OPEN:
   # distance = 1: slots, generate starting types
   my @start = $src->_near_places($cells, 1, 'start');
 
-  my $i = 0; my $bias = $self->{_astar_bias};
+  my $i = 0; my $bias = $self->{_astar_bias} || 0;
   while ($i < scalar @start)
     {
     my $sx = $start[$i]; my $sy = $start[$i+1]; my $type = $start[$i+2]; $i += 3;
@@ -516,7 +520,7 @@ sub _find_path_astar
     # a small bias here that makes the prefered order east/south/west/north. Instead
     # the algorithmn exploring both way and terminating arbitrarily on the one that
     # first hits the target, it will explore only one.
-    $open_by_pos->{"$sx,$sy"} = $bias; $bias += $self->{_astar_bias};
+    $open_by_pos->{"$sx,$sy"} = $bias; $bias += $self->{_astar_bias} || 0;
     }
 
   # potential stop positions
@@ -539,20 +543,34 @@ sub _find_path_astar
 
     my $key = "$x,$y";
     # move node into CLOSE and remove from OPEN
-    my $g = $open_by_pos->{$key};
+    my $g = $open_by_pos->{$key} || 0;
     $closed->{$key} = [ $px, $py, $val - $g, $g, $type ];
     delete $open_by_pos->{$key};
 
-    # we are done when we hit one of the potential stop positions
-    for (my $i = 0; $i < $stop; $i += 3)
+    # Do not test for stop position(s) when we just did one step, otherwise
+    # the algorithm terminates at the same field it started from. This happens
+    # f.i. if you trace a self-loop ala ($src,$src,$edge).
+   
+#    if (defined $px)
       {
-      if ($x == $stop[$i] && $y == $stop[$i+1])
-        { 
-        $closed->{$key}->[4] = $stop[$i+2];
-        last STEP;
+      # we are done when we hit one of the potential stop positions
+      for (my $i = 0; $i < $stop; $i += 3)
+        {
+        # reached on stop position
+        if ($x == $stop[$i] && $y == $stop[$i+1])
+          {
+          $closed->{$key}->[4] = $stop[$i+2];
+          print STDERR "# Reached stop position $x,$y\n" if $self->{debug};
+          last STEP;
+          }
         }
-      }
+      } # end test for stop postion(s)
 
+    if (!defined $x || !defined $y)
+      {
+      require Carp;
+      Carp::confess("On of '$x,$y' is not defined");
+      }
     # get list of potential positions we need to explore from the current one
     my @p = _astar_near_nodes($x,$y, $cells, $open_by_pos, $closed);
     my $n = 0;
@@ -560,6 +578,11 @@ sub _find_path_astar
       {
       my $nx = $p[$n]; my $ny = $p[$n+1]; $n += 2;
 
+      if (!defined $nx || !defined $ny)
+        {
+        require Carp;
+        Carp::confess("On of '$nx,$ny' is not defined");
+        }
       my $lg = $g + _astar_modifier($nx,$ny,$x,$y,$px,$py,$cells);
 
       # calculate distance to each possible stop position, and
@@ -642,6 +665,15 @@ sub _find_path_astar
       # parent/following cell
       $type += _astar_edge_type($px, $py, $cx, $cy, $lx,$ly);
       }
+
+    print STDERR "# Following back from $lx,$ly to $cx,$cy to $px,$py\n" if $self->{debug};
+
+    if ($px == $lx && $py == $ly && ($cx != $lx || $cy != $ly))
+      {
+      print "Detected loop in path-backtracking at $px,$py, $cx,$cy, $lx,$ly\n";
+      last;
+      }
+
     $type = EDGE_HOR if ($type & EDGE_TYPE_MASK) == 0;		# last resort
 
     # if this is the first hor edge, attach the label to it

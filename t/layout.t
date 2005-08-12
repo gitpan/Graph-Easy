@@ -18,7 +18,7 @@ can_ok ("Graph::Easy", qw/
   _create_cell
   _find_path_astar
   _find_path_loop
-  _assign_layers
+  _assign_ranks
   /);
 
 isnt ($Graph::Easy::VERSION, undef, 'VERSION in Layout');

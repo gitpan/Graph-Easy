@@ -13,15 +13,7 @@ use Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.04';
-
-#############################################################################
-
-{
-  # protected vars
-  my $id = 0;
-  sub new_id { $id++; }
-}
+$VERSION = '0.05';
 
 #############################################################################
 
@@ -30,8 +22,6 @@ sub _init
   # generic init, override in subclasses
   my ($self,$args) = @_;
   
-  $self->{id} = new_id();		# get a new, unique ID
-
   $self->{border} = 'solid';
   $self->{name} = 'Group #'. $self->{id};
   $self->{label} = '';

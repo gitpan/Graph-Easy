@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 #############################################################################
 #############################################################################
@@ -38,24 +38,25 @@ use Graph::Easy::Layout::Path;	# path management
 
 #############################################################################
 
-sub _assign_layers
+sub _assign_ranks
   {
-  # assign a layer to each node, so that they can be sorted into layers
+  # assign a rank to each node, so that they can be sorted into groups
   my $self = shift;
 
+  # XXX TODO: we dont actually need them in sorted order
   my @N = $self->sorted_nodes();
   my @todo = ();
 
-  # Put all nodes into layer 0 as default and gather all nodes that have
+  # Put all nodes into rank 0 as default and gather all nodes that have
   # outgoing connections, but no incoming ones
   for my $n (@N)
     {
-    $n->{layer} = 0;			# default is 0
+    $n->{rank} = 0;			# default is 0
     push @todo, $n
       if $n->successors() > 0 && $n->predecessors() == 0;
     }
 
-  # The aboce step will create a list of todo nodes that start a chain, but
+  # The above step will create a list of todo nodes that start a chain, but
   # it will miss circular chains like CDEC (e.g. only A appears in todo):
   # A -> B;  C -> D -> E -> C;
   # We fix this as last step
@@ -67,13 +68,13 @@ sub _assign_layers
     while (@todo)
       {
       my $n = shift @todo;
-      my $l = $n->{layer} + 1;
+      my $l = $n->{rank} + 1;
       for my $o ($n->successors())
         {
-        if ($o->{layer} == 0)
+        if ($o->{rank} == 0)
           {
           #print "# Set $o->{name} to $l\n";
-          $o->{layer} = $l;
+          $o->{rank} = $l;
           # XXX TODO: check that $o is not yet on @todo
           push @todo, $o;
           }
@@ -85,12 +86,112 @@ sub _assign_layers
     last if $done == 2;			# early out
     for my $n (@N)
       {
-      # node still in layer 0, but has incoming edges
+      # node still in rank 0, but has incoming edges
       push @todo, $n
-        if $n->{layer} == 0 && $n->predecessors() > 0;
+        if $n->{rank} == 0 && $n->predecessors() > 0;
       }
     } # while still something todo
+
+  $self->_find_chains();
+  $self;
+  }
+
+sub _follow_chain
+  {
+  my ($n) = shift;
+
+  no warnings 'recursion';
+
+  # prevent loops be defining _chain
+  $n->{_chain} = 0;
  
+  my @suc = $n->successors();
+  for my $s (@suc)
+    {
+    return if $s->{_chain} > 0;				# do not process?
+
+    my $chain = $n->{_chain}; $n->{_chain} = 1;		# mark "no processing"
+    _follow_chain($s) unless defined $s->{_chain};
+    $n->{_chain} = $chain;				# restore
+
+#    print STDERR "# got ", $s->{_chain} ||'undef'," for $s->{name}\n";
+    if ($s->{_chain} <= $n->{_chain})
+      {
+#      print STDERR "# replacing $n->{_chain} with ", $s->{_chain} - 1," for $n->{name}\n";
+      $n->{_chain} = $s->{_chain} - 1;
+      $n->{_next} = $s;
+      }
+    }
+  }
+
+sub _find_chains
+  {
+  # assign a "longest chain" ptr to each node
+  my $self = shift;
+
+  # go through all nodes, and remember all leaf nodes: O(N)
+  my $leaf;
+  my $nodes = $self->{nodes};
+  for my $n (values %$nodes)
+    {
+    $n->{_next} = undef;
+    $n->{_chain} = undef;
+    if ($n->successors() == 0)
+      {
+      $leaf->{$n->{id}} = $n;
+      }
+    }
+
+  print STDERR "# Tracking chains\n" if $self->{debug};
+ 
+  # For each leaf, go backwards until we hit more than one predecessor,
+  # or one with _chain already set
+  for my $n (keys %$leaf)
+    {
+    my $cur = $leaf->{$n};
+
+    print STDERR "# starting chain at $cur->{name} ", $cur->{_chain}||'undef',"\n" if $self->{debug};
+    my $step = 0; my $last;
+    while (!defined $cur->{_chain} || ($cur->{_chain} > $step))
+      {
+      $cur->{_chain} = $step; $step--;
+      $cur->{_next} = $last;
+      print STDERR "# at chain len $step, $cur->{name}\n" if $self->{debug};
+      my @pr = $cur->predecessors();
+      last if @pr != 1;			# stop at the end of a chain,
+					# or at multiple branches
+      $last = $cur;
+      $cur = $pr[0];			# continue with next node
+      }
+    }
+
+  # make a copy
+  my $todo;
+  for my $n (values %$nodes)
+    {
+    $todo->{$n->{name}} = $n unless defined $n->{_chain};
+    }
+
+  while (keys %$todo > 0)
+    {
+    for my $n (values %$todo)
+      {
+      _follow_chain($n) unless defined $n->{_chain};
+      delete $todo->{$n->{name}} if defined $n->{_chain};
+      }
+    }
+
+   if ($self->{debug})
+     {
+     print STDERR "# Generated the following chain info:\n";
+     for my $n (values %$nodes)
+       {
+       my $c = $n->{_chain}; $c = 'undef' if !defined $c;
+       my $nt = $n->{_next}; $nt = $nt->{name} if ref($nt); $nt = 'undef' if !defined $nt;
+       print STDERR "#  $n->{name} $c -> $nt\n";
+       }
+    }
+
   $self;
   }
 
@@ -102,14 +203,39 @@ sub _grow_nodes
   # grow nodes so that their connections do fit on their sides
   my $self = shift;
 
-  my @V = $self->nodes();
-  for my $n (@V)
+  for my $n (values %{$self->{nodes}})
     {
-    $n->{cx} = abs($n->attribute('cols')||1);
-    $n->{cy} = abs($n->attribute('rows')||1);
     $n->grow();
     }
   $self;
+  }
+
+#############################################################################
+# debug
+
+sub _dump_stack
+  {
+  my ($self, @todo) = @_;
+
+  for my $action (@todo)
+    {
+    my $action_type = $action->[0];
+    if ($action_type == ACTION_NODE)
+      {
+      my ($node) = $action->[1];
+      print STDERR "# action place '$node->{name}'\n" if $self->{debug};
+      }
+    elsif ($action_type == ACTION_PLACE)
+      {
+      my ($at, $node, $x,$y) = @$action;
+      print STDERR "# action place '$node->{name}' at $x,$y\n" if $self->{debug};
+      }
+    elsif ($action_type == ACTION_TRACE)
+      {
+      my ($action_type,$src,$dst,$edge) = @$action;
+      print STDERR "# action trace '$src->{name}' to '$dst->{name}' via edge $edge->{id}\n" if $self->{debug};
+      }
+    }
   }
 
 #############################################################################
@@ -123,7 +249,7 @@ sub layout
   
   eval {
     local $SIG{ALRM} = sub { die "layout did not finish in time\n" };
-    alarm($self->{timeout} || 5);
+    alarm(abs($self->{timeout} || 5));
 
   # Reset the sequence of the random generator, so that for the same
   # seed, the same layout will occur. Both for testing and repeatable
@@ -135,40 +261,103 @@ sub layout
   # do some assorted stuff beforehand
 
   $self->_grow_nodes();
-  $self->_assign_layers();
+  $self->_assign_ranks();
 
   ###########################################################################
   # prepare our stack of things we need to do before we are finished
 
-  my @V = $self->sorted_nodes('layer', 'name');
+  my @V = $self->sorted_nodes('_chain', 'rank');
 
-  my @todo;				# actions still to do
-  # for all nodes, reset their pos and push them on the todo stack
+  # mark all edges as unprocessed, so that we do not process them twice
+  for my $edge (values %{$self->{edges}})
+    { 
+    $edge->{_done} = undef;
+    }
+
+  # Starting with the highest chain rank, we follow it until the end. then
+  # we add whatever is still left.
+  # [0]->[1]->[2]->[3]->[4] [1]->[8] would get 0..4 in the first run through,
+  # then 1..8 in the second one and so on until all nodes are done.
+ 
+  my (@todo,$done);			# actions still to do
   foreach my $n (@V)
     {
-    $n->{x} = undef;			# mark as not placed yet
+    $n->{x} = undef;			# mark every node as not placed yet
     $n->{y} = undef;
-    push @todo, [ ACTION_NODE, $n ];	# node needs to be placed
-    # sort outgoing connections to create first the ones with further
-    # connections 
-    foreach my $o ($n->sorted_successors())
+
+    push @todo, [ ACTION_NODE, $n ] unless exists $done->{$n};	# node needs to be placed
+    $done->{$n} = undef;
+
+    print STDERR "# following $n->{name}\n" if $self->{debug};
+ 
+    # follow the chain
+    my $c = $n;
+    while (defined $c->{_next})
       {
-      print STDERR "# push $n->{name} => $o->{name}\n" if $self->{debug};
+      my $l = $c; $c = $c->{_next};
+      print STDERR "# followed to $c->{name}\n" if $self->{debug};
+      
+      # node needs to be placed and path to target need to be found
+      push @todo, [ ACTION_NODE, $c ] unless exists $done->{$c};
+      $done->{$c} = undef;
+
       # in case there is more than one edge going from N to O
-      my @edges = $n->edges_to($o);
+      my @edges = $l->edges_to($c);
       foreach my $edge (@edges)
-	{
-        # paths to target need to be found
-        push @todo, [ ACTION_TRACE, $n, $o, $edge ];
+        {
+        if (!defined $edge)
+          {
+          require Carp;
+          Carp::confess("Couldn't find edge from $l->{name} to $c->{name}");
+          }
+        print STDERR "# trace $l->{name} -> $c->{name} via edge $edge->{id}\n" if $self->{debug};
+        # path to target need to be found
+        push @todo, [ ACTION_TRACE, $l, $c, $edge ] unless defined $edge->{_done};
+        $edge->{_done} = 1;
+        }
+      last if $l == $c;			# self-loop?
+      }
+
+    # after following the chain, make sure all successors are handled, too
+    my @suc = $n->successors();
+
+    print STDERR "# successors of $n->{name}\n" if $self->{debug};
+  
+    # sort successors by their chain target values, higher chain values first
+    # the idea is to create short forward edges first
+    @suc = sort { $a->{_chain} <=> $b->{_chain} } @suc;
+    for my $s (@suc)
+      {    
+      print STDERR "# place $s->{name}\n" if $self->{debug};
+      # node needs to be placed
+      push @todo, [ ACTION_NODE, $s ] unless exists $done->{$s};
+      $done->{$s} = undef;
+
+      # in case there is more than one edge going from N to O
+      my @edges = $n->edges_to($s);
+      @edges = sort { $a->{id} <=> $b->{id} } @edges;
+      foreach my $edge (@edges)
+        {
+        if (!defined $edge)
+          {
+          require Carp;
+          Carp::confess("Couldn't find edge from $n->{name} to $s->{name}");
+          }
+        print STDERR "# trace $n->{name} -> $s->{name} via edge $edge->{id}\n" if $self->{debug};
+        # path to target need to be found
+        push @todo, [ ACTION_TRACE, $n, $s, $edge ] unless defined $edge->{_done};
+        $edge->{_done} = 1;
         }
       }
     }
+
+  $self->_dump_stack(@todo) if $self->{debug};
 
   ###########################################################################
   # prepare main backtracking-loop
 
   my $score = 0;			# overall score
-  $self->{cells} = {};			# cell array (0..x,0..y)
+  $self->{cells} = { };			# cell array (0..x,0..y)
   my $cells = $self->{cells};
 
   print STDERR "# Start\n" if $self->{debug};
@@ -201,14 +390,8 @@ sub layout
       print STDERR "# step $step: action place '$node->{name}'\n" if $self->{debug};
 
       # $action is node to be placed, generic placement at "random" location
-      if (!defined $node->{x})
-        {
-        $mod = $self->_find_node_place( $cells, $node );
-        }
-      else
-        {
-        $mod = 0;				# already placed
-        }
+      $mod = 0;
+      $mod = $self->_find_node_place( $cells, $node ) if (!defined $node->{x});
       }
     elsif ($action_type == ACTION_PLACE)
       {
@@ -224,11 +407,9 @@ sub layout
 
       print STDERR "# step $step: action trace '$src->{name}' => '$dst->{name}'\n" if $self->{debug};
 
-      # if target node not yet placed
       if (!defined $dst->{x})
         {
-        print STDERR "# Step $step: $dst->{name} not yet placed\n"
-         if $self->{debug};
+        warn ("Target node not yet placed");
 
         # put current action back
         unshift @todo, $action;
@@ -237,16 +418,6 @@ sub layout
 	# target beforehand:
         unshift @todo, [ ACTION_NODE, $dst ];
 
-	# try to place node around the source node (e.g. near)
-#        my @tries = $src->_near_places($cells);
-#        while (@tries > 0)
-#          {
-#          my $x = shift @tries;
-#          my $y = shift @tries;
-#	  # action to place $dst at $x and $y
-#	# XXX TODO
-#          unshift @todo, [ ACTION_PLACE, $dst, $x, $y ];
-#          } 
         next TRY;
 	}        
 
@@ -301,17 +472,34 @@ sub layout
     print STDERR "# Step $step: Score is $score\n" if $self->{debug};
     }
 
-  $self->{score} = $score;			# overall score
- 
-  $self->error( 'Layouter failed to place and/or connect all nodes' ) if $tries == 0;
+    $self->{score} = $score;			# overall score
 
-  # all things on the stack were done, or we encountered an error
+    if ($tries == 0)
+      {
+      # count placed nodes
+      my $nodes = 0;
+      for my $n (@V)
+        {
+        $nodes++ if defined $n->{x};
+        }
+      my $edges = 0;
+      for my $e (values %{$self->{edges}})
+        {
+        $edges++ if keys %{$e->{cells}} > 0;
+        }
+      $self->error( "Layouter could only place $nodes/$edges nodes/edges out of " 
+                   . scalar @V . "/" . (scalar keys %{$self->{edges}}) . " - giving up");
+      }
 
-  # fill in group info and return
-  $self->_fill_group_cells($cells);
+    # all things on the stack were done, or we encountered an error
 
-    alarm(0);	# disable alarm
-    }
+    # fill in group info and return
+    $self->_fill_group_cells($cells) if $tries != 0;
+
+    };
+
+  die $@ if $@;		# propagate errors
+  alarm(0);		# disable alarm
 
   }
 
@@ -497,11 +685,11 @@ namespace:
 
 Layout the actual graph.
 
-=head2 _assign_layers()
+=head2 _assign_ranks()
 
-	$graph->_assign_layers();
+	$graph->_assign_ranks();
 
-Used by C<layout()> to assign each node with a layer, so they can be sorted
+Used by C<layout()> to assign each node a rank, so they can be sorted
 and grouped on these.
 
 =head1 EXPORT

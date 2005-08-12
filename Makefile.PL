@@ -48,18 +48,12 @@ if (defined $ver && $ver <= 0.05)
   print "         Please upgrade it after installing this package.\n\n";
   }
 
-eval { require Graph };
-
-my $ver = $Graph::VERSION;
-
-die ("Graph v0.66 is broken and cannot be used by Graph::Simple. Please upgrade it")
-  if (defined $ver && $ver == 0.66);
-
 WriteMakefile(
     NAME		=> 'Graph::Easy',
     VERSION_FROM	=> 'lib/Graph/Easy.pm', # finds $VERSION
     PREREQ_PM		=> {
-	Graph => 0.67,
+	"Scalar::Util" => 1.13,
+	"Heap" => 0.71,
 	},
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Graph/Easy.pm', # retrieve abstract from module

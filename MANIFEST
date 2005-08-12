@@ -20,9 +20,11 @@ examples/as_graphviz		parse text and output as graphviz
 examples/as_svg			parse text and output as standalone SVG
 examples/as_ascii		parse text and output it as ASCII art
 examples/as_html		parse text and output it as standalone HTML page
-todo/layouter.txt
-todo/layouter_chain.txt
-todo/edge_label.txt
+todos/layouter_chain.txt
+todos/layouter_loop.txt
+todos/edge_label.txt
+todos/multiples.txt
+bench/bench.pl
 t/anon.t
 t/attributes.t
 t/ascii.t
@@ -39,6 +41,7 @@ t/group.t
 t/html.t			HTML output
 t/layers.t
 t/layout.t
+t/layouter.t
 t/node.t
 t/node_mc.t
 t/path.t
@@ -96,6 +99,12 @@ t/stress/0010.txt
 t/stress/0011.txt
 t/stress/0012.txt
 t/stress/0020.txt
+t/layouter/edge_label.txt
+t/layouter/layouter_chain.txt
+t/layouter/layouter_loop.txt
+t/layouter/layouter.txt
+t/layouter/multiples.txt
+t/layouter/state.txt
 t/fun/0000.txt			fun with graph examples
 t/fun/0010.txt
 t/fun/0011.txt
@@ -106,6 +115,7 @@ t/fun/0200.txt
 t/fun/biofull.txt
 t/in/1node.txt
 t/in/1_selfloop.txt
+t/in/1_selfloop_label.txt
 t/in/2nodes.txt
 t/in/3nodes.txt
 t/in/3_nodes_5_edges.txt
@@ -124,6 +134,7 @@ t/in/2_newlines.txt
 t/in/4_near.txt
 t/in/4_edge_types.txt
 t/in/6_cluster.txt
+t/in/6_chained.txt
 t/in/8_chain.txt
 t/in/8_points.txt
 t/in/9_chain.txt
@@ -132,6 +143,7 @@ t/in/README
 t/out/10borders.txt
 t/out/1node.txt
 t/out/1_selfloop.txt
+t/out/1_selfloop_label.txt
 t/out/2nodes.txt
 t/out/2_nodes_inv.txt
 t/out/2_edges.txt
@@ -151,6 +163,7 @@ t/out/4_nodes_5_edges.txt
 t/out/4_nodes_6_edges.txt
 t/out/4_edge_types.txt
 t/out/6_cluster.txt
+t/out/6_chained.txt
 t/out/8_chain.txt
 t/out/8_points.txt
 t/out/9_chain.txt
@@ -167,6 +180,7 @@ t/txt/3_cluster.txt
 t/txt/3_nodes_5_edges.txt
 t/txt/2_newlines.txt
 t/txt/6_cluster.txt
+t/txt/6_chained.txt
 t/txt/8_chain.txt
 t/txt/8_points.txt
 t/txt/9_chain.txt

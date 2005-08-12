@@ -21,7 +21,5 @@ $file = \*STDIN unless defined $file;
 my $graph = $parser->from_file( $file );
 
 die ($parser->error()) unless defined $graph;
-$graph->layout();
-warn ($graph->error()) if $graph->error();
 print $graph->as_graphviz();
 

@@ -100,7 +100,7 @@ sub _formatted_label
   {
   my $self = shift;
 
-  my $name = $self->label();
+  my $name = $self->label() || '';
   $name =~ s/\\n/\n/g;                  # insert newlines
 
   # split into lines, but don't remove extranous spacing

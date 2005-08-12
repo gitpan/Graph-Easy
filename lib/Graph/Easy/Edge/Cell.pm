@@ -13,7 +13,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 #############################################################################
 
@@ -153,12 +153,8 @@ sub edge_type
   my $flags = $type & EDGE_FLAG_MASK;
   $type &= EDGE_TYPE_MASK;
 
-#  print STDERR "# edge_type: $type $flags\n";
-
   my $t = $edge_types->{$type} || ('unknown edge type #' . $type);
 
-  # 0 => no arrows, 3 => on both sides, 1 - start, 2 - end
- 
   $flags &= EDGE_FLAG_MASK;
 
   my $mask = 0x0010;
@@ -261,6 +257,11 @@ sub _init
     $self->{class} = $self->{edge}->{class};
     $self->{graph} = $self->{edge}->{graph};
     $self->{att} = $self->{edge}->{att};
+    }
+  else
+    {
+    require Carp;
+    Carp::confess ("Creating edge cell without a parent edge object");
     } 
   $self->{error} = '';
 
@@ -364,11 +365,11 @@ sub _draw_hor
 
   $self->_printfb ($fb, $x, $self->{h} - 2, $line);
 
-  if ( (($self->{type} & EDGE_FLAG_MASK) & ~EDGE_LABEL_CELL) != 0)
+  if ($self->{type} & EDGE_LABEL_CELL)
     {
     # include our label
     my @pieces = $self->_formatted_label();
-    $self->_printfb ($fb, 3, $self->{h} - 3, @pieces) if @pieces > 0;
+    $self->_printfb ($fb, 2, $self->{h} - 3, @pieces) if @pieces > 0;
     }
 
   }
@@ -402,14 +403,13 @@ sub _draw_cross
   # draw a CROSS sections
   my ($self, $fb) = @_;
   
-  print STDERR "# drawing cross $self->{style_ver}\n";
-
   # vertical piece
   my $style = $edge_styles->{ $self->{style_ver} };
   
   my $h = $self->{h};
   # '|' => '|||||', '{}' => '{}{}{}'
   my $line = $style->[1] x (2 + $h / length($style->[1])); 
+  $line = substr($line, 0, $h) if length($line) > $h;
 
   my @pices = split //, $line;
   $self->_printfb ($fb, 2, 0, @pices);
@@ -509,7 +509,8 @@ sub _draw_corner
 sub _draw_label
   {
   # This routine is cunningly named _draw_label, because it actually
-  # draws the edge line(s). If nec., it will also include the label text.
+  # draws the edge line(s). The label text will be drawn by the individual
+  # routines called below.
   my ($self, $fb, $x, $y) = @_;
 
   my $type = $self->{type} & EDGE_TYPE_MASK;
@@ -527,12 +528,6 @@ sub _draw_label
      $type == EDGE_N_W;
 
   delete $self->{rx}; delete $self->{ry};	# no longer needed
-
-  if ($self->{type} & EDGE_LABEL_CELL)
-    {
-    my @lines = $self->_formatted_label();
-    $self->_printfb ($fb, 2, 1, @lines);
-    }
 
   # XXX TODO: joints (E to N/S etc)
   # $self->_printfb ($fb, 0,0, 'unsupported edge type ' . $type);
@@ -600,14 +595,6 @@ sub as_html
 #############################################################################
 # accessor methods
 
-sub label
-  {
-  my $self = shift;
-
-  my $n = $self->{name}; $n = '' unless defined $n;
-  $n;
-  }
-
 sub type
   {
   # get/set type of this path element
@@ -647,14 +634,15 @@ sub _correct_size
     if ($self->{type} & EDGE_LABEL_CELL)
       {
       my @lines = $self->_formatted_label();
-   
+
       # find longest line
       my $chars = 0;
       foreach my $line (@lines)
         {
         $chars = length($line) if length($line) > $chars;
         }
-      $chars += 2;	# "  label"
+      $chars += 5;	# "   label  "
+	                # "  ------->"
      
       my $h = scalar @lines;
       if ($border ne 'none')

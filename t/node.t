@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 97;
+   plan tests => 105;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -100,21 +100,35 @@ is ($edge->border_attribute(), '', 'border_attribute()');
 
 my $other = Graph::Easy::Node->new();
 
+is (scalar $node->edges_to($other), undef, 'no graph, no links');
+
 #############################################################################
-# predecessors() and successors() tests
+# predecessors(), successors(), connections() and edges_to() tests
 
 my $graph = Graph::Easy->new( );
 
 $other = Graph::Easy::Node->new( 'Name' );
-$graph->add_edge ($node, $other);
+
+$edge = $graph->add_edge ($node, $other);
+
+is ($node->{graph}, $graph, "node's graph points to \$graph");
+is ($other->{graph}, $graph, "other's graph points to \$graph");
 
 is ($node->successors(), 1, '1 outgoing');
 is (scalar $node->sorted_successors(), 1, '1 outgoing');
 is ($node->predecessors(), 0, '0 incoming');
+is (scalar $node->edges_to($other), 1, '1 link to $other');
+is ($node->connections(), 1, '1 connection');
+
+my @E = $node->edges_to($other);
+
+is (scalar @E, 1, '1 link to $other');
+is ($E[0], $edge, 'first link to $other is $edge');
 
 is ($other->successors(), 0, '0 outgoing');
 is (scalar $other->sorted_successors(), 0, '0 outgoing');
 is ($other->predecessors(), 1, '1 incoming');
+is ($other->connections(), 1, '1 connection');
 
 #############################################################################
 # as_txt/as_html

@@ -13,14 +13,7 @@ use vars qw/$VERSION @ISA/;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.02';
-
-{
-  # protected vars
-  my $id = 0;
-  sub new_id { $id++; }
-  sub _reset_id { $id = 0; }
-}
+$VERSION = '0.04';
 
 #############################################################################
 
@@ -29,7 +22,6 @@ sub _init
   # generic init, override in subclasses
   my ($self,$args) = @_;
  
-  $self->{id} = new_id();
   $self->{name} = 'Cluster #' . $self->{id};
 
   # XXX TODO check arguments
@@ -71,6 +63,8 @@ sub add_node
     }
   $self->{nodes}->{ $n->{name} } = $n;
 
+  $n->_add_to_cluster($self);
+
   $self;
   }
 
@@ -87,6 +81,7 @@ sub add_nodes
       Carp::croak("Cannot add non-node $n to cluster");
       }
     $self->{nodes}->{ $n->{name} } = $n;
+    $n->_add_to_cluster($self);
     }
   $self;
   }

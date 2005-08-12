@@ -1,5 +1,43 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-08-12 v0.25 Tels 885 tests - Speed, speed, speed, speed up the code...
+Added:
+  * $graph->add_edge('A','B') works now and is documented
+  * $graph->add_edge('A','B') in list context returns nodes and edge
+  * $graph->add_cluster('A') works and returns created cluster object
+  * Graph::Easy: timeout(): get/set timeout in seconds for layouter
+  * Layout: calculate chains-of-nodes, and lay out path along these chains
+	    longest one first. This greatly detangles many layouts.
+Fixed:
+  * as_ascii(): Drawing line crossings now works. Really! Believe me!
+  * as_ascii(): labels on horizontal edge pieces are now included
+  * rename "todo/" to "todos/" because case-insensitive OS have problems
+           with "TODO" and "todo/"...
+  * layout: move the alarm(0) to where it belongs and propagate
+            fatal errors to the outside
+  * Layout: calculating positions needs an int() to have nodes not fall
+            between the cell-grid
+  * Node: move the assignment to {id} into new(), so that subclasses
+          like Graph::Easy::Edge etc get a unique ID, too
+  * use Scalar::Util's weaken so that the Node's references back to their graph
+    do not prevent the graph from being freed
+  * Upon DESTROY, reset the appropriate fields in node/edge objects, so they
+    can be reused safely in other graphs
+  * A*: fixed an endless-loop in the path-backtracking code
+  * adding node clusters as well as managing them is now easier
+  * No longer uses Graph. We store nodes/edges in a hash in Graph::Easy object
+    as opposed to the Graph object. In addition we store per-node the edges
+    this node is involved in. This all results in less code, great speed and
+    memory improvements (see bench/no_graph.txt): v0.25 uses only about 50% of
+    the memory as 0.24!
+    Even the testsuite is much much faster, despite the new tests:
+     0.24: Files=23, Tests=820,  5 secs ( 4.37 cusr +  0.50 csys =  4.87 CPU)
+     0.25: Files=23, Tests=859,  4 secs ( 2.37 cusr +  0.31 csys =  2.68 CPU)
+    Loading Graph::Easy now takes less time & memory, too (output from top):
+           VIRT  RES  SHR 
+     0.24: 8252 5712 1444 
+     0.25: 5840 3376 1432 
+
 2005-08-07 v0.24 Tels 820 tests - Fix, fix, fix, fix the bugs...
 Added:
   * node attribute: "point-style" - set style for nodes with "shape: point"

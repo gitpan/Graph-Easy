@@ -188,9 +188,13 @@ sub _find_node_place
   for my $p (@pre_all)
     {
     push @pre, $p if defined $p->{x};
+    print STDERR "# Placed predecessors of $node->{name}: $p->{name} at $p->{x},$p->{y}\n" if $self->{debug} && defined $p->{x};
     }
 
-  print STDERR "# Placed predecessors of $node->{name}: " . scalar @pre . "\n" if $self->{debug};
+  # sort predecessors on their rank (to try first the higher ranking ones on placement)
+  @pre = sort { $b->{rank} <=> $a->{rank} } @pre;
+
+  print STDERR "# Number of placed predecessors of $node->{name}: " . scalar @pre . "\n" if $self->{debug};
 
   my @tries;
   if (@pre <= 2 && @pre > 0)
@@ -224,11 +228,11 @@ sub _find_node_place
         # two nodes on a line, try to place node in the middle
         if ($dx == 0)
           {
-	  @tries = ( $pre[1]->{x}, $pre[1]->{y} + $dy / 2 );
+	  @tries = ( $pre[1]->{x}, $pre[1]->{y} + int($dy / 2) );
           }
         else
           {
-	  @tries = ( $pre[1]->{x} + $dx / 2, $pre[1]->{y} );
+	  @tries = ( $pre[1]->{x} + int($dx / 2), $pre[1]->{y} );
           }
         }
       # XXX TODO BUG: shouldnt we also try this if we have more than 2 placed
@@ -332,11 +336,8 @@ sub _create_cell
   my ($self,$edge,$x,$y,$type) = @_;
 
   my $cells = $self->{cells}; my $xy = "$x,$y";
-  if (exists $cells->{$xy})
-    {
-    $cells->{$xy}->_cross($edge);
-    return;
-    }
+  
+  return $cells->{$xy}->_make_cross($edge) if ref($cells->{$xy}) =~ /^Graph::Easy::Edge/;
 
   my $path = Graph::Easy::Edge::Cell->new( type => $type, edge => $edge, x => $x, y => $y );
   $path->{graph} = $self;	# register path elements with ourself

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 28;
+   plan tests => 29;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -111,4 +111,9 @@ my ($name,$style) = $graph->_graphviz_remap_edge_style('style', 'solid');
 
 is ($name, undef, 'style=solid suppressed');
 is ($style, undef, 'style=solid suppressed');
+
+$bonn->{name} = '2A';
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/"2A"/, '2A must be quoted');
 

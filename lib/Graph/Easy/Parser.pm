@@ -57,6 +57,8 @@ sub reset
   $self->{line_nr} = -1;
   $self->{graph} = undef;
 
+  Graph::Easy::Node::_reset_id();	# start with the same set of IDs
+
   $self;
   }
 
@@ -350,8 +352,7 @@ sub _new_node
       }
     $base_name .= '-' . $self->{cluster_id} if $self->{cluster_id}; $self->{cluster_id}++;
 
-    my $cluster = Graph::Easy::Cluster->new( name => $base_name );
-    $graph->add_cluster($cluster); 
+    my $cluster = $graph->add_cluster($base_name);
 
     my $x = 0; my $y = 0; my $idx = 0;
     my $remaining = $name;
@@ -372,18 +373,10 @@ sub _new_node
       if ($part ne '')
         {
         my $node = Graph::Easy::Node->new( { name => $node_name, label => $part, dx => $x, dy => $y } );
-        $node->add_to_cluster($cluster);
         $graph->add_node($node);
+        $node->add_to_cluster($cluster);
         push @rc, $node;
-        if (@rc == 1)
-          {
-          # make second, third etc node relative to first one
-          $cluster->center_node($rc[0]);
-          }
-        else
-          {
-          $node->origin($rc[0]);		# relative to this one
-          }
+        $cluster->center_node($rc[0]) if @rc == 1;
         $idx++;					# next node ID
         }
       $x++;
@@ -399,14 +392,17 @@ sub _new_node
     # unquoe \|
     $name =~ s/\\\|/\|/g;
 
-    # try to find node with that name
-    my $node = $graph->node($name);
-    # not found? so create a new one and add it to the graph
-    if (!defined $node)
-      {
-      $node = Graph::Easy::Node->new( { name => $name } );
-      $graph->add_node($node);
-      }
+    my $node = $graph->add_node($name);
+
+#    # try to find node with that name
+#    my $node = $graph->node($name);
+#
+#    # not found? so create a new one and add it to the graph
+#    if (!defined $node)
+#      {
+#      $node = Graph::Easy::Node->new( { name => $name } );
+#      $graph->add_node($name);
+#      }
     push @rc, $node;
     }
 

@@ -24,7 +24,7 @@ sub _as_txt
   # convert the graph to a textual representation
   # does not need a layout() before hand!
 
-  $self->_assign_layers();
+  $self->_assign_ranks();
 
   # generate the class attributes first
   my $txt = '';
@@ -91,8 +91,8 @@ sub _as_txt
     }
 
   # XXX TODO:
-  # Output all nodes with layer=0 first, and also follow their successors
-  # What is left will then be done next, with layer=1 etc.
+  # Output all nodes with rank=0 first, and also follow their successors
+  # What is left will then be done next, with rank=1 etc.
   # This output order let's us output node chains in compact form as:
   # [A]->[B]->[C]->[D]
   # [B]->[E]
@@ -101,7 +101,7 @@ sub _as_txt
   # [B]->[E]
   # [B]->[C] etc
  
-  @nodes = $self->sorted_nodes('layer','name');
+  @nodes = $self->sorted_nodes('rank','name');
   foreach my $n (@nodes)
     {
     my @out = $n->sorted_successors();

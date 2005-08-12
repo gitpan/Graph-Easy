@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 68;
+   plan tests => 88;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -33,7 +33,7 @@ can_ok ("Graph::Easy", qw/
   /);
 
 #############################################################################
-# layout tests
+# adding edges/nodes
 
 my $graph = Graph::Easy->new();
 
@@ -44,35 +44,41 @@ is ($graph->error(), '', 'no error yet');
 my $node = Graph::Easy::Node->new( name => 'Bonn' );
 my $node2 = Graph::Easy::Node->new( name => 'Berlin' );
 
+is (scalar $graph->nodes(), 0, 'no nodes');
+is (scalar $graph->edges(), 0, 'no edges');
+
 $graph->add_edge( $node, $node2 );
 
-#print $graph->as_ascii();
-
-$graph->{debug} = 0;
+is (scalar $graph->nodes(), 2, '2 nodes');
+is (scalar $graph->edges(), 1, '1 edges');
 
 my $node3 = Graph::Easy::Node->new( name => 'Frankfurt', border => 'dotted' );
 
 $graph->add_edge( $node2, $node3 );
 
-#print $graph->as_ascii();
+is (scalar $graph->nodes(), 3, '3 nodes');
+is (scalar $graph->edges(), 2, '2 edges');
 
 my $node4 = Graph::Easy::Node->new( name => 'Dresden' );
 
 $graph->add_edge( $node3, $node4 );
 
-#print $graph->as_ascii();
+is (scalar $graph->nodes(), 4, '4 nodes');
+is (scalar $graph->edges(), 3, '3 edges');
 
 my $node5 = Graph::Easy::Node->new( name => 'Potsdam' );
 
 $graph->add_edge( $node2, $node5 );
 
-#print $graph->as_ascii();
+is (scalar $graph->nodes(), 5, '5 nodes');
+is (scalar $graph->edges(), 4, '4 edges');
 
 my $node6 = Graph::Easy::Node->new( name => 'Cottbus' );
 
 $graph->add_edge( $node5, $node6 );
 
-#print $graph->as_ascii();
+is (scalar $graph->nodes(), 6, '6 nodes');
+is (scalar $graph->edges(), 5, '5 edges');
 
 #############################################################################
 # attribute tests
@@ -206,6 +212,35 @@ my $bonn4 = $graph->add_node( $bonn5);
 is (scalar $graph->nodes(), 1, 'one node');
 is ($bonn4, $graph->node('Bonn'), 'add_node returned $bonn');
 is ($bonn, $bonn4, 'same node');
+
+#############################################################################
+# adding an edge with two plain scalars as names
+
+$graph = Graph::Easy->new();
+my $edge = $graph->add_edge( 'Test', 'Test2' );
+
+is (scalar $graph->nodes(), 2, '2 nodes');
+is (scalar $graph->edges(), 1, '1 edge');
+is ($edge, $graph->edge('Test', 'Test2'), 'edge() works');
+
+# adding a multi-edge
+$graph->add_edge( 'Test', 'Test2' );
+
+is (scalar $graph->nodes(), 2, '2 nodes');
+is (scalar $graph->edges(), 2, '2 edges');
+
+# this assumes "Test" is created before "Test2"
+my @N = sort { $a->{id} <=> $b->{id} } $graph->nodes();
+
+my @E = $N[0]->edges_to($N[1]);
+
+is (@E, 2, '2 edges from Test to Test2');
+
+# this should work now:
+my $ascii = $graph->as_ascii();
+
+like ($ascii, qr/Test/, 'Test found in output');
+like ($ascii, qr/Test2/, 'Test found in output');
 
 1; # all tests done
 

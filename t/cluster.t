@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 27;
+   plan tests => 36;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Cluster") or die($@);
@@ -73,8 +73,30 @@ is (scalar $graph->clusters(), 1, 'one cluster');
 is (join (" ", $graph->clusters()), $cluster, 'one cluster');
 is ($graph->cluster ('cluster'), $cluster, 'found again');
 
+# not added again
+$graph->add_cluster ('cluster');
+is (scalar $graph->clusters(), 1, 'one cluster');
+
 $graph->del_cluster ($cluster);
-is (scalar $graph->clusters(), 0, 'no clusters yet');
+is (scalar $graph->clusters(), 0, 'no clusters anymore');
+
+$graph->add_cluster ($cluster);
+is ($graph->cluster ('cluster'), $cluster, 'first one');
+
+# add from name
+my $cluster_2 = $graph->add_cluster ('second cluster');
+is (scalar $graph->clusters(), 2, 'two clusters');
+
+is ($graph->cluster ('second cluster'), $cluster_2, 'second one');
+is ($graph->cluster ('cluster'), $cluster, 'first one');
+
+# add from name again
+my $cluster_3 = $graph->add_cluster ('third cluster');
+is (scalar $graph->clusters(), 3, 'three clusters');
+
+is ($graph->cluster ('third cluster'), $cluster_3, 'third one');
+is ($graph->cluster ('second cluster'), $cluster_2, 'second one');
+is ($graph->cluster ('cluster'), $cluster, 'first one');
 
 #############################################################################
 # node placement (clustered)

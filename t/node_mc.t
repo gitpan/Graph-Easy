@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 20;
+   plan tests => 30;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -57,6 +57,42 @@ is ($node->connections(), 5, '5 connections');
 is ($node->columns(), 1, '1 column');
 is ($node->rows(), 2, '2 rows');
 is ($node->is_multicelled(), 1, 'is multicelled');
+
+#############################################################################
+# edges_to() tests
+
+# this will delete the old Graph::Easy object in graph, and clean out
+# the ptrs in the nodes/edges. Thus $node will have {edges}undef
+$graph = Graph::Easy->new();
+
+is ($node->{edges}, undef, 'cleanup worked');
+
+$other = Graph::Easy::Node->new( "other" );
+my @E;
+for (1..5)
+  {
+  push @E, scalar $graph->add_edge ($node, $other);
+  }
+
+@E = sort { $a->{id} <=> $b->{id} } @E;
+
+is ($node->connections(), 5, '5 connections');
+is (scalar $node->edges_to($other), 5, '5 edges from node to other');
+
+my @E2 = $node->edges_to($other);
+@E2 = sort { $a->{id} <=> $b->{id} } @E2;
+
+for (1..5)
+  {
+  is ($E[$_], $E2[$_], 'edges_to() worked');
+  }
+
+my @suc = $node->successors();
+
+is (scalar @suc, 1, 'one successor');
+is ($suc[0], $other, 'one successor');
+
+#use Data::Dumper; print Dumper(\@suc);
 
 #############################################################################
 # node placement (multi-cell)

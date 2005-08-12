@@ -94,6 +94,7 @@ is ($edge->as_txt(), ' -- train --> ', ' -- train -->');
 is (scalar keys %{$edge->cells()}, 0, 'no cells');
 
 my $path = Graph::Easy::Edge::Cell->new (
+  edge => $edge,
   type => EDGE_SHORT_E,
   x => 1, y => 1,
 );
