@@ -1,5 +1,5 @@
 [ Bonn ] -> [ Berlin ] -> [ Kassel ]
 [ Bonn ] -> [ Koblenz ] -> [ Berlin ]
 [ Bonn ] -> [ Ulm ] -> [ Koblenz ]
-[ Ulm ] -> [ Bautzen ] -> [ Berlin ]
-[ Bautzen ] -> [ Bonn ]
+[ Ulm ] ..> [ Bautzen ] ==> [ Berlin ]
+[ Bautzen ] -> [ Bonn ] { border: dotted; }

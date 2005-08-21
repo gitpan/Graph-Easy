@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 73;
+   plan tests => 89;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -67,6 +67,11 @@ foreach (<DATA>)
   if (!defined $graph)
     {
     fail($parser->error());
+    next;
+    }
+  if ($graph->error)
+    {
+    fail($graph->error());
     next;
     }
  
@@ -146,6 +151,23 @@ __DATA__
 [ Bonn ] -> [ Berlin ] -> [ Kassel ] -> [ Koblenz ]|4,Berlin,Bonn,Kassel,Koblenz
 # attributes with ":" in their value
 [ Bonn ] { link: http://www.bloodgate.com/Bonn; }|1,Bonn
+# attributes "link", "autolink", and "linkbase":
+[ Bonn ] { linkbase: http://www.bloodgate.com/; autolink: name; }|1,Bonn
+[ Bonn ] { autolink: none; }|1,Bonn
+[ Bonn ] { autolink: title; }|1,Bonn
+[ Bonn ] { autolink: name; }|1,Bonn
+[ Bonn ] { autotitle: label; }|1,Bonn
+[ Bonn ] { autotitle: name; }|1,Bonn
+[ Bonn ] { autotitle: none; }|1,Bonn
+[ Bonn ] { title: my title; }|1,Bonn
+[ Bonn ] { shape: point; point-style: square; }|1,Bonn
+[ Bonn ] { background: red; }|1,Bonn
+[ Bonn ] { background: rgb(255,0,0); }|1,Bonn
+[ Bonn ] { background: #ff0000; }|1,Bonn
+[ Bonn ] { background: #ff0; }|1,Bonn
+node.red { background: red; } [ Bonn ] { class: red; }|1,Bonn
+edge.red { background: red; } [ Bonn ] -> { class: red; } [ Berlin ]|2,Berlin,Bonn
+graph { background: red; } [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 # edges with label
 # matching sides
 [ Bonn ] - Auto -> [ Berlin ]|2+1,Auto,Berlin,Bonn
@@ -179,5 +201,6 @@ __DATA__
 #[ Bonn ] - Auto --> [ Berlin ]|2+1,Auto --,Berlin,Bonn
 #[ Bonn ] == Auto --> [ Berlin ]|2+1,Auto --,Berlin,Bonn
 # unknown edge style
+#[ Bonn ] . > [ Berlin ]\n[Berlin] -> [Frankfurt]|
 #[ Bonn ] . > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 

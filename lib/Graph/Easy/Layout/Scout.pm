@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Scout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #############################################################################
 #############################################################################
@@ -26,16 +26,22 @@ use Graph::Easy::Edge::Cell qw/
 
   EDGE_N_E EDGE_N_W EDGE_S_E EDGE_S_W
 
+  EDGE_N_W_S EDGE_S_W_N EDGE_E_S_W EDGE_W_S_E
+
+  EDGE_LOOP_NORTH EDGE_LOOP_SOUTH EDGE_LOOP_WEST EDGE_LOOP_EAST
+
   EDGE_HOR EDGE_VER
 
   EDGE_LABEL_CELL
   EDGE_TYPE_MASK
   EDGE_FLAG_MASK
+  EDGE_START_MASK
+  EDGE_END_MASK
  /;
 
 # for A* pathfinding:
 use Heap;
-use Heap::Fibonacci;
+use Heap::Binary;		# Binary is faster than Fibonacci
 
 #############################################################################
 
@@ -44,18 +50,18 @@ sub _find_path
   # Try to find a path between two nodes. $options contains direction
   # preferences. Returns a list of cells like:
   # [ $x,$y,$type, $x1,$y1,$type1, ...]
-  my ($self, $src, $dst, $options) = @_;
+  my ($self, $src, $dst, $edge) = @_;
 
   # one node pointing back to itself?
   if ($src == $dst)
     {
-    my $rc = $self->_find_path_loop($src,$options);
+    my $rc = $self->_find_path_loop($src,$edge);
     return $rc unless scalar @$rc == 0;
     }
 
   # If one of the two nodes is bigger than 1 cell, use _find_path_astar(),
   # because it automatically handles all the possibilities:
-  return $self->_find_path_astar($src, $dst, $options)
+  return $self->_find_path_astar($src, $dst)
     if ($src->is_multicelled() || $dst->is_multicelled());
   
   my ($x0, $y0) = ($src->{x}, $src->{y});
@@ -135,12 +141,15 @@ sub _find_path
     # try hor => ver
     my $type = EDGE_HOR;
 
+    my $label = 0;					# attach label?
+    $label = 1 if ref($edge) && $edge->label() eq '';	# no label?
     $x += $dx;
     while ($x != $x1)
       {
       $done++, last if exists $cells->{"$x,$y"};	# cell already full
       print STDERR "# at $x,$y\n" if $self->{debug};
-      push @coords, $x, $y, $type;			# good one, is free
+      my $t = $type; $t += EDGE_LABEL_CELL if $label++ == 0;
+      push @coords, $x, $y, $t;				# good one, is free
       $x += $dx;					# next field
       };
 
@@ -184,12 +193,15 @@ sub _find_path
         push @coords, $x, $y, $type_bend;		# put in bend
         print STDERR "# at $x,$y\n" if $self->{debug};
         $x += $dx;
+        my $label = 0;					# attach label?
+        $label = 1 if $edge->label() eq '';		# no label?
         $type = EDGE_HOR;
         while ($x != $x1)
           {
           $done++, last if exists $cells->{"$x,$y"};	# cell already full
 	  print STDERR "# at $x,$y\n" if $self->{debug};
-	  push @coords, $x, $y, $type;			# good one, is free
+          my $t = $type; $t += EDGE_LABEL_CELL if $label++ == 0;
+          push @coords, $x, $y, $t;			# good one, is free
 	  $x += $dx;
           } 
         }
@@ -222,80 +234,52 @@ sub _find_path
 
     } # end path with $dx and $dy
 
-  $self->_find_path_astar($src, $dst, $options);	# try generic approach as last hope
+  $self->_find_path_astar($src, $dst, $edge);		# try generic approach as last hope
   }
 
 sub _find_path_loop
   {
   # find a path from one node back to itself
-  my ($self, $src, $options) = @_;
+  my ($self, $src, $edge) = @_;
 
   print STDERR "# Finding looping path from $src->{name} to $src->{name}\n" if $self->{debug};
 
-  # There are four possible path loops with 5 edge pieces:
-  #  +- -- -+      +- -- -+
-  #  |0  1 2|      |      |
-  #
-  #     4  3|      |   
-  # [ ]<-- -+      +- -->[ ]
+  my ($n, $cells, $d, $type, $loose) = @_;
 
-  # Likewise: 
-  # [ ]<-+      +->[ ]
-  #  |   |      |   |
-  #  +---+      +---+
+  # get a list of all places
 
-  # We define them here relative to (0,0):    
-  my @loops = (
-     [
-       [ 0,-1, EDGE_S_E + EDGE_START_S],
-       [ 1,-1, EDGE_HOR + EDGE_LABEL_CELL],
-       [ 2,-1, EDGE_S_W],
-       [ 2, 0, EDGE_N_W],
-       [ 1, 0, EDGE_END_W + EDGE_HOR],
-     ],
-     [
-       [ 0, 1, EDGE_N_W + EDGE_START_S],
-       [-1, 1, EDGE_HOR + EDGE_LABEL_CELL],
-       [-2, 1, EDGE_N_E],
-       [-2, 0, EDGE_S_E],
-       [-1, 0, EDGE_END_E + EDGE_HOR],
-     ],
-     [
-       [ 0, 1, EDGE_N_E + EDGE_START_N ],
-       [ 1, 1, EDGE_HOR + EDGE_LABEL_CELL],
-       [ 2, 1, EDGE_N_W],
-       [ 2, 0, EDGE_S_W],
-       [ 1, 0, EDGE_END_W + EDGE_HOR],
-     ],
-     [
-       [ 0,-1, EDGE_S_W + EDGE_START_N ],
-       [-1,-1, EDGE_HOR + EDGE_LABEL_CELL],
-       [-2,-1, EDGE_S_E],
-       [-2, 0, EDGE_N_E],
-       [-1, 0, EDGE_END_E + EDGE_HOR],
-     ],
+  my @places = $src->_near_places( 
+    $self->{cells}, 1, [
+      EDGE_LOOP_WEST,
+      EDGE_LOOP_SOUTH,
+      EDGE_LOOP_EAST,
+      EDGE_LOOP_NORTH,
+    ]);
+
+  # XXX TODO: shuffle them depending on $dir
+  # try first North, then South, then East, then West
+  my @tries = (
+    EDGE_LOOP_NORTH,
+    EDGE_LOOP_SOUTH,
+    EDGE_LOOP_EAST,
+    EDGE_LOOP_WEST,
    );
-  # where does the final edge point to?
-  my @dx = ( -1, 1, -1, 1);
 
-  my @rc; my $i = -1;
-  foreach my $path (@loops)
+  for my $this_try (@tries)
     {
-    $i++;
-    my $x = $src->{x}; my $y = $src->{y};
-
-    # clear list of cells we are going to return
-    @rc = ();
-    foreach my $elem (@$path)
+    my $idx = 0;
+    while ($idx < @places)
       {
-      my $xi = $x + $elem->[0];
-      my $yi = $y + $elem->[1];
+      next unless $places[$idx+2] == $this_try;
+      
+      # build a path from the returned piece
+      my @rc = ($places[$idx], $places[$idx+1], $places[$idx+2]);
 
-      push @rc, $xi, $yi, $elem->[2];
-      }
-    next unless $self->_path_is_clear(\@rc);
-    print STDERR "# Found looping path $i\n" if $self->{debug};
-    return \@rc;
+      next unless $self->_path_is_clear(\@rc);
+
+      print STDERR "# Found looping path\n" if $self->{debug};
+      return \@rc;
+      } continue { $idx += 3; } 
     }
 
   [];		# no path found
@@ -316,6 +300,13 @@ sub new
   bless [ undef, @_ ], $class;
   }
 
+sub pos
+  {
+  # return the stored ptr
+  my $self = shift;
+  $self->[2], $self->[3];
+  }
+
 sub val
   {
   # get or set value slot
@@ -330,46 +321,16 @@ sub heap
   @_ ? ($self->[0] = shift) : $self->[0];
   }
 
-sub pos
-  {
-  # return the stored ptr
-  my $self = shift;
-  $self->[2], $self->[3];
-  }
-
-sub type
-  {
-  # return the stored type
-  my $self = shift;
-  $self->[6];
-  }
-
-sub parent
-  {
-  # return the stored parent pos
-  my $self = shift;
-  $self->[4], $self->[5];
-  }
-
-sub fields
-  {
-  my $self = shift;
-
-  my @a = @$self;
-  shift @a;			# throw away heap
-  @a;
-  }
-
 sub cmp
   {
   # compare two elements
   $_[0]->[1] <=> $_[1]->[1];
   }
 
-package Graph::Easy;
+#############################################################################
+#############################################################################
 
-#############################################################################
-#############################################################################
+package Graph::Easy;
 
 # Generic pathfinding via the A* algorithm:
 # See http://bloodgate.com/perl/graph/astar.html for some background.
@@ -430,6 +391,12 @@ my $edge_type = {
     '1,0,0,-1' => EDGE_N_W,
     '1,0,1,0' => EDGE_HOR,
     '1,0,0,1' => EDGE_S_W,
+
+    # loops (left-right-left etc)
+    '0,-1,0,1' => EDGE_N_W_S,
+    '0,1,0,-1' => EDGE_S_W_N,
+    '1,0,-1,0' => EDGE_E_S_W,
+    '-1,0,1,0' => EDGE_W_S_E,
   };
 
 sub _astar_edge_type
@@ -467,10 +434,12 @@ sub _astar_near_nodes
     my ($x,$y) = ($tries[$i], $tries[$i+1]);
     my $p = "$x,$y";
 
-    if (ref($cells->{$p}) =~ /^Graph::Easy::Edge/)
+    #if (ref($cells->{$p}) =~ /^Graph::Easy::Edge/)
+    if (exists $cells->{$p} && ref($cells->{$p}) =~ /^Graph::Easy::Edge/)
       {
       # if the existing cell is an VER/HOR edge, then we may cross it
-      my $type = $cells->{$p}->{type} & EDGE_TYPE_MASK;
+      my $type = $cells->{$p}->{type};	# including flags, because only flagless edges
+					# may be crossed
       push @places, $x, $y if ($type == EDGE_HOR) || ($type == EDGE_VER);
       next;
       }
@@ -490,11 +459,11 @@ sub _astar_near_nodes
 
 sub _find_path_astar
   {
-  my ($self,$src,$dst) = @_;
+  my ($self,$src,$dst,$edge) = @_;
 
   my $cells = $self->{cells};
 
-  my $open = Heap::Fibonacci->new();	# to find smallest elem fast
+  my $open = Heap::Binary->new();	# to find smallest elem fast
   my $open_by_pos = {};			# to find node by pos
   my $closed = {};			# a hash, indexed by "$x,$y" to find nodes by pos
 
@@ -502,11 +471,25 @@ sub _find_path_astar
   
   print STDERR "# A* from $src->{x},$src->{y} to $dx,$dy\n" if $self->{debug};
 
+  my $start_flags = [
+    EDGE_START_W,
+    EDGE_START_N,
+    EDGE_START_E,
+    EDGE_START_S,
+  ]; 
+
+  my $end_flags = [
+    EDGE_END_W,
+    EDGE_END_N,
+    EDGE_END_E,
+    EDGE_END_S,
+  ]; 
+
   # get all the starting positions and add them to OPEN:
   # distance = 1: slots, generate starting types
-  my @start = $src->_near_places($cells, 1, 'start');
+  my @start = $src->_near_places($cells, 1, $start_flags);
 
-  my $i = 0; my $bias = $self->{_astar_bias} || 0;
+  my $i = 0; my $bias = 0;
   while ($i < scalar @start)
     {
     my $sx = $start[$i]; my $sy = $start[$i+1]; my $type = $start[$i+2]; $i += 3;
@@ -524,7 +507,7 @@ sub _find_path_astar
     }
 
   # potential stop positions
-  my @stop = $dst->_near_places($cells, 1, 'stop');	# distance = 1: slots
+  my @stop = $dst->_near_places($cells, 1, $end_flags, 1);	# distance = 1: slots
   my $stop = scalar @stop;
 
   return unless $stop > 0;			# no free slots on target node?
@@ -539,7 +522,7 @@ sub _find_path_astar
     #sleep(1);
     print STDERR "# Smallest elem is weight ", $elem->val, " at ", join(",", $elem->pos()),"\n" if $self->{debug};
 
-    my ($val, $x,$y, $px,$py, $type) = $elem->fields();
+    my (undef, $val, $x,$y, $px,$py, $type) = @$elem;
 
     my $key = "$x,$y";
     # move node into CLOSE and remove from OPEN
@@ -547,22 +530,15 @@ sub _find_path_astar
     $closed->{$key} = [ $px, $py, $val - $g, $g, $type ];
     delete $open_by_pos->{$key};
 
-    # Do not test for stop position(s) when we just did one step, otherwise
-    # the algorithm terminates at the same field it started from. This happens
-    # f.i. if you trace a self-loop ala ($src,$src,$edge).
-   
-#    if (defined $px)
+    # we are done when we hit one of the potential stop positions
+    for (my $i = 0; $i < $stop; $i += 3)
       {
-      # we are done when we hit one of the potential stop positions
-      for (my $i = 0; $i < $stop; $i += 3)
+      # reached on stop position
+      if ($x == $stop[$i] && $y == $stop[$i+1])
         {
-        # reached on stop position
-        if ($x == $stop[$i] && $y == $stop[$i+1])
-          {
-          $closed->{$key}->[4] = $stop[$i+2];
-          print STDERR "# Reached stop position $x,$y\n" if $self->{debug};
-          last STEP;
-          }
+        $closed->{$key}->[4] += $stop[$i+2];
+        print STDERR "# Reached stop position $x,$y\n" if $self->{debug};
+        last STEP;
         }
       } # end test for stop postion(s)
 
@@ -670,14 +646,16 @@ sub _find_path_astar
 
     if ($px == $lx && $py == $ly && ($cx != $lx || $cy != $ly))
       {
-      print "Detected loop in path-backtracking at $px,$py, $cx,$cy, $lx,$ly\n";
+      print STDERR 
+       "# Warning: A* detected loop in path-backtracking at $px,$py, $cx,$cy, $lx,$ly\n"
+       if $self->{debug};
       last;
       }
 
     $type = EDGE_HOR if ($type & EDGE_TYPE_MASK) == 0;		# last resort
 
     # if this is the first hor edge, attach the label to it
-    # XXX TODO: This clearly is not optimal.
+    # XXX TODO: This clearly is not optimal. Look for left-most HOR CELL
     $type += EDGE_LABEL_CELL if
      ($label_cell++ == 0) &&
      ($type & EDGE_TYPE_MASK) == EDGE_HOR;

@@ -5,22 +5,20 @@ See Graph::Easy under LIMITATIONS for some hot topics.
 
 In addition:
 
-Graph:
+Important short-term TODO:
 
-* Attributes:
-  + Make attribute checks strict, e.g. if it is not known, or well-formed
-    then bail out.
-  + Then add an attribute check to set_attribute() and set_attributes().
-  + Also add an option 'strict', when set to false, will disable attribute
-    checking. This can then be used by the Parser (which does it's own
-    attribute checks).
-  + document all attributes along with default and example values and a
-    description, then auto-generate doc from this table
-* is_simple_graph() needs implementing after removal of Graph module
+* HTML output is broken and misses the edges
+  + use 3x3 table-cells to render the edges with border-attributes
+* todos/invisible.txt causes an endless loop in the chain-finding code
+  (because the code follows a link back to a node already in the chain
+   currently processed. Stoping this will, however, make other tests
+   fail to find the longest possible chain)
+* Node::Empty need to render their right/bottom border if their
+  right/bottom neighbour is in the same cluster
 
 Parser:
 
-* test edge parsing " -- test \>-->" => "test >" as edge label
+* edge parsing " -- test \>-->" => "test >" as edge label
 
 * deal with " -> [ node ], [node2], [node3]"
 * parse nested graphs
@@ -34,8 +32,27 @@ Parser:
 
 * use "{}" to nest blocks?
 * Nodes with both "|" and "\|" in their name are not parsed correctly
+* handle RGB colors with percentages or fractions like: rgb(100%,50%,0.5)
 
 Output:
+
+* selfloop edges should counter the general flow:
+
+                    Until not done
+                  +----------------+
+                  v                |
+  +-------+     +--------------------+     +-----+
+  | Start | --> | Main               | --> | End |
+  +-------+     +--------------------+     +-----+
+
+  versus (loop still going left):
+
+                  Until not done
+                +----------------+
+                v                |
+  +-----+     +--------------------+     +-------+
+  | End | <-- | Main               | <-- | Start |
+  +-----+     +--------------------+     +-------+
 
 * write as_box(): output with box-drawing chars (unicode or iso)
 * support different edge starting point styles ala:
@@ -44,13 +61,9 @@ Output:
 
 * as_txt(): output of node clusters is not optimal
 * as_txt(): output of node chains is not optimal
+* as_ascii(): render dotted nodes with ":" on their lower corners
 * as_ascii(): output group borders and group labels
-* as_ascii(): node clusters need adjoining borders collapsed together
-  +---++---+      +---+---+
-  | A || B | vs.  | A | B |  (that als means A needs to be width-1!)
-  +---++---+      +---+---+
 * as_html: "border-width: 1" should be "border-width: 1px"
-* as_html(): grow all edge pieces to be seemless
 * as_html: node clusters have spacings between nodes:
            The spacing comes from the filler cells to make groups
 	   work - arg!
@@ -63,59 +76,46 @@ Output:
   in HTML/ASCII/Graphviz
 * better support for different edge styles in HTML/Graphviz
 * as_html: deal with multi-celled nodes
-* self-loops: Instead of the 5-piece, 2-port blocking loops, we could build
-	      special pieces:
+* as_ascii() and others: grow cells around point-shaped nodes to intrude:
 
-          +--+
-          v  |
-	+------+
-    +-> | test | <-+
-    |   | node |   |
-    +-- | test | --+
-        +------+
-          ^  |
-          +--+
+	...........................
+        :      :  |   :     :     :
+	:      :  |   :     :     :
+	:      :  v   :     :     :
+	...........................
+        :       :   :       :     :
+	:-----> : * : <---- :     :
+        :       :   :       :     :
+	...........................
 
 Layout:
 
 * the longest-chain code (walk recursively children of startig node) needs
   some tuning, especially when it encounters loops in the graph.
-* A* fails to do loops from $src to $src. This happens if the self-loop code
-  failed to find a path, too.
-* We could allow crossing of a horizontal edge-piece with an end/start point
-  by making the cross routine more flexible.
-
-   +------------------+
-   | some random node | <-+
-   +------------------+   |        <-- the code will generate this crossing
-     ^                    |      
-   --+--------------------+---     <-- some passing edge underneath the node
-     |                    |
-
-        ^- this should be generated
-
 * allow user to specify max graph width (in cells) to avoid overly wide graphs
 * auto-grow nodes to be multicelled depending on the dimensions of their label
   ("main page" gets 2x1, while "a \nb \nc \nd \ne \n" gets 1x2 cells)
   This currently causes problems and wierd layouts.
 * Use the seed to generate randomized layouts
-* allow user to specifiy prefered direction of edges, as well as
-  relatively placed nodes (in position relativ to another node)
-* allow user to specify 
+* allow user to specify on an edge:
     direction: (up|down|left|right|north|south|west|east|0|90|180|270|360);
-  to create default direction of edges
+    flow: (up|down|left|right|north|south|west|east|0|90|180|270|360);
+  to force or suggest direction of edges leaving a node
+* allow user to specifiy "align: left, top;" or "align: center, middle" to
+  specify alignment of label inside node. (left|right|center|middle|top|bottom)
 * the A* algorithm needs fine-tuning to generate less bendy paths
 
 Optimizer:
 
-* use Heap::Binary instead of Fibonacci?
-* inline $elems->fields() call in A*
 * write an optimizer for already laid out graphs to optimize layout
 * less memory: store border and edge styles as ints instead of "solid" etc
 * use AUTOLOAD for accessors in Node.pm: most are never used by normal code
+* edges_to() is the new hot-spot. It could be faster if we keep track of
+  edges per node indexed by their target, too.
 
 Manual:
 
 * finish the HTML conversion (Graph::Easy::Pod2HTML)
-* write the actual manual text (in chapters)
+* improve the actual manual text, add chapters about topics like:
+  + clusters, groups etc
 

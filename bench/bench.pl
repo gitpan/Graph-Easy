@@ -18,6 +18,7 @@ time_it ( \&as_txt );
 
 # dump the text for later
 #print STDERR $g->as_txt(); exit;
+#print STDERR $g->as_graphviz(); exit;
 
 # $g->timeout(20) if $g->can('timeout');
 print $g->as_ascii() if $g->nodes() < 40;
@@ -45,7 +46,7 @@ timethese (-5,
 
   "succ's" => sub { scalar $n->successors(); },
   "succ' cnt" => sub { my @O = $n->successors(); },
-#  "edges_to" => sub { my @O = $n->edges_to($last) },
+  "edges_to" => sub { my @O = $n->edges_to($last) },
 #  "layout" => sub { $g->layout(); },
 #  "as_txt" => sub { $g->as_txt(); },
 

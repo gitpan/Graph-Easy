@@ -13,7 +13,7 @@ use vars qw/$VERSION @ISA/;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 
@@ -56,7 +56,7 @@ sub add_node
   {
   my ($self,$n) = @_;
  
-  if (ref($n) !~ /Graph::Easy::Node/)
+  if (ref($n) !~ /^Graph::Easy::Node/)
     {
     require Carp;
     Carp::croak("Cannot add non-node $n to cluster");
@@ -75,7 +75,7 @@ sub add_nodes
 
   foreach my $n (@_)
     {
-    if (ref($n) !~ /Graph::Easy::Node/)
+    if (ref($n) !~ /^Graph::Easy::Node/)
       {
       require Carp;
       Carp::croak("Cannot add non-node $n to cluster");

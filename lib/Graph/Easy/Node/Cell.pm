@@ -13,7 +13,7 @@ use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Easy::Node/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 
@@ -95,9 +95,8 @@ Graph::Easy::Node::Cell - An empty filler cell
 
 =head1 DESCRIPTION
 
-A C<Graph::Easy::Node::Cell> represents an edge between two (or more) nodes in a
-Graph::Easy. It is also used to reserve a cell in the grid for nodes that
-occupy more than one cell.
+A C<Graph::Easy::Node::Cell> is used to reserve a cell in the grid for nodes
+that occupy more than one cell.
 
 You should not need to use this class directly.
 

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 18;
+   plan tests => 24;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Layout") or die($@);
@@ -18,7 +18,13 @@ can_ok ("Graph::Easy", qw/
   _create_cell
   _find_path_astar
   _find_path_loop
+
+  _find_chains
   _assign_ranks
+  /);
+
+can_ok ("Graph::Easy::Node", qw/
+  _shuffle_dir
   /);
 
 isnt ($Graph::Easy::VERSION, undef, 'VERSION in Layout');
@@ -42,6 +48,17 @@ is ($graph->error(), '', 'no error yet');
 my $src = Graph::Easy::Node->new( name => 'Bonn' );
 my $dst = Graph::Easy::Node->new( 'Berlin' );
 my $e = 3;				# elements per path cell (x,y,type)
+
+#############################################################################
+# _shuffle_dir()
+
+my $array = [0,1,2,3];
+
+is (join (",",@{ $src->_shuffle_dir($array,0)   }), '3,0,2,1', 'shuffle 0'  );
+is (join (",",@{ $src->_shuffle_dir($array,90)  }), '0,1,2,3', 'shuffle 90' );
+is (join (",",@{ $src->_shuffle_dir($array)     }), '0,1,2,3', 'shuffle '   );
+is (join (",",@{ $src->_shuffle_dir($array,270) }), '2,3,1,0', 'shuffle 270');
+is (join (",",@{ $src->_shuffle_dir($array,180) }), '1,2,0,3', 'shuffle 180');
 
 #############################################################################
 # _near_places()

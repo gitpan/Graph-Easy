@@ -7,6 +7,7 @@
 package Graph::Easy;
 
 use 5.006001;
+use Graph::Easy::Attributes;
 use Graph::Easy::Cluster;
 use Graph::Easy::Edge;
 use Graph::Easy::Group;
@@ -16,7 +17,7 @@ use Graph::Easy::Node;
 use Graph::Easy::Node::Anon;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.25';
+$VERSION = '0.26';
 
 use strict;
 
@@ -65,6 +66,7 @@ sub _init
   $self->{error} = '';
   $self->{debug} = 0;
   $self->{timeout} = 5;			# in seconds
+  $self->{strict} = 1;			# check attributes strict?
   
   $self->{id} = '';
   $self->{groups} = {};
@@ -139,7 +141,7 @@ sub _init
 
   foreach my $k (keys %$args)
     {
-    if ($k !~ /^(timeout|debug)\z/)
+    if ($k !~ /^(timeout|debug|strict)\z/)
       {
       $self->error ("Unknown option '$k'");
       }
@@ -172,14 +174,32 @@ sub debug
   $self->{debug};
   }
 
+sub strict
+  {
+  my $self = shift;
+
+  $self->{strict} = $_[0] if @_;
+  $self->{strict};
+  }
+
 sub is_simple_graph
   {
   # return true if the graph does not have multiedges
   my $self = shift;
 
-  # XXX TODO:
-#  $self->{graph}->is_simple_graph();
-  0;
+  # check each node for multi-edges
+  for my $n (values %{$self->{nodes}})
+    {
+    my %count;
+    for my $e (values %{$n->{edges}})
+      {
+      my $id = "$e->{to}->{id},$e->{from}->{id}";
+      return 0 if exists $count{$id};
+      $count{$id} = undef;
+      }
+    }
+
+  1;					# found none
   }
 
 sub id
@@ -291,8 +311,6 @@ sub edge
 
   my @ids = $x->edges_to($y);
   
- # return undef if @ids == 0;		# node has no edges
-
   if (scalar @ids > 1)
     {
     # XXX TODO: make it return a list
@@ -300,7 +318,7 @@ sub edge
     Carp::croak ("There exist more than one edge from $x->{name} to $y->{name}");
     }
  
-  $ids[0];
+  $ids[0];				# first edge or undef for none
   }
 
 sub node
@@ -361,6 +379,18 @@ sub set_attribute
     return $self->error ("Illegal class '$class' when trying to set attribute '$name' to '$val'");
     }
 
+  if ($self->{strict})
+    {
+    my $v = $self->valid_attribute($name,$val,$class);
+
+    if (!defined $v)
+      {
+      $self->error("Error in attribute: '$val' is not a valid $name for $class");
+      return;
+      }
+    $val = $v;
+    }
+
   # handle special attribute 'gid' like in "graph { gid: 123; }"
   if ($class eq 'graph')
     {
@@ -410,65 +440,23 @@ sub set_attributes
   foreach my $a (keys %$att)
     {
     my $val = $att->{$a}; $val =~ s/\\#/#/;		# "\#808080" => "#808080"
+    next if $a eq 'gid';
+  
+    if ($self->{strict})
+      {
+      my $v = $self->valid_attribute($a,$val,$class);
+
+      if (!defined $v)
+        {
+        $self->error("Error in attribute: '$val' is not a valid $a for $class");
+        return;
+        }
+      $val = $v;
+      }
+
     $self->{att}->{$class}->{$a} = $val;
     } 
   $self;
-  }
-
-sub _remap_attributes
-  {
-  # Take a hash with:
-  # {
-  #   class => {
-  #     color => 'red'
-  #   }
-  # }
-  # and remap it according to the given remap hash (similiar structured).
-  # Also encode/quote the value. Suppresses default attributes. 
-  my ($self, $class, $att, $remap, $noquote ) = @_;
-
-  my $out = {};
-  $class =~ s/\..*//;			# remove subclass 
-  my $r = $remap->{$class};
-  my $ra = $remap->{all};
-  my $def = $self->{def_att}->{$class};
-  for my $atr (keys %$att)
-    {
-    my $val = $att->{$atr};
-
-    # attribute not defined
-    next if !defined $val || $val eq '' ||
-    # or $remap says we should suppress it
-       (exists $r->{$atr} && !defined $r->{$atr}) ||
-       (exists $ra->{$atr} && !defined $ra->{$atr});
-
-    # suppress default attributes
-    next if defined $def->{$atr} && $val eq $def->{$atr};
-
-    # if given a code ref, call it to remap name and/or value
-    if (exists $r->{$atr})
-      {
-      my $rc = $r->{$atr};
-      if (ref($rc) eq 'CODE')
-        {
-        ($atr,$val) = &{$rc}($self,$atr,$val);
-        next if !defined $atr || !defined $val;
-        }
-      else
-        {
-        # otherwise, rename the attribute name if nec.
-        $atr = $rc;
-        }
-      }
-
-    # encode critical characters (including ")
-    $val =~ s/([;"\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
-    # quote if nec.
-    $val = '"' . $val . '"' if !$noquote;
-
-    $out->{$atr} = $val;
-    }
-  $out;
   }
 
 #############################################################################
@@ -897,13 +885,12 @@ sub as_ascii
       }
     }
 
-  my $out = '';
   for my $y (0..$max_y)
     {
-    my $line = $fb->[$y];
-    $line =~ s/\s+\z//;		# remove trailing whitespace
-    $out .= $line . "\n";
+    $fb->[$y] = '' unless defined $fb->[$y];
+    $fb->[$y] =~ s/\s+\z//;		# remove trailing whitespace
     }
+  my $out = join("\n", @$fb) . "\n";
 
   $out =~ s/\n+\z/\n/;		# remove trailing empty lines
 
@@ -1127,9 +1114,10 @@ sub add_edge
   $y = $nodes->{$yn} if exists $nodes->{$yn};
 
   $x = Graph::Easy::Node->new( $x ) unless ref $x;	# if this fails, create
+  $y = $x if !ref($y) && $y eq $xn;			# make add_edge('A','A') work
   $y = Graph::Easy::Node->new( $y ) unless ref $y;
 
-  print STDERR " add_edge '$x->{name}' ($x->{id}) -> '$y->{name}' ($y->{id}) (edge $edge->{id})\n" if $self->{debug};
+  print STDERR "# add_edge '$x->{name}' ($x->{id}) -> '$y->{name}' ($y->{id}) (edge $edge->{id})\n" if $self->{debug};
 
   # register the nodes and the edge with our graph object
   $x->{graph} = $self;
@@ -1675,6 +1663,16 @@ Example:
 Get/set the timeut for layouts in seconds. If the layout process did not
 finish after that time, it will be stopped and a warning will be printed.
 
+=head2 strict()
+
+	print "Graph has strict checking\n" if $graph->strict();
+	$graph->strict(undef);		# disable strict attribute checks
+
+Get/set the strict option. When set to a true value, all attribute names and
+values will be strictly checked and unknown/invalid one will be rejected.
+
+This option is on by default.
+
 =head2 layout()
 
 	$graph->layout();
@@ -1956,21 +1954,11 @@ A second-stage optimizer that simplifies these layouts is not yet implemented.
 In addition the general placement/processing strategy as well as the local
 strategy might be improved.
 
-=item ASCII edge labels
-
-Edges in ASCII miss their edge labels.
-
-	# [ Bonn ] - train -> [ Berlin ] will be rendered as:
-
-	+------+     +--------+
-	| Bonn | --> | Berlin |
-	+------+     +--------+
-
 =back
 
 =head2 Node-Size
 
-A node consisting of multiple cells will be rendered incorrectly
+A node consisting of multiple cells might be rendered incorrectly
 on output.
 
 Nodes with more than one cell are automatically generated when they

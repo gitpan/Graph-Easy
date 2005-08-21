@@ -1,7 +1,7 @@
 # XXX TODO There should be a space between the rows
 +-----------+     +--------+
-| Frankfurt | --> | Hof    |
+| Frankfurt | --> |  Hof   |
 +-----------+     +--------+
 +-----------+     +--------+
-| Hamburg   | --> | Altona |
+|  Hamburg  | --> | Altona |
 +-----------+     +--------+

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 105;
+   plan tests => 107;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -129,6 +129,14 @@ is ($other->successors(), 0, '0 outgoing');
 is (scalar $other->sorted_successors(), 0, '0 outgoing');
 is ($other->predecessors(), 1, '1 incoming');
 is ($other->connections(), 1, '1 connection');
+
+$graph->add_edge('First', 'Name');
+
+@E = $node->edges_to($other);
+is (scalar @E, 1, '1 link to $other');
+is ($E[0], $edge, 'first link to $other is $edge');
+
+$graph->add_edge('Name', 'Name');
 
 #############################################################################
 # as_txt/as_html

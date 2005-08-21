@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 #############################################################################
 #############################################################################
@@ -30,8 +30,8 @@ use Graph::Easy::Edge::Cell qw/
  /;
 
 sub ACTION_NODE  () { 0; }	# place node somewhere
-sub ACTION_PLACE () { 1; }	# place node at specific location
-sub ACTION_TRACE () { 2; }	# trace path from src to dest
+sub ACTION_TRACE () { 1; }	# trace path from src to dest
+sub ACTION_CHAIN () { 2; }	# place node in chain (e.g. DIRECTION of parent)
 
 use Graph::Easy::Layout::Scout;	# pathfinding
 use Graph::Easy::Layout::Path;	# path management
@@ -92,7 +92,6 @@ sub _assign_ranks
       }
     } # while still something todo
 
-  $self->_find_chains();
   $self;
   }
 
@@ -152,13 +151,18 @@ sub _find_chains
 
     print STDERR "# starting chain at $cur->{name} ", $cur->{_chain}||'undef',"\n" if $self->{debug};
     my $step = 0; my $last;
-    while (!defined $cur->{_chain} || ($cur->{_chain} > $step))
+    while ((!defined $cur->{_chain}) || ($cur->{_chain} > $step))
       {
+#      # stop backward loops from ruining our day
+#      my $o = $cur->{_chain};
+#      last if defined $o && $o > $step;
+
       $cur->{_chain} = $step; $step--;
       $cur->{_next} = $last;
       print STDERR "# at chain len $step, $cur->{name}\n" if $self->{debug};
+
       my @pr = $cur->predecessors();
-      last if @pr != 1;			# stop at the end of a chain,
+      last if @pr != 1; 		# stop at the end of a chain,
 					# or at multiple branches
       $last = $cur;
       $cur = $pr[0];			# continue with next node
@@ -217,23 +221,26 @@ sub _dump_stack
   {
   my ($self, @todo) = @_;
 
+  print STDERR "# Action stack contains:\n";
   for my $action (@todo)
     {
     my $action_type = $action->[0];
     if ($action_type == ACTION_NODE)
       {
-      my ($node) = $action->[1];
-      print STDERR "# action place '$node->{name}'\n" if $self->{debug};
+      my ($at,$node,$try) = @$action;
+      print STDERR "#  place '$node->{name}' with try $try\n";
       }
-    elsif ($action_type == ACTION_PLACE)
+    elsif ($action_type == ACTION_CHAIN)
       {
-      my ($at, $node, $x,$y) = @$action;
-      print STDERR "# action place '$node->{name}' at $x,$y\n" if $self->{debug};
+      my ($at, $node, $try, $parent) = @$action;
+      print STDERR
+       "#  chain '$node->{name}' from parent '$parent->{name} with try $try'\n";
       }
     elsif ($action_type == ACTION_TRACE)
       {
-      my ($action_type,$src,$dst,$edge) = @$action;
-      print STDERR "# action trace '$src->{name}' to '$dst->{name}' via edge $edge->{id}\n" if $self->{debug};
+      my ($at,$src,$dst,$edge) = @$action;
+      print STDERR
+       "#  trace '$src->{name}' to '$dst->{name}' via edge $edge->{id}\n";
       }
     }
   }
@@ -262,6 +269,7 @@ sub layout
 
   $self->_grow_nodes();
   $self->_assign_ranks();
+  $self->_find_chains();
 
   ###########################################################################
   # prepare our stack of things we need to do before we are finished
@@ -285,7 +293,8 @@ sub layout
     $n->{x} = undef;			# mark every node as not placed yet
     $n->{y} = undef;
 
-    push @todo, [ ACTION_NODE, $n ] unless exists $done->{$n};	# node needs to be placed
+    # node needs to be placed
+    push @todo, [ ACTION_NODE, $n, 0 ] unless exists $done->{$n};
     $done->{$n} = undef;
 
     print STDERR "# following $n->{name}\n" if $self->{debug};
@@ -298,7 +307,7 @@ sub layout
       print STDERR "# followed to $c->{name}\n" if $self->{debug};
       
       # node needs to be placed and path to target need to be found
-      push @todo, [ ACTION_NODE, $c ] unless exists $done->{$c};
+      push @todo, [ ACTION_CHAIN, $c, 0, $l ] unless exists $done->{$c};
       $done->{$c} = undef;
 
       # in case there is more than one edge going from N to O
@@ -318,19 +327,21 @@ sub layout
       last if $l == $c;			# self-loop?
       }
 
-    # after following the chain, make sure all successors are handled, too
-    my @suc = $n->successors();
+    # After following the chain, make sure all successors are handled, too.
+    # Sort successors by their chain target values, higher chain values first
+    # the idea is to create short forward edges first.
+    my @suc = sort { 
+      $a->{_chain} <=> $b->{_chain} 
+      || $a->{name} cmp $b->{name}  
+      } $n->successors();
 
     print STDERR "# successors of $n->{name}\n" if $self->{debug};
-  
-    # sort successors by their chain target values, higher chain values first
-    # the idea is to create short forward edges first
-    @suc = sort { $a->{_chain} <=> $b->{_chain} } @suc;
+
     for my $s (@suc)
       {    
       print STDERR "# place $s->{name}\n" if $self->{debug};
       # node needs to be placed
-      push @todo, [ ACTION_NODE, $s ] unless exists $done->{$s};
+      push @todo, [ ACTION_NODE, $s, 0 ] unless exists $done->{$s};
       $done->{$s} = undef;
 
       # in case there is more than one edge going from N to O
@@ -362,42 +373,42 @@ sub layout
 
   print STDERR "# Start\n" if $self->{debug};
 
+  $self->{padding_cells} = 0;		# set to false (no filler cells yet)
+
   my @done = ();			# stack with already done actions
   my $step = 0;
-  my $tries = 3;
+  my $tries = 16;
 
   TRY:
   while (@todo > 0)			# all actions on stack done?
     {
     $step ++;
-#    sleep(1) if $self->{debug};
-    
     print STDERR "\n# Step $step: Score is $score\n" if $self->{debug};
 
     # pop one action and mark it as done
     my $action = shift @todo; push @done, $action;
 
-    # get the action type (ACTION_PLACE etc)
+    # get the action type (ACTION_NODE etc)
     my $action_type = $action->[0];
 
     my ($src, $dst, $mod, $edge);
 
-    print STDERR "# Step $step: action type $action->[0]\n" if $self->{debug};
-
     if ($action_type == ACTION_NODE)
       {
-      my ($node) = $action->[1];
-      print STDERR "# step $step: action place '$node->{name}'\n" if $self->{debug};
+      my (undef, $node,$try) = @$action;
+      print STDERR "# step $step: action place '$node->{name}' (try $try)\n" if $self->{debug};
 
+      $mod = 0 if defined $node->{x};
       # $action is node to be placed, generic placement at "random" location
-      $mod = 0;
-      $mod = $self->_find_node_place( $cells, $node ) if (!defined $node->{x});
+      $mod = $self->_find_node_place( $cells, $node, undef, $try ) if (!defined $node->{x});
       }
-    elsif ($action_type == ACTION_PLACE)
+    elsif ($action_type == ACTION_CHAIN)
       {
-      my ($at, $node, $x,$y) = @$action;
-      # try to place node at $x, $y
-      next TRY if $node->place($x,$y,$cells);
+      my (undef, $node,$try,$parent) = @$action;
+      print STDERR "# step $step: action chain '$node->{name}' to '$parent->{name}'\n" if $self->{debug};
+
+      $mod = 0 if defined $node->{x};
+      $mod = $self->_find_node_place( $cells, $node, $try, $parent ) if (!defined $node->{x});
       }
     elsif ($action_type == ACTION_TRACE)
       {
@@ -433,13 +444,15 @@ sub layout
     if (!defined $mod)
       {
       # rewind stack
-      if (($action_type == ACTION_NODE || $action_type == ACTION_PLACE))
+      if (($action_type == ACTION_NODE || $action_type == ACTION_CHAIN))
         { 
-        print STDERR "# Step $step: Rewind stack for $action->{name}\n" if $self->{debug};
+        print STDERR "# Step $step: Rewind stack for $action->[1]->{name}\n" if $self->{debug};
 
         # undo node placement and free all cells
-        # XXX TODO: free all nodes in one cluster
-        $action->unplace();
+#        $action->[1]->unplace() if defined $action->[1]->{x};
+#        $action->[2]++;		# increment try for placing
+        $tries--;
+	last TRY if $tries == 0;
         }
       else
         {
@@ -448,18 +461,20 @@ sub layout
         # if we couldn't find a path, we need to rewind one more action (just
 	# redoing the path would would fail again!)
 
-        unshift @todo, $action;
-        unshift @todo, pop @done;
+#        unshift @todo, pop @done;
+#        unshift @todo, pop @done;
 
-        $action = $todo[0];
-        $action_type = $action->[0];
+#        $action = $todo[0];
+#        $action_type = $action->[0];
 
-        if (($action_type == ACTION_NODE || $action_type == ACTION_PLACE))
-          {
-          # undo node placement
-          # XXX TODO: free all nodes in one cluster
-          $action->unplace();
-          }
+#        $self->_dump_stack(@todo);
+
+#        if (($action_type == ACTION_NODE || $action_type == ACTION_CHAIN))
+#          {
+#          # undo node placement
+#          $action->[1]->unplace();
+#          $action->[2]++;		# increment try for placing
+#          }
   	$tries--;
 	last TRY if $tries == 0;
         next TRY;
@@ -513,6 +528,12 @@ sub _fill_group_cells
 
   # if layout not done yet, do so
   $self->layout() unless defined $self->{score};
+
+  print STDERR "\n# Padding with fill cells, have ", scalar $self->groups(), " groups.\n" if $self->{debug};
+
+  return $self if $self->groups == 0;
+
+  $self->{padding_cells} = 1;		# set to true
 
   # We need to insert "filler" cells around each node/edge/cell. If we do not
   # have groups, this will ensure that nodes in two consecutive rows do not
@@ -636,6 +657,7 @@ sub _fill_group_cells
     my $cell = $cells->{$key};
     $cell->_set_type($cells) if ref($cell) =~ /Group::Cell/;
     }
+  $self;
   }
 
 1;

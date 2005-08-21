@@ -1,3 +1,0 @@
-[ Bonn ] -- train --> [ Berlin ] -> [ Potsdam ]
-[ Berlin ] -> [ Ulm ]
-[ Bonn ] -> [ Potsdam ]

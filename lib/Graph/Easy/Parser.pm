@@ -9,7 +9,6 @@ package Graph::Easy::Parser;
 use 5.006001;
 use strict;
 use Graph::Easy;
-use Graph::Easy::Attributes;
 
 use vars qw/$VERSION/;
 
@@ -91,7 +90,7 @@ sub from_text
 
   $self->reset();
 
-  $self->{graph} = Graph::Easy->new( { debug => $self->{debug} } );
+  $self->{graph} = Graph::Easy->new( { debug => $self->{debug}, strict => 0 } );
   my $graph = $self->{graph};
 
   return $graph if !defined $txt || $txt =~ /^\s*\z/;		# empty text?
@@ -156,11 +155,11 @@ sub from_text
     # node { color: red; } or 
     # node.graph { color: red; }
     # XXX TODO: group-label, edge-label
-    if ($line =~ /^(node|graph|edge|group)(\.\w+)?$qr_attr\z/)
+    if ($line =~ /^(node|graph|edge|group)(\.\w+)?$qr_attr/)
       {
       my $type = $1 || '';
       my $class = $2 || '';
-      my $att = $self->_parse_attributes($3 || '');
+      my $att = $self->_parse_attributes($3 || '', $type);
 
       return undef unless defined $att;		# error in attributes?
 
@@ -169,8 +168,8 @@ sub from_text
       # forget stack
       @stack = ();
 
-      # and current line
-      $line = '';
+      # purge parsed part from line
+      $line =~ s/^(node|graph|edge|group)(\.\w+)?$qr_attr//;
       }
     # ( group start [
     elsif ($line =~ /^$qr_group_start/)
@@ -201,7 +200,7 @@ sub from_text
         }
       my $group = pop @group_stack;
 
-      my $a1 = $self->_parse_attributes($1||'');	# group attributes
+      my $a1 = $self->_parse_attributes($1||'', 'group');	# group attributes
       return undef if $self->{error};
       $group->set_attributes($a1);
 
@@ -302,6 +301,9 @@ sub from_text
     return undef;
     }
 
+  # turn on strict checking on returned graph
+  $graph->strict(1);
+
   $graph;
   }
 
@@ -318,8 +320,7 @@ sub _new_node
 
   # strip trailing spaces
   $name =~ s/\s*\z//;
-  # collapse multiple spaces
-  $name =~ s/\s+/ /g;
+
   # unquote special chars
   $name =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
@@ -365,20 +366,35 @@ sub _new_node
 
 #      print STDERR "# at part $part for $name ($idx=$x,$y) (remaining: $remaining)\n";
 
-      $part =~ s/^\s*//;	# rem spaces at front
-      $part =~ s/\s*$//;	# rem spaces at end
+      my $class = "Graph::Easy::Node";
+      if ($part eq ' ')
+        {
+        # create an empty node with no border
+        $class = "Graph::Easy::Node::Empty";
+        $part = ' ';
+        }
+      elsif ($part =~ /^0x20{2,}\z/)
+        {
+        # create an empty node with border
+        $part = ' ';
+        }
+      else
+        {
+        $part =~ s/^\s*//;	# rem spaces at front
+        $part =~ s/\s*$//;	# rem spaces at end
+        }
 
       my $node_name = "$base_name.$idx";
 
-      if ($part ne '')
-        {
-        my $node = Graph::Easy::Node->new( { name => $node_name, label => $part, dx => $x, dy => $y } );
-        $graph->add_node($node);
-        $node->add_to_cluster($cluster);
-        push @rc, $node;
-        $cluster->center_node($rc[0]) if @rc == 1;
-        $idx++;					# next node ID
-        }
+      my $node = $class->new( {
+        name => $node_name, label => $part, dx => $x, dy => $y 
+        } );
+      $graph->add_node($node);
+      $node->add_to_cluster($cluster);
+      push @rc, $node;
+      $cluster->center_node($rc[0]) if @rc == 1;
+      $idx++;					# next node ID
+
       $x++;
       # || starts a new row:
       if ($sep eq '||')
@@ -389,6 +405,9 @@ sub _new_node
     }
   else
     {
+    # collapse multiple spaces
+    $name =~ s/\s+/ /g;
+
     # unquoe \|
     $name =~ s/\\\|/\|/g;
 
@@ -526,7 +545,7 @@ sub _parse_attributes
 
     $val =~ s/\\#/#/g;					# unquote \#
 
-    my $v = Graph::Easy::Attributes->valid_attribute($name,$val,$class);
+    my $v = Graph::Easy->valid_attribute($name,$val,$class);
     $self->parse_error(2,$val,$name,$class), return
       unless defined $v;				# stop on error
 
@@ -770,7 +789,7 @@ templates like C<##param1##> with the passed parameters.
 
 =head2 _parse_attributes()
 
-	my $attributes = $parser->_parse_attributes( $txt );
+	my $attributes = $parser->_parse_attributes( $txt, $class );
   
 B<Internal usage only>. Takes a text like this:
 

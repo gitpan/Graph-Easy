@@ -9,10 +9,10 @@ node { shape: circle; }
 -> [ make_string ] { label: make a\n string; }
 
 [ main ] ..> [ init ]
-[ main ] -Testlabel--> [ cleanup ]
+[ main ] -- Testlabel --> [ cleanup ]
 
 [ init ] -> [ make_string ]
 
-[ main ] =100 times==> [ printf ] 	# red edge!
+[ main ] == 100 times ==> [ printf ] 	# red edge!
 
 [ execute ] -> [ compare ] { shape: box; background: #c1b2ff; }

@@ -1,5 +1,5 @@
 #############################################################################
-# output the graph as textual description
+# Output an Graph::Easy object as textual description
 #
 # (c) by Tels 2004-2005.
 #############################################################################
@@ -8,7 +8,7 @@ package Graph::Easy::As_txt;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 #############################################################################
 #############################################################################
@@ -32,7 +32,8 @@ sub _as_txt
   for my $class (sort keys %$att)
     {
 
-    my $out = $self->_remap_attributes( $class, $att->{$class}, {}, 'noquote');
+    my $out = $self->_remap_attributes(
+     $class, $att->{$class}, {}, 'noquote', 'remap_colors' );
 
     my $att = '';
     for my $atr (sort keys %$out)
@@ -117,7 +118,7 @@ sub _as_txt
       {
       # in case there exists more than one edge from $n --> $other
       my @edges = $n->edges_to($other);
-      for my $edge (@edges)
+      for my $edge (sort { $a->{id} <=> $b->{id} } @edges)
         {
         $txt .= $first . $edge->as_txt() . $other->as_pure_txt() . "\n";
         }

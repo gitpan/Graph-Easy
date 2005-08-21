@@ -95,7 +95,7 @@ foreach (<DATA>)
   for my $n ( sort { $a->{name} cmp $b->{name} } ($graph->nodes(), $graph->edges()) )
     {
     # normalize color output
-    my $b = Graph::Easy::Attributes->color_as_hex($n->attribute('background'));
+    my $b = Graph::Easy->color_as_hex($n->attribute('background'));
     $got .= ";" . $n->name() . "," . $n->label() . "=$n->{dx}.$n->{dy}." . $b;
     } 
   
@@ -107,8 +107,8 @@ __DATA__
 [A|B|C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=1.0.#ffffff;ABC.2,C=2.0.#ffffff
 [A|B|C] { background: red; }|3;ABC.0,A=0.0.#ff0000;ABC.1,B=1.0.#ff0000;ABC.2,C=2.0.#ff0000
 [A|B|C] { label: foo; background: red; }|3;ABC.0,foo=0.0.#ff0000;ABC.1,foo=1.0.#ff0000;ABC.2,foo=2.0.#ff0000
-[A| |C]|2;AC.0,A=0.0.#ffffff;AC.1,C=2.0.#ffffff
+[A| |C]|3;AC.0,A=0.0.#ffffff;AC.1, =1.0.#ffffff;AC.2,C=2.0.#ffffff
 [A||B|C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=0.1.#ffffff;ABC.2,C=1.1.#ffffff
 [A||B||C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=0.1.#ffffff;ABC.2,C=0.2.#ffffff
-[A|| |C]|2;AC.0,A=0.0.#ffffff;AC.1,C=1.1.#ffffff
+[A|| |C]|3;AC.0,A=0.0.#ffffff;AC.1, =0.1.#ffffff;AC.2,C=1.1.#ffffff
 

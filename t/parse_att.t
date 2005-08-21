@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 30;
+   plan tests => 36;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -94,3 +94,9 @@ shape:fruggle;|error=Error in attribute: 'fruggle' is not a valid shape
 color: rgb(256, 0, 0);|error=Error in attribute: 'rgb(256, 0, 0)' is not a valid color
 color: rgb(0, 256, 0);|error=Error in attribute: 'rgb(0, 256, 0)' is not a valid color
 color: rgb(0, 0, 256);|error=Error in attribute: 'rgb(0, 0, 256)' is not a valid color
+shape: qiggle;|error=Error in attribute: 'qiggle' is not a valid shape for node
+point-shape: qiggle;|error=Error in attribute: 'qiggle' is not a valid point-shape for node
+toint-shape: qiggle;|error=Error in attribute: 'qiggle' is not a valid toint-shape for node
+offset: -3,-2;|offset=-3,-2;
+offset: 3,-2;|offset=3,-2;
+offset: -3,2;|offset=-3,2;

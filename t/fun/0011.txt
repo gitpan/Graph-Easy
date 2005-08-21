@@ -2,7 +2,7 @@
 # http://www.cafepress.com/orderofthestick.10272636?zoom=yes#zoom
 
 [ Teamwork ] { background: yellow; title: Elan; } 
--is the key to --> [ Victory ] { background: red; title: Roy; }
+-- is the key to --> [ Victory ] { background: red; title: Roy; }
 
-[ Victory ]  -the order of the-> [ Stick ] { background: #ff80a0; }
-[ Victory ]  -Treasure-> [ Haley ] { background: lightblue; }
+[ Victory ]  -- the order of the --> [ Stick ] { background: #ff80a0; }
+[ Victory ]  -- Treasure --> [ Haley ] { background: lightblue; }

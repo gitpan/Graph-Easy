@@ -202,7 +202,7 @@ sub as_graphviz_txt
 
   # quote if necessary:
   # 2, A, A2, "2A", "2 A" etc
-  $name = '"' . $name . '"' if $name !~ /^[a-zA-Z]+\z/;
+  $name = '"' . $name . '"' if $name !~ /^([a-zA-Z]+|\d+)\z/;
 
   $name;
   }

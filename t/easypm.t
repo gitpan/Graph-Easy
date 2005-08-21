@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 88;
+   plan tests => 104;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -40,6 +40,7 @@ my $graph = Graph::Easy->new();
 is (ref($graph), 'Graph::Easy');
 
 is ($graph->error(), '', 'no error yet');
+is ($graph->is_simple_graph(), 1, 'simple graph (0 nodes)');
 
 my $node = Graph::Easy::Node->new( name => 'Bonn' );
 my $node2 = Graph::Easy::Node->new( name => 'Berlin' );
@@ -51,6 +52,7 @@ $graph->add_edge( $node, $node2 );
 
 is (scalar $graph->nodes(), 2, '2 nodes');
 is (scalar $graph->edges(), 1, '1 edges');
+is ($graph->is_simple_graph(), 1, 'simple graph (2 nodes, 1 edge)');
 
 my $node3 = Graph::Easy::Node->new( name => 'Frankfurt', border => 'dotted' );
 
@@ -58,6 +60,7 @@ $graph->add_edge( $node2, $node3 );
 
 is (scalar $graph->nodes(), 3, '3 nodes');
 is (scalar $graph->edges(), 2, '2 edges');
+is ($graph->is_simple_graph(), 1, 'still simple graph');
 
 my $node4 = Graph::Easy::Node->new( name => 'Dresden' );
 
@@ -65,6 +68,7 @@ $graph->add_edge( $node3, $node4 );
 
 is (scalar $graph->nodes(), 4, '4 nodes');
 is (scalar $graph->edges(), 3, '3 edges');
+is ($graph->is_simple_graph(), 1, 'still simple graph');
 
 my $node5 = Graph::Easy::Node->new( name => 'Potsdam' );
 
@@ -72,6 +76,7 @@ $graph->add_edge( $node2, $node5 );
 
 is (scalar $graph->nodes(), 5, '5 nodes');
 is (scalar $graph->edges(), 4, '4 edges');
+is ($graph->is_simple_graph(), 1, 'still simple graph');
 
 my $node6 = Graph::Easy::Node->new( name => 'Cottbus' );
 
@@ -79,6 +84,7 @@ $graph->add_edge( $node5, $node6 );
 
 is (scalar $graph->nodes(), 6, '6 nodes');
 is (scalar $graph->edges(), 5, '5 edges');
+is ($graph->is_simple_graph(), 1, 'still simple graph');
 
 #############################################################################
 # attribute tests
@@ -91,10 +97,10 @@ is ($graph->attribute('graph', 'border'), '',
 
 $graph->set_attributes ('graph', { color => 'white', background => 'red' });
 
-is ($graph->attribute('graph', 'background'), 'red', 
-	'now: graph { background: red }');
-is ($graph->attribute('graph', 'color'), 'white', 
-	'now: graph { color: white }');
+is ($graph->attribute('graph', 'background'), '#ff0000', 
+	'now: graph { background: #ff0000 }');
+is ($graph->attribute('graph', 'color'), '#ffffff', 
+	'now: graph { color: #ffffff }');
 
 good_css ($graph);
 
@@ -138,7 +144,7 @@ graph {
   background: red;
   color: white;
 }
-node.cities { color: #808080; }
+node.cities { color: grey; }
 
 ( Cities
 )
@@ -158,7 +164,7 @@ graph {
   background: red;
   color: white;
 }
-node.cities { color: #808080; }
+node.cities { color: grey; }
 
 ( Cities
   [ Bonn ]
@@ -241,6 +247,39 @@ my $ascii = $graph->as_ascii();
 
 like ($ascii, qr/Test/, 'Test found in output');
 like ($ascii, qr/Test2/, 'Test found in output');
+
+# test that add_edge('Test','Test') does not create two nodes
+
+$graph = Graph::Easy->new();
+my ($a,$b,$e) = $graph->add_edge( 'Test', 'Test' );
+
+is ($a->{id}, $b->{id}, "one node for ('test','test')");
+is ($a, $b, "one object for ('test','test')");
+
+#############################################################################
+# is_simple_graph()
+
+$graph = Graph::Easy->new();
+$edge = $graph->add_edge( 'Test', 'Test2' );
+is ($graph->is_simple_graph(), 1, 'still simple graph');
+
+$edge = $graph->add_edge( 'Test', 'Test2' );
+is ($graph->is_simple_graph(), 0, 'not simple graph');
+
+$edge = $graph->add_edge( 'Test', 'Test2' );
+is ($graph->is_simple_graph(), 0, 'not simple graph');
+
+$graph = Graph::Easy->new();
+$edge = $graph->add_edge( 'Test', 'Test' );
+is ($graph->is_simple_graph(), 1, 'still simple graph');
+
+$edge = $graph->add_edge( 'Test', 'Test2' );
+is ($graph->is_simple_graph(), 1, 'still simple graph');
+
+$edge = $graph->add_edge( 'Test', 'Test' );
+is ($graph->edges(), 3, '3 edges');
+is ($graph->nodes(), 2, '2 nodes');
+is ($graph->is_simple_graph(), 0, 'not simple graph');
 
 1; # all tests done
 

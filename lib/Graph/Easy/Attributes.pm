@@ -4,12 +4,12 @@
 # (c) by Tels 2004-2005.
 #############################################################################
 
-package Graph::Easy::Attributes;
+package Graph::Easy;
 
 use strict;
 use vars qw/$VERSION/;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #############################################################################
 # color handling
@@ -163,11 +163,31 @@ my $color_names = {
   yellow                => '#ffff00',
   };
 
+my $color_values = {};
+
+{
+  # reverse mapping "#ff0000 => 'red'"
+  for my $n (keys %$color_names)
+    {
+    $color_values->{ $color_names->{$n} } = $n;
+    }
+}
+
+sub color_name
+  {
+  my ($self,$color) = @_;
+
+  $color_values->{$color} || $color;
+  }
+
 sub color_as_hex
   {
   # Turn "red" or rgb(255,0,0) or "#f00" into "#ff0000". Return undef for
   # invalid colors.
   my ($self, $color) = @_;
+
+  # XXX TODO:
+  # handle things like rgb(100%,50%,0.5)
 
   $color = lc($color);
 
@@ -187,25 +207,72 @@ sub color_as_hex
   $color;
   }
 
+sub direction_as_number
+  {
+  my ($self, $dir) = @_;
+
+  $dir =~ s/^(east|right)\z/90/;
+  $dir =~ s/^(south|down)\z/180/;
+  $dir =~ s/^(west|left)\z/270/;
+  $dir =~ s/^(north|up)\z/0/;
+
+  $dir =~ /^(0|90|180|270)\z/ ? $dir : undef;
+  }
+
 #############################################################################
 # attribute checking
 
 # different types of attributes with pre-defined handling
-sub ATTR_COLOR () { 0; }
+sub ATTR_STRING () { 0; }
+sub ATTR_COLOR () { 1; }
 
-# lists the names along with
-# * a short description, 
-# * regexp to match valid attributes
-# * default value and
-# * an example
+sub ATTR_DESC_SLOT    () { 0; }
+sub ATTR_MATCH_SLOT   () { 1; }
+sub ATTR_DEFAULT_SLOT () { 2; }
+sub ATTR_EXAMPLE_SLOT () { 3; }
+sub ATTR_TYPE_SLOT    () { 4; }
+     
+# Lists the attribute names along with
+#   * a short description, 
+#   * regexp or sub name to match valid attributes
+#   * default value
+#   * an short example value
+#   * type
+#   * graph examples
 
-my $names = {
+my $attributes = {
   all => {
-    background => [
-     'The background color. See the section about color names and values for reference.',
+    color => [
+     'The foreground/text color. See the section about color names and values for reference.',
      undef,
-     'white',
-     'rgb(255,0,0)',
+     'black',
+     'rgb(255,255,0)',
+     ATTR_COLOR,
+     ],
+    "border-color" => [
+     'The color of the L<border>. See the section about color names and values for reference.',
+     undef,
+     'black',
+     'rgb(255,255,0)',
+     ATTR_COLOR,
+     ],
+    'border-shape' => [
+     'The shape of the L<border>. One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double, wave.',
+     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
+     'solid',
+     'dotted',
+     ],
+    'border-width' => [
+     'The width of the L<border>.',
+     qr/^\d+(px|em)?\z/,
+     '1px',
+     '2px',
+     ],
+    'border' => [
+     'The border. Can be any combination of L<border-style>, L<border-color> and L<border-width>.',
+     undef,
+     '1px solid black',
+     'dotted red',
      ],
     class => [
      'The subclass. See the section about class names for reference.',
@@ -213,23 +280,69 @@ my $names = {
      '',
      'mynodeclass',
      ],
-    'border-shape' => [
-     'The shape of the border One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double or wave.',
-     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
-    'solid',
-     'dotted',
+
+    label => [
+     "The text displayed as label. If not set, equals the name (for nodes) or no label (for edges).",
+     undef,
+     '',
+     'My label',
      ],
+
+    title => [
+     "The text displayed as mouse-over title. If not set, no title will be generated.",
+     undef,
+     '',
+     'My title',
+     ],
+
+    autotitle => [
+     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<title>. One of: label, name, none.",
+     qr/^(
+       label|
+       name|
+       none
+       )\z/x,
+     'none',
+     'label',
+     ],
+
+    linkbase => [
+     'The base URL prepended to all generated links. See the section about links for reference.',
+     undef,
+     '',
+     'http://en.wikipedia.org/wiki/',
+     ],
+
+    link => [
+     'The link part, appended onto L<linkbase>. See the section about links for reference.',
+     undef,
+     '',
+     'Graph',
+     ],
+
+    autolink => [
+     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<link>. One of: label, title, name, none.",
+     qr/^(
+       label|
+       title|
+       name|
+       none
+       )\z/x,
+     'none',
+     'title',
+     ],
+
    },
 
   node => {
     size => [
-     'The size of the node in columns and rows. See also L<size>',
+     'The size of the node in columns and rows.',
      qr/^\d+,\d+\z/,
      '1,1',
      '3,2',
      ],
     rows => [
-     'The size of the node in rows.',
+     'The size of the node in rows. See also L<size>.',
      qr/^\d+\z/,
      '1',
      '3',
@@ -240,9 +353,10 @@ my $names = {
      '1',
      '2',
      ],
+
     offset => [
      'The offset of this node from the center node of the cluster, in columns and rows. Only valid if the node is a part of a node cluster. See L<cluster>.',
-     qr/^\d+,\d+\z/,
+     qr/^[+-]?\d+,[+-]?\d+\z/,
      '0,0',
      '3,2',
      ],
@@ -253,71 +367,17 @@ my $names = {
      'Cluster A',
      ],
 
-    background => [
-     'The background color of the node. See the section about color names and values.',
-     undef,
-     'white',
-     'rgb(255,0,0)',
+    flow => [
+     "The general direction in which edges will leave this node first. One of 0, up north, 90, east, right, 180, south, down, 270, west, left.",
+     'direction_as_number',
+     'right',
+     'south',
      ],
-    'border-shape' => [
-     'The shape of the border One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double or wave.',
-     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
-     'solid',
-     'dotted',
-     ],
-  },
 
-  graph => {
-    'border-shape' => [
-     'The shape of the border One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double or wave.',
-     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
-     'none',
-     'dotted',
-     ],
-  },
-
-  edge => {
-  },
-
-  };
-
-sub valid_attribute
-  {
-  # Check that an name/value pair is an valid attribute, return new
-  # attribute if valid, undef for not valid.
-  my ($self,$name,$value, $class) = @_;
-
-  # check color:
-  if ($name =~ /^(background|color|border-color)\z/)
-    {
-    return $self->color_as_hex($value);
-    }
-
-  if ($name eq 'border-shape')
-    {
-    return unless $value =~
-      /^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/;
-    }
-
-  if ($class eq 'edge')
-    {
-    if ($name eq 'style')
-      {
-      return unless $value =~
-        /^(solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/;
-      }
-
-    return $value;	# pass through for now
-
-    } # end edge attributes
-
-  if ($class eq 'node')
-    {
-    if ($name eq 'shape')
-      {
-      # different shapes:
-      return undef if $value !~
-       /^(
+    shape => [
+     "The shape of the node. One of circle, diamond, egg, ellipse, hexagon, house, invisible, invhouse, invtrapezium, invtriangle, octagon,"
+    ."parallelogram, pentagon, point, polygon, triangle, trapezium, septagon, tripleoctagon, box, rect, rectangle, rounded, plaintext, none.",
+       qr/^(
         circle|
         diamond|
         egg|
@@ -345,20 +405,14 @@ sub valid_attribute
         # these are shape rect, border none
         plaintext|
         none
-       )\z/x;
+       )\z/x,
+      'rect',
+      'circle',
+     ],
 
-	# these are not (yet?) supported:
-	 # Mdiamond|
-	 # Msquare|
-	 # Mcircle|
-	 # doublecircle|
-	 # doubleoctagon|
-       }
-    if ($name eq 'point-style')
-      {
-      # different point-styles
-      return undef if $value !~
-       /^(
+    "point-style" => [
+     "Controls the style of a node that has a shape of 'point'. One of circle, square, ring, dot, cross, star, none.",
+     qr/^(
         circle|		# * (filled circle)
         square|		# #
         ring|		# o
@@ -366,13 +420,201 @@ sub valid_attribute
 	cross|		# +
 	star|		# *
 	none		# 
-       )\z/x;
-       }
-    } # end node attributes
+       )\z/x,
+      'star',
+      'square',
+     ], 
 
-  # anything else is passed along for now
+    background => [
+     'The background color of the node. See the section about color names and values.',
+     undef,
+     'inherit',
+     'rgb(255,0,0)',
+     ATTR_COLOR,
+     ],
+
+    'border-shape' => [
+     'The shape of the L<border>. One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double, wave.',
+     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
+     'solid',
+     'dotted',
+     ],
+  }, # node
+
+  graph => {
+    'border-shape' => [
+     'The shape of the L<border>. One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double, wave.',
+     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
+     'none',
+     'dotted',
+     ],
+    background => [
+     "The graph's background color. See the section about color names and values for reference.",
+     undef,
+     'white',
+     'rgb(255,0,0)',
+     ATTR_COLOR,
+     ],
+
+    flow => [
+     "The graph's general flow direction. One of 0, up north, 90, east, right, 180, south, down, 270, west, left.",
+     'direction_as_number',
+     'right',
+     'south',
+     ],
+
+    gid => [
+     "A unique ID for the graph. Usefull if you want to include two graphs into one HTML page.",
+     qr/^\d+\z/,
+     '',
+     '123',
+     ],
+
+    output => [
+     "The desired output format. Only used when calling Graph::Easy::output(), or by mediawiki-graph. One of ascii, html, svg, graphviz.",
+     qr/^(ascii|html|svg|graphviz)\z/,
+     '',
+     'ascii',
+     ],
+
+  }, # graph
+
+  edge => {
+    background => [
+     'The background color. See the section about color names and values for reference.',
+     undef,
+     'inherit',
+     'rgb(255,0,0)',
+     ATTR_COLOR,
+     ],
+    style => [
+     'The line style of the edge. One of solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double, wave.',
+     qr/^(solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
+     'solid',
+     'dotted',
+     ],
+   }, # edge
+
+  group => {
+    nodeclass => [
+     'The class into which all nodes of this group are put.',
+     undef,
+     '',
+     'cities',
+     ],
+
+   }, # group
+
+  }; # end of attribute definitions
+
+sub _attribute_entries
+  {
+  # for building the manual page
+  $attributes;
+  }
+
+sub valid_attribute
+  {
+  # Check that an name/value pair is an valid attribute, return new
+  # attribute if valid, undef for not valid.
+  my ($self, $name, $value, $class) = @_;
+
+  $class = 'all' unless defined $class;
+  $class =~ s/\..*\z//;		# remove subclasses
+
+  my $entry = $attributes->{all}->{$name} || $attributes->{$class}->{$name};
+
+#  print STDERR "# $name, $value in $class\n" unless ref $entry;
+
+  return undef unless ref($entry);
+
+  my $check = $entry->[1];
+
+  $check = 'color_as_hex' if ($entry->[4] || ATTR_STRING) == ATTR_COLOR;
+
+  if (defined $check && !ref($check))
+    {
+    no strict 'refs';
+    return $self->$check($value, $name);
+    }
+  elsif ($check)
+    {
+#    print STDERR "# checking against $check\n";
+    return $value =~ $check ? $value : undef;
+    }
+
+  # entry found, no specific check => anything goes as value
   $value;
   }
+
+###########################################################################
+###########################################################################
+
+sub _remap_attributes
+  {
+  # Take a hash with:
+  # {
+  #   class => {
+  #     color => 'red'
+  #   }
+  # }
+  # and remap it according to the given remap hash (similiar structured).
+  # Also encode/quote the value. Suppresses default attributes.
+  my ($self, $class, $att, $remap, $noquote, $color_remap ) = @_;
+
+  my $out = {};
+  $class =~ s/\..*//;                   # remove subclass
+  my $r = $remap->{$class};
+  my $ra = $remap->{all};
+  my $def = $self->{def_att}->{$class};
+  for my $atr (keys %$att)
+    {
+    my $val = $att->{$atr};
+
+    if ($color_remap)
+      {
+      # look up whether attribute is a color
+      my $entry = $attributes->{all}->{$atr} || $attributes->{$class}->{$atr};
+      # if yes, convert to name
+      $val = $self->color_name($val)
+        if ($entry->[ ATTR_TYPE_SLOT ]||ATTR_STRING) == ATTR_COLOR;
+      }
+
+    # attribute not defined
+    next if !defined $val || $val eq '' ||
+    # or $remap says we should suppress it
+       (exists $r->{$atr} && !defined $r->{$atr}) ||
+       (exists $ra->{$atr} && !defined $ra->{$atr});
+
+    # suppress default attributes
+    next if defined $def->{$atr} && $val eq $def->{$atr};
+
+    # if given a code ref, call it to remap name and/or value
+    if (exists $r->{$atr})
+      {
+      my $rc = $r->{$atr};
+      if (ref($rc) eq 'CODE')
+        {
+        ($atr,$val) = &{$rc}($self,$atr,$val);
+        next if !defined $atr || !defined $val;
+        }
+      else
+        {
+        # otherwise, rename the attribute name if nec.
+        $atr = $rc;
+        }
+      }
+
+    # encode critical characters (including ")
+    $val =~ s/([;"\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
+    # quote if nec.
+    $val = '"' . $val . '"' if !$noquote;
+
+    $out->{$atr} = $val;
+    }
+  $out;
+  }
+
 
 1;
 __END__
@@ -384,14 +626,16 @@ Graph::Easy::Attributes - Define and check attributes for Graph::Easy
 
 	use Graph::Easy::Attributes;
 
-	my $hexred   = Graph::Easy::Attributes->color_as_hex( 'red' );
-	print Graph::Easy::Attributes->valid_attribute( 'color', 'red' );
+	my $hexred   = Graph::Easy->color_as_hex( 'red' );
+	print Graph::Easy->valid_attribute( 'color', 'red', 'graph' );
 
 =head1 DESCRIPTION
 
 C<Graph::Easy::Attributes> contains the definitions of valid attribute names
 and values for L<Graph::Easy|Graph::Easy>. It is used by both the parser
-and by Graph::Easy to check attributes. You shouldn't use it directly.
+and by Graph::Easy to check attributes. 
+
+There should be no need to use it directly.
 
 =head1 METHODS
 
@@ -415,13 +659,20 @@ This would print '#ff0000';
 	
 =head2 color_as_hex()
 
-	my $hexred   = Graph::Easy::Attributes->color_as_hex( 'red' );
-	my $hexblue  = Graph::Easy::Attributes->color_as_hex( '#0000ff' );
-	my $hexcyan  = Graph::Easy::Attributes->color_as_hex( '#f0f' );
-	my $hexgreen = Graph::Easy::Attributes->color_as_hex( 'rgb(0,255,0)' );
+	my $hexred   = Graph::Easy->color_as_hex( 'red' );
+	my $hexblue  = Graph::Easy->color_as_hex( '#0000ff' );
+	my $hexcyan  = Graph::Easy->color_as_hex( '#f0f' );
+	my $hexgreen = Graph::Easy->color_as_hex( 'rgb(0,255,0)' );
 
 Takes a valid color name or definition (hex, short hex, or RGB) and returns the
 color in hex like C<#ff00ff>.
+
+=head2 color_value()
+
+	my $color = Graph::Easy->color_name( 'red' );	# red
+	print Graph::Easy->color_name( '#ff0000' );	# red
+
+Takes a hex color value and returns the name of the color.
 
 =head1 EXPORT
 

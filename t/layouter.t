@@ -3,12 +3,14 @@
 use Test::More;
 use strict;
 
-# test parsing and laying out the graphs (with no strict checks on the
-# output except that it should work)
+# Test parsing and laying out the graphs (with no strict checks on the
+# output except that it should work). Tests all inputs with the four
+# flow directions.
+
 
 BEGIN
    {
-   plan tests => 10;
+   plan tests => 28;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -33,22 +35,34 @@ foreach my $f (sort @files)
   next unless $f =~ /\.txt/;			# ignore anything else
 
   print "# at $f\n";
+
   my $txt = readfile("layouter/$f");
-  my $graph = $parser->from_text($txt);		# reuse parser object
 
-  if (!defined $graph)
+  for my $flow (qw/right down left up/)
     {
-    fail ("Graph input was invalid: " . $parser->error());
-    next;
-    }
 
-  my $ascii = $graph->as_ascii();
+    my $t = "graph { flow: $flow; }\n" . $txt;
 
-  is ($graph->error(), '', 'no error on layout');
+    my $graph = $parser->from_text($t);		# reuse parser object
 
-  # print a debug output
-  $ascii =~ s/\n/\n# /g;
-  print "# Generated:\n#\n# $ascii\n";
+    if (!defined $graph)
+      {
+      fail ("Graph input was invalid: " . $parser->error());
+      next;
+      }
+
+    my $ascii = $graph->as_ascii();
+
+    is ($graph->error(), '', 'no error on layout');
+
+    # print a debug output
+    $ascii =~ s/\n/\n# /g;
+    $t =~ s/\n/\n# /g;
+    print "# Input:\n#\n# $t\n";
+    print "# Generated:\n#\n# $ascii\n";
+
+    } # for all directions
+  
   }
 
 1;

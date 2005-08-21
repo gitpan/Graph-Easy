@@ -1,5 +1,44 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-08-21 v0.26 Tels 1007 tests - Speed, speed, speed, speed up the code...
+Fixed:
+  * as_ascii(): render node labels centered, instead on top-left corner
+  * as_ascii(): on clustered nodes, collapse borders
+  * as_ascii(): output edge labels on VER edge pieces, too
+  * as_ascii(): render end/start points on CROSS edge pieces
+  * as_ascii(): multi-celled nodes only worked when layout was not completed
+  * as_ascii(): crossing between different line styles are rendered better
+                than simple '#':
+
+       |       |       |       |       :       H
+    ===+=== ###+### ...!... ~~~+~~~ ---+--- ---H---
+       |       |       |       |       :       H
+
+  * create shorter self-loops (block only 1 cell/1 port vs. 5 cells/2 ports)
+  * add_edge('A','A') works now, and creates only one node object
+  * make node attributes "size", "columns" and "rows" really work
+  * Node: make edges_to() work correctly with self-loops
+  * A*: only cross HOR/VER edges when they have no start/end points nor labels
+  * A*: use Heap::Binary (slightly faster) and inline $elem->fields() call
+  * Layouter: try to place nodes in chains first near their chain parent
+  * Layouter: better fallback strategy upon blocked paths
+  * edges with one bend now correctly have their label on HOR piece
+  * make attribute checks via Graph and Parser "strict", e.g. it will fail on
+    unknown attributes or invalid values
+  * fix parsing nodes after attributes like: "graph { color: red; } [ Bonn ]"
+  * we do not need to create filler cells unless there are groups, this makes
+    generating layouts w/o groups between 10 and 30% faster.
+Added:
+  * color attributes are now stored as '#ff0000' and output as 'red' or
+    '#ff0000', depending on output format.
+  * Graph: option "strict", on by default, this makes set_attribute() check
+           all attributes and their values strict
+  * add option "flow" to graphs and nodes: general flow of edges
+  * near_places(): takes list of edge types
+  * A*: allow last edge piece to cross a horizontal/vertical edge
+  * build/gen-manual: generate manual page with attribute descriptions from
+		      table in Graph::Easy::Attributes automatically
+
 2005-08-12 v0.25 Tels 885 tests - Speed, speed, speed, speed up the code...
 Added:
   * $graph->add_edge('A','B') works now and is documented

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 22;
+   plan tests => 24;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Edge::Cell") or die($@);
@@ -99,6 +99,21 @@ $ascii =~ s/^\s+//;
 $ascii =~ s/\s+\z//;
 
 is ($ascii, "-.-.-.-.-.", 'as ascii');
+
+my $other = Graph::Easy::Edge->new( style => 'dashed' );
+
+$path->{type} = EDGE_HOR;
+$path->_make_cross($other);
+
+$ascii = $path->as_ascii();
+is ($ascii, "  '       \n.-#-.-.-.-\n  '       ", 'crossing between dot-dash and dashed');
+
+$path->{style} = 'dotted';
+$path->{style_ver} = 'solid';
+
+$ascii = $path->as_ascii();
+is ($ascii, "  |       \n..!.......\n  |       ", 'crossing between dotted and solid');
+
 
 #############################################################################
 # edge_type()

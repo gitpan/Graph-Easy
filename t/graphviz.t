@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 29;
+   plan tests => 30;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -55,7 +55,7 @@ unlike ($graph->as_graphviz(), qr/\w+=,/, "doesn't contain empty defintions");
 
 $graph->set_attribute( 'graph', 'background' => 'red' );
 
-like ($graph->as_graphviz(), qr/bgcolor=red/, 'contains bgcolor=red');
+like ($graph->as_graphviz(), qr/bgcolor="#ff0000"/, 'contains bgcolor="#ff0000"');
 
 #print $graph->as_graphviz(),"\n";
 
@@ -115,5 +115,10 @@ is ($style, undef, 'style=solid suppressed');
 $bonn->{name} = '2A';
 
 $grviz = $graph->as_graphviz();
-like ($grviz, qr/"2A"/, '2A must be quoted');
+like ($grviz, qr/"2A"/, '"2A" must be quoted');
+
+$bonn->{name} = '123';
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/ 123 /, '"123" needs no quotes');
 

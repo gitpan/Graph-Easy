@@ -9,6 +9,7 @@ package Graph::Easy::Node;
 $VERSION = '0.12';
 
 use strict;
+use Graph::Easy::Node::Empty;
 
 #############################################################################
 
@@ -104,24 +105,51 @@ sub _correct_size
   return if defined $self->{w};
 
   my $shape = $self->attribute('shape') || 'box';
+
   if ($shape eq 'point')
     {
     $self->{w} = 3;
     $self->{h} = 3;
-    return;
-    }
-
-  my ($w,$h) = $self->dimensions();
-  my $border = $self->attribute('border-style') || 'none';
-  if ($border eq 'none')
-    {
-    $self->{w} = $w + 2;
-    $self->{h} = $h + 2;
     }
   else
     {
-    $self->{w} = $w + 4;
-    $self->{h} = $h + 2;
+    my ($w,$h) = $self->dimensions();
+    my $border = $self->attribute('border-style') || 'none';
+    if ($border eq 'none')
+      {
+      $self->{w} = $w + 2;
+      $self->{h} = $h + 2;
+      }
+    else
+      {
+      $self->{w} = $w + 4;
+      $self->{h} = $h + 2;
+      }
+    }
+
+  # handle clustered nodes
+  return if !defined $self->{cluster};
+
+  # find out whether the cell above us belongs to our cluster
+  my $cells = $self->{graph}->{cells};
+ 
+  my $x = $self->{x}; my $y = $self->{y};
+
+  my $top = $cells->{"$x," . ($y-1)};
+  my $left = $cells->{($x-1) . ",$y"};
+  my $cluster = $self->{cluster};
+
+  print "# $self->{label} $self->{w} $self->{h}\n";
+
+  if (defined $top && $top->{cluster} == $cluster)
+    {
+    $self->{h} --;
+    $self->{no_border_top} = 1;
+    }
+  if (defined $left && $left->{cluster} == $cluster)
+    {
+    $self->{no_border_left} = 1;
+    $self->{w} --;
     }
   }
 
@@ -191,7 +219,6 @@ sub place
       {
       my $x = $node->{dx} + $ox;
       my $y = $node->{dy} + $oy;
-#      print STDERR "# checking $x,$y against $node->{name}\n";
       return 0 if exists $cells->{"$x,$y"};	# cell already blocked
 
       if ($node->{cx} + $node->{cy} > 2)	# one of them > 1!
@@ -342,10 +369,11 @@ sub _printfb_ver
   # we do not check wether text fits!
   my ($self, $fb, $x, $y, $line) = @_;
 
-  for my $i (0 .. length($line)-1)
-    {
-    substr ($fb->[$y], $x, 1) = substr($line,$i,1); $y++;
-    }
+  # this more than twice as fast as:
+  #  "@pieces = split//,$line; _printfb(...)"
+
+  my $y1 = $y + length($line);
+  substr ($fb->[$y1], $x, 1) = chop($line) while ($y1-- > $y);
   }
 
  # for ASCII:
@@ -368,6 +396,7 @@ my $border_styles  = {
   double =>		[ '#', '#', '#', '#', '=',   [ 'H'      ] ],
   'double-dash' =>	[ '#', '#', '#', '#', '= ',  [ '"'      ] ],
   wave =>		[ '+', '+', '+', '+', '~',   [ '{', '}' ] ],
+  none =>		[ ' ', ' ', ' ', ' ', ' ',   [ ' '      ] ],
   };
 
 sub _draw_border
@@ -377,16 +406,24 @@ sub _draw_border
 
   return if $do_right.$do_left.$do_bottom.$do_top eq 'nonenonenonenone';
 
+  my $w = $self->{w};
   if ($do_top ne 'none')
     {
     # make a copy of the style, so that we can modify it for partial borders
     my $style = [ @{ $border_styles->{$do_top} } ];
     die ("Unknown top border style '$do_top'") if @$style == 0;
 
+    # top-left corner piece is only there if we have a left border
+    my $tl = $style->[0]; $tl = '' if $do_left eq 'none';
+
     # generate the top border
-    my $top = $style->[0] . $style->[4] x (($self->{w}-1) / length($style->[4]));
-    chop($top) if length($top) >= $self->{w};
-    $top .= $style->[1];
+    my $top = $tl . $style->[4] x (($self->{w}) / length($style->[4]) + 1);
+
+    $top = substr($top,0,$w) if length($top) > $w;
+    
+    # top-right corner piece is only there if we have a right border
+    substr($top,-1,1) = $style->[1] if $do_right ne 'none';
+
     # insert top row into FB
     $self->_printfb( $fb, 0,0, $top);
     }
@@ -397,10 +434,17 @@ sub _draw_border
     my $style = [ @{ $border_styles->{$do_bottom} } ];
     die ("Unknown bottom border style '$do_bottom'") if @$style == 0;
 
+    # bottom-left corner piece is only there if we have a left border
+    my $bl = $style->[0]; $bl = '' if $do_left eq 'none';
+
     # the bottom row '+--------+' etc
-    my $bottom = $style->[3] . $style->[4] x (($self->{w}-1) / length($style->[4]));
-    chop($bottom) if length($bottom) >= $self->{w};
-    $bottom .= $style->[2];
+    my $bottom = $bl . $style->[4] x (($self->{w}) / length($style->[4]) + 1);
+
+    $bottom = substr($bottom,0,$w) if length($bottom) > $w;
+
+    # bottom-right corner piece is only there if we have a right border
+    substr($bottom,-1,1) = $style->[1] if $do_right ne 'none';
+
     # insert bottom row into FB
     $self->_printfb( $fb, 0,$self->{h}-1, $bottom);
     }
@@ -421,42 +465,20 @@ sub _draw_border
 
   my (@left, @right);
   my $l = 0; my $r = 0;				# start with first character
-  for (1..$self->{h}-2)
+  my $s = 1; $s = 0 if $do_top eq 'none';
+  for ($s..$self->{h}-2)
     {
     push @left, $left->[$l]; $l ++; $l = 0 if $l > $lc;
     push @right, $right->[$r]; $r ++; $r = 0 if $r > $rc;
     }
   # insert left/right columns into FB
-  $self->_printfb( $fb, 0,1, @left) unless $do_left eq 'none';
-  $self->_printfb( $fb, $self->{w}-1, 1, @right) unless $do_right eq 'none';
+  $self->_printfb( $fb, 0, $s, @left) unless $do_left eq 'none';
+  $self->_printfb( $fb, $w-1, $s, @right) unless $do_right eq 'none';
 
   $self;
   }
-
-sub _draw_label
-  {
-  # insert the label into the framebuffer
-  my ($self, $fb) = @_;
-
-  my $shape = $self->attribute('shape') || 'box';
-
-  # point-shaped nodes do not show their label in ASCII
-  return if $shape eq 'point';
-
-  my @lines = $self->_formatted_label();
-
-  #        +----
-  #        | Label  
-  # 2,1: ----^
-
-  # XXX TODO: center label? align left/right/center/top/bottom?
-  #my $border = $self->attribute('border-style') || 'none';
-  #my $y = 1; $y = 0 if $border eq 'none';
-
-  $self->_printfb ($fb, 2, 1, @lines);
-  }
-
- # ASCII: the different point styles
+ 
+# ASCII: the different point styles
 
 my $point_styles = {
   'star' => '*',
@@ -467,6 +489,41 @@ my $point_styles = {
   'none' => ' ',
   'cross' => '+',
   };  
+
+
+sub _draw_label
+  {
+  # insert the label into the framebuffer
+  my ($self, $fb) = @_;
+
+  my $shape = $self->attribute('shape') || 'box';
+
+  my @lines; 
+  if ($shape eq 'point')
+    {
+    # point-shaped nodes do not show their label in ASCII
+    my $style = $self->attribute('point-style') || 'point';
+    @lines = ($point_styles->{$style} || '*');
+    }
+  else
+    {
+    @lines = $self->_formatted_label();
+    }
+
+  #        +----
+  #        | Label  
+  # 2,1: ----^
+
+  #my $border = $self->attribute('border-style') || 'none';
+  #my $y = 1; $y = 0 if $border eq 'none';
+
+  my $y = int( ($self->{h} - @lines) / 2);
+  my $max = length($lines[0] || '');
+  for my $l (@lines) { $max = length($l) if length($l) > $max; }
+  my $x = int( ($self->{w} - $max) / 2);
+
+  $self->_printfb ($fb, $x, $y, @lines);
+  }
 
 sub as_ascii
   {
@@ -481,36 +538,36 @@ sub as_ascii
   # invisible nodes
   return '' if $shape eq 'invisible';
 
-  # point-shaped are simple, no border and always 3x3 chars big
-  if ($shape eq 'point')
-    {
-    #  ___
-    # |   |
-    # | * |
-    # |___|
-    #
-    my $style = $self->attribute('point-style') || 'point';
-    return "\n " . ($point_styles->{$style} || '*');
-    }
- 
-  my $border_style = $self->attribute('border-style') || 'solid';
-  my $border_width = $self->attribute('border-width') || '1';
-
-  # XXX TODO: borders for groups in ASCII output
-  $border_style = 'none' if ref($self) =~ /Group/;
-
-  # "3px" => "bold"
-  $border_style = 'bold' if $border_width > 2;
-
   my $fb = $self->_framebuffer($self->{w}, $self->{h});
 
-  my $style = $border_style;
+  # point-shaped nodes do not have a border
+  if ($shape ne 'point')
+    {
+    my $border_style = $self->attribute('border-style') || 'solid';
+    my $border_width = $self->attribute('border-width') || '1';
 
-  # draw our border into the framebuffer
-  # XXX TODO: different styles for the different borders
-  $self->_draw_border($fb, $style, $style, $style, $style) unless $style eq 'none';
+    # XXX TODO: borders for groups in ASCII output
+    $border_style = 'none' if ref($self) =~ /Group/;
 
+    # "3px" => "bold"
+    $border_style = 'bold' if $border_width > 2;
+
+    my $style = $border_style;
+
+    #########################################################################
+    # draw our border into the framebuffer
+
+    my $b_top = $style; $b_top = 'none' if $self->{no_border_top};
+    my $b_left = $style; $b_left = 'none' if $self->{no_border_left};
+
+    # XXX TODO: different styles for the different borders
+    $self->_draw_border($fb, $style, $style, $b_left, $b_top)
+      unless $style eq 'none';
+    }
+
+  ###########################################################################
   # "draw" the label into the framebuffer
+
   $self->_draw_label($fb, $x, $y);
   
   join ("\n", @$fb);
@@ -714,15 +771,17 @@ sub grow
   # XXX TODO: grow the node based on it's label dimensions
 #  my ($w,$h) = $self->dimensions();
 
+  # since selfloops count twice in connections(), but actually block only
+  # one port, we can just count the edges
+  my $connections = scalar keys %{$self->{edges}};
 
-  my $connections = $self->connections();
-
-#  my $direction = $self->attribute('direction') || 90;
+  # grow the node based on the general flow first VER, then HOR
+#  my $direction = $self->attribute('flow') || 90;
 
   while ( ($self->{cx} * 2 + $self->{cy} * 2) < $connections)
     {
     # find the minimum
-    # XXX TODO: use "direction" attribute to choose Y or X preference
+    # XXX TODO: use "flow" attribute to choose Y or X preference
     my $grow = 'cy';		# first in Y direction
     $grow = 'cx' if $self->{cx} < $self->{cy};
     $self->{$grow}++;
@@ -884,8 +943,7 @@ sub edges_to
   my @edges;
   for my $edge (values %{$self->{edges}})
     {
-    next unless $edge->{to} == $other;
-    push @edges, $edge;
+    push @edges, $edge if $edge->{from} == $self && $edge->{to} == $other;
     }
   @edges;
   }
@@ -910,10 +968,10 @@ sub connections
 
 sub sorted_successors
   {
-  # return successors of the node sorted by their successor count
+  # return successors of the node sorted by their chain value
   # (e.g. successors with more successors first) 
   my $self = shift;
- 
+
   my @suc = sort {
        scalar $b->successors() <=> scalar $a->successors() ||
        scalar $a->{name} cmp scalar $b->{name}
@@ -931,7 +989,7 @@ sub successors
   my %suc;
   for my $edge (values %{$self->{edges}})
     {
-    next unless $edge->{from}->{id} == $self->{id};
+    next unless $edge->{from} == $self;
     $suc{$edge->{to}->{id}} = $edge->{to};	# weed out doubles
     }
   values %suc;
@@ -947,7 +1005,7 @@ sub predecessors
   my %pre;
   for my $edge (values %{$self->{edges}})
     {
-    next unless $edge->{to}->{id} == $self->{id};
+    next unless $edge->{to} == $self;
     $pre{$edge->{from}->{id}} = $edge->{from};	# weed out doubles
     }
   values %pre;
@@ -1087,6 +1145,27 @@ sub set_attribute
         $self->border_attributes( $val );
 
     return $val;
+    }
+
+  if ($atr =~ /^(rows|columns|size)\z/)
+    {
+    if ($atr eq 'size')
+      {
+      $val =~ /^(\d+),(\d+)\z/;
+      ($self->{cx}, $self->{cy}) = (abs(int($1)),abs(int($2)));
+      ($self->{att}->{rows}, $self->{att}->{columns}) = ($self->{cx}, $self->{cy});
+      }
+    elsif ($atr eq 'rows')
+      {
+      $self->{cy} = abs(int($val));
+      $self->{att}->{rows} = $self->{cy};
+      }
+    else
+      {
+      $self->{cx} = abs(int($val));
+      $self->{att}->{columns} = $self->{cx};
+      }
+    return $self;
     }
 
   $self->{att}->{$atr} = $val;

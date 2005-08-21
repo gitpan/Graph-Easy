@@ -1,0 +1,78 @@
+#!/usr/bin/perl -w
+
+# Usage:
+
+#  build/gen_manual >attributes.html
+
+BEGIN
+  {
+  $|++;
+  chdir 'build' if -d 'build';
+  use lib 'lib', '../lib';
+
+  use Graph::Easy::Attributes;
+  use Time::HiRes qw/time/;
+  }
+
+my $took = time();
+
+my $tpl = read_file('attributes.tpl');
+
+my $entries = Graph::Easy->_attribute_entries();
+
+for my $class (qw/node edge graph/)
+  {
+  my $txt = '';
+
+  my $todo = { };
+  for my $entry (keys %{$entries->{all}})
+    {
+    $todo->{$entry} = $entries->{all}->{$entry};
+    }
+  for my $entry (keys %{$entries->{$class}})
+    {
+    $todo->{$entry} = $entries->{$class}->{$entry};
+    }
+  
+  for my $entry (sort keys %$todo)
+    {
+    
+    $txt .= "<a name=\"${class}_$entry\">\n<h4>$entry</h4></a>\n\n";
+
+    $txt .= "<div class=\"entry\">\n\n";
+    
+    my $e = $todo->{$entry};
+
+    my $des = $e->[0]; $des =~ s/L<([^>]+)>/<a href="#${class}_$1">$1<\/a>/g;
+
+    $des =~ s/(section about )(.*?)( for ref)/my $l = $2; $l =~ tr!A-Za-z0-9!_!c; "$1<a href=\"#$l\">$2<\/a>$3";/eg;
+
+    $des =~ s/One of:? ([^\.]+)\./$u = "One of: <code>$1<\/code>."; $u =~ s!\s*,\s*!<\/code>, <code>!g; $u; /eg;
+
+    $txt .= "<p>\n$des<br>\n";
+    $txt .= "<b>Defaults to:</b> <code>$e->[2]</code><br>\n";
+    $txt .= "<b>Example:</b> <code>$e->[3]</code></p>\n";
+
+    $txt .= "\n</div>\n\n";
+    }
+
+  $tpl =~ s/##$class##/$txt/;
+  }
+
+$tpl =~ s/##time##/ scalar localtime(); /eg;
+
+$took = sprintf("%0.4fs", time() - $took);
+$tpl =~ s/##took##/$took/g;
+
+print $tpl;
+
+sub read_file
+  {
+  my $f = shift;
+
+  open FILE, "$f" or die ("Cannot read '$f': $!");
+  local $/ = undef;
+  my $input = <FILE>;
+  close FILE;
+  $input;
+  }
