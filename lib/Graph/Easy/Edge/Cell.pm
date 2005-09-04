@@ -13,7 +13,9 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.09';
+$VERSION = '0.10';
+
+use Scalar::Util qw/weaken/;
 
 #############################################################################
 
@@ -61,16 +63,21 @@ sub EDGE_END_MASK	() { 0x00F0; }		# mask out the end type
 sub EDGE_TYPE_MASK	() { 0x000F; }		# mask out the basic cell type
 sub EDGE_FLAG_MASK	() { 0xFFF0; }		# mask out the flags
 sub EDGE_MISC_MASK	() { 0xF000; }		# mask out the misc. flags
+sub EDGE_NO_M_MASK	() { 0x0FFF; }		# anything except the misc. flags
 
 # shortcuts to not need to write EDGE_HOR + EDGE_START_W + EDGE_END_E
-sub EDGE_SHORT_E	() { EDGE_HOR + EDGE_END_E + EDGE_START_W; }  # |-> start/end at this cell
+sub EDGE_SHORT_E 	() { EDGE_HOR + EDGE_END_E + EDGE_START_W; }  # |-> start/end at this cell
 sub EDGE_SHORT_S	() { EDGE_VER + EDGE_END_S + EDGE_START_N; }  # v   start/end at this cell
 sub EDGE_SHORT_W	() { EDGE_HOR + EDGE_END_W + EDGE_START_E; }  # <-| start/end at this cell
 sub EDGE_SHORT_N	() { EDGE_VER + EDGE_END_N + EDGE_START_S; }  # ^   start/end at this cell
 
-sub EDGE_SHORT_EW	() { EDGE_HOR + EDGE_END_E + EDGE_END_W; }  # <-> start/end at this cell
-sub EDGE_SHORT_NS	() { EDGE_VER + EDGE_END_S + EDGE_END_N; }  # ^
+sub EDGE_SHORT_BD_EW	() { EDGE_HOR + EDGE_END_E + EDGE_END_W; }  # <-> start/end at this cell
+sub EDGE_SHORT_BD_NS	() { EDGE_VER + EDGE_END_S + EDGE_END_N; }  # ^
 								    # | start/end at this cell
+								    # v
+	
+sub EDGE_SHORT_UN_EW	() { EDGE_HOR + EDGE_START_E + EDGE_START_W; }  # --
+sub EDGE_SHORT_UN_NS	() { EDGE_VER + EDGE_START_S + EDGE_START_N; }  # |
 
 sub EDGE_LOOP_NORTH	() { EDGE_N_W_S + EDGE_END_S + EDGE_START_N + EDGE_LABEL_CELL; }
 sub EDGE_LOOP_SOUTH	() { EDGE_S_W_N + EDGE_END_N + EDGE_START_S + EDGE_LABEL_CELL; }
@@ -95,8 +102,11 @@ sub EDGE_LOOP_WEST	() { EDGE_W_S_E + EDGE_END_W + EDGE_START_E + EDGE_LABEL_CELL
   EDGE_SHORT_N
   EDGE_SHORT_S
 
-  EDGE_SHORT_EW
-  EDGE_SHORT_NS
+  EDGE_SHORT_BD_EW
+  EDGE_SHORT_BD_NS
+
+  EDGE_SHORT_UN_EW
+  EDGE_SHORT_UN_NS
 
   EDGE_HOR
   EDGE_VER
@@ -147,8 +157,12 @@ my $edge_types = {
   EDGE_S_E_W() => 'joint south to east/west',
   EDGE_N_E_W() => 'joint north to east/west',
   EDGE_E_N_S() => 'joint east to north/south',
-  EDGE_W_N_S() => 'joint west to north/south',	
+  EDGE_W_N_S() => 'joint west to north/south',
 
+  EDGE_N_W_S() => 'selfloop, northwards',
+  EDGE_S_W_N() => 'selfloop, southwards',
+  EDGE_E_S_W() => 'selfloop, westwards',
+  EDGE_W_S_E() => 'selfloop, eastwards',
   };
 
 my $flag_types = {
@@ -184,7 +198,7 @@ sub edge_type
     my $tf = $flags & $mask; $mask <<= 1;
     $t .= ", $flag_types->{$tf}" if $tf != 0;
     }
- 
+
   $t;
   }
 
@@ -202,57 +216,6 @@ my $edge_styles =
   'bold' 	 => [ '##',  "#", '#', '#' ],	# bold
   };
 
-my $edge_html = {
-
-  EDGE_HOR() => 
-    '<td colspan=3 rowspan=2 class="##class##" style="border-bottom: ##border##; text-align: center">'
-   ."##label##</td>\n"
-   .'<td colspan=3 class="##class##">'."\n",
-
-  };
-
-# for as_html
-# XXX TODO: should really draw like as_ascii() (re-use this!)
-my $edge_content = {
-  # "^", "v", "--" and "|\n|" are replaced by the different styles from above
-
-  EDGE_SHORT_E() => '------>',
-  EDGE_SHORT_S() => "|\n|\nv",
-  EDGE_SHORT_W() => '<------',
-  EDGE_SHORT_N() => "^\n|\n|",
-
-  EDGE_START_E() + EDGE_HOR() => '------',
-  EDGE_START_S() + EDGE_VER() => "\n|\n|\n|\n|",
-  EDGE_START_W() + EDGE_HOR() => '------',
-  EDGE_START_N() + EDGE_VER() => "|\n|\n|\n|\n",
-
-  EDGE_END_W() + EDGE_HOR() => '<------',
-  EDGE_END_N() + EDGE_VER() => "^\n|\n|",
-  EDGE_END_E() + EDGE_HOR() => '------>',
-  EDGE_END_S() + EDGE_VER() => "|\n|\nv",
-
-  EDGE_HOR() => '------',
-  EDGE_VER() => "|\n|\n|\n|\n|",
-  EDGE_CROSS() => "|\n--*--\n|",
-
-  # XXX TODO
-  # these with end/start points are missing here 
- 
-  EDGE_N_E() => "   |\n  *--",
-  EDGE_N_W() => "   |\n--*",
-  EDGE_S_E() => "\n  *--\n   |",
-  EDGE_S_W() => "\n--*\n   |",
-
-  EDGE_SHORT_EW() => "<----->",
-  EDGE_SHORT_NS() => "^\n|\n|\nv",
-
-  };
-
-# for as_html
-# the last entry is '*' and '', to replace the '*' with '+', because '*' ne ''
-my @replace_qr = ( qr/\-\-/, qr/\|/, qr/>/, qr/</, qr/\^/, qr/v/, qr/\+/, qr/\*/, );
-my @replace    = ( '--', '|', '>', '<', '^', 'v', '+', '' );
-
 #############################################################################
 
 sub _init
@@ -260,7 +223,7 @@ sub _init
   # generic init, override in subclasses
   my ($self,$args) = @_;
   
-  $self->{type} = EDGE_SHORT_E;		# -->
+  $self->{type} = EDGE_SHORT_E();	# -->
   $self->{style} = 'solid';
   
   $self->{x} = 0;
@@ -274,10 +237,6 @@ sub _init
     $self->{$k} = $args->{$k};
     }
 
-  # XXX TODO: if no edge present, create one, then use edge
-  # attributes directly instead of copying them, that saves
-  # four hash entries per edge-cell!
- 
   if (defined $self->{edge})
     {
     # register ourselves at this edge
@@ -286,6 +245,7 @@ sub _init
     $self->{style} = $self->{edge}->{att}->{style};
     $self->{class} = $self->{edge}->{class};
     $self->{graph} = $self->{edge}->{graph};
+    weaken($self->{graph});
     $self->{att} = $self->{edge}->{att};
     }
   else
@@ -293,7 +253,6 @@ sub _init
     require Carp;
     Carp::confess ("Creating edge cell without a parent edge object");
     } 
-  $self->{error} = '';
 
   $self;
   }
@@ -322,33 +281,7 @@ sub _make_cross
   }
 
 #############################################################################
-# conversion to ASCII or HTML
-
-sub _content
-  {
-  # generate the content of the cell, aka the edge (like: '---', '-->' etc)
-  my ($self) = @_;
-
-  my $type = $self->{type} & ~EDGE_MISC_MASK;
-  my $name = $edge_content->{$type};
-
-  my $style = $edge_styles->{ $self->{style} };
-
-  # XXX TODO: this code will not work in case it needs to replace two lines like:
-  # dot-dot-dash:
-  # |     |
-  # | --> :
-
-#  my $i = 0;
-#  for my $repl (@$style)
-#    {
-#    my $q = $replace_qr[$i];
-#    $name =~ s/$q/$repl/g if $replace[$i] ne $repl;
-#    $i++;
-#    }
-
-  $name;
-  }
+# conversion to ASCII
 
 sub _draw_hor
   {
@@ -399,7 +332,7 @@ sub _draw_hor
     {
     # include our label
     my @pieces = $self->_formatted_label();
-    $self->_printfb ($fb, 2, $self->{h} - 3, @pieces) if @pieces > 0;
+    $self->_printfb ($fb, 2, $self->{h} - @pieces - 2, @pieces) if @pieces > 0;
     }
 
   }
@@ -773,63 +706,406 @@ sub _draw_label
   # $self->_printfb ($fb, 0,0, 'unsupported edge type ' . $type);
   }
 
+#############################################################################
+# conversion to HTML
+
+my $edge_html = {
+
+  EDGE_S_E() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>',
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    '',
+   ],
+
+  EDGE_S_W() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    '',
+   ],
+
+  EDGE_S_E() + EDGE_START_E() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td rowspan=4 class="##class## ve"></td>',
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    '',
+   ],
+
+  EDGE_S_E() + EDGE_END_E() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td rowspan=4 class="##class## ha"##edgecolor##>&gt;</td>',
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    '',
+   ],
+
+  EDGE_S_E() + EDGE_START_S() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>',
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-left: ##border##;"></td>' . "\n",
+    ' <td colspan=4 class="##class## eb"></td>',
+   ],
+
+  EDGE_S_E() + EDGE_END_S() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>',
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-left: ##border##;"></td>' . "\n",
+    ' <td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>',
+   ],
+
+  EDGE_S_E() + EDGE_END_S() + EDGE_END_E() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td rowspan=4 class="##class## ha"##edgecolor##>&gt;</td>',
+    '',
+    ' <td colspan=2 rowspan=1 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=1 rowspan=1 class="##class## eb" style="border-left: ##border##;"></td>' . "\n",
+    ' <td colspan=3 class="##class## v"##edgecolor##>&nbsp;v</td>',
+   ],
+
+  EDGE_S_W() + EDGE_START_W() => [
+    ' <td rowspan=2 class="##class## ve"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    '',
+   ],
+
+  EDGE_S_W() + EDGE_END_W() => [
+    ' <td rowspan=2 class="##class## va"##edgecolor##>&lt;</td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    '',
+   ],
+
+  EDGE_S_W() + EDGE_START_S() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
+    '',
+    ' <td colspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=4 class="##class## eb"></td>',
+   ],
+
+  EDGE_S_W() + EDGE_END_S() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
+    '',
+    ' <td colspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>',
+   ],
+
+  ###########################################################################
+  ###########################################################################
+  # N_W
+
+  EDGE_N_W() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    '',
+    ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_W() + EDGE_START_N() => [
+    ' <td colspan=4 class="##class## eb"></td>' . "\n",
+    ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_W() + EDGE_END_N() => [
+    ' <td colspan=4 class="##class## hat"##edgecolor##>&nbsp;^</td>' . "\n",
+    ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_E() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;"></td>',
+    '',
+    ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_E() + EDGE_START_E() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;"></td>' . "\n" .
+    ' <td rowspan=4 class="##class## ve"></td>',
+    '',
+    ' <td colspan=3 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_E() + EDGE_END_E() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;"></td>' . "\n" .
+    ' <td rowspan=4 class="##class## va"##edgecolor##>&gt;</td>',
+    '',
+    ' <td colspan=3 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_E() + EDGE_START_N() => [
+    ' <td colspan=4 class="##class## eb"></td>' . "\n",
+    ' <td colspan=2 rowspan=3 class="##class## eb"></td>' . "\n" .
+    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;"></td>',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_E() + EDGE_END_N() => [
+    ' <td colspan=4 class="##class## hat"##edgecolor##>&nbsp;^</td>' . "\n",
+    ' <td colspan=2 rowspan=3 class="##class## eb"></td>' . "\n" .
+    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;"></td>',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_W() + EDGE_START_W() => [
+    ' <td rowspan=2 class="##class## ve"></td>' . "\n" . 
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>' . "\n",
+    '',
+    ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_W() + EDGE_END_W() => [
+    ' <td rowspan=2 class="##class## va"##edgecolor##>&lt;</td>' . "\n" . 
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>' . "\n",
+    '',
+    ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+
+  };
+
+sub _html_edge_hor
+  {
+  # Return HTML code for a horizontal edge (with all start/end combinations)
+  # as [], with code for each table row.
+  my ($self) = @_;
+
+  my $s_flags = $self->{type} & EDGE_START_MASK;
+  my $e_flags = $self->{type} & EDGE_END_MASK;
+
+  my $rc = [
+    ' <td colspan=##mod## rowspan=2 class="##class## lh" style="border-bottom: ##border####labelcolor##">##label##</td>' . "\n",
+    '',
+    '<td colspan=##mod## rowspan=2 class="##class## eb">&nbsp;</td>' . "\n", 
+    '',
+    ];
+
+  # The code below assumes that only 2 end/start flags are set at the same
+  # time.
+
+  my $mod = 4;							# modifier
+  if ($s_flags & EDGE_START_W)
+    {
+    $mod--;
+    $rc->[0] = '<td rowspan=4 class="##class## ve"></td>' . "\n" . $rc->[0];
+    };
+  if ($s_flags & EDGE_START_E)
+    {
+    $mod--;
+    $rc->[0] .= "\n " . '<td rowspan=4 class="##class## ve"></td>';
+    };
+  if ($e_flags & EDGE_END_W)
+    {
+    $mod--;
+    $rc->[0] = '<td rowspan=4 class="##class## va"##edgecolor##>&lt;</td>' . "\n" . $rc->[0];
+    }
+  if ($e_flags & EDGE_END_E)
+    { 
+    $mod--;
+    $rc->[0] .= "\n " . '<td rowspan=4 class="##class## va"##edgecolor##>&gt;</td>';
+    };
+
+  for my $e (@$rc)
+    {
+    $e =~ s/##mod##/$mod/g;
+    }
+
+  $rc;
+  }
+
+sub _html_edge_ver
+  {
+  # Return HTML code for a vertical edge (with all start/end combinations)
+  # as [], with code for each table row.
+  my ($self) = @_;
+
+  my $s_flags = $self->{type} & EDGE_START_MASK;
+  my $e_flags = $self->{type} & EDGE_END_MASK;
+
+  my $mod = 4; 							# modifier
+
+  # normal vertical edge with no start/end flags
+  my $rc = [
+    '<td colspan=2 rowspan=##mod## class="##class## el">&nbsp;</td>' . "\n " . 
+    '<td colspan=2 rowspan=##mod## class="##class## lv" style="border-left: ##border####labelcolor##">##label##</td>' . "\n",
+    '',
+    '',
+    '',
+    ];
+
+  # flag north
+  if ($s_flags & EDGE_START_N)
+    {
+    $mod--;
+    unshift @$rc, '<td colspan=4 class="##class## he"></td>' . "\n";
+    delete $rc->[-1];
+    }
+  elsif ($e_flags & EDGE_END_N)
+    {
+    $mod--;
+    unshift @$rc, '<td colspan=4 class="##class## hat"##edgecolor##>&nbsp;^</td>' . "\n";
+    delete $rc->[-1];
+    }
+
+  # flag south
+  if ($s_flags & EDGE_START_S)
+    {
+    $mod--;
+    $rc->[3] = '<td colspan=4 class="##class## he"></td>' . "\n"
+    }
+
+  if ($e_flags & EDGE_END_S)
+    {
+    $mod--;
+    $rc->[3] = '<td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>' . "\n";
+    }
+
+  for my $e (@$rc)
+    {
+    $e =~ s/##mod##/$mod/g;
+    }
+
+  $rc;
+  }
+
+sub _html_edge_cross
+  {
+  # Return HTML code for a crossingedge (with all start/end combinations)
+  # as [], with code for each table row.
+  my ($self, $N, $S, $E, $W) = @_;
+
+  my $s_flags = $self->{type} & EDGE_START_MASK;
+  my $e_flags = $self->{type} & EDGE_END_MASK;
+
+  my $rc = [
+    ' <td colspan=2 rowspan=2 class="##class## eb el" style="border-bottom: ##border##"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb el" style="border-left: ##border##; border-bottom: ##border##"></td>' . "\n",
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb el"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb el" style="border-left: ##border##"></td>' . "\n",
+    '',
+    ];
+
+  $rc;
+  }
+
 sub as_html
   {
   my ($self) = shift;
-  
-  $self->{name} = $self->_content();
+
+  my $type = $self->{type} & EDGE_NO_M_MASK;
+  my $style = $self->{style};
+
+  my $code = $edge_html->{$type};
+
+  if (!defined $code)
+    {
+    my $t = $self->{type} & EDGE_TYPE_MASK;
+
+    $code = $self->_html_edge_hor() if $t == EDGE_HOR;
+    $code = $self->_html_edge_ver() if $t == EDGE_VER;
+    $code = $self->_html_edge_cross() if $t == EDGE_CROSS;
+
+    if (!defined $code)
+      {
+      $code = [ ' <td colspan=4 rowspan=4 class="##class##">???</td>' ];
+      warn ("as_html: Unimplemented edge type $self->{type} ($type) at $self->{x},$self->{y} " . edge_type($self->{type}));
+      }
+    }
 
   my $id = $self->{graph}->{id};
 
-  my $noquote = 0;
-  my $label = $self->{att}->{label};
-  $label = '' unless defined $label;
-
-  $label =~ s/\\n/<br>/g;
-
-  # XXX TODO: find out real size (aka length) of label
-
-  my $style = $edge_styles->{ $self->{style} };
-
-  # if we have a label, and are a EDGE_SHORT_E/EDGE_SHORT_W
-  my $type = $self->{type};
-  if ($label ne '')
+  my $label = '';
+  # only include the label if we are the label cell
+  if ($self->{type} & EDGE_LABEL_CELL)
     {
-    if(($type == EDGE_SHORT_E) ||
-       ($type == EDGE_SHORT_W))
-      {
-      my $left = '';
-      my $right = '';
-      $left = '&lt;' if $type == EDGE_SHORT_W;
-      $right = '&gt;' if $type == EDGE_SHORT_E;
-      # twice the length of the label is about right, due to 0.7 * 0.8
-      # (letter-spacing * font-size) being about 1.8 plus some spacing left/right
-      my $length = int(2 + 0.90 * length($label));
-      
-      $self->{name} = 
-      "<span class='label'>$label</span><br>" .
-      "<span class='line'>$left" . ($style->[0] x $length) . "$right</span>\n";
-      $noquote = 1;
-      $self->{class} = 'edgel';
-      } 
-    elsif (($type == EDGE_SHORT_N) ||
-          ($type == EDGE_SHORT_S))
-      {
-      my $name = $self->{name}; 
-      $name =~ s/&/&amp;/g;
-      $name =~ s/</&lt;/g;
-      $name =~ s/</&gt;/g;
-      $name =~ s/\n/<br>/g;
- 
-      $self->{name} = 
-      "$name<span class='labelv'>$label</span>\n";
-      $noquote = 1;
-      $self->{class} = 'edgev';
-      }
-    } # end of label handling code 
+    $label = $self->{att}->{label}; $label = '' if !defined $label; $label =~ s/\\n/<br \/>/g;
+    }
+  $label = '&nbsp;' unless $label ne '';
 
-  # let Graph::Easy::Edge (aka Node) handle the output: 
-  $self->SUPER::as_html($_[0], $_[1], $noquote);
+  my $color = $self->attribute('color') || '';
+
+  my $border_color = $self->{att}->{color} || $color || 'black';
+
+  my $bw = '';
+  if ($style eq 'bold')
+    {
+    $bw = 3; $style = 'solid';
+    }
+  elsif ($style eq 'double')
+    {
+    $bw = '';
+    }
+  $bw .= 'px' if $bw;
+  $border_color = ' ' . $border_color if $border_color;
+
+  my $border = "$style ${bw}$border_color";
+
+  my $label_color = $self->attribute('label-color') || $color;
+  $label_color = '' if $label_color eq 'black';
+  
+  my $edge_color = '';
+  $edge_color = " style=\"color: $color\"" if $color;
+
+  $label_color = "; color: $label_color" if $label_color;
+
+  my @rc;
+  for my $a (@$code)
+    {
+    my $c = $a;					# make a copy
+    # insert the label, class and border
+    $c =~ s/##label##/$label/;
+    $c =~ s/##class##/$self->class()/eg;
+    $c =~ s/##border##/$border/g;
+    $c =~ s/##labelcolor##/$label_color/g;
+    $c =~ s/##edgecolor##/$edge_color/g;
+    $c .= "\n" unless $c =~ /\n\z/;
+    push @rc, " " . $c;
+    }
+ 
+  \@rc;
   }
 
 #############################################################################
@@ -871,7 +1147,14 @@ sub _correct_size
     # min-size is this 
     $self->{w} = 5; $self->{h} = 3;
     
+    my $arrows = ($self->{type} & EDGE_ARROW_MASK);
     my $type = ($self->{type} & EDGE_TYPE_MASK);
+
+    if ($self->{edge}->{bidirectional} && $arrows != 0)
+      {
+      $self->{w}++ if $type == EDGE_HOR;
+      $self->{h}++ if $type == EDGE_VER;
+      }
 
     if ($type >= EDGE_LOOP_TYPE)
       {
@@ -891,7 +1174,15 @@ sub _correct_size
       $self->{h} = 5 if $type != EDGE_N_W_S && $type != EDGE_S_W_N;
       }
 
-    if ($self->{type} & EDGE_LABEL_CELL)
+    if ($self->{type} == EDGE_HOR)
+      {
+      $self->{w} = 0;
+      }
+    elsif ($self->{type} == EDGE_VER)
+      {
+      $self->{h} = 0;
+      }
+    elsif ($self->{type} & EDGE_LABEL_CELL)
       {
       my @lines = $self->_formatted_label();
 
@@ -1018,8 +1309,11 @@ None by default. Can export the following on request:
   EDGE_SHORT_N
   EDGE_SHORT_S
 
-  EDGE_SHORT_EW
-  EDGE_SHORT_NS
+  EDGE_SHORT_BD_EW
+  EDGE_SHORT_BD_NS
+
+  EDGE_SHORT_UN_EW
+  EDGE_SHORT_UN_NS
 
   EDGE_HOR
   EDGE_VER

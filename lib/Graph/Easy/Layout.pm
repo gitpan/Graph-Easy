@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 #############################################################################
 #############################################################################
@@ -145,20 +145,23 @@ sub _find_chains
  
   # For each leaf, go backwards until we hit more than one predecessor,
   # or one with _chain already set
+  my $id = 1;				# get a new unique ID to recognize loops
   for my $n (keys %$leaf)
     {
     my $cur = $leaf->{$n};
 
+    my $cid = $id++;			# get a new unique ID to recognize loops
+
     print STDERR "# starting chain at $cur->{name} ", $cur->{_chain}||'undef',"\n" if $self->{debug};
     my $step = 0; my $last;
-    while ((!defined $cur->{_chain}) || ($cur->{_chain} > $step))
+    while ((!defined $cur->{_chain}) || ($cur->{_chain} > $step) && ($cur->{_cid}||0) != $cid)
       {
-#      # stop backward loops from ruining our day
-#      my $o = $cur->{_chain};
-#      last if defined $o && $o > $step;
+      # stop backward loops from ruining our day
+      $cur->{_cid} = $cid;
 
       $cur->{_chain} = $step; $step--;
       $cur->{_next} = $last;
+
       print STDERR "# at chain len $step, $cur->{name}\n" if $self->{debug};
 
       my @pr = $cur->predecessors();
@@ -180,6 +183,8 @@ sub _find_chains
     {
     for my $n (values %$todo)
       {
+      delete $n->{_cid};		# remove left-over data by backtracking
+
       _follow_chain($n) unless defined $n->{_chain};
       delete $todo->{$n->{name}} if defined $n->{_chain};
       }
@@ -279,6 +284,7 @@ sub layout
   # mark all edges as unprocessed, so that we do not process them twice
   for my $edge (values %{$self->{edges}})
     { 
+    $edge->clear_cells();
     $edge->{_done} = undef;
     }
 
@@ -429,6 +435,8 @@ sub layout
 	# target beforehand:
         unshift @todo, [ ACTION_NODE, $dst ];
 
+	$tries--;
+	last TRY if $tries == 0;
         next TRY;
 	}        
 
@@ -468,7 +476,7 @@ sub layout
 #        $action_type = $action->[0];
 
 #        $self->_dump_stack(@todo);
-
+#
 #        if (($action_type == ACTION_NODE || $action_type == ACTION_CHAIN))
 #          {
 #          # undo node placement

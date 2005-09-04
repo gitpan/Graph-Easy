@@ -5,18 +5,18 @@ use strict;
 
 BEGIN
    {
-   plan tests => 107;
+   plan tests => 108;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
    use_ok ("Graph::Easy") or die($@);
+   use_ok ("Graph::Easy::As_ascii") or die($@);
    };
 
 can_ok ("Graph::Easy::Node", qw/
   new
   as_ascii as_txt as_html
   error
-  contains
   class
   dimensions
   name
@@ -31,6 +31,7 @@ can_ok ("Graph::Easy::Node", qw/
   rows
   grow
   pos
+  offset
   x
   y
   class
@@ -45,11 +46,11 @@ can_ok ("Graph::Easy::Node", qw/
   border_attribute
   as_pure_txt
   group groups add_to_groups
-  add_to_cluster
-  cluster
   origin
 
   is_multicelled
+
+  _place _check_place _place_children find_grandparent
   /);
 
 #############################################################################
@@ -83,18 +84,18 @@ is ($node->attribute('border-style'), undef, 'attribute("border-style")');
 
 is (join(",",$node->dimensions()), "7,1", 'dimensions = (7,1)');
 
-is ($node->cluster(), undef, 'not clustered');
 is ($node->origin(), undef, 'not clustered');
-is (join(",",$node->relpos()), '0,0', 'not clustered');
+is (join(",",$node->offset()), '0,0', 'not clustered');
 
 is (scalar $node->successors(), undef, 'no outgoing links');
 is (scalar $node->sorted_successors(), 0, 'no outgoing links');
 is (scalar $node->predecessors(), undef, 'no incoming links');
 
-my $edge = Graph::Easy::Node->new( class => 'edge', w => 19);
+my $edge = Graph::Easy::Node->new();
 
-is ($edge->class(), 'edge', 'class edge');
-is ($edge->width(), 19, 'specified w as 19');
+$edge->set_attribute('class' => 'edge');
+
+is ($edge->class(), 'node.edge', 'class edge');
 
 is ($edge->border_attribute(), '', 'border_attribute()');
 
@@ -141,29 +142,31 @@ $graph->add_edge('Name', 'Name');
 #############################################################################
 # as_txt/as_html
 
+my $r = 'colspan=4 rowspan=4';
+
 is ($node->as_txt(), '[ Node \#0 ]', 'as_txt');
-is ($node->as_html(), "<td class='node'>Node #0</td>\n",
+is ($node->as_html(), " <td $r class='node'>Node #0</td>\n",
  'as_html');
 
 # no quoting of () nec.
 $node->{name} = 'Frankfurt (Oder)';
 
 is ($node->as_txt(), '[ Frankfurt (Oder) ]', 'as_txt');
-is ($node->as_html(), "<td class='node'>Frankfurt (Oder)</td>\n",
+is ($node->as_html(), " <td $r class='node'>Frankfurt (Oder)</td>\n",
  'as_html');
 
 # quoting of |
 $node->{name} = 'Frankfurt |-|';
 
 is ($node->as_txt(), '[ Frankfurt \|-\| ]', 'as_txt');
-is ($node->as_html(), "<td class='node'>Frankfurt |-|</td>\n",
+is ($node->as_html(), " <td $r class='node'>Frankfurt |-|</td>\n",
  'as_html');
 
 # quoting of []
 $node->{name} = 'Frankfurt [ { #1 } ]';
 
 is ($node->as_txt(), '[ Frankfurt \[ \{ \#1 \} \] ]', 'as_txt');
-is ($node->as_html(), "<td class='node'>Frankfurt [ { #1 } ]</td>\n",
+is ($node->as_html(), " <td $r class='node'>Frankfurt [ { #1 } ]</td>\n",
  'as_html');
 
 
@@ -185,41 +188,39 @@ $node->del_attribute('label');
 $node->{class} = 'node.cities';
 
 is ($node->as_txt(), '[ Node \#0 ] { class: cities; }', 'as_txt');
-is ($node->as_html(), "<td class='node-cities'>Node #0</td>\n",
+is ($node->as_html(), " <td $r class='node-cities'>Node #0</td>\n",
  'as_html');
 is ($node->as_pure_txt(), '[ Node \#0 ]', 'as_txt_node');
 
 $node->set_attribute ( 'color', 'blue' );
 is ($node->as_txt(), '[ Node \#0 ] { color: blue; class: cities; }', 'as_txt');
-is ($node->as_html(), "<td class='node-cities' style=\"color: blue\">Node #0</td>\n",
+is ($node->as_html(), " <td $r class='node-cities' style=\"color: #0000ff\">Node #0</td>\n",
  'as_html');
 is ($node->as_pure_txt(), '[ Node \#0 ]', 'as_pure_txt');
 
-$node->set_attribute ( 'padding', '1em' );
-is ($node->as_txt(), '[ Node \#0 ] { color: blue; padding: 1em; class: cities; }', 'as_txt');
-is ($node->as_html(), "<td class='node-cities' style=\"color: blue; padding: 1em\">Node #0</td>\n",
- 'as_html');
-is ($node->as_pure_txt(), '[ Node \#0 ]', 'as_pure_txt');
-
-$node->set_attributes ( { padding => '2em', color => 'purple' } );
-is ($node->as_txt(), '[ Node \#0 ] { color: purple; padding: 2em; class: cities; }', 'as_txt');
-is ($node->as_html(), "<td class='node-cities' style=\"color: purple; padding: 2em\">Node #0</td>\n",
+$node->set_attributes ( { color => 'purple' } );
+is ($node->as_txt(), '[ Node \#0 ] { color: purple; class: cities; }', 'as_txt');
+is ($node->as_html(), " <td $r class='node-cities' style=\"color: #800080\">Node #0</td>\n",
  'as_html');
 is ($node->as_pure_txt(), '[ Node \#0 ]', 'as_pure_txt');
 
 #############################################################################
 # set_attributes(class => foo)
 
-$node->set_attributes ( { class => 'foo', color => 'octarine' } );
+$node->set_attributes ( { class => 'foo', color => 'orange' } );
 
-is ($node->as_txt(), '[ Node \#0 ] { color: octarine; padding: 2em; class: foo; }', 'as_txt');
-is ($node->as_html(), "<td class='node-foo' style=\"color: octarine; padding: 2em\">Node #0</td>\n",
+is ($node->class(), 'node.foo', 'class set correctly');
+is ($node->sub_class(), 'foo', 'class set correctly');
+is ($node->attribute('color'), '#ffa500', 'color set correctly');
+
+is ($node->as_txt(), '[ Node \#0 ] { color: orange; class: foo; }', 'as_txt');
+is ($node->as_html(), " <td $r class='node-foo' style=\"color: #ffa500\">Node #0</td>\n",
  'as_html');
 
 $node->set_attribute ( 'class', 'bar' );
 
-is ($node->as_txt(), '[ Node \#0 ] { color: octarine; padding: 2em; class: bar; }', 'as_txt');
-is ($node->as_html(), "<td class='node-bar' style=\"color: octarine; padding: 2em\">Node #0</td>\n",
+is ($node->as_txt(), '[ Node \#0 ] { color: orange; class: bar; }', 'as_txt');
+is ($node->as_html(), " <td $r class='node-bar' style=\"color: #ffa500\">Node #0</td>\n",
  'as_html');
 
 #############################################################################
@@ -234,9 +235,9 @@ foreach my $l (
   $node->set_attribute('link', $l);
 
   is ($node->as_txt(), 
-    '[ Node \#0 ] { color: octarine; link: http://bloodgate.com/; padding: 2em; class: bar; }', 'as_txt');
+    '[ Node \#0 ] { color: orange; link: http://bloodgate.com/; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    "<td class='node-bar' style=\"color: octarine; padding: 2em\"> <a href='http://bloodgate.com/'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #ffa500\"> <a href='http://bloodgate.com/'>Node #0</a> </td>\n",
     'as_html');
   }
 
@@ -248,24 +249,36 @@ foreach my $l (
   $node->set_attribute('link', $l);
 
   is ($node->as_txt(), 
-    '[ Node \#0 ] { color: octarine; link: perl/; padding: 2em; class: bar; }', 'as_txt');
+    '[ Node \#0 ] { color: orange; link: perl/; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    "<td class='node-bar' style=\"color: octarine; padding: 2em\"> <a href='/wiki/index.php/perl/'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #ffa500\"> <a href='/wiki/index.php/perl/'>Node #0</a> </td>\n",
     'as_html');
   }
 
 $node->set_attribute('link', "test test&");
   is ($node->as_txt(), 
-    '[ Node \#0 ] { color: octarine; link: test test&; padding: 2em; class: bar; }', 'as_txt');
+    '[ Node \#0 ] { color: orange; link: test test&; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    "<td class='node-bar' style=\"color: octarine; padding: 2em\"> <a href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #ffa500\"> <a href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
     'as_html');
 
 $node->set_attribute('color', "\\#801010");
   is ($node->as_txt(), 
-    '[ Node \#0 ] { color: #801010; link: test test&; padding: 2em; class: bar; }', 'as_txt');
+    '[ Node \#0 ] { color: #801010; link: test test&; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    "<td class='node-bar' style=\"color: #801010; padding: 2em\"> <a href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #801010\"> <a href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
+    'as_html');
+
+#############################################################################
+# skipping of attributes (should not appear in HTML)
+
+$node->set_attribute('flow','right');
+$node->set_attribute('point-style','diamond');
+
+  is ($node->as_txt(), 
+    '[ Node \#0 ] { color: #801010; flow: 90; link: test test&; point-style: diamond; class: bar; }', 'as_txt');
+  is ($node->as_html(), 
+    " <td $r class='node-bar' style=\"color: #801010\"> <a href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
     'as_html');
 
 #############################################################################

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 89;
+   plan tests => 103;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -28,13 +28,33 @@ my $parser = Graph::Easy::Parser->new( debug => 0 );
 is (ref($parser), 'Graph::Easy::Parser');
 is ($parser->error(), '', 'no error yet');
 
+#############################################################################
+# parse_error():
+
 $parser->{line_nr} = 0;
-is ($parser->parse_error(1,'foo','bar'),
-    "Value 'bar' for attribute 'foo' is invalid at line 0");
+is ($parser->parse_error(1,'foo','bar','node'),
+    "Value 'bar' is not a valid attribute name for a node at line 0");
 
 $parser->{line_nr} = 0;
 is ($parser->parse_error(2,'boldly','style','edge'),
-    "Error in attribute: 'boldly' is not a valid style for edge at line 0");
+    "Error in attribute: 'boldly' is not a valid style for a edge at line 0");
+
+$parser->{line_nr} = 0;
+is ($parser->parse_error(3),
+    "Error: Found attributes, but expected group or node start at line 0");
+
+#############################################################################
+# from_text() and from_file() with Class->method style calling
+
+my $graph = Graph::Easy::Parser->from_text('[A]');
+
+is (ref($graph), 'Graph::Easy');
+is ($graph->nodes(), 1, 'one node');
+
+$graph = Graph::Easy::Parser->from_file('in/1node.txt');
+
+is (ref($graph), 'Graph::Easy');
+is ($graph->nodes(), 1, 'one node');
 
 #############################################################################
 # matching nodes
@@ -90,7 +110,7 @@ foreach (<DATA>)
   for my $n ( sort { $a->{name} cmp $b->{name} || $b->{att}->{label} cmp $a->{att}->{label} }
    ($graph->nodes(), $graph->edges()) )
     {
-    $got .= "," . $n->label() unless $n->label() eq '' || $n->label() eq $n->name();
+    $got .= "," . $n->label() unless $n->label() =~ /^\s?\z/ || $n->label() eq $n->name();
     $got .= "," . $n->name() unless $n->name() eq '';
     } 
   
@@ -99,6 +119,11 @@ foreach (<DATA>)
 
 __DATA__
 |0
+# attributes
+graph { color: red; }|0
+group { color: red; }|0
+node { color: red; }|0
+edge { color: red; }|0
 # anon nodes
 []|1,#0
 []->[]|2,#0,#1
@@ -195,6 +220,13 @@ graph { background: red; } [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ] --> { label: test; } [ Berlin ] { color: blue; }|2+1,test,Berlin,Bonn
 [ Bonn ] --> { label: test; } [ Berlin ] { color: blue; }|2+1,test,Berlin,Bonn
 [ Bonn ] --> { label: test; } [ Berlin ] { color: blue; } --> { label: test2; } [ Leipzig ]|3+2,test2,test,Berlin,Bonn,Leipzig
+# undirected edges
+[ Bonn ] -- [ Berlin ]|2,Berlin,Bonn
+[ Bonn ] -- [ Berlin ] [Ulm] --> [ Mainz]|4,Berlin,Bonn,Mainz,Ulm
+[ Bonn ] -- { color: red; } [ Berlin ] [Ulm] --> [ Mainz]|4,Berlin,Bonn,Mainz,Ulm
+# left over attributes due to node consumed first
+[ Bonn ]\n { color: red; } --> [ Berlin ]|2,Berlin,Bonn
+[ Bonn ] { color:\n red; } --> [ Berlin ]|2,Berlin,Bonn
 # XXX TODO: error testing
 # mismatching left/right side
 #[ Bonn ] - Auto--> [ Berlin ]|2+1,Auto--,Berlin,Bonn

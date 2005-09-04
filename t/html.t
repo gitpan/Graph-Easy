@@ -38,7 +38,7 @@ my $edge = $graph->add_edge ($bonn, $berlin);
 $html = $graph->as_html();
 
 like ($html, qr/Bonn/, 'contains Bonn');
-like ($html, qr/Berlin/, 'contains Bonn');
+like ($html, qr/Berlin/, 'contains Berlin');
 
 #############################################################################
 # with some nodes with atributes
@@ -48,7 +48,7 @@ $bonn->set_attribute( 'autotitle' => 'name' );
 $html = $graph->as_html();
 
 like ($html, qr/title="Bonn"/, 'contains title="Bonn"');
-unlike ($html, qr/title="Berlin"/, "doesn't contains title Berlin");
+unlike ($html, qr/title="Berlin"/, "doesn't contain title Berlin");
 
 #print $graph->as_svg(),"\n";
 
@@ -76,21 +76,32 @@ unlike ($html, qr/display:\s*none/, 'shape invisible is not display: none');
 like ($html, qr/td.*border:\s*none/, 'shape invisible results in border: none');
 
 #############################################################################
-# "==>" must result in "==" and not "doubledouble" (bug until v0.19)
+# label colors
 
-my $cell = $edge->cells()->{"1,0"};
-
-is (ref($cell), 'Graph::Easy::Edge::Cell', 'found edge cell');
-$cell->{style} = 'double';
+$graph->set_attribute( 'edge', 'label-color' => 'red' );
 
 $css = $graph->css();
 $html = $graph->as_html();
 
-unlike ($html, qr/double/, '==> is not "doubledouble"');
+like ($html, qr/border-bottom:.*; color: #ff0000/, 'some edge got color red');
 
-$cell->{att}->{label} = 'one label to bind them';
-$css = $graph->css();
+
+#############################################################################
+# edge color vs. label colors
+
+$graph->set_attribute( 'edge', 'color' => 'green' );
+
 $html = $graph->as_html();
 
-unlike ($html, qr/double/, '==> is not "doubledouble"');
+like ($html, qr/border-bottom:.*#008000.*; color: #ff0000/, 'some edge got color red');
+
+#############################################################################
+# caption from label
+
+$graph->set_attribute( 'graph', 'label' => 'My Graph Label' );
+
+$html = $graph->as_html();
+
+like ($html, qr/<caption>My Graph Label<\/caption>/, 'graph caption from label');
+
 

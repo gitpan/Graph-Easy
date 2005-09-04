@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 20;
+   plan tests => 22;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node::Anon") or die($@);
@@ -16,7 +16,6 @@ can_ok ("Graph::Easy::Node::Anon", qw/
   new
   as_ascii as_txt as_html
   error
-  contains
   class
   name
   successors
@@ -49,7 +48,7 @@ is ($node->x(), 0, 'x == 0');
 is ($node->y(), 0, 'y == 0');
 is ($node->width(), 3, 'w == 3');
 is ($node->height(), 3, 'h == 3');
-is ($node->label(), '#0', 'label');
+is ($node->label(), ' ', 'label');
 is ($node->name(), '#0', 'name');
 is ($node->title(), '', 'no title per default');
 is (join(",", $node->pos()), "0,0", 'pos = 0,0');
@@ -62,8 +61,20 @@ is ($node->{graph}, undef, 'successors/predecssors leave graph alone');
 #############################################################################
 # as_txt/as_html
 
+my $graph = Graph::Easy->new();
+
+$graph->add_node($node);
+
 is ($node->as_txt(), '[ ]', 'anon as_txt');
-is ($node->as_html(), "<td class='node-anon'>#0</td>\n",
+is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon'> </td>\n",
  'as_html');
 is ($node->as_ascii(), "", 'anon as_ascii');
 
+is ($node->as_graphviz_txt(), '"\#0"', 'anon as_graphviz');
+
+my $grviz = $graph->as_graphviz();
+
+my $match = quotemeta('"\#0" [ label=" ", shape=plaintext ]');
+
+like ($grviz, qr/$match/, 'anon node');
+ 

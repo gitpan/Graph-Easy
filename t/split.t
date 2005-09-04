@@ -8,7 +8,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 21;
+   plan tests => 20;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -38,21 +38,20 @@ is ($parser->error(), '', 'no error yet');
 my $graph = $parser->from_text("[A|B|C]");
 
 is (scalar $graph->nodes(), 3, '3 nodes');
-is (scalar $graph->clusters(), 1, '1 cluster');
 
 my $A = $graph->node('ABC.0');
 is (ref($A), 'Graph::Easy::Node', 'node is node');
-is ($A->origin(), $A, 'A is the origin itself');
+is ($A->origin(), undef, 'A is the origin itself');
 
 my $B = $graph->node('ABC.1');
 is (ref($B), 'Graph::Easy::Node', 'node is node');
 is ($B->origin(), $A, 'A is the origin of B');
-is (join(",", $B->relpos()), "1,0", 'B is at +1,0');
+is (join(",", $B->offset()), "1,0", 'B is at +1,0');
 
 my $C = $graph->node('ABC.2');
 is (ref($C), 'Graph::Easy::Node', 'node is node');
 is ($C->origin(), $A, 'A is the origin of C');
-is (join(",", $C->relpos()), "2,0", 'C is at +2,0');
+is (join(",", $C->offset()), "2,0", 'C is at +2,0');
 
 #############################################################################
 # general split tests
@@ -96,7 +95,9 @@ foreach (<DATA>)
     {
     # normalize color output
     my $b = Graph::Easy->color_as_hex($n->attribute('background'));
-    $got .= ";" . $n->name() . "," . $n->label() . "=$n->{dx}.$n->{dy}." . $b;
+    my $dx = $n->{dx}||0;
+    my $dy = $n->{dy}||0;
+    $got .= ";" . $n->name() . "," . $n->label() . "=$dx.$dy." . $b;
     } 
   
   is ($got, $result, $in);

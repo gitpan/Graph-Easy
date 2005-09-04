@@ -9,7 +9,7 @@ package Graph::Easy;
 use strict;
 use vars qw/$VERSION/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 # color handling
@@ -173,6 +173,11 @@ my $color_values = {};
     }
 }
 
+sub color_names
+  {
+  $color_values;
+  }
+
 sub color_name
   {
   my ($self,$color) = @_;
@@ -248,7 +253,27 @@ my $attributes = {
      'black',
      'rgb(255,255,0)',
      ATTR_COLOR,
+     "[ Crimson ] { color: crimson; }\n -> { color: blue; }\n [ Dark Orange ] { color: rgb(255,140,0); }",
      ],
+
+    background => [
+     "The background color, e.g. the color outside the shape. See the section about color names and values for reference.",
+     undef,
+     '"white" for the graph and nodes, "inherit" for edges',
+     'rgb(255,0,0)',
+     ATTR_COLOR,
+     "[ Crimson ] { shape: circle; background: crimson; }\n -- Aqua Marine --> { background: #7fffd4; }\n [ Misty Rose ] { fill: rgb(255,228,221); }",
+     ],
+
+    fill => [
+     "The fill color, e.g. the color inside the shape. See the section about color names and values for reference.",
+     undef,
+     '"white" for the graph and nodes, "inherit" for edges',
+     'rgb(255,0,0)',
+     ATTR_COLOR,
+     "[ Crimson ]\n  {\n  shape: octagon;\n  background: crimson;\n  fill: red;\n  border-color: slategrey;\n  }\n-- Aqua Marine -->\n  {\n  arrow-style: filled;\n  fill: red;\n  }\n[ Two ]",
+     ],
+
     "border-color" => [
      'The color of the L<border>. See the section about color names and values for reference.',
      undef,
@@ -256,9 +281,9 @@ my $attributes = {
      'rgb(255,255,0)',
      ATTR_COLOR,
      ],
-    'border-shape' => [
-     'The shape of the L<border>. One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double, wave.',
-     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
+    'border-style' => [
+     'The style of the L<border>.',
+     [ qw/ none solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
      'solid',
      'dotted',
      ],
@@ -274,6 +299,7 @@ my $attributes = {
      '1px solid black',
      'dotted red',
      ],
+
     class => [
      'The subclass. See the section about class names for reference.',
      undef,
@@ -282,32 +308,28 @@ my $attributes = {
      ],
 
     label => [
-     "The text displayed as label. If not set, equals the name (for nodes) or no label (for edges).",
+     "The text displayed as label. If not set, equals the name (for nodes) or no label (for edges, groups and the graph itself).",
      undef,
      '',
      'My label',
      ],
 
     title => [
-     "The text displayed as mouse-over title. If not set, no title will be generated.",
+     "The text displayed as mouse-over for nodes/edges. If not set, no title will be generated.",
      undef,
      '',
      'My title',
      ],
 
     autotitle => [
-     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<title>. One of: label, name, none.",
-     qr/^(
-       label|
-       name|
-       none
-       )\z/x,
+     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<title>. This attribute is inherited by nodes, edges and groups.",
+     [ qw/ label name none / ],
      'none',
      'label',
      ],
 
     linkbase => [
-     'The base URL prepended to all generated links. See the section about links for reference.',
+     'The base URL prepended to all generated links. This attribute is inherited by nodes, edges and groups. See the section about links for reference.',
      undef,
      '',
      'http://en.wikipedia.org/wiki/',
@@ -321,13 +343,8 @@ my $attributes = {
      ],
 
     autolink => [
-     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<link>. One of: label, title, name, none.",
-     qr/^(
-       label|
-       title|
-       name|
-       none
-       )\z/x,
+     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<link>. This attribute is inherited by nodes, edges and groups.",
+     [ qw/ label title name none / ],
      'none',
      'title',
      ],
@@ -355,152 +372,114 @@ my $attributes = {
      ],
 
     offset => [
-     'The offset of this node from the center node of the cluster, in columns and rows. Only valid if the node is a part of a node cluster. See L<cluster>.',
+     'The offset of this node from the L<origin> node, in columns and rows. Only used if you also set the L<origin> node.',
      qr/^[+-]?\d+,[+-]?\d+\z/,
      '0,0',
      '3,2',
      ],
-    cluster => [
-     'The name of the cluster this node belongs to. See also L<offset>.',
+
+    origin => [
+     'The name of the node, that this node is relativ to. See also L<offset>.',
      undef,
      '',
      'Cluster A',
      ],
 
     flow => [
-     "The general direction in which edges will leave this node first. One of 0, up north, 90, east, right, 180, south, down, 270, west, left.",
+     "The general direction in which edges will leave this node first. One of 0, up, north, 90, east, right, 180, south, down, 270, west, left.",
      'direction_as_number',
      'right',
      'south',
      ],
 
     shape => [
-     "The shape of the node. One of circle, diamond, egg, ellipse, hexagon, house, invisible, invhouse, invtrapezium, invtriangle, octagon,"
-    ."parallelogram, pentagon, point, polygon, triangle, trapezium, septagon, tripleoctagon, box, rect, rectangle, rounded, plaintext, none.",
-       qr/^(
-        circle|
-        diamond|
-        egg|
-        ellipse|
-        hexagon|
-        house|
-        invisible|
-        invhouse|
-        invtrapezium|
-        invtriangle|
-        octagon|
-        parallelogram|
-        pentagon|
-        point|
-        polygon|
-        triangle|
-        trapezium|
-        septagon|
-        tripleoctagon|
-        # simple box
-        box|
-        rect|
-        rectangle|
-        rounded|
-        # these are shape rect, border none
-        plaintext|
-        none
-       )\z/x,
+     "The shape of the node. Nodes with shape 'point' (see L<point-style>) have a fixed size and do not display their label.",
+       [ qw/ circle diamond egg ellipse hexagon house invisible invhouse invtrapezium invtriangle octagon parallelogram pentagon
+             point triangle trapezium septagon tripleoctagon rect rounded none/ ],
       'rect',
       'circle',
      ],
 
     "point-style" => [
-     "Controls the style of a node that has a shape of 'point'. One of circle, square, ring, dot, cross, star, none.",
-     qr/^(
-        circle|		# * (filled circle)
-        square|		# #
-        ring|		# o
-        dot|		# .
-	cross|		# +
-	star|		# *
-	none		# 
-       )\z/x,
+     "Controls the style of a node that has a L<shape> of 'point'.",
+     [ qw/circle square dot cross star diamond/ ],
       'star',
       'square',
      ], 
 
-    background => [
-     'The background color of the node. See the section about color names and values.',
-     undef,
-     'inherit',
-     'rgb(255,0,0)',
-     ATTR_COLOR,
-     ],
-
-    'border-shape' => [
-     'The shape of the L<border>. One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double, wave.',
-     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
+    'border-style' => [
+     'The style of the L<border>.',
+     [ qw/ none solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
      'solid',
      'dotted',
      ],
   }, # node
 
   graph => {
-    'border-shape' => [
-     'The shape of the L<border>. One of: none, solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double, wave.',
-     qr/^(none|solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
-     'none',
-     'dotted',
-     ],
-    background => [
-     "The graph's background color. See the section about color names and values for reference.",
-     undef,
-     'white',
-     'rgb(255,0,0)',
-     ATTR_COLOR,
+    'border-style' => [
+      'The style of the L<border>.',
+      [ qw/ none solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
+      'none',
+      'dotted',
      ],
 
     flow => [
-     "The graph's general flow direction. One of 0, up north, 90, east, right, 180, south, down, 270, west, left.",
-     'direction_as_number',
-     'right',
-     'south',
+      "The graph's general flow direction. One of 0, up north, 90, east, right, 180, south, down, 270, west, left.",
+      'direction_as_number',
+      'right',
+      'south',
      ],
 
     gid => [
-     "A unique ID for the graph. Usefull if you want to include two graphs into one HTML page.",
-     qr/^\d+\z/,
-     '',
-     '123',
+      "A unique ID for the graph. Usefull if you want to include two graphs into one HTML page.",
+      qr/^\d+\z/,
+      '',
+      '123',
      ],
 
     output => [
-     "The desired output format. Only used when calling Graph::Easy::output(), or by mediawiki-graph. One of ascii, html, svg, graphviz.",
-     qr/^(ascii|html|svg|graphviz)\z/,
-     '',
-     'ascii',
+      "The desired output format. Only used when calling Graph::Easy::output(), or by mediawiki-graph.",
+      [ qw/ ascii html svg graphviz / ],
+      '',
+      'ascii',
      ],
 
   }, # graph
 
   edge => {
-    background => [
-     'The background color. See the section about color names and values for reference.',
-     undef,
-     'inherit',
-     'rgb(255,0,0)',
-     ATTR_COLOR,
-     ],
+
     style => [
-     'The line style of the edge. One of solid, dotted, dashed, dot-dash, dot-dot-dash, bold, double-dash, double, wave.',
-     qr/^(solid|dotted|dashed|dot-dash|dot-dot-dash|bold|double-dash|double|wave)\z/,
-     'solid',
-     'dotted',
+      'The line style of the edge.',
+      [ qw/ solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
+      'solid',
+      'dotted',
+     ],
+
+    "arrow-style" => [
+      'The style of the arrow. Open arrows are vee-shaped and the bit inside the arrow has the color of the L<background>. Closed arrows are triangle shaped, with a background-color fill. Filled arrows are closed, too, but use the L<fill> color for the inside.',
+      [ qw/open closed filled/ ],
+      'open',
+      'closed',
+      undef,
+      "[ A ] -- open --> [ B ]\n -- closed --> { arrow-style: closed; } [ C ]\n -- filled --> { arrow-style: filled; } [ D ]\n -- filled --> { arrow-style: filled; fill: lime; } [ E ]",
+     ],
+
+    "label-color" => [
+     'The text color for the label. See the section about color names and values for reference.',
+     undef,
+     'black',
+     'rgb(255,255,0)',
+     ATTR_COLOR,
+     "[ Bonn ] -- ICE --> { label-color: blue; }\n [ Berlin ]",
      ],
    }, # edge
 
   group => {
     nodeclass => [
-     'The class into which all nodes of this group are put.',
-     undef,
-     '',
-     'cities',
+      'The class into which all nodes of this group are put.',
+      undef,
+      '',
+      'cities',
      ],
 
    }, # group
@@ -519,6 +498,18 @@ sub valid_attribute
   # attribute if valid, undef for not valid.
   my ($self, $name, $value, $class) = @_;
 
+  if (ref($value))
+    {
+    require Carp;
+    Carp::confess ("Got reference $value as value, but expected scalar");
+    }
+
+  if (ref($name))
+    {
+    require Carp;
+    Carp::confess ("Got reference $name as name, but expected scalar");
+    }
+
   $class = 'all' unless defined $class;
   $class =~ s/\..*\z//;		# remove subclasses
 
@@ -526,7 +517,7 @@ sub valid_attribute
 
 #  print STDERR "# $name, $value in $class\n" unless ref $entry;
 
-  return undef unless ref($entry);
+  return [] unless ref($entry);
 
   my $check = $entry->[1];
 
@@ -540,6 +531,13 @@ sub valid_attribute
   elsif ($check)
     {
 #    print STDERR "# checking against $check\n";
+    if (ref($check) eq 'ARRAY')
+      {
+      # build a regexp from the list of words
+      my $list = 'qr/^(' . join ('|', @$check) . ')\z/;';
+      $entry->[1] = eval($list);
+      $check = $entry->[1];
+      }
     return $value =~ $check ? $value : undef;
     }
 
@@ -560,16 +558,46 @@ sub _remap_attributes
   # }
   # and remap it according to the given remap hash (similiar structured).
   # Also encode/quote the value. Suppresses default attributes.
-  my ($self, $class, $att, $remap, $noquote, $color_remap ) = @_;
+  my ($self, $object, $att, $remap, $noquote, $color_remap ) = @_;
 
   my $out = {};
-  $class =~ s/\..*//;                   # remove subclass
+
+  my $class = $object; $class = $object->{class} if ref($object);
+  $class =~ s/\..*//;				# remove subclass
+
   my $r = $remap->{$class};
   my $ra = $remap->{all};
+  my $ral = $remap->{always};
   my $def = $self->{def_att}->{$class};
-  for my $atr (keys %$att)
+
+  # This loop does also handle the individual "border-color" attributes.
+  # If the output should contain only "border", but not "border-color", the
+  # caller must filter them out.
+
+  # do attributes plus the ones in "always", but don't do attributes twice 
+  my @keys = keys %$att;
+  for my $k (keys %$ral)
+    {
+    push @keys, $k unless exists $att->{$k};
+    }
+
+  for my $atr (@keys)
     {
     my $val = $att->{$atr};
+
+    # Only for objects (not for classes like "node"), and not if
+    # always says we need to always call the CODE handler:
+
+    if (!ref($object) && !exists $ral->{$atr})
+      {
+      # attribute not defined
+      next if !defined $val || $val eq '' ||
+      # or $remap says we should suppress it
+         (exists $r->{$atr} && !defined $r->{$atr}) ||
+         (exists $ra->{$atr} && !defined $ra->{$atr});
+      }
+    # suppress default attributes
+    next if defined $def->{$atr} && $val eq $def->{$atr};
 
     if ($color_remap)
       {
@@ -580,23 +608,13 @@ sub _remap_attributes
         if ($entry->[ ATTR_TYPE_SLOT ]||ATTR_STRING) == ATTR_COLOR;
       }
 
-    # attribute not defined
-    next if !defined $val || $val eq '' ||
-    # or $remap says we should suppress it
-       (exists $r->{$atr} && !defined $r->{$atr}) ||
-       (exists $ra->{$atr} && !defined $ra->{$atr});
-
-    # suppress default attributes
-    next if defined $def->{$atr} && $val eq $def->{$atr};
-
     # if given a code ref, call it to remap name and/or value
-    if (exists $r->{$atr})
+    if (exists $r->{$atr} || exists $ra->{$atr})
       {
-      my $rc = $r->{$atr};
+      my $rc = $r->{$atr}; $rc = $ra->{$atr} unless defined $rc;
       if (ref($rc) eq 'CODE')
         {
-        ($atr,$val) = &{$rc}($self,$atr,$val);
-        next if !defined $atr || !defined $val;
+        ($atr,$val) = &{$rc}($self,$atr,$val,$object);
         }
       else
         {
@@ -604,6 +622,8 @@ sub _remap_attributes
         $atr = $rc;
         }
       }
+
+    next if !defined $atr || !defined $val || $val eq '';
 
     # encode critical characters (including ")
     $val =~ s/([;"\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
@@ -624,7 +644,7 @@ Graph::Easy::Attributes - Define and check attributes for Graph::Easy
 
 =head1 SYNOPSIS
 
-	use Graph::Easy::Attributes;
+	use Graph::Easy;
 
 	my $hexred   = Graph::Easy->color_as_hex( 'red' );
 	print Graph::Easy->valid_attribute( 'color', 'red', 'graph' );
@@ -633,7 +653,7 @@ Graph::Easy::Attributes - Define and check attributes for Graph::Easy
 
 C<Graph::Easy::Attributes> contains the definitions of valid attribute names
 and values for L<Graph::Easy|Graph::Easy>. It is used by both the parser
-and by Graph::Easy to check attributes. 
+and by Graph::Easy to check attributes for being valid and well-formed. 
 
 There should be no need to use it directly.
 
@@ -641,21 +661,31 @@ There should be no need to use it directly.
 
 =head2 valid_attribute()
 
-	my $new_value = Graph::Easy::Attributes->valid_attribute( $name, $value );
+	my $new_value =
+	  Graph::Easy::Attributes->valid_attribute( $name, $value, $class );
 
-	if (!defined $new_value)
+	if (ref($new_value) eq 'ARRAY')
 	  {
 	  # throw error
-          die ("'$value' is not valid for attribute '$name'");
+          die ("'$name' is not a valid attribute name for '$class'");
+	  }
+	elsif (!defined $new_value)
+	  {
+	  # throw error
+          die ("'$value' is no valid '$name' for '$class'");
 	  }
 
-Check that a C<$name,$value> pair is a valid attribute and return a new value.
+Check that a C<$name,$value> pair is a valid attribute in class C<$class>,
+and returns a new value.
 
 The return value can differ from the passed in value, f.i.:
 
 	print Graph::Easy::Attributes->valid_attribute( 'color', 'red' );
 
 This would print '#ff0000';
+
+It returns an array ref if the attribute name is invalid, and undef if the
+value is invalid.
 	
 =head2 color_as_hex()
 
@@ -667,12 +697,18 @@ This would print '#ff0000';
 Takes a valid color name or definition (hex, short hex, or RGB) and returns the
 color in hex like C<#ff00ff>.
 
-=head2 color_value()
+=head2 color_name()
 
 	my $color = Graph::Easy->color_name( 'red' );	# red
 	print Graph::Easy->color_name( '#ff0000' );	# red
 
 Takes a hex color value and returns the name of the color.
+
+=head2 color_names()
+
+	my $names = Graph::Easy->color_names();
+
+Return a hash with name => value mapping for all known colors.
 
 =head1 EXPORT
 

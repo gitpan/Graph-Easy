@@ -8,16 +8,16 @@ package Graph::Easy;
 
 use 5.006001;
 use Graph::Easy::Attributes;
-use Graph::Easy::Cluster;
 use Graph::Easy::Edge;
 use Graph::Easy::Group;
 use Graph::Easy::Group::Cell qw/GROUP_MAX/;
 use Graph::Easy::Layout;
 use Graph::Easy::Node;
 use Graph::Easy::Node::Anon;
+use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.26';
+$VERSION = '0.27';
 
 use strict;
 
@@ -28,6 +28,7 @@ BEGIN
   *as_html_page = \&as_html_file;
   *as_graphviz_file = \&as_graphviz;
   *as_ascii_file = \&as_ascii;
+  *as_txt_file = \&as_txt;
   }
 
 #############################################################################
@@ -50,12 +51,21 @@ sub DESTROY
   # clean out pointers in child-objects so that they can safely be reused
   for my $n (values %{$self->{nodes}})
     {
-    $n->{edges} = undef if ref($n);
+    if (ref($n))
+      {
+      $n->{edges} = undef;
+      $n->{graph} = undef;
+      }
     }
   for my $e (values %{$self->{edges}})
     {
-    $e->{to} = undef if ref($e);
-    $e->{from} = undef if ref($e);
+    if (ref($e))
+      {
+      $e->clear_cells();
+      $e->{to} = undef;
+      $e->{from} = undef;
+      $e->{graph} = undef;
+      }
     }
   }
 
@@ -109,14 +119,7 @@ sub _init
     background => 'inherit',
     padding => '0.2em',
     margin => '0.1em',
-    'text-align' => 'center',
     'font-family' => 'monospaced, courier-new, courier, sans-serif',
-    # close the holes in the lines:
-    'line-height' => '0.7em',
-    'letter-spacing' => '-0.36em',
-    # add padding to the right since letter-spacing contracts the right side
-    'padding-right' => '0.5em',
-    'width' => '1.8em',
     },
   group => { 
     'border' => '1px dashed black',
@@ -345,7 +348,10 @@ sub border_attribute
   my $width = $self->attribute($class, 'border-width') || '';
   my $color = $self->attribute($class, 'border-color') || '';
 
+  $color = $self->color_name($color) unless $color eq '';
+
   $width = $width.'px' if $width =~ /^\s*\d+\s*\z/;
+  $width = '' if $style eq 'double';
 
   my $val = join(" ", $width, $style, $color);
   $val =~ s/^\s+//;
@@ -360,6 +366,8 @@ sub get_attribute
   my ($self, $class, $att) = @_;
 
   return $self->border_attribute($class) if $att eq 'border'; # virtual attribute
+
+  return $self->{class} if $att eq 'class' && $class ne 'graph';
 
   my $a = $self->{att};
   return undef unless exists $a->{$class} && exists $a->{$class}->{$att};
@@ -379,10 +387,23 @@ sub set_attribute
     return $self->error ("Illegal class '$class' when trying to set attribute '$name' to '$val'");
     }
 
+  # remove quotation marks
+  $val =~ s/^["']//;
+  $val =~ s/["']\z//;
+  $val =~ s/\\#/#/;             # reverse backslashed \#
+
+  # decode %XX entities
+  $val =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
+
   if ($self->{strict})
     {
     my $v = $self->valid_attribute($name,$val,$class);
 
+    if (ref($v) eq 'ARRAY')
+      {
+      $self->error("Error: '$name' is not a valid attribute for $class");
+      return;
+      }
     if (!defined $v)
       {
       $self->error("Error in attribute: '$val' is not a valid $name for $class");
@@ -390,6 +411,8 @@ sub set_attribute
       }
     $val = $v;
     }
+
+  $self->{score} = undef;	# invalidate layout to force a new layout
 
   # handle special attribute 'gid' like in "graph { gid: 123; }"
   if ($class eq 'graph')
@@ -428,6 +451,8 @@ sub set_attributes
     return $self->error ("Illegal class '$class' when setting attributes");
     }
 
+  $self->{score} = undef;	# invalidate layout to force a new layout
+
   # handle special attribute 'gid' like in "graph { gid: 123; }"
   if ($class eq 'graph' && exists $att->{gid})
     {
@@ -456,6 +481,14 @@ sub set_attributes
 
     $self->{att}->{$class}->{$a} = $val;
     } 
+  $self;
+  }
+
+sub del_attribute ($$$)
+  {
+  my ($self, $class, $atr) = @_;
+
+  delete $self->{att}->{$class}->{$atr};
   $self;
   }
 
@@ -538,6 +571,8 @@ sub _class_styles
 
   $base = "table.graph$id " unless defined $base;
 
+  my $groups = $self->groups();				# do we have groups?
+
   my $css = '';
   foreach my $class (sort keys %$a)
     {
@@ -546,6 +581,7 @@ sub _class_styles
     my $c = $class; $c =~ s/\./-/g;			# node.city => node-city
 
     next if $class eq 'graph' and $base eq '';
+    next if $class eq 'group' and $groups == 0;
 
     my $css_txt = '';
     my $cls = '';
@@ -588,7 +624,7 @@ sub _skip
   my ($self) = shift;
 
   # skip these for CSS
-  qr/^(label|linkbase|(auto)?(link|title)|nodeclass|shape)\z/;
+  qr/^(rows|column|size|offset|origin|label|linkbase|(auto)?(link|title)|nodeclass|shape|arrow-style|label-color|point-style|border-(color|style|width))\z/;
   }
 
 sub css
@@ -602,18 +638,19 @@ sub css
   # and list them in the CSS, too. Otherwise "node-city" would not inherit
   # the attributes from "node".
 
-  my $css = $self->_class_styles( $self->_skip() );	
+  my $css = $self->_class_styles( $self->_skip() );
 
-  # XXX TODO: we could skip this if we do not have anon nodes
-  # XXX TODO: this should make anon nodes invisible, but somehow doesn't
-  # work
-  $css .= "table.graph .node-anon { display: none; }\n";
+  my @groups = $self->groups();
 
   # Set attributes for all TDs that start with "group" (hyphen seperated,
   # so that group classes are something like "group-l-cities". The second rule
   # is for all TD without any class at all (these are the "filler" cells):
   $css .= <<CSS
 table.graph##id## td[class|="group"] { padding: 0.2em; }
+CSS
+  if scalar @groups > 0;
+
+  $css .= <<CSS
 table.graph##id## td {
   padding: 2px;
   background: inherit;
@@ -621,14 +658,49 @@ table.graph##id## td {
 CSS
 ;
 
+  # append va (vertical arrow (left/right), vertical empty
+  $css .= <<CSS
+table.graph##id## .va {
+  vertical-align: bottom;
+  line-height: 1.5em;
+  width: 0.4em;
+  }
+table.graph##id## .ve {
+  width: 0em;
+  }
+table.graph##id## .lh {
+  font-size: 0.8em;
+  padding-left: 0.2em;
+  }
+table.graph##id## .lv {
+  font-size: 0.8em;
+  padding-left: 0.5em;
+  }
+table.graph##id## .eb {
+  height: 1em;
+  line-height: 0.5em;
+  }
+table.graph##id## .el {
+  width: 0.5em;
+  }
+table.graph##id## .v, table.graph##id## .hat, table.graph##id## .he {
+  text-align: left;
+  height: 0.5em;
+  line-height: 0.6em;
+  }
+table.graph##id## .hat {
+  padding-top: 0.5em;
+  line-height: 0.2em;
+  }
+CSS
+;
+
   # append CSS for group cells (only if we actually have groups)
-  my @groups = $self->groups();
+
+  $css .= "table.graph$id { empty-cells: show; }\n";
 
   if (@groups > 0)
     {
-    # important for Mozilla/Gecko
-    $css .= "table.graph$id { border-collapse: collapse; }\n";
-
     foreach my $group (@groups)
       {
       # could include only the ones we actually need
@@ -646,44 +718,7 @@ CSS
       }
     }
 
-  # append CSS for lines/labes (only if we actually have edges with labels)
-  my @edges = $self->edges();
-
-  my $have_labels = 0;
-  for my $edge (@edges)
-    {
-    my $label = $edge->label();
-    $have_labels = 1, last if defined $label && $label ne '';
-    }
-
-  # isnsert edgev
-  $css =~ s/.edge/.edge, table.graph##id## .edgev, table.graph##id## .edgel/ if $have_labels != 0;
-
-  $css .= <<CSS
-table.graph##id## .edgev {
-  text-align: left;
-}
-table.graph##id## .edgel {
-  width: auto;
-}
-table.graph##id## .label, table.graph##id## .line {
-  padding: 0em;
-  margin: 0em;
-  position: relative;
-  top: -0.2em;
-}
-table.graph##id## .label, table.graph##id## .labelv { 
-  font-size: 0.7em;
-  letter-spacing: 0em;
-}
-table.graph##id## .labelv {
-  position: relative;
-  top: -1.5em;
-  left: 0.5em;
-}
-CSS
-  if $have_labels != 0;
-
+  # replace the id with either '' or '123', depending on our ID
   $css =~ s/##id##/$id/g;
 
   $css;
@@ -740,7 +775,7 @@ sub as_html
   $self->layout() unless defined $self->{score};
 
   my $html = "\n" . $self->{html_header};
- 
+
   my $cells = $self->{cells};
   my ($rows,$cols);
   
@@ -771,81 +806,106 @@ sub as_html
 
   my $id = $self->{id};
  
-  $html .= "\n<table class=\"graph$id\" cellpadding=4px cellspacing=0";
+  $html .= "\n<table class=\"graph$id\" cellpadding=0 cellspacing=0";
   $html .= " style=\"$self->{html_style}\"" if $self->{html_style};
   $html .= ">\n";
 
-  my $tag = $self->{html_tag} || 'td';
+  my $caption = $self->attribute('graph','label');
+  $html .= "<caption>$caption</caption>\n" if defined $caption && $caption ne '';
 
   # now run through all rows, and for each of them through all columns 
   for my $y (sort { ($a||0) <=> ($b||0) } keys %$rows)
     {
 
-    $html .= " <tr>\n";
-
-    my @row = ();
+    # max three rows at a time
+    my $rs = [ [], [], [] ];
 
     # for all possible columns
     for my $x (sort { $a <=> $b } keys %$cols)
       {
       if (!exists $rows->{$y}->{$x})
 	{
-	push @row, undef;
+	push @{$rs->[0]}, undef;
 	next;
 	}
       my $node = $rows->{$y}->{$x};
-      push @row, "  " . $node->as_html('td',$id);
+
+      my $h = $node->as_html();
+
+      if (ref($h) eq 'ARRAY')
+        {
+        my $i = 0;
+        # print STDERR '# expected 4 rows, but got ' . scalar @$h if @$h != 4;
+        for my $hh (@$h)
+          {
+          push @{$rs->[$i++]}, $hh;
+          }
+        }
+      else
+        {
+        push @{$rs->[0]}, $h;
+#        push @{$rs->[1]}, undef;
+#        push @{$rs->[2]}, undef;
+#        push @{$rs->[3]}, undef;
+        }
       }
 
     ######################################################################
-    # remove trailing empty tag-pairs (but not if we have groups, because
+    # replace undef with empty tags (but not if we have groups, because
     # firefox treats non-existing cells different than empty cells. 
-    if ($groups == 0)
-      {
-      pop @row while (@row > 0 && !defined $row[-1]);
-      }
-    else
-      {
-      push @row, undef while (@row < $max_cells);
-      }
+    # also remove trailing empty tag-pairs
 
-    # replace undef with empty tags
-    foreach (@row)
+    for my $row (@$rs)
       {
-      $_ = "  <$tag><\/$tag>\n" unless defined $_;
-      }
-
-    # now combine equal columns
-    my $i = 0;
-    while ($i < @row)
-      {
-      # count all sucessive equal ones
-      my $j = $i + 1;
-      while ($j < @row && $row[$j] eq $row[$i]) { $j++; }
-      if ($j > $i + 1)
+      if ($groups == 0)
         {
-        my $cnt = $j - $i - 1;
-        # throw away
-        splice (@row, $i + 1, $cnt); $cnt++;
-        # replace
-        $row[$i] =~ s/<$tag/<$tag colspan=$cnt/;
+        pop @$row while (@$row > 0 && !defined $row->[-1]);
         }
-      $i++;
+      else
+        {
+        push @$row, undef while (@$row < $max_cells);
+        }
+      foreach (@$row)
+        {
+        $_ = " <td colspan=4 rowspan=4></td>\n" unless defined $_;
+        }
       }
+
+#    # now combine equal columns
+#    my $i = 0;
+#    while ($i < @row)
+#      {
+#      # count all sucessive equal ones
+#      my $j = $i + 1;
+#      while ($j < @row && $row[$j] eq $row[$i]) { $j++; }
+#      if ($j > $i + 1)
+#        {
+#        my $cnt = $j - $i - 1;
+#        # throw away
+#        splice (@row, $i + 1, $cnt); $cnt++;
+#        # replace
+#        $row[$i] =~ s/<$tag/<$tag colspan=$cnt/;
+#        }
+#      $i++;
+#      }
+
     ######################################################################
     
-    # append row to output
-    $html .= join('',@row) . " </tr>\n";
+    for my $row (@$rs)
+      {
+      # append row to output
+      my $r = join('',@$row);
+      # make empty rows to "<tr></tr>"
+      $r =~ s/^( \n)+\z//;
+      # non empty rows get "\n</tr>"
+      $r = "\n" . $r if length($r) > 0;
+
+      $html .= '<tr>' . $r . "</tr>\n\n";
+      }
     }
 
-  # Append an empty row - otherwise the distance from the last element/node to
-  # the graph border is at the bottom and right less than at the top and left.
-  
-  $max_cells += 2;				# one more at the right
-  $html .= " <tr><td colspan=$max_cells></td></tr>\n";
-
   $html .= "</table>\n" . $self->{html_footer} . "\n";
-  
+ 
   $html;
   } 
 
@@ -855,6 +915,8 @@ sub as_ascii
   {
   # convert the graph to pretty ASCII art
   my ($self) = shift;
+
+  require Graph::Easy::As_ascii;
 
   $self->layout() unless defined $self->{score};
 
@@ -1237,76 +1299,6 @@ sub groups
   scalar keys %{$self->{groups}};
   }
 
-#############################################################################
-# cluster management
-
-sub add_cluster
-  {
-  # add a cluster object
-  my ($self, $cluster) = @_;
-  
-  my $c = $self->{clusters};
-
-  # take an existing one
-  $cluster = $c->{$cluster} if !ref($cluster) && exists $c->{$cluster};
-
-  # or create a new one from scratch
-  $cluster = Graph::Easy::Cluster->new($cluster) unless ref($cluster);
-
-  # index under the cluster name for easier lookup
-  $c->{ $cluster->{name} } = $cluster;
-
-  # register cluster with ourself and weaken the reference
-  $cluster->{graph} = $self;
-  {
-    no warnings; # dont warn on already weak references
-    weaken($cluster->{graph});
-  } 
- 
-  $self->{score} = undef;			# invalidate last layout
-
-  $cluster;
-  }
-
-sub del_cluster
-  {
-  # delete cluster
-  my ($self,$cluster) = @_;
-
-  my $c = $self->{clusters};
-
-  # take an existing one
-  $cluster = $c->{$cluster} if !ref($cluster) && exists $c->{$cluster};
-
-  return unless ref($cluster);			# doesn't exist?
-
-  # XXX TODO: for all nodes in cluster, delete them?
-
-  delete $self->{clusters}->{ $cluster->{name} };
- 
-  $self->{score} = undef;			# invalidate last layout
-
-  $self;
-  }
-
-sub cluster
-  {
-  # return cluster by name
-  my ($self,$name) = @_;
-
-  $self->{clusters}->{ $name };
-  }
-
-sub clusters
-  {
-  # return number of clusters (or clusters as object list)
-  my ($self) = @_;
-
-  return values %{$self->{clusters}} if wantarray;
-
-  scalar keys %{$self->{clusters}};
-  }
-
 1;
 __END__
 =head1 NAME
@@ -1408,7 +1400,7 @@ C<Graph::Easy::Parser> to parse graph descriptions like:
 	[ Frankfurt ] <=> [ Dresden ]
 	[ Bonn ]      --> [ Frankfurt ]
 
-See L<EXAMPLES> for how this might be rendered.
+See L<EXAMPLES|EXAMPLES> for how this might be rendered.
 
 =head2 Creating graphs
 
@@ -1596,21 +1588,6 @@ nothing if the node already exists in the graph.
 
 It returns an C<Graph::Easy::Node> object.
 
-=head2 add_cluster()
-
-	$cluster = $graph->add_cluster( 'cluster name' );
-
-Create a cluster with the given name, and add it to the graph. The
-cluster is initially empty, you can add nodes to it with:
-
-	$cluster->add_node( $node );
-
-and set it's center node with:
-
-	$cluster->center( $node );
-
-Please see C<Graph::Easy::Cluster> for more information.
-
 =head2 get_attribute()
 
 	my $value = $graph->get_attribute( $class, $name );
@@ -1782,13 +1759,6 @@ Returns undef if the edge does not yet exist.
 If there exist more than one edge from C<$x> to C<$y>, then only the
 first edge object will be returned.
 
-=head2 cluster()
-
-	my $cluster = $graph->cluster( 'name' );
-
-Returns a C<Graph::Easy::Cluster> object or undef if it doesn't exist in this
-graph.
- 
 =head2 id()
 
 	my $graph_id = $graph->id();

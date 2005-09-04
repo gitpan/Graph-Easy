@@ -1,5 +1,5 @@
 #############################################################################
-# (c) by Tels 2004 - 2005. An empty filler cell. Part of Graph::Easy
+# (c) by Tels 2004 - 2005. An empty filler cell. Part of Graph::Easy.
 #
 #############################################################################
 
@@ -13,7 +13,7 @@ use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Easy::Node/;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 #############################################################################
 
@@ -33,14 +33,16 @@ sub _init
   # default: belongs to no node
   $self->{node} = undef;
 
-  # XXX TODO check arguments
   foreach my $k (keys %$args)
     {
+    if ($k !~ /^(node)\z/)
+      {
+      require Carp;
+      Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Node->new()");
+      }
     $self->{$k} = $args->{$k};
     }
  
-  $self->{error} = '';
-
   $self;
   }
 
@@ -53,6 +55,11 @@ sub node
   }
 
 sub as_ascii
+  {
+  '';
+  }
+
+sub as_html
   {
   '';
   }

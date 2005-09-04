@@ -6,9 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-use vars qw/$VERSION/;
-
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 #############################################################################
@@ -19,6 +17,9 @@ use strict;
 use Graph::Easy::Node::Cell;
 use Graph::Easy::Edge::Cell qw/
   EDGE_SHORT_E EDGE_SHORT_W EDGE_SHORT_N EDGE_SHORT_S
+
+  EDGE_SHORT_BD_EW EDGE_SHORT_BD_NS
+  EDGE_SHORT_UN_EW EDGE_SHORT_UN_NS
 
   EDGE_START_E EDGE_START_W EDGE_START_N EDGE_START_S
 
@@ -40,7 +41,6 @@ use Graph::Easy::Edge::Cell qw/
  /;
 
 # for A* pathfinding:
-use Heap;
 use Heap::Binary;		# Binary is faster than Fibonacci
 
 #############################################################################
@@ -61,7 +61,7 @@ sub _find_path
 
   # If one of the two nodes is bigger than 1 cell, use _find_path_astar(),
   # because it automatically handles all the possibilities:
-  return $self->_find_path_astar($src, $dst)
+  return $self->_find_path_astar($src, $dst, $edge)
     if ($src->is_multicelled() || $dst->is_multicelled());
   
   my ($x0, $y0) = ($src->{x}, $src->{y});
@@ -91,13 +91,25 @@ sub _find_path
       if (!exists ($cells->{"$x,$y"}))
         {
         # a single step for this edge:
-        my $type;
+        my $type = EDGE_LABEL_CELL;
         # short path
-        $type = EDGE_SHORT_E if ($dx ==  1 && $dy ==  0);
-        $type = EDGE_SHORT_S if ($dx ==  0 && $dy ==  1);
-        $type = EDGE_SHORT_W if ($dx == -1 && $dy ==  0);
-        $type = EDGE_SHORT_N if ($dx ==  0 && $dy == -1);
-        $type += EDGE_LABEL_CELL;
+        if ($edge->bidirectional())
+	  {
+          $type += EDGE_SHORT_BD_EW if $dy == 0;
+          $type += EDGE_SHORT_BD_NS if $dx == 0;
+          }
+        elsif ($edge->undirected())
+          {
+          $type += EDGE_SHORT_UN_EW if $dy == 0;
+          $type += EDGE_SHORT_UN_NS if $dx == 0;
+          }
+        else
+          {
+          $type += EDGE_SHORT_E if ($dx ==  1 && $dy ==  0);
+          $type += EDGE_SHORT_S if ($dx ==  0 && $dy ==  1);
+          $type += EDGE_SHORT_W if ($dx == -1 && $dy ==  0);
+          $type += EDGE_SHORT_N if ($dx ==  0 && $dy == -1);
+          }
 
         return [ $x, $y, $type ];			# return a short EDGE
         }
@@ -141,8 +153,8 @@ sub _find_path
     # try hor => ver
     my $type = EDGE_HOR;
 
-    my $label = 0;					# attach label?
-    $label = 1 if ref($edge) && $edge->label() eq '';	# no label?
+    my $label = 0;						# attach label?
+    $label = 1 if ref($edge) && ($edge->label()||'') eq '';	# no label?
     $x += $dx;
     while ($x != $x1)
       {
@@ -221,10 +233,20 @@ sub _find_path
  
       $type = $coords[2];
       $type_last = 0;
-      $type_last = EDGE_START_W if $type == EDGE_HOR && $dx == 1;
-      $type_last = EDGE_START_E if $type == EDGE_HOR && $dx == -1;
-      $type_last = EDGE_START_N if $type == EDGE_VER && $dy == 1;
-      $type_last = EDGE_START_S if $type == EDGE_VER && $dy == -1;
+      if ($edge->bidirectional())
+        {
+        $type_last = EDGE_END_W if $type == EDGE_HOR && $dx == 1;
+        $type_last = EDGE_END_E if $type == EDGE_HOR && $dx == -1;
+        $type_last = EDGE_END_N if $type == EDGE_VER && $dy == 1;
+        $type_last = EDGE_END_S if $type == EDGE_VER && $dy == -1;
+        }
+      else
+        {
+        $type_last = EDGE_START_W if $type == EDGE_HOR && $dx == 1;
+        $type_last = EDGE_START_E if $type == EDGE_HOR && $dx == -1;
+        $type_last = EDGE_START_N if $type == EDGE_VER && $dy == 1;
+        $type_last = EDGE_START_S if $type == EDGE_VER && $dy == -1;
+        }
       $coords[2] |= $type_last;
  
       return \@coords;			# return all fields of path
@@ -618,6 +640,16 @@ sub _find_path_astar
 
         $px ++ if ($edge_flags & EDGE_START_E) != 0; 
         $px -- if ($edge_flags & EDGE_START_W) != 0; 
+
+        if ($edge->bidirectional())
+	  {
+          my $start = $type & EDGE_START_MASK;
+          $type &= ~EDGE_START_MASK;
+          $type += EDGE_END_W if $start == EDGE_START_W;
+          $type += EDGE_END_E if $start == EDGE_START_E;
+          $type += EDGE_END_N if $start == EDGE_START_N;
+          $type += EDGE_END_S if $start == EDGE_START_S;
+	  }
         }
       if (!defined $lx)
         {
@@ -656,9 +688,12 @@ sub _find_path_astar
 
     # if this is the first hor edge, attach the label to it
     # XXX TODO: This clearly is not optimal. Look for left-most HOR CELL
-    $type += EDGE_LABEL_CELL if
-     ($label_cell++ == 0) &&
-     ($type & EDGE_TYPE_MASK) == EDGE_HOR;
+    my $t = $type & EDGE_TYPE_MASK;
+    if ($label_cell == 0 && ($t == EDGE_HOR || $t == EDGE_VER))
+      {
+      $label_cell++;
+      $type += EDGE_LABEL_CELL;
+      }
 
     unshift @$path, $cx, $cy, $type;		# unshift to reverse the path
     ($lx,$ly) = ($cx,$cy);

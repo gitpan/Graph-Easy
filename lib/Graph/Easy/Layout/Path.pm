@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 #############################################################################
@@ -397,7 +397,6 @@ sub _create_cell
   return $cells->{$xy}->_make_cross($edge,$type & EDGE_FLAG_MASK) if ref($cells->{$xy}) =~ /^Graph::Easy::Edge/;
 
   my $path = Graph::Easy::Edge::Cell->new( type => $type, edge => $edge, x => $x, y => $y );
-  $path->{graph} = $self;	# register path elements with ourself
   $cells->{$xy} = $path;	# store in cells
   }
 

@@ -5,129 +5,49 @@ use strict;
 
 BEGIN
    {
-   plan tests => 36;
+   plan tests => 12;
    chdir 't' if -d 't';
    use lib '../lib';
-   use_ok ("Graph::Easy::Cluster") or die($@);
    use_ok ("Graph::Easy") or die($@);
    };
-
-can_ok ("Graph::Easy::Cluster", qw/
-  new
-  error
-  add_node
-  add_nodes
-  center_node
-  nodes
-  /);
-
-can_ok ("Graph::Easy", qw/
-  add_cluster
-  del_cluster
-  clusters
-  cluster
-  /);
 
 #############################################################################
 # basic tests
 
-my $cluster = Graph::Easy::Cluster->new( name => 'cluster' );
+my $graph = Graph::Easy->new();
 
-is (ref($cluster), 'Graph::Easy::Cluster');
+my ($first, $second, $edge) = $graph->add_edge('first', 'second');
 
-is ($cluster->error(), '', 'no error yet');
+$second->set_attribute('origin', $first->{name});
 
-is (scalar $cluster->nodes(), 0, 'no nodes in cluster yet');
-
-my $first = Graph::Easy::Node->new( name => 'first' );
-my $second = Graph::Easy::Node->new( name => 'second' );
-
-$cluster->add_node($first);
-is (scalar $cluster->nodes(), 1, 'one node in cluster');
-
-$cluster->add_nodes($first, $second);
-is (scalar $cluster->nodes(), 2, 'two nodes in cluster');
-
-#############################################################################
-# center_node
-
-$cluster->center_node($first);
-is ($cluster->center_node(), $first, 'center_ndoe set');
+is (join(",", $second->offset()), '0,0', 'offset is 0,0');
+is ($second->origin(), $first, 'origin is $first');
 
 #############################################################################
 # graph tests
-
-is ($cluster->{graph}, undef, 'unregistered yet');
-
-my $graph = Graph::Easy->new();
-
-is (scalar $graph->clusters(), 0, 'no clusters yet');
-$graph->add_cluster ($cluster);
-is ($cluster->{graph}, $graph, 'registered');
-is (scalar $graph->clusters(), 1, 'one cluster');
-
-# not added again
-$graph->add_cluster ($cluster);
-is (scalar $graph->clusters(), 1, 'one cluster');
-
-is (join (" ", $graph->clusters()), $cluster, 'one cluster');
-is ($graph->cluster ('cluster'), $cluster, 'found again');
-
-# not added again
-$graph->add_cluster ('cluster');
-is (scalar $graph->clusters(), 1, 'one cluster');
-
-$graph->del_cluster ($cluster);
-is (scalar $graph->clusters(), 0, 'no clusters anymore');
-
-$graph->add_cluster ($cluster);
-is ($graph->cluster ('cluster'), $cluster, 'first one');
-
-# add from name
-my $cluster_2 = $graph->add_cluster ('second cluster');
-is (scalar $graph->clusters(), 2, 'two clusters');
-
-is ($graph->cluster ('second cluster'), $cluster_2, 'second one');
-is ($graph->cluster ('cluster'), $cluster, 'first one');
-
-# add from name again
-my $cluster_3 = $graph->add_cluster ('third cluster');
-is (scalar $graph->clusters(), 3, 'three clusters');
-
-is ($graph->cluster ('third cluster'), $cluster_3, 'third one');
-is ($graph->cluster ('second cluster'), $cluster_2, 'second one');
-is ($graph->cluster ('cluster'), $cluster, 'first one');
-
-#############################################################################
 # node placement (clustered)
 
-$cluster = Graph::Easy::Cluster->new( name => 'cluster' );
 $graph = Graph::Easy->new();
-$graph->add_cluster ($cluster);
 
-my $node = Graph::Easy::Node->new( name => 'A' );
-$graph->add_node($node);
-$node->add_to_cluster($cluster);
-$second = Graph::Easy::Node->new( name => 'B', dx => 1, dy => 0 );
-$graph->add_node($second);
-$second->add_to_cluster($cluster);
+$first = $graph->add_node('A');
+$second = $graph->add_node('B');
 
-$cluster->center_node($node);
+$second->relative_to($first, 1,0);
 
 is (scalar $graph->nodes(), 2, 'two nodes');
 
 my $cells = { };
 
-is ($node->place(1,1,$cells), 1, 'node can be placed');
+is ($first->place(1,1,$cells), 1, 'node can be placed');
 
-is ($cells->{"1,1"}, $node, 'node was really placed');
+is ($cells->{"1,1"}, $first, 'first was really placed');
 is ($cells->{"2,1"}, $second, 'second node was placed, too');
 is (scalar keys %$cells, 2, 'two nodes placed');
 
 # 1,0 and 2,0 are blocked, so 0,0+1,0; 1,0+2,0 and 2,0+3,0 are blocked, too:
-is ($node->place(0,1,$cells), 0, 'node cannot be placed again');
-is ($node->place(1,1,$cells), 0, 'node cannot be placed again');
-is ($node->place(2,1,$cells), 0, 'node cannot be placed again');
+is ($first->place(0,1,$cells), 0, 'node cannot be placed again');
+is ($first->place(1,1,$cells), 0, 'node cannot be placed again');
+is ($first->place(2,1,$cells), 0, 'node cannot be placed again');
 
 is (scalar keys %$cells, 2, 'two nodes placed');
 

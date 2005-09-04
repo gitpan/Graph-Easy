@@ -1,5 +1,81 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-09-04 v0.27 Tels 1058 tests - Offset, offset, offset, offset the position...
+  * remove Graph::Easy::Cluster, and overhaul relative-node position code
+    + use "[ B ] { origin: A; offset: 2,0 }" to position A relative to B
+      (no cluster needed anymore)
+    + can position C relative to B, which is relative to A, and so on
+    + works correctly with multi-celled nodes
+    + update doc for this feature
+  * remove "point-style: none" - "shape: invisible;" already does the same
+  * remove "point-style: ring" - is: "point-style: circle; color: white;"
+  * add "point-style: diamond"
+  * add attribute arrow-style (open, closed, filled) for edges
+  * add attribute "fill" (color inside shape) and change notion of "background"
+    to the color outside the shape (important change for nodes)
+  * add attribute "label-color" for edges
+  * attribute "border-style" was accidentily allowed only as "border-shape"
+  * remove node styles: box, rectangle (were aliases for "rect"), plaintext
+     (was alias for "none")
+  * Save memory: Nodes use 638 (vs 770) bytes, Edges 631 (vs 683) Bytes, this
+		 makes a big graph use about 10% less memory (and it is
+		 generated in about 6% less time) (measured on 32 bit system)
+  * fix small nits in Graph::Easy::Attributes
+  * define possible values as lists in Graph::Easy::Attributes, removes double
+    definitions in both code and documentation that could get out of sync
+  * examples/common.pl was broken - thanx to Vagn Johansen for the report!
+  * disallow arguments to new(), leave only in:
+    * Node: "label" and "name" 
+    * Edge: "label", "name" and "style"
+    * Parser: "debug"
+    * Node::Cell: "node"
+  * remove useless subroutine contains() in Node.pm
+  * build/gen_manual: generate doc for group attributes, too
+  * build/gen_manual: generate color table from definitions in code
+  * build/gen_manual: split attributes into 4 sub pages and add an index
+  * build/gen_manual: include sample graphs
+  * as_graphviz(): quote reserved words: /(strict|(sub)?graph|node|edge)/i
+  * as_graphviz(): quote attribute values with non \w chars
+  * as_graphviz(): support for all flow directions (left, right, top, bottom)
+  * as_graphviz(): fix colors because dot et. al have a different idea on what
+		   color "grey" actually is. This is solved by making checks
+		   on attributes on Nodes etc. strict (it converts "red" to
+		   "#ff0000" on input) and then outputting the raw RGB colors
+  * as_graphviz(): support for bidirectional and arrow-less edges
+  * as_graphviz(): add support for different arrow styles (except filled with
+		   different fill color)
+  * as_graphviz(): support anon nodes properly (rendered invisible)
+  * as_graphviz(): correctly handle link, linkbase and autolink attributes
+  * as_graphviz(): use graph ID to construct graph name (usefull for imagemaps)
+  * as_html(): reimplement output for edges with 4x4 table cells, including
+               correct start/end points, label colors. Finally works in all
+	       major browsers and looks better than ever :)
+  * as_html(): generate graph-table caption from label attribute
+  * as_html(): correctly handle multi-celled nodes
+  * as_html(): generated links have class 'l'
+  * as_ascii(): handle multi-lined labels on edges correctly
+  * as_ascii(): invisible nodes are 3x3, not 5x3 in minimum size
+  * don't unnec. load "Heap" and "Heap::Fibonacci"
+  * Graph: add as_txt_file() as alias for as_txt()
+  * add weaken() in Edge::Cell to trigger early DESTROY of graphs
+  * move the ASCII code to Graph::Easy::As_ascii and load it on demand
+  * Parser: report wrong attribute names/values better
+  * Parser: allow '$graph = Graph::Easy::Parser->from_text("...")'
+  * Parser: fix parsing of undirected edges with following nodes/attributes
+  * Parser: parse "[ A ]\n { ... }" and "[ A ] { ...\n...}" properly
+  * Parser/Layout: support undirected (arrowless) edges properly
+  * Layout: set proper flags for bidirectional edges (so they are rendered
+            correctly (Thanx to Scott Beuker)
+  * Layout: stop an endless loop in the chain-backtracking code
+  * Layout: set correctly edge label cells on found A* paths
+  * setting the attribute 'origin' and 'offset' on a node works now correctly
+  * attribute are now strictly checked on Nodes, Edges etc, too
+  * fix unitialized warning in Graph::Easy::Layout::Scout
+  * fix broken link to EXAMPLES in POD (Thanx Scott Beuker)
+  * border_attribute(): return no width if style eq 'double'
+  * remap_attributes(): fix handling of 'all' entries for attributes
+  * remap_attributes(): add handling of 'undef' to force attributes
+
 2005-08-21 v0.26 Tels 1007 tests - Speed, speed, speed, speed up the code...
 Fixed:
   * as_ascii(): render node labels centered, instead on top-left corner

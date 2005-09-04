@@ -1,5 +1,0 @@
-node { shape: point; }
-
-[ 1 ] -> [ 2 ] { shape: circle; }
-[ 2 ] -> [ 3 ]
-[ 2 ] -> [ 4 ]

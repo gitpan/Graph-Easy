@@ -13,7 +13,7 @@ use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 #############################################################################
 
@@ -25,9 +25,13 @@ sub _init
   $self->{class} = 'edge';
   $self->{cells} = { };
 
-  # XXX TODO check arguments
   foreach my $k (keys %$args)
     {
+    if ($k !~ /^(label|name|style)\z/)
+      {
+      require Carp;
+      Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Node->new()");
+      }
     $self->{$k} = $args->{$k};
     }
 
@@ -39,8 +43,6 @@ sub _init
   $self->{att}->{style} = $self->{style} || 'solid';
   delete $self->{style};
  
-  $self->{error} = '';
-
   $self;
   }
 
@@ -89,7 +91,7 @@ sub as_txt
   $n = $style . " $n " if $n ne '';
 
   # make " -  " into " - -  "
-  $style = $style . $style if $self->{undirected} && substr($style,1,1) == ' ';
+  $style = $style . $style if $self->{undirected} && substr($style,1,1) eq ' ';
 
   # ' - Name -->' or ' --> ' or ' -- '
   my $a = $self->attributes_as_txt($suppress) . ' '; $a =~ s/^\s//;
@@ -101,9 +103,10 @@ sub _formatted_label
   my $self = shift;
 
   my $name = $self->label() || '';
-  $name =~ s/\\n/\n/g;                  # insert newlines
+  # insert real newlines and remove spacing
+  $name =~ s/\s*\\n\s*/\n/g;		# insert real newlines
 
-  # split into lines, but don't remove extranous spacing
+  # split into lines
   my @lines = split /\n/, $name;
   @lines;
   }
@@ -190,16 +193,12 @@ Graph::Easy::Edge - An edge (a path from one node to another)
 	my $ssl = Graph::Easy::Edge->new(
 		label => 'encrypted connection',
 		style => 'solid',
-		color => 'red',
 	);
+	$ssl->set_attribute('color', 'red');
 
-	my $src = Graph::Easy::Node->new(
-		name => 'source',
-	);
+	my $src = Graph::Easy::Node->new('source');
 
-	my $dst = Graph::Easy::Node->new(
-		name => 'destination',
-	);
+	my $dst = Graph::Easy::Node->new('destination');
 
 	$graph = Graph::Easy->new();
 

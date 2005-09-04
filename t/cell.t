@@ -5,18 +5,18 @@ use strict;
 
 BEGIN
    {
-   plan tests => 26;
+   plan tests => 27;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node::Cell") or die($@);
    use_ok ("Graph::Easy") or die($@);
+   use_ok ("Graph::Easy::As_ascii") or die($@);
    };
 
 can_ok ("Graph::Easy::Node::Cell", qw/
   new
   as_ascii as_txt as_html
   error
-  contains
   class
   name
   successors
@@ -63,7 +63,7 @@ is ($node->class(), '', 'class filler');
 # as_ascii/as_html
 
 is ($node->as_ascii(), '', 'as_ascii');
-is ($node->as_html(), "<td></td>\n", 'as_html');
+is ($node->as_html(), " <td colspan=4 rowspan=4></td>\n", 'as_html');
 
 #############################################################################
 # group tests

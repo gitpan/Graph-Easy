@@ -47,6 +47,7 @@ is ($graph->error(), '', 'no error yet');
 
 my $src = Graph::Easy::Node->new( name => 'Bonn' );
 my $dst = Graph::Easy::Node->new( 'Berlin' );
+my $edge = Graph::Easy::Edge->new( style => 'solid' );
 my $e = 3;				# elements per path cell (x,y,type)
 
 #############################################################################
@@ -87,14 +88,14 @@ is (join (',', @places), '4,1,16,1,4,32,-2,1,64,1,-2,128', 'places');
 $src->{x} = 1; $src->{y} = 1;
 $dst->{x} = 1; $dst->{y} = 1;
 
-my $coords = $graph->_find_path( $src, $dst);
+my $coords = $graph->_find_path( $src, $dst, $edge);
 
 is (scalar @$coords, 1*$e, 'same cell => short edge path');
 
 $src->{x} = 1; $src->{y} = 1;
 $dst->{x} = 2; $dst->{y} = 2;
 
-$coords = $graph->_find_path( $src, $dst);
+$coords = $graph->_find_path( $src, $dst, $edge);
 
 is (scalar @$coords, 1*$e, 'path with a bend');
 
@@ -104,7 +105,7 @@ $graph->{cells}->{"1,2"} = $src;
 $src->{x} = 1; $src->{y} = 1;
 $dst->{x} = 1; $dst->{y} = 3;
 
-$coords = $graph->_find_path( $src, $dst);
+$coords = $graph->_find_path( $src, $dst, $edge);
 
 is (scalar @$coords, 3*$e, 'u shaped path (|---^)');
 
@@ -112,13 +113,13 @@ is (scalar @$coords, 3*$e, 'u shaped path (|---^)');
 $graph->{cells}->{"2,1"} = $src;
 $graph->{cells}->{"0,1"} = $src;
 
-$coords = $graph->_find_path( $src, $dst);
+$coords = $graph->_find_path( $src, $dst, $edge);
 # XXX TODO: check what path is actually generated here
 is (scalar @$coords, 7*$e, 'cell already blocked');
 
 delete $graph->{cells}->{"1,2"};
 
-$coords = $graph->_find_path( $src, $dst);
+$coords = $graph->_find_path( $src, $dst, $edge);
 
 is (scalar @$coords, 1*$e, 'straight path down');
 is (join (":", @$coords), '1:2:' . (EDGE_SHORT_S() + EDGE_LABEL_CELL()), 'path 1,1 => 1,3');
@@ -126,7 +127,7 @@ is (join (":", @$coords), '1:2:' . (EDGE_SHORT_S() + EDGE_LABEL_CELL()), 'path 1
 $src->{x} = 1; $src->{y} = 0;
 $dst->{x} = 1; $dst->{y} = 5;
 
-$coords = $graph->_find_path( $src, $dst);
+$coords = $graph->_find_path( $src, $dst, $edge);
 
 is (scalar @$coords, 4*$e, 'straight path down');
 my $type = EDGE_VER();

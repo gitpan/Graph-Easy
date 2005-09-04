@@ -4,25 +4,42 @@
 
 #  build/gen_manual >attributes.html
 
+use strict;
+use Carp;
+use Time::HiRes qw/time/;
+use File::Spec;
+
 BEGIN
   {
   $|++;
   chdir 'build' if -d 'build';
   use lib 'lib', '../lib';
-
-  use Graph::Easy::Attributes;
-  use Time::HiRes qw/time/;
   }
 
-my $took = time();
+my $path = shift || '.';
+
+use Graph::Easy;
+use Graph::Easy::Parser;
+
+my $start = time();
 
 my $tpl = read_file('attributes.tpl');
 
 my $entries = Graph::Easy->_attribute_entries();
 
-for my $class (qw/node edge graph/)
+my $parser = Graph::Easy::Parser->new();
+
+my $example_graph_id = '';
+
+for my $class (qw/node edge graph group/)
   {
+  my $css = '';
+  my $start_time = time();
+  my $cur_tpl = read_file('att_' . $class . 's.tpl');
+
   my $txt = '';
+
+  my $idx = "<ul>\n  <li>";
 
   my $todo = { };
   for my $entry (keys %{$entries->{all}})
@@ -34,8 +51,16 @@ for my $class (qw/node edge graph/)
     $todo->{$entry} = $entries->{$class}->{$entry};
     }
   
+  my $file = 'att_' . $class . 's.html';
+  my $last = '';
   for my $entry (sort keys %$todo)
     {
+    if ($last ne '' && $last ne substr($entry,0,1))
+      {
+      $idx .= "\n  <li>";
+      }
+    $last = substr($entry,0,1);
+    $idx .= "<a href=\"$file#${class}_$entry\">$entry</a>, ";
     
     $txt .= "<a name=\"${class}_$entry\">\n<h4>$entry</h4></a>\n\n";
 
@@ -45,26 +70,84 @@ for my $class (qw/node edge graph/)
 
     my $des = $e->[0]; $des =~ s/L<([^>]+)>/<a href="#${class}_$1">$1<\/a>/g;
 
-    $des =~ s/(section about )(.*?)( for ref)/my $l = $2; $l =~ tr!A-Za-z0-9!_!c; "$1<a href=\"#$l\">$2<\/a>$3";/eg;
+    $des =~ s/(section about )(.*?)( for ref)/my $l = $2; $l =~ tr!A-Za-z0-9!_!c; "$1<a href=\"attributes.html#$l\">$2<\/a>$3";/eg;
 
-    $des =~ s/One of:? ([^\.]+)\./$u = "One of: <code>$1<\/code>."; $u =~ s!\s*,\s*!<\/code>, <code>!g; $u; /eg;
+    if (ref($e->[1]) eq 'ARRAY')
+      {
+      # list of words
+      $des .= "One of: <code>" . join ("</code>, <code>", @{$e->[1]}) . "</code>.\n";
+      } 
 
     $txt .= "<p>\n$des<br>\n";
-    $txt .= "<b>Defaults to:</b> <code>$e->[2]</code><br>\n";
-    $txt .= "<b>Example:</b> <code>$e->[3]</code></p>\n";
+    $txt .= "<b>Defaults to:</b> <code>$e->[2]</code>";
 
+    if (defined $e->[5])
+      {
+      $txt .= "<br>\n<b>Example graph:</b>\n</p>\n";
+      $txt .= '<pre class="graphtext">' . $e->[5] . "\n</pre>\n\n";
+
+      $txt .= '<div class="clear"></div>';
+
+      my $graph = $parser->from_text($e->[5]);
+
+      confess ($parser->error()) if $parser->error();
+     
+      $graph->id($example_graph_id);
+
+      $css .= $graph->css();
+      $txt .= '<div style="margin-left: 1em;">' . $graph->as_html() . '</div>';
+
+      $txt .= '<div class="clear"></div>';
+      $example_graph_id ||= 0; $example_graph_id++;
+      }
+    else
+      {
+      $txt .= "<br>\n<b>Example value:</b> <code>$e->[3]</code></p>\n";
+      }
     $txt .= "\n</div>\n\n";
     }
 
-  $tpl =~ s/##$class##/$txt/;
+  $idx =~ s/<li>\z//; $idx .= "\n</ul>\n";
+
+  $cur_tpl =~ s/##$class##/$idx$txt/;
+
+  $cur_tpl =~ s/##css##/$css/;
+  $cur_tpl =~ s/##time##/ scalar localtime(); /eg;
+
+  my $took = sprintf("%0.4fs", time() - $start_time);
+  $cur_tpl =~ s/##took##/$took/g;
+
+  write_file(File::Spec->catfile($path,$file),$cur_tpl);
+
+  # insert the index
+  $tpl =~ s/##$class##/$idx/;
   }
+
+my $colors = Graph::Easy->color_names();
+
+my $list = "<table>\n<tr>\n"; my $o = 0;
+for my $clr (sort keys %$colors)
+  {
+  my $c = $colors->{$clr};
+  $list .= "<td class='clrn'>$c:</td><td class='clre' style='background: $clr' title='$c ($clr)'>&nbsp;</td>\n";
+  if ($o++ > 1)
+    { 
+    $o = 0;
+    $list .= "</tr><tr>\n";
+    }
+  }
+
+$list =~ s/<tr>\n\z//;		# remove last <tr>
+$list .= "</table>\n";
+
+$tpl =~ s/##colors##/$list/;
 
 $tpl =~ s/##time##/ scalar localtime(); /eg;
 
-$took = sprintf("%0.4fs", time() - $took);
+my $took = sprintf("%0.4fs", time() - $start);
 $tpl =~ s/##took##/$took/g;
 
-print $tpl;
+write_file(File::Spec->catfile($path,'attributes.html'),$tpl);
 
 sub read_file
   {
@@ -76,3 +159,14 @@ sub read_file
   close FILE;
   $input;
   }
+
+sub write_file
+  {
+  my ($f,$txt) = @_;
+
+  print "Writing $f...\n";
+  open FILE, ">$f" or die ("Cannot write '$f': $!");
+  print FILE $txt;
+  close FILE;
+  }
+

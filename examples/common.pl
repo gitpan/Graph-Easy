@@ -20,8 +20,9 @@ sub gen_graphs
   my $method = shift || 'ascii';
 
   ###########################################################################
-  my $node = Graph::Easy::Node->new( name => 'Bonn' );
-  my $node2 = Graph::Easy::Node->new( name => 'Berlin' );
+
+  my $node = $graph->add_node( 'Bonn' );
+  my $node2 = $graph->add_node( 'Berlin' );
 
   $graph->add_edge( $node, $node2 );
 
@@ -30,42 +31,40 @@ sub gen_graphs
   ###########################################################################
   $graph->{debug} = 0;
 
-  my $node3 = Graph::Easy::Node->new( name => 'Frankfurt',
-    border => 'dotted 1px' );
+  my $node3 = $graph->add_node( 'Frankfurt' );
+  $node3->set_attribute('border-style', 'dotted');
 
-  my $edge3 = Graph::Easy::Edge->new( style => '==>' );
+  my $edge3 = Graph::Easy::Edge->new( style => 'double' );
 
   $graph->add_edge( $node2, $node3, $edge3 );
 
   out ($graph, $method);
 
   ###########################################################################
-  my $node4 = Graph::Easy::Node->new( name => 'Dresden' );
 
-  $graph->add_edge( $node3, $node4 );
-
-  out ($graph, $method);
-
-  ###########################################################################
-  my $node5 = Graph::Easy::Node->new( name => 'Potsdam' );
-
-  $graph->add_edge( $node2, $node5 );
+  $graph->add_edge( $node3, 'Dresden' );
 
   out ($graph, $method);
 
   ###########################################################################
-  my $node6 = Graph::Easy::Node->new( name => 'Cottbus',
-    border => '1px red solid',
-   );
 
-  my $edge5 = Graph::Easy::Edge->new( style => '..>' );
+  $graph->add_edge( $node2, 'Potsdam' );
 
-  $graph->add_edge( $node5, $node6, $edge5 );
+  out ($graph, $method);
 
+  ###########################################################################
+  my $node6 = $graph->add_node( 'Cottbus',);
+  $node6->set_attribute('border', '1px red dashed');
+ 
+  my $edge5 = $graph->add_edge( 'Potsdam', $node6 );
 
   out ($graph, $method);
   
   ###########################################################################
+  $graph->add_edge( $node6, $node3 );
+
+  out ($graph, $method);
+
   $graph->add_edge( $node6, $node3 );
 
   out ($graph, $method);

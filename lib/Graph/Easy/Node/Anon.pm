@@ -5,8 +5,10 @@
 
 package Graph::Easy::Node::Anon;
 
+use Graph::Easy::Node;
+
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = 0.01;
+$VERSION = 0.02;
 
 use strict;
 
@@ -21,7 +23,8 @@ sub _init
   $self->{h} = 3;
   $self->{class} = 'node.anon';
 
-#  $self->attribute('shape', 'invisible');
+  $self->{att}->{shape} = 'invisible';
+  $self->{att}->{label} = ' ';
 
   $self;
   }
@@ -53,7 +56,7 @@ sub as_graphviz_txt
   {
   my $self = shift;
   
-  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
+  my $name = $self->{name};
 
   # quote special chars in name
   $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
@@ -73,13 +76,6 @@ sub title
   '';
   }
 
-#sub label
-#  {
-  # XXX TODO hack to make anon nodes really invisible in HTML (the CSS
-  # *should* take care of that, but somehow doesn't work...)
-#  '';
-#  }
-
 1;
 __END__
 
@@ -97,6 +93,10 @@ Graph::Easy::Node::Anon - An anonymous, invisible node in a simple graph
 
 A C<Graph::Easy::Node::Anon> represents an anonymous, invisible node in a
 simple graph. These can be used to let edges start and end "nowhere".
+
+The syntax in the Graph::Easy textual description language looks like this:
+
+	[ ] -> [ Bonn ] -> [ ]
 
 =head1 EXPORT
 

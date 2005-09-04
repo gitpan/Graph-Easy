@@ -5,11 +5,12 @@ use strict;
 
 BEGIN
    {
-   plan tests => 24;
+   plan tests => 25;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Edge::Cell") or die($@);
    use_ok ("Graph::Easy") or die($@);
+   use_ok ("Graph::Easy::As_ascii") or die($@);
    };
 
 can_ok ("Graph::Easy::Edge::Cell", qw/
@@ -25,17 +26,19 @@ can_ok ("Graph::Easy::Edge::Cell", qw/
   style
   type
 
+  edge_type
+
   _draw_cross
   _draw_ver
   _draw_hor
   _draw_corner
   _make_cross
 
-  edge_type
   /);
 
 use Graph::Easy::Edge::Cell qw/
   EDGE_SHORT_W EDGE_CROSS EDGE_END_N EDGE_START_E EDGE_HOR EDGE_VER
+  EDGE_N_W_S
   /;
 use Graph::Easy::Edge;
 
@@ -69,7 +72,7 @@ $path = Graph::Easy::Edge::Cell->new( type => EDGE_SHORT_W, edge => $edge);
 is ($path->attribute('color'), 'blue');
 
 #############################################################################
-# as_txt/as_html
+# as_txt/as_ascii
 
 $path->_correct_size();
 
@@ -81,7 +84,6 @@ $ascii =~ s/^\s+//;
 $ascii =~ s/\s+\z//;
 
 is ($ascii, "<--", 'as ascii');
-is ($path->as_html(), "<td class='edge'>&lt;------<\/td>\n", 'as html');
 
 # rendering of seems
 $edge = Graph::Easy::Edge->new( style => 'dot-dash' );
@@ -114,7 +116,6 @@ $path->{style_ver} = 'solid';
 $ascii = $path->as_ascii();
 is ($ascii, "  |       \n..!.......\n  |       ", 'crossing between dotted and solid');
 
-
 #############################################################################
 # edge_type()
 
@@ -126,5 +127,6 @@ my $et = 'Graph::Easy::Edge::Cell::edge_type';
   is (&$et( EDGE_VER() ), 'vertical', 'EDGE_VER');
   is (&$et( EDGE_CROSS() ), 'crossing', 'EDGE_CROSS');
   is (&$et( EDGE_SHORT_W() ), 'horizontal, ending west, starting east', 'EDGE_SHORT_W');
+  is (&$et( EDGE_N_W_S() ), 'selfloop, northwards', 'EDGE_N_W_S');
 }
 

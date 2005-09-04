@@ -6,14 +6,12 @@
 package Graph::Easy::Node::Empty;
 
 use 5.006001;
-use strict;
 use Graph::Easy::Node;
 
-use vars qw/$VERSION @ISA/;
-
 @ISA = qw/Graph::Easy::Node/;
+$VERSION = '0.02';
 
-$VERSION = '0.01';
+use strict;
 
 #############################################################################
 
@@ -24,10 +22,10 @@ sub _init
 
   $self->SUPER::_init($args);
   
-  $self->{w} = 5;
+  $self->{w} = 3;
   $self->{h} = 3;
 
-  $self->{att}->{"border-style"} = 'none';
+  $self->{class} = 'node.empty';
 
   $self;
   }

@@ -7,15 +7,20 @@ use strict;
 
 BEGIN
    {
-   plan tests => 27;
+   plan tests => 28;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
    use_ok ("Graph::Easy") or die($@);
+   use_ok ("Graph::Easy::As_ascii") or die($@);
    };
 
 can_ok ("Graph::Easy::Node", qw/
+  as_ascii
+
   _printfb
+  _printfb_ver
+  _draw_label
   _framebuffer
   /);
 

@@ -7,19 +7,26 @@ In addition:
 
 Important short-term TODO:
 
-* HTML output is broken and misses the edges
-  + use 3x3 table-cells to render the edges with border-attributes
-* todos/invisible.txt causes an endless loop in the chain-finding code
-  (because the code follows a link back to a node already in the chain
-   currently processed. Stoping this will, however, make other tests
-   fail to find the longest possible chain)
+* general layout rules:
+  * do not place a node immidiately next to another
+  * do not run an edge along a side of a node
+    (well, actually, we need to fix the "starting edge cannot cross an edge"
+     bug by considering _all_ fields as potential starting fields in A*)
 * Node::Empty need to render their right/bottom border if their
-  right/bottom neighbour is in the same cluster
+  right/bottom neighbour also has a border
+* unplacing edge-crossings does not work, leaving stray edge crossings
+* implement HTML nodes as triangles, house, etc. using slanted edges
+* define missing HTML edge cells (selfloops, corners and CROSS w. end/start
+  points)
+* as_html(): output of node-clusters is slightly wrong
+* as_html(): output of groups is definitely wrong
+* Non-existant cells in a node-cluster are handled different than empty
+  ones (f.i. at the end of one row)
+* missing edges sometimes do not result in an error message
 
 Parser:
 
 * edge parsing " -- test \>-->" => "test >" as edge label
-
 * deal with " -> [ node ], [node2], [node3]"
 * parse nested graphs
 * support for node splitting ala:
@@ -33,6 +40,9 @@ Parser:
 * use "{}" to nest blocks?
 * Nodes with both "|" and "\|" in their name are not parsed correctly
 * handle RGB colors with percentages or fractions like: rgb(100%,50%,0.5)
+* quoting of "[" and "{" inside edge labels ala:
+
+  [ A ] -- label \[ 8 ] --> [ B ]
 
 Output:
 
@@ -63,19 +73,10 @@ Output:
 * as_txt(): output of node chains is not optimal
 * as_ascii(): render dotted nodes with ":" on their lower corners
 * as_ascii(): output group borders and group labels
-* as_html: "border-width: 1" should be "border-width: 1px"
-* as_html: node clusters have spacings between nodes:
-           The spacing comes from the filler cells to make groups
-	   work - arg!
-* as_html(): output group labels
-* as_html(): edges are borked in Opera, the table cell is not big enough
-	     to hold them (*sigh*)
-* as_html(): add a class "link" to generated links (so they can be styled
-             differently)
 * better support for different shapes (circle, box, rounded, polygon etc)
-  in HTML/ASCII/Graphviz
-* better support for different edge styles in HTML/Graphviz
-* as_html: deal with multi-celled nodes
+  in ASCII/Graphviz
+* support "border-style: double" in graphviz (via shape=polygon)
+* need better support for different edge styles in Graphviz
 * as_ascii() and others: grow cells around point-shaped nodes to intrude:
 
 	...........................
@@ -102,7 +103,7 @@ Layout:
     flow: (up|down|left|right|north|south|west|east|0|90|180|270|360);
   to force or suggest direction of edges leaving a node
 * allow user to specifiy "align: left, top;" or "align: center, middle" to
-  specify alignment of label inside node. (left|right|center|middle|top|bottom)
+  specify alignment of labels. (left|right|center|middle|top|bottom)
 * the A* algorithm needs fine-tuning to generate less bendy paths
 
 Optimizer:
@@ -115,7 +116,5 @@ Optimizer:
 
 Manual:
 
-* finish the HTML conversion (Graph::Easy::Pod2HTML)
-* improve the actual manual text, add chapters about topics like:
-  + clusters, groups etc
+* finish the POD to HTML conversion (Graph::Easy::Pod2HTML)
 

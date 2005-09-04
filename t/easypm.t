@@ -26,6 +26,7 @@ can_ok ("Graph::Easy", qw/
   set_attribute
   get_attribute
   attribute
+  del_attribute
   score
   id
   group groups add_group del_group
@@ -54,7 +55,7 @@ is (scalar $graph->nodes(), 2, '2 nodes');
 is (scalar $graph->edges(), 1, '1 edges');
 is ($graph->is_simple_graph(), 1, 'simple graph (2 nodes, 1 edge)');
 
-my $node3 = Graph::Easy::Node->new( name => 'Frankfurt', border => 'dotted' );
+my $node3 = Graph::Easy::Node->new( name => 'Frankfurt');
 
 $graph->add_edge( $node2, $node3 );
 
@@ -291,7 +292,7 @@ sub good_css
 
   my $css = $graph->css();
 
-  foreach my $class (qw/edge group/, )
+  foreach my $class (qw/edge node/, )
     {
     like ($css, qr/table\.graph\d* \.$class/, "$class in css");
     }

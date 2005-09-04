@@ -24,6 +24,7 @@ my $graph = $parser->from_file( $file );
 die ($parser->error()) unless defined $graph;
 
 $graph->id($id);
+$graph->timeout(120);
 $graph->layout();
 
 warn ($graph->error()) if $graph->error();

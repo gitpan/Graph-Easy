@@ -12,7 +12,7 @@ use Graph::Easy;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 sub new
   {
@@ -35,10 +35,11 @@ sub _init
   
   foreach my $k (keys %$args)
     {
-#    if ($k !~ /^(|debug)\z/)
-#      {
-#      $self->error ("Unknown option '$k'");
-#      }
+    if ($k !~ /^(debug)\z/)
+      {
+      require Carp;
+      Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Parser->new()");
+      }
     $self->{$k} = $args->{$k};
     }
 
@@ -55,6 +56,8 @@ sub reset
   $self->{cluster_id} = '';		# each cluster gets a unique ID
   $self->{line_nr} = -1;
   $self->{graph} = undef;
+
+  $self->{clusters} = {};		# cluster names we already created
 
   Graph::Easy::Node::_reset_id();	# start with the same set of IDs
 
@@ -87,6 +90,8 @@ sub from_file
 sub from_text
   {
   my ($self,$txt) = @_;
+
+  $self = $self->new() unless ref $self;
 
   $self->reset();
 
@@ -139,9 +144,8 @@ sub from_text
 
     my $line = $backbuffer . $curline;
 
-    # XXX TODO: this should *only* capture "fff" or "ffffff", but not "ffff":
-    # convert #808080 into \#808080
-    $line =~ s/:\s*(#[a-fA-F0-9]{3,6})/: \\$1/g;
+    # convert #808080 into \#808080, and "#fff" into "\#fff"
+    $line =~ s/:\s*(#([a-fA-F0-9]{6}|[a-fA-F0-9]{3}))/: \\$1/g;
 
     # remove comment at end of line (but leave \# alone):
     $line =~ s/[^\\]#.*//;
@@ -195,7 +199,7 @@ sub from_text
 
       if (@group_stack == 0)
         {
-        $self->parse_error("Found unexpected group end at line $self->{line_nr}");
+        $self->parse_error(0);
         return undef;
         }
       my $group = pop @group_stack;
@@ -206,7 +210,28 @@ sub from_text
 
       $line =~ s/^$qr_group_end$qr_oatr//;
       }
-    # [ Berlin ] { color: red; }
+    # { attributes }
+    elsif ($line =~ /^$qr_attr/)
+      {
+      # This happens in the case of "[ Test ]\n { ... }", the node is consumed
+      # first, and the attributes are left over:
+
+      my $a = $self->_parse_attributes($1||'');
+
+      if (@stack == 0)
+        {
+        # error, no object that the attributes can apply to
+        $self->parse_error(3);
+        return undef;
+        }
+
+      for my $n (@stack)
+        {
+        $n->set_attributes($a);
+        }
+      # remove parsed part
+      $line =~ s/^$qr_attr//;
+      }
     elsif ($line =~ /^$qr_node$qr_oatr/)
       {
       my $n1 = $1;
@@ -236,8 +261,11 @@ sub from_text
       my $eg = $1;					# entire edge ("-- label -->" etc)
 
       my $edge_bd = $2 || $4;				# bidirectional edge ('<') ?
+      my $edge_un = 0;					# undirected edge?
+      $edge_un = 1 if !defined $2 && !defined $5;
+
       my $edge_label = $7 || '';			# optional edge label
-      my $ed = $3 || $5;				# edge pattern/style ("--")
+      my $ed = $3 || $5 || $1;				# edge pattern/style ("--")
 
       my $edge_atr = $11 || '';				# save edge attributes
 
@@ -274,6 +302,7 @@ sub from_text
           $edge->set_attributes($edge_atr);
 	  # "<--->": bidirectional
           $edge->bidirectional(1) if $edge_bd;
+          $edge->undirected(1) if $edge_un;
           $graph->add_edge ( $node, $node_b, $edge );
           }
         }
@@ -331,7 +360,7 @@ sub _new_node
     # create a new anon node and add it to the graph
     my $node = Graph::Easy::Node::Anon->new();
     $graph->add_node($node);
-    push @rc, $node;
+    @rc = ( $node );
     }
   elsif ($name =~ /[^\\]\|/)
     {
@@ -348,12 +377,12 @@ sub _new_node
     while ($g == 1)
       {
       my $base_try = $base_name; $base_try .= '-' . $self->{cluster_id} if $self->{cluster_id};
-      last if !defined $graph->cluster($base_try);
+      last if !exists $self->{clusters}->{$base_try};
       $self->{cluster_id}++;
       }
     $base_name .= '-' . $self->{cluster_id} if $self->{cluster_id}; $self->{cluster_id}++;
 
-    my $cluster = $graph->add_cluster($base_name);
+    $self->{clusters}->{$base_name} = undef;	# reserve this name
 
     my $x = 0; my $y = 0; my $idx = 0;
     my $remaining = $name;
@@ -371,7 +400,6 @@ sub _new_node
         {
         # create an empty node with no border
         $class = "Graph::Easy::Node::Empty";
-        $part = ' ';
         }
       elsif ($part =~ /^0x20{2,}\z/)
         {
@@ -386,14 +414,11 @@ sub _new_node
 
       my $node_name = "$base_name.$idx";
 
-      my $node = $class->new( {
-        name => $node_name, label => $part, dx => $x, dy => $y 
-        } );
+      my $node = $class->new( { name => $node_name, label => $part } );
       $graph->add_node($node);
-      $node->add_to_cluster($cluster);
       push @rc, $node;
-      $cluster->center_node($rc[0]) if @rc == 1;
-      $idx++;					# next node ID
+      $node->relative_to($rc[0],$x,$y) if @rc > 1;	# second, third etc get first as origin 
+      $idx++;						# next node ID
 
       $x++;
       # || starts a new row:
@@ -408,21 +433,10 @@ sub _new_node
     # collapse multiple spaces
     $name =~ s/\s+/ /g;
 
-    # unquoe \|
+    # unquote \|
     $name =~ s/\\\|/\|/g;
 
-    my $node = $graph->add_node($name);
-
-#    # try to find node with that name
-#    my $node = $graph->node($name);
-#
-#    # not found? so create a new one and add it to the graph
-#    if (!defined $node)
-#      {
-#      $node = Graph::Easy::Node->new( { name => $name } );
-#      $graph->add_node($name);
-#      }
-    push @rc, $node;
+    @rc = ( $graph->add_node($name) );		# add unless exists
     }
 
   foreach my $node (@rc)
@@ -453,7 +467,6 @@ sub _match_optional_attributes
   {
   # return a regexp that matches something like " { color: red; }" and returns
   # the inner text with the {}
-  #qr/(\s*\{\s*[^\}]+?\s*\})?/;
   qr/(\s*\{[^\}]+?\})?/;
   }
 
@@ -511,9 +524,9 @@ sub _match_edge
        (<?) 				 # optional left "<"
        ((=\s|=|-\s|-|\.\.-|\.-|\.|~)+)	 # pattern (style) of edge
        \s*				 # followed by at least a space
-       ([^>]*?)				 # many label chars (but not ">"!)
+       ([^>\[\{]*?)				 # many label chars (but not ">"!)
        (\s+\5)>				 # a space and pattern before ">"
-     |					# edge with label ("-- label -->")
+     |					# undirected edge (without arrows and label)
        (\.\.-|\.-)+			 # pattern (style) of edge (at least once)
      |
        (=\s|=|-\s|-|\.|~){2,}		 # these at least two times
@@ -530,8 +543,8 @@ sub _parse_attributes
   $class ||= 'node';
   my $att = {};
 
-  $text =~ s/^\s*\{//;		# remove left-over {
-  $text =~ s/\}\s*\z//;		# remove left-over }
+  $text =~ s/^\s*\{\s*//;	# remove left-over "{" and spaces
+  $text =~ s/\s*\}\s*\z//;	# remove left-over "}" and spaces
 
   my @atts = split /\s*;\s*/, $text;
 
@@ -546,7 +559,13 @@ sub _parse_attributes
     $val =~ s/\\#/#/g;					# unquote \#
 
     my $v = Graph::Easy->valid_attribute($name,$val,$class);
-    $self->parse_error(2,$val,$name,$class), return
+    my $rc = 2;			# invaid attribute value
+    if (ref($v) eq 'ARRAY')
+      {
+      $rc = 2;			# invalid attribute name
+      $v = undef;
+      }
+    $self->parse_error($rc,$val,$name,$class), return
       unless defined $v;				# stop on error
 
     $att->{$name} = $v;
@@ -561,8 +580,13 @@ sub parse_error
   my $msg_nr = shift;
 
   # XXX TODO: should really use the msg nr mapping
-  my $msg = "Value '##param2##' for attribute '##param1##' is invalid";
-  $msg = "Error in attribute: '##param1##' is not a valid ##param2## for ##param3##" if $msg_nr == 2;
+  my $msg = "Found unexpected group end at line $self->{line_nr}";			# 0
+  $msg = "Value '##param2##' is not a valid attribute name for a ##param3##"		# 1
+        if $msg_nr == 1;
+  $msg = "Error in attribute: '##param1##' is not a valid ##param2## for a ##param3##"
+	if $msg_nr == 2;								# 2
+  $msg = "Error: Found attributes, but expected group or node start"
+	if $msg_nr == 3;								# 3
 
   my $i = 1;
   foreach my $p (@_)
@@ -739,13 +763,18 @@ C<Graph::Easy::Parser> supports the following methods:
 	use Graph::Easy::Parser;
 	my $parser = Graph::Easy::Parser->new();
 
-Creates a new parser object.
+Creates a new parser object. The only valid parameter is debug,
+when set to true it will enable debug output to STDERR:
+
+	my $parser = Graph::Easy::Parser->new( debug => 1 );
+	$parser->from_text('[A] -> [ B ]');
 
 =head2 reset()
 
 	$parser->reset();
 
-Reset the status of the parser, clear errors etc.
+Reset the status of the parser, clear errors etc. Automatically called
+when you call any of the C<from_XXX()> methods below.
 
 =head2 from_text()
 

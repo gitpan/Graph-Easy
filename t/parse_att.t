@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 36;
+   plan tests => 41;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -84,19 +84,24 @@ color: slategrey;|color=#708090;
 color: slategrey;|color=#708090;
 color: gray;|color=#808080;
 color: gray;|color=#808080;
+border-style: double;|border-style=double;
+border-width: 1;|border-width=1;
+border-color: red;|border-color=#ff0000;
 color: red; border: none; |border=none;color=#ff0000;
 color:|error=Error in attribute: 'color:' doesn't look valid
 : red;|error=Error in attribute: ': red' doesn't look valid
 : red|error=Error in attribute: ': red' doesn't look valid
-color: reddish|error=Error in attribute: 'reddish' is not a valid color
+color: reddish|error=Error in attribute: 'reddish' is not a valid color for a node
 color:;background: red|error=Error in attribute: 'color:' doesn't look valid
-shape:fruggle;|error=Error in attribute: 'fruggle' is not a valid shape
-color: rgb(256, 0, 0);|error=Error in attribute: 'rgb(256, 0, 0)' is not a valid color
-color: rgb(0, 256, 0);|error=Error in attribute: 'rgb(0, 256, 0)' is not a valid color
-color: rgb(0, 0, 256);|error=Error in attribute: 'rgb(0, 0, 256)' is not a valid color
-shape: qiggle;|error=Error in attribute: 'qiggle' is not a valid shape for node
-point-shape: qiggle;|error=Error in attribute: 'qiggle' is not a valid point-shape for node
-toint-shape: qiggle;|error=Error in attribute: 'qiggle' is not a valid toint-shape for node
+shape:fruggle;|error=Error in attribute: 'fruggle' is not a valid shape for a node
+color: rgb(256, 0, 0);|error=Error in attribute: 'rgb(256, 0, 0)' is not a valid color for a node
+color: rgb(0, 256, 0);|error=Error in attribute: 'rgb(0, 256, 0)' is not a valid color for a node
+color: rgb(0, 0, 256);|error=Error in attribute: 'rgb(0, 0, 256)' is not a valid color for a node
+shape: qiggle;|error=Error in attribute: 'qiggle' is not a valid shape for a node
 offset: -3,-2;|offset=-3,-2;
 offset: 3,-2;|offset=3,-2;
 offset: -3,2;|offset=-3,2;
+fill: brown;|fill=#a52a2a;
+point-shape: qiggle;|error=Error in attribute: 'qiggle' is not a valid point-shape for a node
+toint-shape: qiggle;|error=Error in attribute: 'qiggle' is not a valid toint-shape for a node
+autolabel: qiggle;|error=Error in attribute: 'qiggle' is not a valid autolabel for a node

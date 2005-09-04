@@ -6,10 +6,10 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 use strict;
-use Graph::Easy::Node::Empty;
+use Graph::Easy::Attributes;
 
 #############################################################################
 
@@ -50,18 +50,17 @@ sub _init
   $self->{att} = { };
   $self->{class} = 'node';		# default class
 
-  $self->{dx} = 0;		# relative to no other node
-  $self->{dy} = 0;
- 
-  # XXX TODO check arguments (and better handling)
   foreach my $k (keys %$args)
     {
+    if ($k !~ /^(label|name)\z/)
+      {
+      require Carp;
+      Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Node->new()");
+      }
     $self->{$k} = $args->{$k};
     $self->{att}->{$k} = $args->{$k} if $k eq 'label';
     }
   
-  $self->{error} = '';
-
   # w can only be computed once we know our graph and our border style, so postpone it
   $self->{h} = 1 + 2 if !defined $self->{h};
   
@@ -72,9 +71,12 @@ sub _init
   $self->{cx} = 1;
   $self->{cy} = 1;
  
-  # These are undef (to save memory) until needed 
-  #$self->{groups} = {};
-  #$self->{contains} = undef;
+  # These are undef (to save memory) until needed: 
+  # $self->{groups} = {};
+  # $self->{children} = {};
+  # $self->{dx} = 0;		# relative to no other node
+  # $self->{dy} = 0;
+  # $self->{origin} = 0;
   
   $self;
   }
@@ -104,9 +106,11 @@ sub _correct_size
 
   return if defined $self->{w};
 
-  my $shape = $self->attribute('shape') || 'box';
+  my $border = $self->attribute('border-style') || 'none';
 
-  if ($shape eq 'point')
+  my $shape = $self->attribute('shape') || 'rect';
+
+  if ($shape eq 'point' || $shape eq 'invisible')
     {
     $self->{w} = 3;
     $self->{h} = 3;
@@ -114,39 +118,29 @@ sub _correct_size
   else
     {
     my ($w,$h) = $self->dimensions();
-    my $border = $self->attribute('border-style') || 'none';
-    if ($border eq 'none')
-      {
-      $self->{w} = $w + 2;
-      $self->{h} = $h + 2;
-      }
-    else
-      {
-      $self->{w} = $w + 4;
-      $self->{h} = $h + 2;
-      }
+    $self->{h} = $h + 2;
+    $self->{w} = $w + 2;
+    $self->{w} +=2 if $border ne 'none';
     }
 
-  # handle clustered nodes
-  return if !defined $self->{cluster};
+  # border-collapse not nec. if we do not have a border
+  # XXX TODO: base on "border-collapse: collapse;"
+  return if $border eq 'none';
 
-  # find out whether the cell above us belongs to our cluster
+  # find out whether the cell above/left of us is a node (w/ border)
   my $cells = $self->{graph}->{cells};
- 
   my $x = $self->{x}; my $y = $self->{y};
 
   my $top = $cells->{"$x," . ($y-1)};
   my $left = $cells->{($x-1) . ",$y"};
-  my $cluster = $self->{cluster};
 
-  print "# $self->{label} $self->{w} $self->{h}\n";
-
-  if (defined $top && $top->{cluster} == $cluster)
+  # XXX TODO: base on "border-collapse: collapse;"
+  if (ref($top) =~ /^Graph::Easy::Node/)
     {
     $self->{h} --;
     $self->{no_border_top} = 1;
     }
-  if (defined $left && $left->{cluster} == $cluster)
+  if (ref($left) =~ /^Graph::Easy::Node/)
     {
     $self->{no_border_left} = 1;
     $self->{w} --;
@@ -179,13 +173,70 @@ sub unplace
   $self;
   }
 
-sub place
+sub _place_children
   {
-  # Tries to place the node at position ($x,$y) by checking that
-  # $cells->{"$x,$y"} is still free. If the node belongs to a cluster,
-  # checks all nodes of the cluster (and when all of them can be
-  # placed simultanously, does so).
-  # Returns true if the operation succeeded, otherwise false.
+  # recursively place node and it's children
+  my ($self, $x, $y, $cells) = @_;
+
+  no warnings 'recursion';
+
+  return 0 unless $self->_check_place($x,$y,$cells);
+
+  print STDERR "# placing children of $self->{name} based on $x,$y\n" if $self->{debug};
+
+  for my $child (values %{$self->{children}})
+    {
+    my $rc = $child->_place_children($x + $child->{dx},$y + $child->{dy},$cells);
+    return $rc if $rc == 0;
+    }
+  $self->_place($x,$y,$cells);
+
+  1;
+  }
+
+sub _place
+  {
+  # place this node at the requested position (without checking)
+  my ($self, $x, $y, $cells) = @_;
+
+#  print STDERR "# place $self->{name} on $x,$y\n";
+
+  $self->{x} = $x;
+  $self->{y} = $y;
+  $cells->{"$x,$y"} = $self;
+
+  # a multi-celled node will be stored like this:
+  # [ node   ] [ filler ]
+  # [ filler ] [ filler ]
+  # [ filler ] [ filler ] etc.
+
+  if ($self->{cx} + $self->{cy} > 2)    # one of them > 1!
+    {
+    for my $ax (1..$self->{cx})
+      {
+      my $sx = $x + $ax - 1;
+      for my $ay (1..$self->{cy})
+        {
+        next if $ax == 1 && $ay == 1;   # skip left-upper most cell
+        my $sy = $y + $ay - 1;
+
+        # We might even get away with creating only one filler cell
+        # although then it's "x" and "y" values would be "wrong".
+
+        my $filler = Graph::Easy::Node::Cell->new ( node => $self );
+        $filler->{x} = $sx;
+        $filler->{y} = $sy;
+        $cells->{"$sx,$sy"} = $filler;
+        }
+      }
+    } # end handling of multi-celled node
+
+  1;					# did place us
+  } 
+
+sub _check_place
+  {
+  # chack that a node can be placed at $x,$y (w/o checking it's children)
   my ($self,$x,$y,$cells) = @_;
 
   # node cannot be placed here
@@ -204,80 +255,23 @@ sub place
         }
       }
     }
+  1;					# can place it here
+  }
 
-  # belongs to a cluster => check all nodes
-  if (exists $self->{cluster} && defined $self->{cluster})
-    {
-    # The coordinates of the origin node. Because 'dx' and 'dy' give
-    # our distance from the origin, we can compute the origin by doing
-    # "$x - $dx"
-    my $ox = $x - $self->{dx};
-    my $oy = $y - $self->{dy};
-    
-    my @nodes = $self->{cluster}->nodes();
-    foreach my $node (@nodes)
-      {
-      my $x = $node->{dx} + $ox;
-      my $y = $node->{dy} + $oy;
-      return 0 if exists $cells->{"$x,$y"};	# cell already blocked
+sub place
+  {
+  # Tries to place the node at position ($x,$y) by checking that
+  # $cells->{"$x,$y"} is still free. If the node belongs to a cluster,
+  # checks all nodes of the cluster (and when all of them can be
+  # placed simultanously, does so).
+  # Returns true if the operation succeeded, otherwise false.
+  my ($self,$x,$y,$cells) = @_;
 
-      if ($node->{cx} + $node->{cy} > 2)	# one of them > 1!
-        {
-        for my $ax (1..$node->{cx})
-          {
-          my $sx = $x + $ax - 1;
-          for my $ay (1..$node->{cy})
-            {
-            # node cannot be placed here
-	    my $sy = $y + $ay - 1;
-            return 0 if exists $cells->{"$sx,$sy"};
-            }
-          }
-        } # end handling of multi-celled node
-      }
+  # inlined from _check() for speed reasons:
 
-    # place all the other nodes 
-    foreach my $node (@nodes)
-      {
-      my $x = $node->{dx} + $ox;
-      my $y = $node->{dy} + $oy;
-      $node->{x} = $x;
-      $node->{y} = $y;
-      $cells->{"$x,$y"} = $node;
+  # node cannot be placed here
+  return 0 if exists $cells->{"$x,$y"};
 
-      if ($node->{cx} + $node->{cy} > 2)	# one of them > 1!
-        {
-        for my $ax (1..$node->{cx})
-          {
-          my $sx = $x + $ax - 1;
-          for my $ay (1..$node->{cy})
-            {
-            next if $ax == 1 && $ay == 1;	# skip left-upper most cell
-	    my $sy = $y + $ay - 1;
-	    # We might even get away with creating only one filler cell
-	    # although then it's "x" and "y" values would be "wrong".
-            my $filler = Graph::Easy::Node::Cell->new ( node => $node );
-            $filler->{x} = $sx;
-            $filler->{y} = $sy;
-            $cells->{"$sx,$sy"} = $filler;
-            }
-          }
-        } # end handling of multi-celled node
-      }
-    # we return early here, because $self was already handled above
-    return 1;
-    }
-
-  # place this node at the requested position
-  $self->{x} = $x;
-  $self->{y} = $y;
-  $cells->{"$x,$y"} = $self;
-
-  # a multi-celled node will be stored like this:
-  # [ node   ] [ filler ]
-  # [ filler ] [ filler ]
-  # [ filler ] [ filler ] etc.
- 
   if ($self->{cx} + $self->{cy} > 2)	# one of them > 1!
     {
     for my $ax (1..$self->{cx})
@@ -285,17 +279,35 @@ sub place
       my $sx = $x + $ax - 1;
       for my $ay (1..$self->{cy})
         {
-        next if $ax == 1 && $ay == 1;	# skip left-upper most cell
         my $sy = $y + $ay - 1;
-        # We might even get away with creating only one filler cell
-        # although then it's "x" and "y" values would be "wrong".
-        my $filler = Graph::Easy::Node::Cell->new ( node => $self );
-        $filler->{x} = $sx;
-        $filler->{y} = $sy;
-        $cells->{"$sx,$sy"} = $filler;
+        # node cannot be placed here
+        return 0 if exists $cells->{"$sx,$sy"};
         }
       }
-    } # end handling of multi-celled node
+    }
+
+  my $children = 0;
+  $children = scalar keys %{$self->{children}} if $self->{children};
+
+  # relativ to another, or has children (relativ to us)
+  if (defined $self->{origin} || $children > 0)
+    {
+    # The coordinates of the origin node. Because 'dx' and 'dy' give
+    # our distance from the origin, we can compute the origin by doing
+    # "$x - $dx"
+
+    my $grandpa = $self; my $ox = 0; my $oy = 0;
+    # Find our grandparent (e.g. the root of origin chain), and the distance
+    # from $x,$y to it:
+    ($grandpa,$ox,$oy) = $self->find_grandparent() if $self->{origin};
+
+    # Traverse all children and check their places, place them if poss.
+    # This will also place ourselves, because we are a grandchild of $grandpa
+    return $grandpa->_place_children($x + $ox,$y + $oy,$cells);
+    }
+
+  # finally place this node at the requested position
+  $self->_place($x,$y,$cells);
 
   1;							# success
   }
@@ -321,264 +333,12 @@ sub _formatted_label
   @lines;
   }
 
-sub _framebuffer
-  {
-  # generate an actual framebuffer consisting of spaces
-  my ($self, $w, $h) = @_;
-
-  print STDERR "# trying to generate framebuffer of undefined width for $self->{name}\n",
-               join (": ", caller(),"\n") if !defined $w;
-
-  my @fb;
-  my $line = ' ' x $w;
-  for my $y (1..$h)
-    {
-    push @fb, $line;
-    }
-  \@fb;
-  }
-
-sub _printfb
-  {
-  # Print (potential a multiline) text into a framebuffer
-  # Caller MUST ensure proper size of FB, for speed reasons,
-  # we do not check wether text fits!
-  my ($self, $fb, $x, $y, @lines) = @_;
-
-  # [0] = '0123456789...'
-  # [1] = '0123456789...' etc
-
-  for my $l (@lines)
-    {
-
-#    # XXX DEBUG:
-#    if ( $x + length($l) > length($fb->[$y]))
-#      {
-#      require Carp;
-#      Carp::confess("substr outside framebuffer");
-#      }
-
-    substr ($fb->[$y], $x, length($l)) = $l; $y++;
-    }
-  }
-
-sub _printfb_ver
-  {
-  # Print a string vertical into a framebuffer.
-  # Caller MUST ensure proper size of FB, for speed reasons,
-  # we do not check wether text fits!
-  my ($self, $fb, $x, $y, $line) = @_;
-
-  # this more than twice as fast as:
-  #  "@pieces = split//,$line; _printfb(...)"
-
-  my $y1 = $y + length($line);
-  substr ($fb->[$y1], $x, 1) = chop($line) while ($y1-- > $y);
-  }
-
- # for ASCII:
-
- # the array contains for each style:
- # upper left edge
- # upper right edge
- # lower right edge
- # lower left edge
- # hor style
- # ver style (multiple characters possible)
-
-my $border_styles  = {
-  solid =>		[ '+', '+', '+', '+', '-',   [ '|'      ] ],
-  dotted =>		[ '.', '.', '.', '.', '.',   [ ':'      ] ],
-  dashed =>		[ '+', '+', '+', '+', '- ',  [ "'"      ] ],
-  'dot-dash' =>		[ '+', '+', '+', '+', '.-',  [ '!'      ] ],
-  'dot-dot-dash' =>	[ '+', '+', '+', '+', '..-', [ '|', ':' ] ],
-  bold =>		[ '#', '#', '#', '#', '#',   [ '#'      ] ],
-  double =>		[ '#', '#', '#', '#', '=',   [ 'H'      ] ],
-  'double-dash' =>	[ '#', '#', '#', '#', '= ',  [ '"'      ] ],
-  wave =>		[ '+', '+', '+', '+', '~',   [ '{', '}' ] ],
-  none =>		[ ' ', ' ', ' ', ' ', ' ',   [ ' '      ] ],
-  };
-
-sub _draw_border
-  {
-  # draws a border into the framebuffer
-  my ($self, $fb, $do_right, $do_bottom, $do_left, $do_top) = @_;
-
-  return if $do_right.$do_left.$do_bottom.$do_top eq 'nonenonenonenone';
-
-  my $w = $self->{w};
-  if ($do_top ne 'none')
-    {
-    # make a copy of the style, so that we can modify it for partial borders
-    my $style = [ @{ $border_styles->{$do_top} } ];
-    die ("Unknown top border style '$do_top'") if @$style == 0;
-
-    # top-left corner piece is only there if we have a left border
-    my $tl = $style->[0]; $tl = '' if $do_left eq 'none';
-
-    # generate the top border
-    my $top = $tl . $style->[4] x (($self->{w}) / length($style->[4]) + 1);
-
-    $top = substr($top,0,$w) if length($top) > $w;
-    
-    # top-right corner piece is only there if we have a right border
-    substr($top,-1,1) = $style->[1] if $do_right ne 'none';
-
-    # insert top row into FB
-    $self->_printfb( $fb, 0,0, $top);
-    }
-
-  if ($do_bottom ne 'none')
-    {
-    # make a copy of the style, so that we can modify it for partial borders
-    my $style = [ @{ $border_styles->{$do_bottom} } ];
-    die ("Unknown bottom border style '$do_bottom'") if @$style == 0;
-
-    # bottom-left corner piece is only there if we have a left border
-    my $bl = $style->[0]; $bl = '' if $do_left eq 'none';
-
-    # the bottom row '+--------+' etc
-    my $bottom = $bl . $style->[4] x (($self->{w}) / length($style->[4]) + 1);
-
-    $bottom = substr($bottom,0,$w) if length($bottom) > $w;
-
-    # bottom-right corner piece is only there if we have a right border
-    substr($bottom,-1,1) = $style->[1] if $do_right ne 'none';
-
-    # insert bottom row into FB
-    $self->_printfb( $fb, 0,$self->{h}-1, $bottom);
-    }
-
-  return if $do_right.$do_left eq 'nonenone';	# both none => done
-
-  # make a copy of the style, so that we can modify it for partial borders
-  my $style = [ @{ $border_styles->{$do_left} } ];
-  die ("Unknown left border style '$do_left'") if @$style == 0;
-  my $left = $style->[5];
-  my $lc = scalar @{ $style->[5] } - 1;		# count of characters
-
-  # make a copy of the style, so that we can modify it for partial borders
-  $style = [ @{ $border_styles->{$do_right} } ];
-  die ("Unknown left border style '$do_right'") if @$style == 0;
-  my $right = $style->[5];
-  my $rc = scalar @{ $style->[5] } - 1;		# count of characters
-
-  my (@left, @right);
-  my $l = 0; my $r = 0;				# start with first character
-  my $s = 1; $s = 0 if $do_top eq 'none';
-  for ($s..$self->{h}-2)
-    {
-    push @left, $left->[$l]; $l ++; $l = 0 if $l > $lc;
-    push @right, $right->[$r]; $r ++; $r = 0 if $r > $rc;
-    }
-  # insert left/right columns into FB
-  $self->_printfb( $fb, 0, $s, @left) unless $do_left eq 'none';
-  $self->_printfb( $fb, $w-1, $s, @right) unless $do_right eq 'none';
-
-  $self;
-  }
- 
-# ASCII: the different point styles
-
-my $point_styles = {
-  'star' => '*',
-  'square' => '#',
-  'dot' => '.',
-  'circle' => '*', 	# unfortunately, we do not have a filled o
-  'ring' => 'o',
-  'none' => ' ',
-  'cross' => '+',
-  };  
-
-
-sub _draw_label
-  {
-  # insert the label into the framebuffer
-  my ($self, $fb) = @_;
-
-  my $shape = $self->attribute('shape') || 'box';
-
-  my @lines; 
-  if ($shape eq 'point')
-    {
-    # point-shaped nodes do not show their label in ASCII
-    my $style = $self->attribute('point-style') || 'point';
-    @lines = ($point_styles->{$style} || '*');
-    }
-  else
-    {
-    @lines = $self->_formatted_label();
-    }
-
-  #        +----
-  #        | Label  
-  # 2,1: ----^
-
-  #my $border = $self->attribute('border-style') || 'none';
-  #my $y = 1; $y = 0 if $border eq 'none';
-
-  my $y = int( ($self->{h} - @lines) / 2);
-  my $max = length($lines[0] || '');
-  for my $l (@lines) { $max = length($l) if length($l) > $max; }
-  my $x = int( ($self->{w} - $max) / 2);
-
-  $self->_printfb ($fb, $x, $y, @lines);
-  }
-
-sub as_ascii
-  {
-  # renders a node like:
-  # +--------+    ..........    ""
-  # | A node | or : A node : or " --> "
-  # +--------+    ..........    "" 
-  my ($self, $x,$y) = @_;
-
-  my $shape = $self->attribute('shape') || 'box';
-
-  # invisible nodes
-  return '' if $shape eq 'invisible';
-
-  my $fb = $self->_framebuffer($self->{w}, $self->{h});
-
-  # point-shaped nodes do not have a border
-  if ($shape ne 'point')
-    {
-    my $border_style = $self->attribute('border-style') || 'solid';
-    my $border_width = $self->attribute('border-width') || '1';
-
-    # XXX TODO: borders for groups in ASCII output
-    $border_style = 'none' if ref($self) =~ /Group/;
-
-    # "3px" => "bold"
-    $border_style = 'bold' if $border_width > 2;
-
-    my $style = $border_style;
-
-    #########################################################################
-    # draw our border into the framebuffer
-
-    my $b_top = $style; $b_top = 'none' if $self->{no_border_top};
-    my $b_left = $style; $b_left = 'none' if $self->{no_border_left};
-
-    # XXX TODO: different styles for the different borders
-    $self->_draw_border($fb, $style, $style, $b_left, $b_top)
-      unless $style eq 'none';
-    }
-
-  ###########################################################################
-  # "draw" the label into the framebuffer
-
-  $self->_draw_label($fb, $x, $y);
-  
-  join ("\n", @$fb);
-  }
-
 sub error
   {
   my $self = shift;
 
   $self->{error} = $_[0] if defined $_[0];
-  $self->{error};
+  $self->{error} || '';
   }
 
 sub attributes_as_txt
@@ -590,7 +350,7 @@ sub attributes_as_txt
   my $class = $self->class();
   my $g = $self->{graph};
 
-  my $new = $g->_remap_attributes( $class, $self->{att}, $remap, 'noquote');
+  my $new = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'remap_colors');
 
   for my $atr (sort keys %$new)
     {
@@ -641,34 +401,64 @@ sub as_txt
   '[ ' .  $name . ' ]' . $self->attributes_as_txt();
   }
 
+sub link
+  {
+  # return the link, build from linkbase and link (or autolink)
+  my $self = shift;
+
+  my $link = $self->attribute('link');
+  my $autolink = $self->attribute('autolink');
+  if (!defined $link && defined $autolink)
+    {
+    $link = $self->{name} if $autolink eq 'name';
+    # defined to avoid overriding "name" with the non-existant label attribute
+    $link = $self->{att}->{label} if $autolink eq 'label' && defined $self->{att}->{label};
+    $link = $self->{name} if $autolink eq 'label' && !defined $self->{att}->{label};
+    }
+  $link = '' unless defined $link;
+
+  # prepend base only if link is relative
+  if ($link ne '' && $link !~ /^([\w]{3,4}:\/\/|\/)/)
+    {
+    my $base = $self->attribute('linkbase');
+    $link = $base . $link if defined $base;
+    }
+  $link;
+  }
+
 sub as_html
   {
-  my ($self, $tag, $id, $noquote) = @_;
+  my ($self, $noquote) = @_;
 
-  $tag = 'td' unless defined $tag && $tag ne '';
-  $id = '' unless defined $id;
+  my $tag = 'td';
+
+  my $id = $self->{graph}->{id};
   my $a = $self->{att};
 
   # return yourself as HTML
   my $shape = $self->attribute('shape') || '';
 
+  my $class = $self->class();
+
+  # how many rows/columns will this node span?
+  my $rs = ($self->{cy} || 1) * 4;
+  my $cs = ($self->{cx} || 1) * 4;
+
   # shape: invisible; must result in an empty cell
-  if ($shape eq 'invisible')
+  if ($shape eq 'invisible' && $class ne 'node.anon')
     {
-    return "<$tag style=\"border: none; background: inherit;\"></$tag>";
+    return " <$tag colspan=$cs rowspan=$rs style=\"border: none; background: inherit;\"></$tag>\n";
     }
 
-  my $class = $self->class();
   my $c = $class; $c =~ s/\./-/g;	# node.city => node-city
-  my $html = "<$tag";
+
+  my $html = " <$tag colspan=$cs rowspan=$rs";
   $html .= " class='$c'" if $class ne '';
 
   my $name = $self->label(); 
 
   if (!$noquote)
     {
-#    $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
-
     $name =~ s/&/&amp;/g;			# quote &
     $name =~ s/>/&gt;/g;			# quote >
     $name =~ s/</&lt;/g;			# quote <
@@ -681,15 +471,17 @@ sub as_html
 
   my $style = '';
 
-  $style .= "-moz-border-radius: 10%; " if $shape eq 'rounded';
-  $style .= "-moz-border-radius: 100%; " if $shape eq 'ellipse';
+  $style .= "-moz-border-radius: 10%; border-radius: 10%; " if $shape eq 'rounded';
+  $style .= "-moz-border-radius: 100%; border-radius: 100%; " if $shape eq 'ellipse';
   if ($shape eq 'circle')
     {
     my ($w, $h) = $self->dimensions();
     my $r = $w; $r = $h if $h > $w;
     my $size = ($r * 0.7) . 'em';
-    $style .= "-moz-border-radius: 100%; height: $size; width: $size; ";
+    $style .= "-moz-border-radius: 100%; border-radius: 100%; height: $size; width: $size; ";
     }
+
+  # XXX TODO: should use remap_attributes()
 
   for my $atr (sort keys %$a)
     {
@@ -698,7 +490,7 @@ sub as_html
 
     # skip these:
     next if $atr =~
-	/^(label|linkbase|link|autolink|autotitle|title|shape)\z/;
+	/^(rows|columns|size|origin|offset|label|linkbase|link|autolink|autotitle|title|shape|style|flow|point-style)\z/;
 
     # attribute defined, but same as default (or node not in a graph)
 #    if (!defined $self->{graph})
@@ -710,9 +502,14 @@ sub as_html
     my $DEF = $self->{graph}->attribute ($class, $atr);
     next if defined $DEF && $a->{$atr} eq $DEF;
 
-    $style .= "$atr: $a->{$atr}; ";
+    my $name = $atr; $name = 'background' if $atr eq 'fill';
+
+    $style .= "$name: $a->{$atr}; ";
     }
   $style =~ s/;\s$//;				# remove '; ' at end
+
+#  print STDERR "# as_html node $self->{name}: style: '$style'\n";
+
   $html .= " style=\"$style\"" if $style;
 
   my $title = $self->title();
@@ -723,26 +520,7 @@ sub as_html
     $html .= " title=\"$title\"";		# cell with mouse-over title
     }
 
-  my $link = $self->attribute('link');
-  my $autolink = $self->attribute('autolink');
-  if (!defined $link && defined $autolink)
-    {
-    $link = $self->{name} if $autolink eq 'name';
-    # defined to avoid overriding "name" with the non-existant label attribute
-    $link = $self->{att}->{label} if $autolink eq 'label' && defined $self->{att}->{label};
-    $link = $self->{name} if $autolink eq 'label' && !defined $self->{att}->{label};
-
-    warn ("'$autolink' not allowed for attribute 'autolink' on node $self->{name}")
-      if $autolink !~ /^(name|label|none)\z/;
-    }
-  $link = '' unless defined $link;
-
-  # only if link is relative, prepend base
-  if ($link ne '' && $link !~ /^\w+:\/\//)
-    {
-    my $base = $self->attribute('linkbase');
-    $link = $base . $link if defined $base;
-    }
+  my $link = $self->link();
 
   if ($link ne '')
     {
@@ -750,7 +528,7 @@ sub as_html
     $link =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
     # encode critical entities
     $link =~ s/\s/\+/g;			# space
-    $html .= "> <a href='$link'>$name</a> </$tag>\n";
+    $html .= "> <a class='l' href='$link'>$name</a> </$tag>\n";
     }
   else
     {
@@ -770,20 +548,29 @@ sub grow
 
   # XXX TODO: grow the node based on it's label dimensions
 #  my ($w,$h) = $self->dimensions();
+#
+#  my $cx = int(($w+2) / 5) || 1;
+#  my $cy = int(($h) / 3) || 1;
+#
+#  $self->{cx} = $cx if $cx > $self->{cx};
+#  $self->{cy} = $cy if $cy > $self->{cy};
+
 
   # since selfloops count twice in connections(), but actually block only
-  # one port, we can just count the edges
+  # one port, we can just count the edges here:
   my $connections = scalar keys %{$self->{edges}};
 
   # grow the node based on the general flow first VER, then HOR
-#  my $direction = $self->attribute('flow') || 90;
+  my $flow = $self->attribute('flow') || 90;
 
+  my $first = "cy"; my $second = "cx";
+  ($first,$second) = ($second,$first) if $flow == 0 || $flow == 180;
   while ( ($self->{cx} * 2 + $self->{cy} * 2) < $connections)
     {
     # find the minimum
     # XXX TODO: use "flow" attribute to choose Y or X preference
-    my $grow = 'cy';		# first in Y direction
-    $grow = 'cx' if $self->{cx} < $self->{cy};
+    my $grow = $first;		# first in Y direction
+    $grow = $second if $self->{$second} < $self->{$first};
     $self->{$grow}++;
     }
 
@@ -833,13 +620,6 @@ sub x
   $self->{x};
   }
 
-sub contains
-  {
-  my $self = shift;
-
-  $self->{contains};
-  }
-
 sub name
   {
   my $self = shift;
@@ -869,11 +649,11 @@ sub pos
   ($self->{x}, $self->{y});
   }
 
-sub relpos
+sub offset
   {
   my $self = shift;
 
-  ($self->{dx}, $self->{dy});
+  ($self->{dx} || 0, $self->{dy} || 0);
   }
 
 sub width
@@ -909,7 +689,6 @@ sub shape
   my $self = shift;
 
   my $shape = $self->attribute('shape') || 'rect';
-  $shape =~ s/^(rectangle|box)\z/rect/;                 # rectangle, box => rect
   $shape;
   }
 
@@ -931,6 +710,9 @@ sub dimensions
     }
   ($w,$h);
   }
+
+#############################################################################
+# edges and connections
 
 sub edges_to
   {
@@ -1011,8 +793,12 @@ sub predecessors
   values %pre;
   }
 
+#############################################################################
+# class management
+
 sub class
   {
+  # return our full class name like "node.subclass" or "node"
   my $self = shift;
 
   $self->{class};
@@ -1020,6 +806,7 @@ sub class
 
 sub sub_class
   {
+  # get/set the subclass
   my $self = shift;
 
   if (defined $_[0])
@@ -1031,15 +818,70 @@ sub sub_class
   $1;
   }
 
+#############################################################################
+# relatively placed nodes
+
 sub origin
   {
-  # Returns node that this node is relative to (or undef, if not part of
-  # any cluster)
+  # Returns node that this node is relative to or undef, if not.
   my $self = shift;
 
-  return undef unless ref $self->{cluster};
+  $self->{origin};
+  }
 
-  $self->{cluster}->center_node();
+sub relative_to
+  {
+  # Sets the new origin if passed a Graph::Easy::Node object.
+  my ($self,$parent,$dx,$dy) = @_;
+
+  if (ref($parent) !~ /^Graph::Easy::Node/)
+    {
+    require Carp;
+    Carp::confess("Can't set origin to non-node object $parent");
+    }
+
+  my $grandpa = $parent->find_grandparent();
+  if ($grandpa == $self)
+    {
+    require Carp;
+    Carp::confess( "Detected loop in origin-chain:"
+                  ." tried to set origin of '$self->{name}' to my own grandchild $parent->{name}");
+    }
+
+  if (defined $self->{origin})
+    {
+    # unregister us with our old parent
+    delete $self->{origin}->{children}->{$self->{id}};
+    }
+  $self->{origin} = $parent;
+  $self->{dx} = $dx if defined $dx;
+  $self->{dy} = $dy if defined $dy;
+
+  # register us as a new child
+  $parent->{children}->{$self->{id}} = $self;
+
+  $self;
+  }
+
+sub find_grandparent
+  {
+  # For a node that has no origin (is not relative to another), returns
+  # $self. For all others, follows the chain of origin back until we
+  # hit a node without a parent. This code assumes there are no loops,
+  # which origin() prevents from happening.
+  my $cur = shift;
+
+  my $ox = 0;
+  my $oy = 0;
+
+  while (defined($cur->{origin}))
+    {
+    $ox -= $cur->{dx};
+    $oy -= $cur->{dy};
+    $cur = $cur->{origin};
+    }
+
+  wantarray ? ($cur,$ox,$oy) : $cur;
   }
 
 #############################################################################
@@ -1047,7 +889,8 @@ sub origin
 
 sub border_attribute
   {
-  # return "1px solid red" from the border-(style|color|width) attributes
+  # Return "solid 1px red" from the individual border-(style|color|width)
+  # attributes
   my ($self) = @_;
 
   my $style = $self->{att}->{'border-style'} || '';
@@ -1057,7 +900,10 @@ sub border_attribute
   my $width = $self->{att}->{'border-width'} || '';
   my $color = $self->{att}->{'border-color'} || '';
 
+  $color = Graph::Easy->color_name($color) if $color ne '';
+
   $width = $width.'px' if $width =~ /^\s*\d+\s*\z/;
+  $width = '' if $style eq 'double';
 
   my $val = join(" ", $width, $style, $color);
   $val =~ s/^\s+//;
@@ -1076,7 +922,7 @@ sub attribute
 
   my $g = $self->{graph};
   # if we do not belong to a graph, we cannot inherit attributes
-  return unless defined $g;
+  return unless ref($g) =~ /^Graph::Easy/;
 
   my $class = $self->{class};
   
@@ -1098,7 +944,9 @@ sub attribute
 
   # If neither our group nor our parent class had the attribute, try to
   # inherit it from "graph" as a last resort:
-  $att = $g->attribute ('graph', $atr) unless defined $att;
+
+  $att = $g->attribute ('graph', $atr) if !defined $att && 
+    $atr =~ /^(flow|linkbase|autolink|autotitle)\z/;
 
   $att;
   }
@@ -1113,10 +961,18 @@ sub del_attribute
   
 sub set_attribute
   {
-  my ($self, $atr, $v) = @_;
-  
-  warn ("Illegal attribute 'name' in Node::set_attribute()") if $atr eq 'name';
- 
+  my ($self, $name, $v, $class) = @_;
+
+  $name = 'undef' unless defined $name;
+  $v = 'undef' unless defined $v;
+
+  if (!defined $class)
+    {
+    # Graph::Easy::Edge => "edge"
+    ref($self) =~ /Graph::Easy::([^:]+)/;
+    $class = lc($1);
+    }
+
   my $val = $v;
   # remove quotation marks
   $val =~ s/^["']//;
@@ -1126,18 +982,37 @@ sub set_attribute
   # decode %XX entities
   $val =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
 
-  if ($atr eq 'class')
+  my $g = $self->{graph};
+  my $strict = 0; $strict = $g->{strict} if $g;
+  if ($strict)
+    {
+    my $v = $g->valid_attribute($name,$val,$class);
+
+    if (ref($v) eq 'ARRAY')
+      {
+      $g->error("Error: '$name' is not a valid attribute for $class");
+      return;
+      }
+    if (!defined $v)
+      {
+      $g->error("Error in attribute: '$val' is not a valid $name for $class");
+      return;
+      }
+    $val = $v;
+    }
+
+  if ($name eq 'class')
     {
     $self->sub_class($val);
     return $self;
     }
-  if ($atr eq 'group')
+  if ($name eq 'group')
     {
     $self->add_to_groups($val);
     return $self;
     }
 
-  if ($atr eq 'border')
+  if ($name eq 'border')
     {
     my $c = $self->{att};
 
@@ -1147,15 +1022,15 @@ sub set_attribute
     return $val;
     }
 
-  if ($atr =~ /^(rows|columns|size)\z/)
+  if ($name =~ /^(rows|columns|size)\z/)
     {
-    if ($atr eq 'size')
+    if ($name eq 'size')
       {
       $val =~ /^(\d+),(\d+)\z/;
       ($self->{cx}, $self->{cy}) = (abs(int($1)),abs(int($2)));
       ($self->{att}->{rows}, $self->{att}->{columns}) = ($self->{cx}, $self->{cy});
       }
-    elsif ($atr eq 'rows')
+    elsif ($name eq 'rows')
       {
       $self->{cy} = abs(int($val));
       $self->{att}->{rows} = $self->{cy};
@@ -1168,7 +1043,33 @@ sub set_attribute
     return $self;
     }
 
-  $self->{att}->{$atr} = $val;
+  if ($name eq 'origin')
+    {
+    # if it doesn't exist, add it
+    my $org = $self->{graph}->add_node($val);
+    $self->relative_to($org);
+    return $self;
+    }
+
+  if ($name eq 'offset')
+    {
+    # if it doesn't exist, add it
+    my ($x,$y) = split/,/, $val;
+
+    $x = int($x);
+    $y = int($y);
+
+    if ($x == 0 && $y == 0)
+      {
+      require Carp;
+      Carp::confess ("Attribute offset is 0,0 in node $self->{name}");
+      }
+    $self->{dx} = $x;
+    $self->{dy} = $y;
+    return $self;
+    }
+
+  $self->{att}->{$name} = $val;
   $self;
   }
 
@@ -1205,8 +1106,17 @@ sub border_attributes
 
 #  print STDERR "border: ($val) style '$style' color '$border' width '$width'\n";
 
-  # XXX TODO: more strict checks on possible values
-  ($style,$width,$border || 0);			# left over must be color
+  # left over must be color
+  my $color = $border;
+  $color = Graph::Easy->color_as_hex($border) if $border ne '';
+
+  if (!defined $color)
+    {
+    require Carp;
+    Carp::confess( $self->error("$border is not a valid border-color") );
+    } 
+
+  ($style,$width,$color);			
   }
 
 #############################################################################
@@ -1260,39 +1170,6 @@ sub add_to_groups
   $self;
   }
 
-#############################################################################
-# cluster handling
-
-sub _add_to_cluster
-  {
-  # called by Graph::Easy::Cluster to add ourself to the cluster of nodes
-  my $self = shift;
-
-  $self->{cluster} = $_[0];
-  }
-
-sub add_to_cluster
-  {
-  # add the node to the specified cluster
-  my ($self,$cluster) = @_;
-
-  my $graph = $self->{graph};				# shortcut
-
-  # if passed a cluster name, create or find cluster object
-  $cluster = $graph->add_cluster($cluster) if !ref($cluster) && $graph;
-
-  $cluster->add_node($self) if ref($cluster);
-  $self;
-  }
-
-sub cluster
-  {
-  # Get the cluster this node belongs to
-  my ($self) = shift;
-
-  $self->{cluster};
-  }
-
 1;
 __END__
 
@@ -1304,13 +1181,11 @@ Graph::Easy::Node - Represents a node in a simple graph
 
         use Graph::Easy::Node;
 
-	my $bonn = Graph::Easy::Node->new(
-		name => 'Bonn',
-		border => 'solid 1px black',
-	);
-	my $berlin = Graph::Easy::Node->new(
-		name => 'Berlin',
-	)
+	my $bonn = Graph::Easy::Node->new('Bonn');
+
+	$bonn->set_attribute('border', 'solid 1px black');
+
+	my $berlin = Graph::Easy::Node->new( name => 'Berlin' );
 
 =head1 DESCRIPTION
 
@@ -1329,7 +1204,8 @@ then please use the following to create the node object:
 
 	my $node = $graph->add_node('Node name');
 
-You can then use C<< $node->set_attribute(); >>.
+You can then use C<< $node->set_attribute(); >>
+or C<< $node->set_attributes(); >> to set the new Node's attributes.
 
 =head2 error()
 
@@ -1374,37 +1250,9 @@ Return the node in simple txt format, without the attributes.
 
 =head2 as_html()
 
-	my $html = $node->as_html($tag, $id, $noquote);
+	my $html = $node->as_html();
 
-Return the node in HTML. The C<$tag> is the optional name of the HTML
-tag to surround the node name with. C<$id> is an optional ID that is
-tagged onto the classname for the CSS. If the last parameter, C<$noquote>,
-is true, then the node's name will not be quoted/encoded for HTML output.
-This is usefull if it's name is already quoted.
-
-Example:
-
-	print $node->as_html('span');
-
-Would print something like:
-
-	<span class="node"> Bonn </span>
-
-While:
-
-	print $node->as_html('td');
-
-Would print something like:
-
-	<td class="node"> Bonn </td>
-
-The following:
-
-	print $node->as_html('span', '12');
-
-Would print something like:
-
-	<span class="node12"> Bonn </span>
+Return the node as HTML code.
 
 =head2 attribute()
 
@@ -1514,13 +1362,12 @@ L<rows()> and L<cols()>.
 Returns the position of the node. Initially, this is undef, and will be
 set from C<Graph::Easy::layout>.
 
-=head2 relpos()
+=head2 offset()
 
-	my ($dx,$dy) = $node->relpos();
+	my ($dx,$dy) = $node->offset();
 
-Returns the position of the node relativ to the origin. For the origin node
-itself (see L<origin()> or for nodes not belonging to any cluster, returns
-C<<0,0>>.
+Returns the position of the node relativ to the origin. Returns C<(0,0)> if
+the origin node was not sset.
 
 =head2 x()
 
@@ -1594,26 +1441,17 @@ name.
 Returns the group with the specified name if the node belongs to that group,
 othrwise undef.
 
-=head2 cluster()
-
-	my $cluster = $node->cluster();
-
-Get the cluster that this node belongs to. See also C<add_to_cluster()>.
-
 =head2 origin()
 
 	my $origin_node = $node->origin();
 
-Returns the node this node is relativ to, if in a cluster. Undef otherwise.
+Returns the node this node is relativ to, or undef otherwise.
 
-If the node itself is the center of the cluster, will return C<$self>.
+=head2 relative_to()
 
-=head2 add_to_cluster()
+	$node->relative_to($parent, $dx, $dy);
 
-	$node->add_to_cluster($cluster);
-
-Add the node to the specified cluster. C<$cluster> is either the cluster
-name, or a reference pointing to a L<Graph::Easy::Cluster> object.
+Sets itself relativ to C<$parent> with the offset C<$dx,$dy>.
 
 =head2 place()
 
@@ -1623,9 +1461,10 @@ name, or a reference pointing to a L<Graph::Easy::Cluster> object.
 	  }
 
 Tries to place the node at position C<< ($x,$y) >> by checking that
-C<<$cells->{"$x,$y"}>> is still free. If the node belongs to a cluster,
-checks all nodes of the cluster and when all of them can be
-placed without a problem, does so.
+C<<$cells->{"$x,$y"}>> is still free. If the node is relative
+to any other node, follow back to the origin, and then
+process all children of the origin in one go, and if possible,
+places them all.
 
 Returns true if the operation succeeded, otherwise false.
 
@@ -1633,9 +1472,7 @@ Returns true if the operation succeeded, otherwise false.
 
 	my $shape = $node->shape();
 
-Returns the shape of the node as string, defaulting to 'rect'. Both
-'rectangle' and 'box' as node shapes will result in 'rect' as return
-value.
+Returns the shape of the node as string, defaulting to 'rect'. 
 
 =head1 EXPORT
 

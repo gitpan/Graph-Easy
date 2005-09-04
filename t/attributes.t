@@ -5,10 +5,11 @@ use strict;
 
 BEGIN
    {
-   plan tests => 23;
+   plan tests => 30;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Attributes") or die($@);
+   use_ok ("Graph::Easy") or die($@);
    };
 
 can_ok ("Graph::Easy", qw/
@@ -56,6 +57,12 @@ is ($new_value, '#ff0000', 'color red is valid for node.subclass');
 $new_value = $att->valid_attribute( 'color', 'redbrownish' );
 is ($new_value, undef, 'color redbrownish is not valid');
 
+$new_value = $att->valid_attribute( 'border-color', 'redbrownish' );
+is ($new_value, undef, 'border-color redbrownish is not valid');
+
+$new_value = $att->valid_attribute( 'border-shape', 'double' );
+is (ref($new_value), 'ARRAY', 'border-shape is not valied');
+
 #############################################################################
 # valid_attribute for graph only:
 
@@ -63,18 +70,48 @@ $new_value = $att->valid_attribute( 'gid', '123', 'graph' );
 is ($new_value, '123', 'gid 123 is valid for graph');
 
 $new_value = $att->valid_attribute( 'gid', '123', 'node' );
-is ($new_value, undef, 'gid is invalid for nodes');
+is (ref($new_value), 'ARRAY', 'gid is invalid for nodes');
 
 $new_value = $att->valid_attribute( 'gid', '123', 'edge' );
-is ($new_value, undef, 'gid is invalid for edges');
+is (ref($new_value), 'ARRAY', 'gid is invalid for edges');
 
 $new_value = $att->valid_attribute( 'output', 'html', 'graph' );
 is ($new_value, 'html', 'output "html" is valid for graph');
 
 $new_value = $att->valid_attribute( 'output', 'html', 'node' );
-is ($new_value, undef, 'output is invalid for nodes');
+is (ref($new_value), 'ARRAY', 'output is invalid for nodes');
 
 $new_value = $att->valid_attribute( 'output', 'html', 'edge' );
-is ($new_value, undef, 'output is invalid for edges');
+is (ref($new_value), 'ARRAY', 'output is invalid for edges');
+
+#############################################################################
+# setting attributes on graphs, nodes and edges
+
+my $graph = Graph::Easy->new();
+
+my ($n,$m,$e) = $graph->add_edge('A','B');
+
+$n->set_attribute('color','red');
+is ($graph->error(),'','no error');
+$graph->error('');			# reset potential error for next test
+
+$n->set_attribute('shape','point');
+is ($graph->error(),'','no error');
+$graph->error('');			# reset potential error for next test
+
+$e->set_attribute('shape','point');
+is ($graph->error(),"Error: 'shape' is not a valid attribute for edge",'no error');
+$graph->error('');			# reset potential error for next test
+
+
+$graph->set_attribute('graph', 'shape', 'point');
+is ($graph->error(),"Error: 'shape' is not a valid attribute for graph",'no error');
+$graph->error('');			# reset potential error for next test
+
+
+
+
+
+
 
 
