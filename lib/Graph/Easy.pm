@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.27';
+$VERSION = '0.28';
 
 use strict;
 
@@ -638,7 +638,10 @@ sub css
   # and list them in the CSS, too. Otherwise "node-city" would not inherit
   # the attributes from "node".
 
-  my $css = $self->_class_styles( $self->_skip() );
+  my $css = $self->_class_styles( $self->_skip(),
+    {
+    'fill' => 'background',
+    } );
 
   my @groups = $self->groups();
 
@@ -811,14 +814,20 @@ sub as_html
   $html .= ">\n";
 
   my $caption = $self->attribute('graph','label');
-  $html .= "<caption>$caption</caption>\n" if defined $caption && $caption ne '';
-
+  if (defined $caption && $caption ne '')
+    {
+    my $bg = $self->attribute('graph','background');
+    $bg = '' if !defined $bg;
+    $bg = " style='background: $bg'" if $bg ne '';
+    $html .= "<caption$bg>$caption</caption>\n"
+    }
+ 
   # now run through all rows, and for each of them through all columns 
   for my $y (sort { ($a||0) <=> ($b||0) } keys %$rows)
     {
 
-    # max three rows at a time
-    my $rs = [ [], [], [] ];
+    # four rows at a time
+    my $rs = [ [], [], [], [] ];
 
     # for all possible columns
     for my $x (sort { $a <=> $b } keys %$cols)
@@ -851,43 +860,40 @@ sub as_html
       }
 
     ######################################################################
-    # replace undef with empty tags (but not if we have groups, because
-    # firefox treats non-existing cells different than empty cells. 
-    # also remove trailing empty tag-pairs
+    # remove trailing empty tag-pairs, then replace undef with empty tags
 
     for my $row (@$rs)
       {
-      if ($groups == 0)
-        {
-        pop @$row while (@$row > 0 && !defined $row->[-1]);
-        }
-      else
-        {
-        push @$row, undef while (@$row < $max_cells);
-        }
+      pop @$row while (@$row > 0 && !defined $row->[-1]);
       foreach (@$row)
         {
         $_ = " <td colspan=4 rowspan=4></td>\n" unless defined $_;
         }
       }
 
-#    # now combine equal columns
-#    my $i = 0;
-#    while ($i < @row)
-#      {
-#      # count all sucessive equal ones
-#      my $j = $i + 1;
-#      while ($j < @row && $row[$j] eq $row[$i]) { $j++; }
-#      if ($j > $i + 1)
-#        {
-#        my $cnt = $j - $i - 1;
-#        # throw away
-#        splice (@row, $i + 1, $cnt); $cnt++;
-#        # replace
-#        $row[$i] =~ s/<$tag/<$tag colspan=$cnt/;
-#        }
-#      $i++;
-#      }
+    # now combine equal columns to shorten output
+    for my $row (@$rs)
+      {
+      # append row to output
+      my $i = 0;
+      while ($i < @$row)
+        {
+        # count all sucessive equal ones
+        my $j = $i + 1;
+        while ($j < @$row && $row->[$j] eq $row->[$i]) { $j++; }
+        if ($j > $i + 1)
+          {
+          my $cnt = $j - $i - 1;
+          # throw away
+          splice (@$row, $i + 1, $cnt);
+          # insert empty colspan if not already there
+          $row->[$i] =~ s/<td/<td colspan=0/ unless $row->[$i] =~ /colspan/;
+          # replace
+          $row->[$i] =~ s/colspan=(\d+)/'colspan='.($1+$cnt*4)/e;
+          }
+        $i++;
+        }
+      }
 
     ######################################################################
     
@@ -1336,7 +1342,8 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
 
 	# adding edges with attributes:
 
-        my $edge = Graph::Easy::Edge->new(
+        my $edge = Graph::Easy::Edge->new();
+	$edge->set_attributes(
                 label => 'train',
                 style => 'dotted',
                 color => 'red',
@@ -1386,10 +1393,10 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
 =head1 DESCRIPTION
 
 C<Graph::Easy> lets you generate graphs consisting of various shaped
-boxes connected with arrows.
+nodes connected by edges (with optional labels).
 
 It works on a grid (manhattan layout), and thus the output is
-most usefull for flow charts, network diagrams, or hirarchy trees.
+most usefull for flow charts, network diagrams, or hierarchy trees.
 
 =head2 Input
 
@@ -1866,7 +1873,7 @@ are limitations in the parser, which cannot yet handle the following features:
 
 =over 2
 
-=item nesting (graph-in-a-node)
+=item nesting (graph-in-a-graph)
 
 =item node lists
 
@@ -1926,25 +1933,12 @@ strategy might be improved.
 
 =back
 
-=head2 Node-Size
+=head2 Output formats
 
-A node consisting of multiple cells might be rendered incorrectly
-on output.
-
-Nodes with more than one cell are automatically generated when they
-are overly wide or high, or when they have more than four
-incoming/outgoing edges.
-
-=head2 Grouping
-
-The output of the graphs in ASCII does not yet include the group
-information.
-
-=head2 Other formats
-
-Formats other than ASCII and HTML are not yet complete in their
-implementation. If you notice any bugs or defiencies, please
-drop me a note!
+Some output formats are not yet complete in their
+implementation. Please see the online manual at
+L<http://bloodgate.com/perl/graph/manual> under "Output" for
+details.
 
 =head1 LICENSE
 

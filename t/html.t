@@ -102,6 +102,6 @@ $graph->set_attribute( 'graph', 'label' => 'My Graph Label' );
 
 $html = $graph->as_html();
 
-like ($html, qr/<caption>My Graph Label<\/caption>/, 'graph caption from label');
+like ($html, qr/<caption style='background: inherit'>My Graph Label<\/caption>/, 'graph caption from label');
 
 

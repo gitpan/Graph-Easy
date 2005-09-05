@@ -63,7 +63,7 @@ is ($node->class(), '', 'class filler');
 # as_ascii/as_html
 
 is ($node->as_ascii(), '', 'as_ascii');
-is ($node->as_html(), " <td colspan=4 rowspan=4></td>\n", 'as_html');
+is ($node->as_html(), '', 'as_html');
 
 #############################################################################
 # group tests

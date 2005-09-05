@@ -1,5 +1,14 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-09-05 v0.28 Tels 1058 tests - Offset, offset, offset, offset the position...
+  * fix LIMITATIONS section in POD
+  * fix POD in Graph::Easy::Attributes
+  * fix testsuite to match reality
+  * as_html(): fix output for groups
+  * as_html(): combine equal table cells to shorten output (by 10% or so)
+  * as_html(): remap "fill" to "background" for classes (especially "graph")
+  * as_html(): caption gets graph's background as background
+
 2005-09-04 v0.27 Tels 1058 tests - Offset, offset, offset, offset the position...
   * remove Graph::Easy::Cluster, and overhaul relative-node position code
     + use "[ B ] { origin: A; offset: 2,0 }" to position A relative to B

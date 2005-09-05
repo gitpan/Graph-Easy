@@ -12,6 +12,7 @@ Important short-term TODO:
   * do not run an edge along a side of a node
     (well, actually, we need to fix the "starting edge cannot cross an edge"
      bug by considering _all_ fields as potential starting fields in A*)
+* missing edges sometimes do not result in an error message
 * Node::Empty need to render their right/bottom border if their
   right/bottom neighbour also has a border
 * unplacing edge-crossings does not work, leaving stray edge crossings
@@ -19,10 +20,13 @@ Important short-term TODO:
 * define missing HTML edge cells (selfloops, corners and CROSS w. end/start
   points)
 * as_html(): output of node-clusters is slightly wrong
-* as_html(): output of groups is definitely wrong
+* as_html(): there is no space between two nodes placed next (with filler
+	     cell) to each other. Make filler cells output a &nbsp;
 * Non-existant cells in a node-cluster are handled different than empty
   ones (f.i. at the end of one row)
-* missing edges sometimes do not result in an error message
+* add margin/padding attributes (especially usefull for HTML output)
+* as_html(): IE misses edge corners (find out how we can force it to
+  render these)
 
 Parser:
 

@@ -35,7 +35,7 @@ sub _init
 
   foreach my $k (keys %$args)
     {
-    if ($k !~ /^(node)\z/)
+    if ($k !~ /^(node|graph)\z/)
       {
       require Carp;
       Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Node->new()");

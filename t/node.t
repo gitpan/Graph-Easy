@@ -237,7 +237,7 @@ foreach my $l (
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: orange; link: http://bloodgate.com/; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar' style=\"color: #ffa500\"> <a href='http://bloodgate.com/'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #ffa500\"> <a class='l' href='http://bloodgate.com/'>Node #0</a> </td>\n",
     'as_html');
   }
 
@@ -251,7 +251,7 @@ foreach my $l (
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: orange; link: perl/; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar' style=\"color: #ffa500\"> <a href='/wiki/index.php/perl/'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #ffa500\"> <a class='l' href='/wiki/index.php/perl/'>Node #0</a> </td>\n",
     'as_html');
   }
 
@@ -259,14 +259,14 @@ $node->set_attribute('link', "test test&");
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: orange; link: test test&; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar' style=\"color: #ffa500\"> <a href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #ffa500\"> <a class='l' href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
     'as_html');
 
 $node->set_attribute('color', "\\#801010");
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: #801010; link: test test&; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar' style=\"color: #801010\"> <a href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #801010\"> <a class='l' href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
     'as_html');
 
 #############################################################################
@@ -278,7 +278,7 @@ $node->set_attribute('point-style','diamond');
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: #801010; flow: 90; link: test test&; point-style: diamond; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar' style=\"color: #801010\"> <a href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #801010\"> <a class='l' href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
     'as_html');
 
 #############################################################################

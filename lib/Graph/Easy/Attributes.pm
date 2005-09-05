@@ -9,7 +9,7 @@ package Graph::Easy;
 use strict;
 use vars qw/$VERSION/;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 #############################################################################
 # color handling
@@ -646,7 +646,7 @@ Graph::Easy::Attributes - Define and check attributes for Graph::Easy
 
 	use Graph::Easy;
 
-	my $hexred   = Graph::Easy->color_as_hex( 'red' );
+	my $hexred = Graph::Easy->color_as_hex( 'red' );
 	print Graph::Easy->valid_attribute( 'color', 'red', 'graph' );
 
 =head1 DESCRIPTION
@@ -662,7 +662,7 @@ There should be no need to use it directly.
 =head2 valid_attribute()
 
 	my $new_value =
-	  Graph::Easy::Attributes->valid_attribute( $name, $value, $class );
+	  Graph::Easy->valid_attribute( $name, $value, $class );
 
 	if (ref($new_value) eq 'ARRAY')
 	  {
@@ -680,7 +680,7 @@ and returns a new value.
 
 The return value can differ from the passed in value, f.i.:
 
-	print Graph::Easy::Attributes->valid_attribute( 'color', 'red' );
+	print Graph::Easy->valid_attribute( 'color', 'red' );
 
 This would print '#ff0000';
 
