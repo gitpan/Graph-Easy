@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 19;
+   plan tests => 20;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Group") or die($@);
@@ -14,7 +14,6 @@ BEGIN
 
 can_ok ("Graph::Easy::Group", qw/
   new
-  as_txt
   error
   name
   add_node
@@ -33,6 +32,8 @@ is (ref($group), 'Graph::Easy::Group');
 is ($group->error(), '', 'no error yet');
 
 my $graph = Graph::Easy->new();
+
+use_ok ('Graph::Easy::As_txt');
 
 # "insert" into a graph to get default attributes
 $group->{graph} = $graph;

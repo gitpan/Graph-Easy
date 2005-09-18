@@ -8,7 +8,7 @@ package Graph::Easy::As_txt;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #############################################################################
 #############################################################################
@@ -126,6 +126,82 @@ sub _as_txt
     }
 
   $txt;
+  }
+
+#############################################################################
+
+package Graph::Easy::Node;
+
+use strict;
+
+sub attributes_as_txt
+  {
+  # return the attributes of this node as text description
+  my ($self, $remap) = @_;
+
+  my $att = '';
+  my $class = $self->class();
+  my $g = $self->{graph};
+
+  my $new = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'remap_colors');
+
+  for my $atr (sort keys %$new)
+    {
+    next if $atr =~ /^border/;                  # handled special
+
+    $att .= "$atr: $new->{$atr}; ";
+    }
+
+  my $border = $self->border_attribute() || '';
+
+  if (defined $g)
+    {
+    my $DEF = $g->border_attribute ($class);
+    $border = '' if $border eq $DEF;
+    }
+  $att .= "border: $border; " if $border ne '';
+
+  # if we have a subclass, we probably need to include it
+  my $c = '';
+  $c = $1 if $class =~ /\.(\w+)/;
+
+  # but we do not need to include it if our group has a nodeclass attribute
+  for my $g (values %{$self->{groups}})
+    {
+    $c = '', last if defined $g->attribute('nodeclass');
+    }
+
+  # include our subclass as attribute
+  $att .= "class: $c; " if $c ne '';
+
+  # generate attribute text if nec.
+  $att = ' { ' . $att . '}' if $att ne '';
+
+  $att;
+  }
+
+sub as_pure_txt
+  {
+  my $self = shift;
+
+  my $name = $self->{name};
+
+  # quote special chars in name
+  $name =~ s/([\[\]\|\{\}\#])/\\$1/g;
+
+  '[ ' .  $name . ' ]';
+  }
+
+sub as_txt
+  {
+  my $self = shift;
+
+  my $name = $self->{name};
+
+  # quote special chars in name
+  $name =~ s/([\[\]\|\{\}\#])/\\$1/g;
+
+  '[ ' .  $name . ' ]' . $self->attributes_as_txt();
   }
  
 1;

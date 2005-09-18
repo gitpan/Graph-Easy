@@ -141,7 +141,7 @@ sub _find_chains
       }
     }
 
-  print STDERR "# Tracking chains\n" if $self->{debug};
+#  print STDERR "# Tracking chains\n" if $self->{debug};
  
   # For each leaf, go backwards until we hit more than one predecessor,
   # or one with _chain already set
@@ -457,8 +457,8 @@ sub layout
         print STDERR "# Step $step: Rewind stack for $action->[1]->{name}\n" if $self->{debug};
 
         # undo node placement and free all cells
-#        $action->[1]->unplace() if defined $action->[1]->{x};
-#        $action->[2]++;		# increment try for placing
+        $action->[1]->_unplace() if defined $action->[1]->{x};
+        $action->[2]++;		# increment try for placing
         $tries--;
 	last TRY if $tries == 0;
         }
@@ -480,7 +480,7 @@ sub layout
 #        if (($action_type == ACTION_NODE || $action_type == ACTION_CHAIN))
 #          {
 #          # undo node placement
-#          $action->[1]->unplace();
+#          $action->[1]->_unplace();
 #          $action->[2]++;		# increment try for placing
 #          }
   	$tries--;
@@ -539,15 +539,12 @@ sub _fill_group_cells
 
   print STDERR "\n# Padding with fill cells, have ", scalar $self->groups(), " groups.\n" if $self->{debug};
 
+  # take a shortcut if we do not have groups
   return $self if $self->groups == 0;
 
   $self->{padding_cells} = 1;		# set to true
 
-  # We need to insert "filler" cells around each node/edge/cell. If we do not
-  # have groups, this will ensure that nodes in two consecutive rows do not
-  # stick together. (We could achive the same effect with "cellpadding=3" on
-  # the table, but the cellpadding area cannot be have a different background
-  # color, which leaves ugly holes in colored groups).
+  # We need to insert "filler" cells around each node/edge/cell.
 
   # To "insert" the filler cells, we simple multiply each X and Y by 2, this
   # is O(N) where N is the number of actually existing cells. Otherwise we
@@ -562,102 +559,89 @@ sub _fill_group_cells
     $y *= 2;
     $cell->{x} = $x;
     $cell->{y} = $y;
-    $cells->{"$x,$y"} = $cells_layout->{$key};
-    # now insert filler cells above and left of this cell
-    $x -= 1;
-    $cells->{"$x,$y"} = Graph::Easy::Node::Cell->new ( graph => $self );
-    $y -= 1;
-    $cells->{"$x,$y"} = Graph::Easy::Node::Cell->new ( graph => $self );
-    $x += 1;
-    $cells->{"$x,$y"} = Graph::Easy::Node::Cell->new ( graph => $self);
-    }
+    $cells->{"$x,$y"} = $cell; 
 
-  $self->{cells} = $cells;		# override with new cell layout
-
-  # take a shortcut if we do not have groups
-  return $self if $self->groups == 0;
-  
-  # for all nodes, set sourounding cells to group
-  for my $key (keys %$cells)
-    {
-    my $n = $cells->{$key};
-    my $xn = $n->{x}; my $yn = $n->{y};
-    next unless defined $xn && defined $yn;	# only if node was placed
-
-    next if ref($n) =~ /(Group|Node)::Cell/;
+#    print STDERR "# inserting for $x, $y, ", $cell->{name} || '', "\n";
 
     my $group;
 
-    if (ref($n) =~ /Node/)
-      {
-      my @groups = $n->groups();
+    # find the primary node/edge for node/edge cells
+    $cell = $cell->{node} if ref($cell) =~ /Node::Cell/;
+    $cell = $cell->{edge} if ref($cell) =~ /Edge::Cell/;
 
-      # XXX TODO: handle nodes with more than one group
-      next if @groups != 1;			# no group? or more than one?
-      $group = $groups[0];
+    if (ref($cell) =~ /Node\z/)
+      {
+      my @groups = $cell->groups();
+      $group = $groups[0] if @groups;
       }
-    elsif (ref($n) =~ /Edge/)
+    elsif (ref($cell) =~ /Edge\z/)
       {
-      my $edge = $n;
-      $edge = $edge->{edge} if ref($n) =~ /Cell/;
-
-      # find out whether both nodes have the same group
-      my $left = $edge->from();
-      my $right = $edge->to();
+      # for edges, check group of left/right node
+      my $left = $cell->from();
+      my $right = $cell->to();
       my @l_g = $left->groups();
       my @r_g = $right->groups();
       if (@l_g == @r_g && @l_g > 0 && $l_g[-1] == $r_g[-1])
         {
         # edge inside group
         $group = $l_g[-1];
+        $cells->{"$x,$y"}->{group} = $group;
         }
       }
 
-    next unless defined $group;
+    # not part of group, so no group-cells nec.
+    next unless $group;
 
-    my $background = $group->attribute( 'background' );
+    my $c = 'Graph::Easy::Group::Cell';
 
-    # XXX TODO: take nodes with more than one cell into account
-    for my $x ($xn-1 .. $xn+1)
-      {
-      for my $y ($yn-1 .. $yn+1)
-	{
-	my $cell;
+    # now insert filler cells around this cell
 
-	if (!exists $cells->{"$x,$y"})
-	  {
-	  $cell = Graph::Easy::Group::Cell->new (
-	    group => $group, graph => $self,
-	    );
-	  }
-        else
-          {
-	  $cell = $cells->{"$x,$y"};
+    # left
+    $x -= 1;
+    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
+     unless exists $cells->{"$x,$y"};
 
-	  # convert filler cells to group cells
-          if (ref($cell) !~ /(Node\z|Edge)/)
-	    {
-	    $cell = Graph::Easy::Group::Cell->new (
-	      graph => $self, group => $group,
- 	      );
-            }
-	  else
-	    {
-            if (ref($cell) =~ /Edge/)
-	      {
-              # add the edge-cell to the group
-	      $cell->{groups}->{ $group->{name} } = $group;
-	      }
-	    }
-          }
-	$cells->{"$x,$y"} = $cell;
-	$cell->{x} = $x;
-	$cell->{y} = $y;
-	# override the background attribute with the one from the group
-        $cell->set_attribute('background', $background ) unless ref($cell) =~ /Node/;
-	}
-      }
+    # topleft
+    $y -= 1;
+    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
+     unless exists $cells->{"$x,$y"};
+
+    # top
+    $x += 1;
+    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
+     unless exists $cells->{"$x,$y"};
+
+    # topright
+    $x += 1;
+    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
+     unless exists $cells->{"$x,$y"};
+
+    # right
+    $y += 1;
+    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
+     unless exists $cells->{"$x,$y"};
+
+    # bottomright
+    $y += 1;
+    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
+     unless exists $cells->{"$x,$y"};
+
+    # bottom
+    $x -= 1;
+    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
+     unless exists $cells->{"$x,$y"};
+
+    # bottomleft
+    $x -= 1;
+    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
+     unless exists $cells->{"$x,$y"};
     }
+
+  $self->{cells} = $cells;		# override with new cell layout
+
+  # XXX TODO
+  # we should "grow" the group area to close holes
+
   # for all group cells, set their right type (for border) depending on
   # neighbour cells
   for my $key (keys %$cells)

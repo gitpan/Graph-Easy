@@ -6,10 +6,9 @@
 
 package Graph::Easy;
 
-use strict;
-use vars qw/$VERSION/;
+$VERSION = '0.07';
 
-$VERSION = '0.06';
+use strict;
 
 #############################################################################
 # color handling
@@ -228,14 +227,15 @@ sub direction_as_number
 # attribute checking
 
 # different types of attributes with pre-defined handling
-sub ATTR_STRING () { 0; }
-sub ATTR_COLOR () { 1; }
+sub ATTR_STRING		() { 0; }
+sub ATTR_COLOR		() { 1; }
+sub ATTR_LIST		() { 2; }
 
-sub ATTR_DESC_SLOT    () { 0; }
-sub ATTR_MATCH_SLOT   () { 1; }
-sub ATTR_DEFAULT_SLOT () { 2; }
-sub ATTR_EXAMPLE_SLOT () { 3; }
-sub ATTR_TYPE_SLOT    () { 4; }
+sub ATTR_DESC_SLOT	() { 0; }
+sub ATTR_MATCH_SLOT	() { 1; }
+sub ATTR_DEFAULT_SLOT	() { 2; }
+sub ATTR_EXAMPLE_SLOT	() { 3; }
+sub ATTR_TYPE_SLOT	() { 4; }
      
 # Lists the attribute names along with
 #   * a short description, 
@@ -259,7 +259,7 @@ my $attributes = {
     background => [
      "The background color, e.g. the color outside the shape. See the section about color names and values for reference.",
      undef,
-     '"white" for the graph and nodes, "inherit" for edges',
+     '"white" for the graph, "inherit" for edges, and undef and nodes',
      'rgb(255,0,0)',
      ATTR_COLOR,
      "[ Crimson ] { shape: circle; background: crimson; }\n -- Aqua Marine --> { background: #7fffd4; }\n [ Misty Rose ] { fill: rgb(255,228,221); }",
@@ -394,8 +394,8 @@ my $attributes = {
 
     shape => [
      "The shape of the node. Nodes with shape 'point' (see L<point-style>) have a fixed size and do not display their label.",
-       [ qw/ circle diamond egg ellipse hexagon house invisible invhouse invtrapezium invtriangle octagon parallelogram pentagon
-             point triangle trapezium septagon tripleoctagon rect rounded none/ ],
+       [ qw/ circle diamond ellipse hexagon house invisible invhouse invtrapezium invtriangle octagon parallelogram pentagon
+             point triangle trapezium septagon rect rounded none/ ],
       'rect',
       'circle',
      ],
@@ -442,6 +442,13 @@ my $attributes = {
       [ qw/ ascii html svg graphviz / ],
       '',
       'ascii',
+     ],
+
+    "label-pos" => [
+      "The position of the graph label.",
+      [ qw/ top bottom / ],
+      'top',
+      'bottom',
      ],
 
   }, # graph
@@ -515,8 +522,6 @@ sub valid_attribute
 
   my $entry = $attributes->{all}->{$name} || $attributes->{$class}->{$name};
 
-#  print STDERR "# $name, $value in $class\n" unless ref $entry;
-
   return [] unless ref($entry);
 
   my $check = $entry->[1];
@@ -530,7 +535,6 @@ sub valid_attribute
     }
   elsif ($check)
     {
-#    print STDERR "# checking against $check\n";
     if (ref($check) eq 'ARRAY')
       {
       # build a regexp from the list of words
@@ -656,59 +660,6 @@ and values for L<Graph::Easy|Graph::Easy>. It is used by both the parser
 and by Graph::Easy to check attributes for being valid and well-formed. 
 
 There should be no need to use it directly.
-
-=head1 METHODS
-
-=head2 valid_attribute()
-
-	my $new_value =
-	  Graph::Easy->valid_attribute( $name, $value, $class );
-
-	if (ref($new_value) eq 'ARRAY')
-	  {
-	  # throw error
-          die ("'$name' is not a valid attribute name for '$class'");
-	  }
-	elsif (!defined $new_value)
-	  {
-	  # throw error
-          die ("'$value' is no valid '$name' for '$class'");
-	  }
-
-Check that a C<$name,$value> pair is a valid attribute in class C<$class>,
-and returns a new value.
-
-The return value can differ from the passed in value, f.i.:
-
-	print Graph::Easy->valid_attribute( 'color', 'red' );
-
-This would print '#ff0000';
-
-It returns an array ref if the attribute name is invalid, and undef if the
-value is invalid.
-	
-=head2 color_as_hex()
-
-	my $hexred   = Graph::Easy->color_as_hex( 'red' );
-	my $hexblue  = Graph::Easy->color_as_hex( '#0000ff' );
-	my $hexcyan  = Graph::Easy->color_as_hex( '#f0f' );
-	my $hexgreen = Graph::Easy->color_as_hex( 'rgb(0,255,0)' );
-
-Takes a valid color name or definition (hex, short hex, or RGB) and returns the
-color in hex like C<#ff00ff>.
-
-=head2 color_name()
-
-	my $color = Graph::Easy->color_name( 'red' );	# red
-	print Graph::Easy->color_name( '#ff0000' );	# red
-
-Takes a hex color value and returns the name of the color.
-
-=head2 color_names()
-
-	my $names = Graph::Easy->color_names();
-
-Return a hash with name => value mapping for all known colors.
 
 =head1 EXPORT
 

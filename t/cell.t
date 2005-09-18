@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 27;
+   plan tests => 29;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node::Cell") or die($@);
@@ -15,7 +15,7 @@ BEGIN
 
 can_ok ("Graph::Easy::Node::Cell", qw/
   new
-  as_ascii as_txt as_html
+  as_ascii as_html
   error
   class
   name
@@ -32,8 +32,6 @@ can_ok ("Graph::Easy::Node::Cell", qw/
   set_attribute
   set_attributes
   attribute
-  attributes_as_txt
-  as_pure_txt
   group groups add_to_groups
   /);
 
@@ -100,5 +98,16 @@ $node = Graph::Easy::Node->new( { name => "anon 0", label => 'X' } );
 $node->set_attribute('shape', "invisible");
 
 is ($node->as_ascii(), "", 'invisible text node');
+
+#############################################################################
+# as_txt()
+
+use_ok ('Graph::Easy::As_txt');
+
+can_ok ("Graph::Easy::Node::Cell", qw/
+  attributes_as_txt
+  as_txt
+  as_pure_txt
+  /);
 
 

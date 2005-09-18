@@ -7,11 +7,6 @@ In addition:
 
 Important short-term TODO:
 
-* general layout rules:
-  * do not place a node immidiately next to another
-  * do not run an edge along a side of a node
-    (well, actually, we need to fix the "starting edge cannot cross an edge"
-     bug by considering _all_ fields as potential starting fields in A*)
 * missing edges sometimes do not result in an error message
 * Node::Empty need to render their right/bottom border if their
   right/bottom neighbour also has a border
@@ -20,13 +15,14 @@ Important short-term TODO:
 * define missing HTML edge cells (selfloops, corners and CROSS w. end/start
   points)
 * as_html(): output of node-clusters is slightly wrong
+* as_html(): output of crossings with different styles is wrong
 * as_html(): there is no space between two nodes placed next (with filler
 	     cell) to each other. Make filler cells output a &nbsp;
 * Non-existant cells in a node-cluster are handled different than empty
   ones (f.i. at the end of one row)
-* add margin/padding attributes (especially usefull for HTML output)
-* as_html(): IE misses edge corners (find out how we can force it to
-  render these)
+* put framebuffer related routines into own package (Graph::Easy::As_ascii)
+  to avoid the dilemma that we need them from both Node and Graph.
+* as_html(): output of groups is not optimal (Group::Cells needs overhaul)
 
 Parser:
 
@@ -78,8 +74,8 @@ Output:
 * as_ascii(): render dotted nodes with ":" on their lower corners
 * as_ascii(): output group borders and group labels
 * better support for different shapes (circle, box, rounded, polygon etc)
-  in ASCII/Graphviz
-* support "border-style: double" in graphviz (via shape=polygon)
+  in ASCII
+* support "border-style: double" together with fill colors graphviz
 * need better support for different edge styles in Graphviz
 * as_ascii() and others: grow cells around point-shaped nodes to intrude:
 
@@ -108,6 +104,7 @@ Layout:
   to force or suggest direction of edges leaving a node
 * allow user to specifiy "align: left, top;" or "align: center, middle" to
   specify alignment of labels. (left|right|center|middle|top|bottom)
+* add margin/padding attributes (especially usefull for HTML output)
 * the A* algorithm needs fine-tuning to generate less bendy paths
 
 Optimizer:

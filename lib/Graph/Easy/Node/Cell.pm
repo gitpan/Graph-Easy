@@ -6,14 +6,12 @@
 package Graph::Easy::Node::Cell;
 
 use 5.006001;
-use strict;
 use Graph::Easy::Node;
 
-use vars qw/$VERSION @ISA/;
-
 @ISA = qw/Graph::Easy::Node/;
+$VERSION = '0.07';
 
-$VERSION = '0.06';
+use strict;
 
 #############################################################################
 
@@ -38,7 +36,7 @@ sub _init
     if ($k !~ /^(node|graph)\z/)
       {
       require Carp;
-      Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Node->new()");
+      Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Node::Cell->new()");
       }
     $self->{$k} = $args->{$k};
     }

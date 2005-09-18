@@ -14,7 +14,7 @@ use vars qw/$VERSION @ISA @EXPORT_OK/;
 
 @ISA = qw/Graph::Easy::Node Exporter/;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 @EXPORT_OK = qw/
   GROUP_INNER
@@ -87,26 +87,27 @@ sub _css
 # group, '.' means don't care. Index:
 
   # +------+--------+-------+
-  # | 0     1         2     |
-  # +      +        +       +
-  # | 7               3     |
-  # +      +        +       +
-  # | 6      5        4     |
+  # | 0    :1       : 2     |
+  # +......+........+.......+
+  # | 7    :        : 3     |
+  # +......+........+.......+
+  # | 6    : 5      : 4     |
   # +------+--------+-------+
 
 my $neighbours = 
   {
-  #01234567
-  '.1.1.1.1' => GROUP_INNER, 
-  '.0.1.1.1' => GROUP_TOP, 
-  '.1.1.0.1' => GROUP_BOTTOM, 
-  '.1.1.1.0' => GROUP_LEFT, 
-  '.1.0.1.1' => GROUP_RIGHT, 
-  '.1.0.0.1' => GROUP_BOTTOM_RIGHT, 
-  '.1.1.0.0' => GROUP_BOTTOM_LEFT, 
-  '.0.0.1.1' => GROUP_TOP_RIGHT, 
-  '.0.1.1.0' => GROUP_TOP_LEFT, 
-  '.0.0.0.0' => GROUP_ALL, 
+  # 1735
+  '1111' => GROUP_INNER, 
+  '0111' => GROUP_TOP, 
+  '1101' => GROUP_BOTTOM, 
+  '1110' => GROUP_LEFT, 
+  '1011' => GROUP_RIGHT, 
+  '1001' => GROUP_BOTTOM_RIGHT, 
+  '1100' => GROUP_BOTTOM_LEFT, 
+  '0011' => GROUP_TOP_RIGHT, 
+  '0110' => GROUP_TOP_LEFT, 
+  '0000' => GROUP_ALL, 
+
   };
 
 #############################################################################
@@ -139,8 +140,9 @@ sub _init
     $self->{class} = 'group' unless defined $self->{class};
     # to make "group($name)" work
     $self->{groups}->{ $self->{group}->{name} } = $self->{group};
-    } 
-  $self->{error} = '';
+    }
+ 
+  $self->_set_type($self->{graph}->{cells}) if $self->{graph};
 
   $self;
   }
@@ -161,44 +163,31 @@ sub _set_type
   # +------+--------+-------+
 
   my @coord = (
-    [ -1,-1 ],
     [  0,-1 ],
-    [ +1,-1 ],
     [ +1, 0 ],
-    [ +1,+1 ],
     [  0,+1 ],
-    [ -1,+1 ],
     [ -1, 0 ],
     );
 
   my $pattern = '';
   my ($sx,$sy) = ($self->{x},$self->{y});
+  my $gr = $self->{group}->{name};
   foreach my $co (@coord)
     {
     my ($x,$y) = @$co; $x += $sx; $y += $sy;
     my $belongs = '0';
     my $cell = $cells->{"$x,$y"};
-#    print STDERR "$x $y = $cell\n";
-    $belongs = '1' if ref($cell) && defined $cell->group($self->{group}->{name});
+    $belongs = '1' if ref($cell) && defined $cell->{groups}->{$gr};
     $pattern .= $belongs;
     }
 
-#  print STDERR "cell $self->{x}, $self->{y} $pattern\n";
+  # get the type
+  $self->{type} = $neighbours->{$pattern};
 
-  foreach my $p (keys %$neighbours)
-    {
-    if ($pattern =~ /^$p/)
-      {
-   #   print STDERR "$pattern matches $p\n";
-      $self->{type} = $neighbours->{$p};
-      # replace subclass
-      my $new = 'group' . $border_styles->{$self->{type}}->[4];
-  
-      $self->{class} =~ s/^group[^.]*/$new/;
-      last;
-      } 
-    }
-  
+  # replace subclass
+  my $new = 'group' . $border_styles->{$self->{type}}->[4];
+  $self->{class} =~ s/^group[^.]*/$new/;
+
   $self;
   }
 
@@ -212,27 +201,9 @@ sub type
 #############################################################################
 # conversion to ASCII or HTML
 
-#sub as_ascii1
-#  {
-#  my ($self) = @_;
-#
-#  # XXX TODO: 
-#  '';
-#
-##  $self->{group}->{name} = $self->_content(0);
-##
-###  print STDERR "path: as_html: $self->{group}->{name} ($nr)\n";
-##  
-##  # let Graph::Easy::Edge (aka Node) handle the output: 
-##  $self->{group}->as_ascii(@_);
-#  }
-
-sub error
+sub as_ascii
   {
-  my $self = shift;
-
-  $self->{error} = $_[0] if defined $_[0];
-  $self->{error};
+  '';
   }
 
 #############################################################################
@@ -251,24 +222,15 @@ sub _correct_size
     if ($border eq 'none')
       {
       $self->{w} = 0;
+      $self->{h} = 0;
       }
     else
       {
       $self->{w} = 2;
+      $self->{h} = 2;
       }
     }
 
-  }
-
-#############################################################################
-# a cell simple uses the attributes from the group it belongs to
-
-sub attribute
-  {
-  my ($self, $atr) = @_;
-
-#  return $self->{group}->attribute($atr) if defined $self->{group};
-  $self->SUPER::attribute($atr);
   }
 
 1;
@@ -283,27 +245,17 @@ Graph::Easy::Group::Cell - A cell in a group
         use Graph::Easy::Path;
         use Graph::Easy::Edge;
 
-	my $ssl = Graph::Easy::Edge->new(
+	my $ssl = Graph::Easy::Edge->new( );
+
+	$ssl->set_attributes(
 		label => 'encrypted connection',
 		style => '-->',
 		color => 'red',
 	);
-	my $path = Graph::Easy::Path->new(
-		type => EDGE_SHORT_E,
-	);
-	$ssl->add_cell ($path);
-
-	my $src = Graph::Easy::Node->new(
-		name => 'source',
-	);
-
-	my $dst = Graph::Easy::Node->new(
-		name => 'destination',
-	);
 
 	$graph = Graph::Easy->new();
 
-	$graph->add_edge($src, $dst, $ssl);
+	$graph->add_edge('source', 'destination', $ssl);
 
 	print $graph->as_ascii();
 
@@ -312,6 +264,8 @@ Graph::Easy::Group::Cell - A cell in a group
 A C<Graph::Easy::Group::Cell> represents a cell of a group.
 
 Group cells can have a background and, if they are on the outside, a border.
+
+There should be no need to use this package directly.
 
 =head1 METHODS
 

@@ -14,7 +14,6 @@ BEGIN
 can_ok ("Graph::Easy", qw/
   _trace_path
   _find_path
-  _remove_path
   _create_cell
   _find_path_astar
   _find_path_loop
@@ -95,7 +94,12 @@ is (scalar @$coords, 1*$e, 'same cell => short edge path');
 $src->{x} = 1; $src->{y} = 1;
 $dst->{x} = 2; $dst->{y} = 2;
 
+#use Data::Dumper;
+
 $coords = $graph->_find_path( $src, $dst, $edge);
+
+#print STDERR "# " . Dumper($coords) . "\n";
+#print STDERR "# " . Dumper($graph->{cells}) . "\n";
 
 is (scalar @$coords, 1*$e, 'path with a bend');
 
@@ -107,6 +111,9 @@ $dst->{x} = 1; $dst->{y} = 3;
 
 $coords = $graph->_find_path( $src, $dst, $edge);
 
+#print STDERR "# " . Dumper($coords) . "\n";
+#print STDERR "# " . Dumper($graph->{cells}) . "\n";
+
 is (scalar @$coords, 3*$e, 'u shaped path (|---^)');
 
 # block src over/under to avoid an U-shaped path
@@ -114,6 +121,9 @@ $graph->{cells}->{"2,1"} = $src;
 $graph->{cells}->{"0,1"} = $src;
 
 $coords = $graph->_find_path( $src, $dst, $edge);
+
+#print STDERR "# " . Dumper($coords) . "\n";
+
 # XXX TODO: check what path is actually generated here
 is (scalar @$coords, 7*$e, 'cell already blocked');
 

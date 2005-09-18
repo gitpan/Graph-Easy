@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 104;
+   plan tests => 105;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -90,8 +90,11 @@ is ($graph->is_simple_graph(), 1, 'still simple graph');
 #############################################################################
 # attribute tests
 
-is ($graph->attribute('node', 'background'), 'white', 
-	'node { background: white }');
+is ($graph->attribute('node', 'background'), undef, 
+	'node.background = undef');
+
+is ($graph->attribute('node', 'fill'), 'white', 
+	'node { fill: white }');
 
 is ($graph->attribute('graph', 'border'), '', 
 	'graph { border: none; }');

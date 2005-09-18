@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 65;
+   plan tests => 71;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -55,11 +55,36 @@ unlike ($grviz, qr/\w+=,/, "doesn't contain empty defintions");
 #print $graph->as_graphviz(),"\n";
 
 #############################################################################
-# with atributes on the graph
+# with attributes on the graph
 
-$graph->set_attribute( 'graph', 'background' => 'red' );
+$graph->set_attribute( 'graph', 'fill' => 'red' );
 
 like ($graph->as_graphviz(), qr/bgcolor="#ff0000"/, 'contains bgcolor="#ff0000"');
+
+#print $graph->as_graphviz(),"\n";
+
+#############################################################################
+# with label/label-pos attributes on the graph
+
+$graph->set_attribute( 'graph', 'label' => 'My Label' );
+$grviz = $graph->as_graphviz();
+
+like ($grviz, qr/label="My Label"/, 'graph label');
+like ($grviz, qr/labelloc=top/, 'default is top (dot 1.1 seems to get this wrong)');
+
+$graph->set_attribute( 'graph', 'label-pos' => 'top' );
+$grviz = $graph->as_graphviz();
+
+like ($grviz, qr/label="My Label"/, 'graph label');
+like ($grviz, qr/labelloc=top/, 'default is top');
+
+#print $graph->as_graphviz(),"\n";
+
+$graph->set_attribute( 'graph', 'label-pos' => 'bottom' );
+$grviz = $graph->as_graphviz();
+
+like ($grviz, qr/label="My Label"/, 'graph label');
+like ($grviz, qr/labelloc=bottom/, 'now bottom');
 
 #print $graph->as_graphviz(),"\n";
 

@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 #############################################################################
 #############################################################################
@@ -22,8 +22,9 @@ my $remap = {
     'title' => 'tooltip',
     'color' => 'fontcolor',
     'border-color' => 'color',
-#    'border-style' => \&_graphviz_remap_node_border_style,
-#    'border' => \&_graphviz_remap_node_border,
+    'border-style' => \&_graphviz_remap_border_style,
+    'border-width' => undef,
+    'border' => undef,
     'shape' => \&_graphviz_remap_node_shape,
     'font-size' => 'fontsize',
     'point-style' => undef,
@@ -33,6 +34,7 @@ my $remap = {
     'title' => 'tooltip',
     'background' => undef,
     'border' => undef,
+    'border-style' => undef,
     'font-weight' => undef,
     'font-size' => 'fontsize',
     'style' => \&_graphviz_remap_edge_style,
@@ -40,19 +42,28 @@ my $remap = {
     'label-color' => 'fontcolor',
     },
   'graph' => {
-    'background' => 'bgcolor',
+    'fill' => 'bgcolor',
+    'background' => undef,
     'font-size' => 'fontsize',
     'font-weight' => undef,
     'flow' => undef,
+    'output' => undef,
+    'label-pos' => 'labelloc',
+    'gid' => 'undef',
+    'border-color' => 'color',
+    'border-style' => \&_graphviz_remap_border_style,
+    'border-width' => undef,
     },
   'all' => {
     class => undef,
     'link' => \&_graphviz_remap_link,
     'linkbase' => undef,
     'autolink' => undef,
+    'autotitle' => undef,
     },
   'always' => {
     'link' => 1,
+    'label_pos' => 1,
     },
 #   'fallback' => \&_graphviz_filter_attribute,
   };
@@ -73,13 +84,31 @@ sub _graphviz_remap_edge_style
   ($name, $style);
   }
 
+sub _graphviz_remap_border_style
+  {
+  my ($self, $name, $style) = @_;
+
+  # valid styles are: solid dashed dotted bold invis
+
+  $style = 'dotted' if $style =~ /^dot-/;	# dot-dash, dot-dot-dash
+  $style = 'dashed' if $style =~ /^double-/;	# double-dash
+  $style = 'dotted' if $style =~ /^wave/;	# wave
+
+  # border-style double will be handled extra with peripheries=2 later
+  $style = 'solid' if $style eq 'double';
+  
+  # default style can be suppressed
+  return (undef, undef) if $style =~ /^(solid|none)\z/;
+
+  ('style', $style);
+  }
+
 sub _graphviz_remap_link
   {
   my ($graph, $name, $l, $object) = @_;
 
   if (!ref($object))
     {
-#    print STDERR "# got non object '$object', supressing attribute $name\n";
     return (undef,undef);
     }
 
@@ -139,6 +168,8 @@ sub _as_graphviz
   my $atts =  $self->{att};
   for my $class (sort keys %$atts)
     {
+    next if $class =~ /\./;		# skip subclasses
+
     my $out = $self->_remap_attributes( $class, $atts->{$class}, $remap, 'noquote');
 
     # per default, our nodes are rectangular, white, filled boxes
@@ -152,6 +183,7 @@ sub _as_graphviz
     elsif ($class eq 'graph')
       {
       $out->{rankdir} = 'LR' if $flow == 90 || $flow == 270;
+      $out->{labelloc} = 'top' if defined $out->{label} && !defined $out->{labelloc};
       }
     elsif ($class eq 'edge')
       {
@@ -206,14 +238,6 @@ sub _as_graphviz
  
   $txt .= "\n" if $count > 0;		# insert a newline
 
-  # output groups first, with their nodes
-  foreach my $gn (sort keys %{$self->{groups}})
-    {
-    my $group = $self->{groups}->{$gn};
-    $txt .= $group->as_txt();		# marks nodes as processed if nec.
-    $count++;
-    }
-
   foreach my $n (@nodes)
     {
     my @out = $n->successors();
@@ -257,17 +281,37 @@ sub attributes_as_graphviz
   my $class = $self->class();
 
   my $g = $self->{graph} || 'Graph::Easy';
-  my $a = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote');
+
+  # if we are in a subclass, also add attributes of that class
+  my $a = $self->{att};
+
+  if ($class =~ /\./)
+    {
+    $a = {};
+    # copy own attributes
+    my $att = $self->{att};
+    for my $k (keys %$att)
+      {
+      $a->{$k} = $att->{$k};
+      }
+    # copy class attributes
+    $att = $g->{att}->{$class};
+    for my $k (keys %$att)
+      {
+      $a->{$k} = $att->{$k};
+      }
+    }
+  $a = $g->_remap_attributes( $self, $a, $remap, 'noquote');
 
   # bidirectional edges
   if ($self->{bidirectional})
     {
     $a->{dir} = 'both';
-#    # set both tail/head to the same shape
-#    my $n = 'arrowhead'; my $m = 'arrowtail';
-#    ($n,$m) = ($m,$n) if exists $a->{arrowhead};
-#    $a->{$n} = $a->{$m};
     }
+
+  # border-style: double:
+  my $style = $self->attribute('border-style') || 'solid';
+  $a->{peripheries} = 2 if $style =~ /^double/;
 
   for my $atr (sort keys %$a)
     {

@@ -13,7 +13,7 @@ use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 #############################################################################
 
@@ -23,7 +23,9 @@ sub _init
   my ($self,$args) = @_;
   
   $self->{class} = 'edge';
-  $self->{cells} = { };
+
+  # leave this unitialized until we need it
+  # $self->{cells} = { };
 
   foreach my $k (keys %$args)
     {
@@ -118,7 +120,7 @@ sub bidirectional
   {
   my $self = shift;
 
-  $self->{bidirectional} = 1 if $_[0];
+  $self->{bidirectional} = $_[0] ? 1 : 0 if @_ > 0;
 
   $self->{bidirectional};
   }
@@ -127,7 +129,7 @@ sub undirected
   {
   my $self = shift;
 
-  $self->{undirected} = 1 if $_[0];
+  $self->{undirected} = $_[0] ? 1 : 0 if @_ > 0;
 
   $self->{undirected};
   }
@@ -144,6 +146,7 @@ sub cells
   # return all the cells this edge currently occupies
   my $self = shift;
 
+  $self->{cells} = {} unless defined $self->{cells};
   $self->{cells};
   }
 
@@ -154,6 +157,26 @@ sub clear_cells
 
   $self->{cells} = {};
 
+  $self;
+  }
+
+sub _unplace
+  {
+  # Take an edge, and remove all the cells it covers from the cells area
+  my ($self, $cells) = @_;
+
+  my $covered = $self->cells();
+
+  print STDERR "# clearing path from $self->{from}->{name} to $self->{to}->{name}\n" if $self->{debug};
+
+  for my $key (keys %$covered)
+    {
+    # XXX TODO: handle crossed edges differently (from CROSS => HOR or VER)
+    # free in our cells area
+    delete $cells->{$key};
+    }
+  # clear cells
+  $self->{cells} = {};
   $self;
   }
 
@@ -235,6 +258,12 @@ Returns the last error message, or '' for no error.
 
 Returns the edge as a little ascii representation.
 
+=head2 as_txt()
+
+	my $txt = $edge->as_txt();
+
+Returns the edge as a little Graph::Easy textual representation.
+
 =head2 label()
 
 	my $label = $edge->label();
@@ -286,6 +315,38 @@ Removes all belonging cells.
 Returns a hash containing all the cells this edge currently occupies. Keys
 on the hash are of the form of C<$x,$y> e.g. C<5,3> denoting cell at X = 5 and
 Y = 3. The values of the hash are the cell objects.
+
+=head2 bidirectional()
+
+	$edge->bidirectional(1);
+	if ($edge->bidirectional())
+	  {
+	  }
+
+Returns true if the edge is bidirectional, aka has arrow heads on both ends.
+An optional parameter will set the bidirectional status of the edge.
+
+=head2 undirected()
+
+	$edge->undirected(1);
+	if ($edge->undirected())
+	  {
+	  }
+
+Returns true if the edge is undirected, aka has now arrow at all.
+An optional parameter will set the undirected status of the edge.
+
+=head2 from()
+
+	my $from = $edge->from();
+
+Returns the node that this edge starts at. See also C<to()>.
+
+=head2 to()
+
+	my $to = $edge->to();
+
+Returns the node that this edge leads to. See also C<from()>.
 
 =head1 EXPORT
 

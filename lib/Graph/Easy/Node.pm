@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 use strict;
 use Graph::Easy::Attributes;
@@ -16,7 +16,7 @@ use Graph::Easy::Attributes;
 {
   # protected vars
   my $id = 0;
-  sub new_id { $id++; }
+  sub _new_id { $id++; }
   sub _reset_id { $id = 0; }
 }
 
@@ -34,7 +34,7 @@ sub new
   
   my $self = bless {}, $class;
 
-  $self->{id} = new_id();
+  $self->{id} = _new_id();
 
   $self->_init($args);
   }
@@ -147,10 +147,12 @@ sub _correct_size
     }
   }
 
-sub unplace
+sub _unplace
   {
   # free the cells this node occupies from $cells
   my ($self,$cells) = @_;
+
+#  print STDERR "# unplace $self->{name}\n";
 
   my $x = $self->{x}; my $y = $self->{y};
   delete $cells->{"$x,$y"};
@@ -170,6 +172,13 @@ sub unplace
         }
       }
     } # end handling multi-celled node
+
+  # unplace all edges leading to/from this node, too:
+  for my $e (values %{$self->{edges}})
+    {
+    $e->_unplace($cells);
+    }
+
   $self;
   }
 
@@ -314,6 +323,14 @@ sub place
 
 #############################################################################
 
+sub error
+  {
+  my $self = shift;
+
+  $self->{error} = $_[0] if defined $_[0];
+  $self->{error} || '';
+  }
+
 sub _formatted_label
   {
   my $self = shift;
@@ -333,73 +350,8 @@ sub _formatted_label
   @lines;
   }
 
-sub error
-  {
-  my $self = shift;
-
-  $self->{error} = $_[0] if defined $_[0];
-  $self->{error} || '';
-  }
-
-sub attributes_as_txt
-  {
-  # return the attributes of this node as text description
-  my ($self, $remap) = @_;
-  
-  my $att = '';
-  my $class = $self->class();
-  my $g = $self->{graph};
-
-  my $new = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'remap_colors');
-
-  for my $atr (sort keys %$new)
-    {
-    next if $atr =~ /^border/;			# handled special
-
-    $att .= "$atr: $new->{$atr}; ";
-    }
-
-  my $border = $self->border_attribute() || '';
-
-  if (defined $g)
-    {
-    my $DEF = $g->border_attribute ($class);
-    $border = '' if $border eq $DEF;
-    }
-  $att .= "border: $border; " if $border ne '';
-
-  # include our subclass as attribute
-  $att .= "class: $1; " if $class =~ /\.(\w+)/;
-  
-  # generate attribute text if nec. 
-  $att = ' { ' . $att . '}' if $att ne '';
-
-  $att;
-  }
-
-sub as_pure_txt
-  {
-  my $self = shift;
-  
-  my $name = $self->{name};
-
-  # quote special chars in name
-  $name =~ s/([\[\]\|\{\}\#])/\\$1/g;
-
-  '[ ' .  $name . ' ]';
-  }
-
-sub as_txt
-  {
-  my $self = shift;
-
-  my $name = $self->{name};
-
-  # quote special chars in name
-  $name =~ s/([\[\]\|\{\}\#])/\\$1/g;
-
-  '[ ' .  $name . ' ]' . $self->attributes_as_txt();
-  }
+#############################################################################
+# as_html conversion and helper functions related to that
 
 sub link
   {
@@ -425,6 +377,32 @@ sub link
     }
   $link;
   }
+
+my $node_remap = {
+  node => {
+    fill => 'background',
+    background => undef,
+    rows => undef, 
+    columns => undef,
+    size => undef,
+    origin => undef,
+    offset => undef, 
+    label => undef,
+    linkbase => undef,
+    link => undef,
+    autolink => undef,
+    autotitle => undef,
+    title => undef,
+    shape => undef,
+    style => undef,
+    flow => undef,
+    'point-style' => undef,
+    'border' => undef,
+    },
+  edge => {
+    fill => undef,
+    },
+  };
 
 sub as_html
   {
@@ -481,54 +459,39 @@ sub as_html
     $style .= "-moz-border-radius: 100%; border-radius: 100%; height: $size; width: $size; ";
     }
 
-  # XXX TODO: should use remap_attributes()
+  my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $node_remap, 'noquote');
 
-  for my $atr (sort keys %$a)
+  # shape: none; means no border, and background instead fill color
+  if ($shape eq 'none')
     {
-    # attribute not defined
-    next if !defined $a->{$atr};
+    my $bg = $self->attribute('background') || 'inherit'; 
+    $out->{background} = $bg;
+    $out->{border} = 'none';
+    delete $out->{'border-style'};
+    delete $out->{'border-color'};
+    delete $out->{'border-width'};
+    }
 
-    # skip these:
-    next if $atr =~
-	/^(rows|columns|size|origin|offset|label|linkbase|link|autolink|autotitle|title|shape|style|flow|point-style)\z/;
-
-    # attribute defined, but same as default (or node not in a graph)
-#    if (!defined $self->{graph})
-#      {
-#      print STDERR "Node $self->{name} is not associated with a graph!\n";
-#      }
-    next unless ref($self->{graph}) =~ /Graph/;
-    
-    my $DEF = $self->{graph}->attribute ($class, $atr);
-    next if defined $DEF && $a->{$atr} eq $DEF;
-
-    my $name = $atr; $name = 'background' if $atr eq 'fill';
-
-    $style .= "$name: $a->{$atr}; ";
+  for my $atr (sort keys %$out)
+    {
+    $style .= "$atr: $out->{$atr}; ";
     }
   $style =~ s/;\s$//;				# remove '; ' at end
-
-#  print STDERR "# as_html node $self->{name}: style: '$style'\n";
 
   $html .= " style=\"$style\"" if $style;
 
   my $title = $self->title();
-
-  if ($title ne '')
-    {
-    $title =~ s/"/&#22;/g;			# replace quotation marks
-    $html .= " title=\"$title\"";		# cell with mouse-over title
-    }
+  $title =~ s/"/&#22;/g;			# replace quotation marks
+  $html .= " title=\"$title\"" if $title ne '';	# add mouse-over title
 
   my $link = $self->link();
 
   if ($link ne '')
     {
-    # decode %XX entities
-    $link =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
     # encode critical entities
     $link =~ s/\s/\+/g;			# space
-    $html .= "> <a class='l' href='$link'>$name</a> </$tag>\n";
+    $link =~ s/'/%27/g;			# replace quotation marks
+    $html .= "><a class='l' href='$link'>$name</a></$tag>\n";
     }
   else
     {
@@ -611,6 +574,19 @@ sub title
     }
   $title = '' unless defined $title;
   $title;
+  }
+
+sub background
+  {
+  my $self = shift;
+
+  my $bg = $self->attribute('background') || '';
+  if ($bg eq 'inherit')
+    {
+    $bg = $self->{group}->attribute('background') if ref($self->{group});
+    $bg = '' if $bg eq 'inherit';
+    }
+  $bg;
   }
 
 sub x
@@ -925,7 +901,7 @@ sub attribute
   return unless ref($g) =~ /^Graph::Easy/;
 
   my $class = $self->{class};
-  
+
   # See if we can inherit it from our groups:
   # XXX TODO: what about the order we search the groups in? undefined?
   for my $group (keys %{$self->{groups}})
@@ -974,10 +950,8 @@ sub set_attribute
     }
 
   my $val = $v;
-  # remove quotation marks
-  $val =~ s/^["']//;
-  $val =~ s/["']\z//;
-  $val =~ s/\\#/#/;		# reverse backslashed \#
+  $val =~ s/^["'](.*)["']\z/$1/; 	# remove quotation marks
+  $val =~ s/\\#/#/;			# reverse backslashed \#
 
   # decode %XX entities
   $val =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
@@ -1207,6 +1181,12 @@ then please use the following to create the node object:
 You can then use C<< $node->set_attribute(); >>
 or C<< $node->set_attributes(); >> to set the new Node's attributes.
 
+=head2 new()
+
+	my $node = Graph::Easy::Node->new('Name');
+
+Create a new node with the name C<Name>.
+
 =head2 error()
 
 	$last_error = $node->error();
@@ -1288,6 +1268,30 @@ Deletes the specified attribute of this (and only this!) node.
 Sets all attributes specified in C<$hash> as key => value pairs in this
 (and only this!) node.
 
+=head2 border_attribute()
+
+	my $border = $node->border_attribute();
+
+Assembles the C<border-width>, C<border-color> and C<border-style> attributes
+into a string like "solid 1px red".
+
+=head2 border_attributes()
+
+	my ($style,$color,$width) = $node->border_attributes($border);
+
+Splits a border attribute like "solid 1px red" into the C<border-width>, C<border-color>
+and C<border-style> attribute.
+
+=head2 find_grandparent()
+
+	my $grandpa = $node->find_grandparent(); 
+
+For a node that has no origin (is not relative to another), returns
+C<$node>. For all others, follows the chain of origin back until
+a node without a parent is found and returns this node.
+This code assumes there are no loops, which C<origin()> prevents from
+happening.
+
 =head2 name()
 
 	my $name = $node->name();
@@ -1301,12 +1305,39 @@ Return the name of the node.
 Return the label of the node. If no label was set, returns the C<name>
 of the node.
 
+=head2 class()
+
+	my $class = $node->class();
+
+Returns the full class name like C<node.cities>. See also C<sub_class>.
+
+=head2 sub_class()
+
+	my $sub_class = $node->sub_class();
+
+Returns the sub class name like C<cities>. See also C<class>.
+
+=head2 background()
+
+	my $bg = $node->background();
+
+Returns the background color. This method honours group membership and
+inheritance.
+
 =head2 title()
 
 	my $title = $node->title();
 
 Returns a potential title that can be used for mouse-over effects.
 If no title was set (or autogenerated), will return an empty string.
+
+=head2 link()
+
+	my $link = $node->link();
+
+Returns the URL, build from the C<linkbase> and C<link> (or C<autolink>)
+attributes.  If the node has no link associated with it, return an empty
+string.
 
 =head2 dimensions()
 
@@ -1413,6 +1444,13 @@ Returns all nodes (as objects) that link to us.
 	my @suc = $node->successors();
 
 Returns all nodes (as objects) that we are linking to.
+
+=head2 sorted_successors()
+
+	my @suc = $node->sorted_successors();
+
+Return successors of the node sorted by their chain value
+(e.g. successors with more successors first). 
 
 =head2 edges_to()
 

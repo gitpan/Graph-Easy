@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 133;
+   plan tests => 139;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -39,7 +39,6 @@ foreach my $f (sort @files)
 
   $txt =~ s/\n\s+\z/\n/;			# remove trailing whitespace
   $txt =~ s/(^|\n)\s*#[^#].*\n//g;		# remove comments
-#  $txt =~ s/\n\n\z/\n/mg;			# remove empty lines
  
   $f =~ /^(\d+)/;
   my $nodes = $1;

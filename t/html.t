@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 18;
+   plan tests => 21;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -104,4 +104,26 @@ $html = $graph->as_html();
 
 like ($html, qr/<caption style='background: inherit'>My Graph Label<\/caption>/, 'graph caption from label');
 
+#############################################################################
+# caption with label-pos
+
+$graph->set_attribute( 'graph', 'label' => 'My Graph Label' );
+$graph->set_attribute( 'graph', 'label-pos' => 'bottom' );
+
+$html = $graph->as_html();
+
+like ($html, qr/<caption style='background: inherit; caption-side: bottom'>My Graph Label<\/caption>/,
+ 'graph caption from label');
+
+
+#############################################################################
+# html_file includes <title> and charset:
+
+$html = $graph->as_html_file();
+
+my $charset =
+  quotemeta('<meta http-equiv="Content-Type" content="text/html; charset=utf-8">');
+
+like ($html, qr/$charset/, 'html_file includes charset definition');
+like ($html, qr/<title>My Graph Label<\/title>/, 'html_file includes <title>');
 

@@ -55,7 +55,7 @@ for my $i (0..2)
     {
     print "  <td>$r->[$i]</td>\n";
     }
-  print " <tr>\n";
+  print " </tr>\n";
   }
 
 1;

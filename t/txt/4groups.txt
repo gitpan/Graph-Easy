@@ -5,4 +5,4 @@
   [ Hamburg ]
 )
 
-[ Cuxhaven ] --> { background: #a0d0ff; } [ Bremen ]
+[ Cuxhaven ] --> [ Bremen ]

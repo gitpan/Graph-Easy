@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.28';
+$VERSION = '0.29';
 
 use strict;
 
@@ -29,6 +29,7 @@ BEGIN
   *as_graphviz_file = \&as_graphviz;
   *as_ascii_file = \&as_ascii;
   *as_txt_file = \&as_txt;
+  *_formatted_label = \&Graph::Easy::Node::_formatted_label;
   }
 
 #############################################################################
@@ -73,7 +74,6 @@ sub _init
   {
   my ($self,$args) = @_;
 
-  $self->{error} = '';
   $self->{debug} = 0;
   $self->{timeout} = 5;			# in seconds
   $self->{strict} = 1;			# check attributes strict?
@@ -99,7 +99,7 @@ sub _init
     'border-style' => 'solid',
     'border-width' => '1',
     'border-color' => 'black',
-    background => 'white',
+    fill => 'white',
     padding => '0.2em',
     'padding-left' => '0.3em',
     'padding-right' => '0.3em',
@@ -230,6 +230,14 @@ sub randomize
   $self->{seed};
   }
 
+sub label
+  {
+  my $self = shift;
+
+  my $label = $self->{att}->{graph}->{label}; $label = '' unless defined $label;
+  $label;
+  }
+
 sub seed
   {
   my $self = shift;
@@ -244,7 +252,7 @@ sub error
   my $self = shift;
 
   $self->{error} = $_[0] if defined $_[0];
-  $self->{error};
+  $self->{error} || '';
   }
 
 sub nodes
@@ -387,10 +395,8 @@ sub set_attribute
     return $self->error ("Illegal class '$class' when trying to set attribute '$name' to '$val'");
     }
 
-  # remove quotation marks
-  $val =~ s/^["']//;
-  $val =~ s/["']\z//;
-  $val =~ s/\\#/#/;             # reverse backslashed \#
+  $val =~ s/^["'](.*)["']\z/$1/; 	# remove quotation marks
+  $val =~ s/\\#/#/;             	# reverse backslashed \#
 
   # decode %XX entities
   $val =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
@@ -451,35 +457,12 @@ sub set_attributes
     return $self->error ("Illegal class '$class' when setting attributes");
     }
 
-  $self->{score} = undef;	# invalidate layout to force a new layout
-
-  # handle special attribute 'gid' like in "graph { gid: 123; }"
-  if ($class eq 'graph' && exists $att->{gid})
-    {
-    $self->{id} = $att->{gid};
-    }
-
   # create class
   $self->{att}->{$class} = {} unless ref($self->{att}->{$class}) eq 'HASH';
 
   foreach my $a (keys %$att)
     {
-    my $val = $att->{$a}; $val =~ s/\\#/#/;		# "\#808080" => "#808080"
-    next if $a eq 'gid';
-  
-    if ($self->{strict})
-      {
-      my $v = $self->valid_attribute($a,$val,$class);
-
-      if (!defined $v)
-        {
-        $self->error("Error in attribute: '$val' is not a valid $a for $class");
-        return;
-        }
-      $val = $v;
-      }
-
-    $self->{att}->{$class}->{$a} = $val;
+    $self->set_attribute($class, $a, $att->{$a});
     } 
   $self;
   }
@@ -494,7 +477,7 @@ sub del_attribute ($$$)
 
 #############################################################################
 #############################################################################
-# output (as_ascii, as_html) routines; as_txt is in As_txt.pm
+# output (as_ascii, as_html) routines; as_txt() is in As_txt.pm
 
 sub output_format
   {
@@ -607,11 +590,19 @@ sub _class_styles
 
       $done++;						# how many did we really?
       my $val = $a->{$class}->{$att};
-      # set for inner group cells "border: none"
-      $val = 'none' if $att eq 'border' && $c eq 'group';
+
+# XXX TODO CHECK
+#      # set for inner group cells "border: none"
+#      $val = 'none' if $att eq 'border' && $c eq 'group';
+
       $att = $map->{$att} if exists $map->{$att};	# change attribute name?
       $css_txt .= "$indent  $att: $val;\n";
       }
+
+    # add the border attribute
+    my $border = $self->border_attribute ($class);
+    $css_txt .= "$indent  border: $border;\n" if $border ne '';
+
     $css_txt .= "$indent}\n";
     $css .= $css_txt if $done > 0;			# skip if no attributes at all
     }
@@ -671,13 +662,9 @@ table.graph##id## .va {
 table.graph##id## .ve {
   width: 0em;
   }
-table.graph##id## .lh {
+table.graph##id## .lh, table.graph##id## .lv {
   font-size: 0.8em;
-  padding-left: 0.2em;
-  }
-table.graph##id## .lv {
-  font-size: 0.8em;
-  padding-left: 0.5em;
+  padding-left: 0.4em;
   }
 table.graph##id## .eb {
   height: 1em;
@@ -736,6 +723,8 @@ sub html_page_header
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
  <head>
+ <meta http-equiv="Content-Type" content="text/html; charset=##charset##">
+ <title>##title##</title>
  <style type="text/css">
  <!--
  ##CSS##
@@ -746,9 +735,23 @@ sub html_page_header
 HTML
 ;
 
+  $html =~ s/##charset##/utf-8/g;
+  my $t = $self->title();
+  $html =~ s/##title##/$t/g;
   $html =~ s/##CSS##/$self->css()/e;
 
   $html;
+  }
+
+sub title
+  {
+  my $self = shift;
+
+  my $title = $self->{att}->{graph}->{title};
+  $title = $self->{att}->{graph}->{label} if !defined $title;
+  $title = 'Untitled graph' if !defined $title;
+
+  $title;
   }
 
 sub html_page_footer
@@ -817,9 +820,18 @@ sub as_html
   if (defined $caption && $caption ne '')
     {
     my $bg = $self->attribute('graph','background');
+    my $style = '';
     $bg = '' if !defined $bg;
-    $bg = " style='background: $bg'" if $bg ne '';
-    $html .= "<caption$bg>$caption</caption>\n"
+    $style = " style='background: $bg" if $bg ne '';
+
+    my $pos = $self->attribute('graph','label-pos') || 'top';
+    if ($pos eq 'bottom')
+      {
+      $style .= '; caption-side: bottom' if $style ne '';
+      $style = " style='caption-side: bottom" if $style eq '';
+      }
+    $style .= "'" unless $style eq '';
+    $html .= "<caption$style>$caption</caption>\n"
     }
  
   # now run through all rows, and for each of them through all columns 
@@ -853,9 +865,9 @@ sub as_html
       else
         {
         push @{$rs->[0]}, $h;
-#        push @{$rs->[1]}, undef;
-#        push @{$rs->[2]}, undef;
-#        push @{$rs->[3]}, undef;
+#        push @{$rs->[1]}, '';
+#        push @{$rs->[2]}, '';
+#        push @{$rs->[3]}, '';
         }
       }
 
@@ -878,6 +890,7 @@ sub as_html
       my $i = 0;
       while ($i < @$row)
         {
+        next if $row->[$i] =~ /border[:-]/;
         # count all sucessive equal ones
         my $j = $i + 1;
         while ($j < @$row && $row->[$j] eq $row->[$i]) { $j++; }
@@ -891,8 +904,7 @@ sub as_html
           # replace
           $row->[$i] =~ s/colspan=(\d+)/'colspan='.($1+$cnt*4)/e;
           }
-        $i++;
-        }
+        } continue { $i++; }
       }
 
     ######################################################################
@@ -929,10 +941,38 @@ sub as_ascii
   # generate for each cell the width/height etc
   my ($rows,$cols,$max_x,$max_y,$cells) = $self->_prepare_layout('ascii');
 
+  my $y_start = 0;
+
+  # if the graph has a label, reserve space for it
+  my @label = $self->_formatted_label();
+
+  my $label_pos = 'top';
+  if (@label > 0)
+    {
+    unshift @label, '';
+    push @label, '';
+    $label_pos = $self->attribute('graph','label-pos') || 'top';
+    $y_start += scalar @label if $label_pos eq 'top';
+    $max_y += scalar @label + 1;
+    print STDERR "# Graph with label, position $label_pos\n" if $self->{debug};
+    }
+
+  print STDERR "# Allocating framebuffer $max_x x $max_y\n" if $self->{debug};
+
   # generate the actual framebuffer for the output
   my $fb = Graph::Easy::Node->_framebuffer($max_x, $max_y);
 
-  print STDERR "# Allocating framebuffer $max_x x $max_y\n" if $self->{debug};
+  # output the label
+  if (@label > 0)
+    {
+    # my ($self, $fb, $x, $y, @lines) = @_;
+    
+    # XXX TODO: align label left|right|center
+
+    my $y = 0; $y = $max_y - scalar @label if $label_pos eq 'bottom';
+    my $y2 = $y + scalar @label;
+    Graph::Easy::Node->_printfb_aligned($fb, 0, $y, $max_x, $y2, \@label, 'center', 'middle');
+    }
 
   # draw all cells into framebuffer
   foreach my $v (@$cells)
@@ -941,7 +981,7 @@ sub as_ascii
 
     # get as ASCII box
     my $x = $cols->{ $v->{x} };
-    my $y = $rows->{ $v->{y} };
+    my $y = $rows->{ $v->{y} } + $y_start;
     my @lines = split /\n/, $v->as_ascii($x,$y);
     # get position from cell
     for my $i (0 .. scalar @lines-1)
@@ -1293,15 +1333,9 @@ sub groups
   # return number of groups (or groups as object list)
   my ($self) = @_;
 
-  if (wantarray)
-    {
-    my @groups;
-    for my $g (sort keys %{$self->{groups}})
-      {
-      push @groups, $self->{groups}->{$g};
-      }
-    return @groups;
-    }
+  return sort { $a->{name} cmp $b->{name} } values %{$self->{groups}}
+    if wantarray;
+
   scalar keys %{$self->{groups}};
   }
 
@@ -1405,9 +1439,9 @@ C<Graph::Easy::Parser> to parse graph descriptions like:
 
 	[ Bonn ]      --> [ Berlin ]
 	[ Frankfurt ] <=> [ Dresden ]
-	[ Bonn ]      --> [ Frankfurt ]
+	[ Bonn ]      --  [ Frankfurt ]
 
-See L<EXAMPLES|EXAMPLES> for how this might be rendered.
+See the C<EXAMPLES> section below for how this might be rendered.
 
 =head2 Creating graphs
 
@@ -1639,6 +1673,26 @@ Example:
 
 	$graph->set_attributes( 'node', { color => 'red', background => 'none' } );
 
+=head2 del_attribute()
+
+	$graph->del_attribute('border');
+
+Delete the attribute with the given name.
+
+=head2 border_attribute()
+
+  	my $border = $graph->border_attribute();
+
+Return the combined border attribute like "1px solid red" from the
+border-(style|color|width) attributes.
+
+=head2 direction_as_number()
+
+	my $graph = direction_as_number($dir);
+  
+Convert a given direction like "north" or "right" into in degrees (0, 90, 180
+or 270).
+
 =head2 timeout()
 
 	print $graph->timeout(), " seconds timeout for layouts.\n";
@@ -1667,11 +1721,29 @@ call any of the C<as_FOO> methods below.
 
 See also: C<timeout()>.
 
+=head2 output_format()
+
+	$graph->output_format('html');
+
+Set the outputformat. One of 'html', 'ascii', 'graphviz' or 'txt'. See also C<output()>.
+
+=head2 output()
+
+	my $out = $graph->output();
+
+Output the graph in the format set by C<output_format()>.
+
 =head2 as_ascii()
 
 	print $graph->as_ascii();
 
 Return the graph layout in ASCII art.
+
+=head2 as_ascii_file()
+
+	print $graph->as_ascii_file();
+
+Is an alias for C<as_ascii>.
 
 =head2 as_ascii_html()
 
@@ -1688,12 +1760,87 @@ Return the graph layout as HTML section. See L<css()> to get the
 CSS section to go with that HTML code. If you want a complete HTML page
 then use L<as_html_file()>.
 
+=head2 as_html_page()
+
+	print $graph->as_html_page();
+
+Is an alias for C<as_html_file>.
+
 =head2 as_html_file()
 
 	print $graph->as_html_file();
 
 Return the graph layout as HTML complete with headers, CSS section and
 footer. Can be viewed in the browser of your choice.
+
+=head2 add_group()
+
+	my $group = $graph->add_group('Group name');
+
+Add a group to the graph and return it as C<Graph::Easy::Group> object.
+
+=head2 group()
+
+	my $group = $graph->group('Name');
+
+Returns the group with the name C<Name> as C<Graph::Easy::Group> object.
+
+=head2 groups()
+
+	my @groups = $graph->groups();
+
+Returns the groups of the graph as C<Graph::Easy::Group> objects.
+
+=head2 del_group()
+
+	$graph->del_group($name);
+
+Delete the group with the given name.
+
+=head2 edges()
+
+	my @edges = $graph->edges();
+
+Returns the edges of the graph as C<Graph::Easy::Edge> objects.
+
+=head2 is_simple_graph()
+
+	if ($graph->is_simple_graph())
+	  {
+	  }
+
+Returns true if the graph does not have multiedges.
+
+=head2 label()
+
+	my $label = $graph->label();
+
+Returns the label of the graph.
+
+=head2 title()
+
+	my $title = $graph->title();
+
+Returns the title of the graph.
+
+=head2 as_graphviz()
+
+	print $graph->as_graphviz();
+
+Return the graph as graphviz code, suitable to be feed to a program like
+C<dot> etc.
+
+=head2 as_graphviz_file()
+
+	print $graph->as_graphviz_file();
+
+Is an alias for C<as_graphviz()>.
+
+=head2 nodes()
+
+	my $nodes = $graph->nodes();
+
+In scalar context, returns the number of nodes/vertices the graph has.
 
 =head2 html_page_header()
 
@@ -1724,6 +1871,29 @@ C<Graph::Easy::Parser> back to a graph.
 
 This does not call L<layout()> since the actual text representation
 is more a dump of the graph, than a certain layout.
+
+=head2 as_txt_file()
+
+	print $graph->as_txt_file();
+
+Is an alias for C<as_txt()>.
+
+=head2 as_svg()
+
+	print $graph->as_svg();
+
+Return the graph as SVG (Scalable Vector Graphics), which can be
+embedded into HTML pages. You need to install
+C<Graph::Easy::As_svg> first to make this work.
+
+See also C<as_svg_file()>.
+
+=head2 as_svg_file()
+
+	print $graph->as_svg_file();
+
+Returns SVG just like C<as_svg()>, but this time as standalone SVG,
+suitable for storing it in a file and referencing it externally.
 
 =head2 nodes()
 
@@ -1840,6 +2010,57 @@ graph against each other:
 	  }
 	# output graph:
 	print $graph->as_ascii();		# or as_html() etc
+
+=head2 valid_attribute()
+
+	my $new_value =
+	  Graph::Easy->valid_attribute( $name, $value, $class );
+
+	if (ref($new_value) eq 'ARRAY')
+	  {
+	  # throw error
+          die ("'$name' is not a valid attribute name for '$class'");
+	  }
+	elsif (!defined $new_value)
+	  {
+	  # throw error
+          die ("'$value' is no valid '$name' for '$class'");
+	  }
+
+Check that a C<$name,$value> pair is a valid attribute in class C<$class>,
+and returns a new value.
+
+The return value can differ from the passed in value, f.i.:
+
+	print Graph::Easy->valid_attribute( 'color', 'red' );
+
+This would print '#ff0000';
+
+It returns an array ref if the attribute name is invalid, and undef if the
+value is invalid.
+	
+=head2 color_as_hex()
+
+	my $hexred   = Graph::Easy->color_as_hex( 'red' );
+	my $hexblue  = Graph::Easy->color_as_hex( '#0000ff' );
+	my $hexcyan  = Graph::Easy->color_as_hex( '#f0f' );
+	my $hexgreen = Graph::Easy->color_as_hex( 'rgb(0,255,0)' );
+
+Takes a valid color name or definition (hex, short hex, or RGB) and returns the
+color in hex like C<#ff00ff>.
+
+=head2 color_name()
+
+	my $color = Graph::Easy->color_name( 'red' );	# red
+	print Graph::Easy->color_name( '#ff0000' );	# red
+
+Takes a hex color value and returns the name of the color.
+
+=head2 color_names()
+
+	my $names = Graph::Easy->color_names();
+
+Return a hash with name => value mapping for all known colors.
 
 =head1 EXPORT
 

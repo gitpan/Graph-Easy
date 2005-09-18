@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 #############################################################################
 #############################################################################
@@ -38,6 +38,7 @@ use Graph::Easy::Edge::Cell qw/
   EDGE_FLAG_MASK
   EDGE_START_MASK
   EDGE_END_MASK
+  EDGE_NO_M_MASK
  /;
 
 # for A* pathfinding:
@@ -365,8 +366,8 @@ sub _astar_modifier
 
   my $xy = "$x1,$y1";
   # add a harsh penalty for crossing an edge
-  # 50 means we could travel 50 fields to go around the crossing
-  $add += 50 if ref($cells->{$xy}) =~ /^Graph::Easy::Edge/;
+  # 30 means we could travel many fields to go around the crossing
+  $add += 30 if ref($cells->{$xy}) =~ /^Graph::Easy::Edge/;
  
   if (defined $px)
     {
@@ -509,12 +510,26 @@ sub _find_path_astar
 
   # get all the starting positions and add them to OPEN:
   # distance = 1: slots, generate starting types
-  my @start = $src->_near_places($cells, 1, $start_flags);
+  my @start = $src->_near_places($cells, 1, $start_flags, 1);
 
   my $i = 0; my $bias = 0;
   while ($i < scalar @start)
     {
     my $sx = $start[$i]; my $sy = $start[$i+1]; my $type = $start[$i+2]; $i += 3;
+
+    # We got all fields, including the blocked ones. So weed out fields that are
+    # not HOR or VER edge pieces.
+
+    my $cell = $cells->{"$sx,$sy"}; my $rcell = ref($cell);
+    next if $rcell && $rcell !~ /::Edge/;
+
+    my $t = 0; $t = $cell->{type} & EDGE_NO_M_MASK if $rcell =~ /::Edge/;
+    next if $t != 0 && $t != EDGE_HOR && $t != EDGE_VER;
+
+#    print STDERR "# considering $sx, $sy with type $t\n";
+
+    # add a penalty for crossings
+    my $malus = 0; $malus = 30 if $t != 0;
 
     $open->add( Graph::Easy::Astar::Node->new(
       _astar_distance($sx,$sy, $dst->{x}, $dst->{y}),
@@ -525,7 +540,7 @@ sub _find_path_astar
     # a small bias here that makes the prefered order east/south/west/north. Instead
     # the algorithmn exploring both way and terminating arbitrarily on the one that
     # first hits the target, it will explore only one.
-    $open_by_pos->{"$sx,$sy"} = $bias; $bias += $self->{_astar_bias} || 0;
+    $open_by_pos->{"$sx,$sy"} = $malus + $bias; $bias += $self->{_astar_bias} || 0;
     }
 
   # potential stop positions

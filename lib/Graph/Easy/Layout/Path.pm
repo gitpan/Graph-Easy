@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 #############################################################################
 #############################################################################
@@ -180,26 +180,51 @@ use Graph::Easy::Edge::Cell qw/
 sub _clear_tries
   {
   # Take a list of potential positions for a node, and then remove the
-  # ones that are immidiately near the given other node (successor).
-  # Returns a list of "good" positions.  
-  my ($self, $cells, $suc, @tries) = @_;
+  # ones that are immidiately near any other node.
+  # Returns a list of "good" positions. Afterwards $node->{x} is undef.
+  my ($self, $node, $cells, $tries) = @_;
 
-  my @near = $suc->_near_places($cells, 1);
-  my @good;
-  my $i = 0;
-  while ($i < @tries)
+  my $src = 0; my @new;
+
+  print STDERR "# clearing tries for $node->{name}\n" if $self->{debug};
+
+  while ($src < scalar @$tries)
     {
-    my $j = 0;
-    my $g = 0;
+    # check the current position
+
+    # temporary place node here
+    my $x = $tries->[$src];
+    my $y = $tries->[$src+1];
+    $node->{x} = $x;
+    $node->{y} = $y;
+
+    my @near = $node->_near_places($cells, 1, undef, 1);
+
+    # push also the four corner cells to avoid placing nodes corner-to-corner
+    push @near, $x-1, $y-1,					# upperleft corner
+                $x-1, $y+($node->{cy}||1),			# lowerleft corner
+                $x+($node->{cx}||1), $y+($node->{cy}||1),	# lowerright corner
+                $x+($node->{cx}||1), $y-1;			# upperright corner
+    
+    # check all near places to be free from nodes
+    my $j = 0; my $g = 0;
     while ($j < @near)
       {
-      $g ++ and last if ($near[$j] == $tries[$i] && $near[$j+1] == $tries[$i+1]);
+      my $xy = $near[$j]. ',' . $near[$j+1];
+      $g ++ and last if ref($cells->{$xy}) =~ /::Node/;
       $j += 2;
       }
-    push @good, $tries[$i], $tries[$i+1] if $g == 0;
-    $i += 2;
+
+    if ($g == 0)
+      {
+      push @new, $tries->[$src], $tries->[$src+1];
+      }
+    $src += 2;
     }
-  @good;
+
+  $node->{x} = undef;
+
+  @new;
   }
 
 sub _find_node_place
@@ -218,6 +243,9 @@ sub _find_node_place
     @tries = $parent->_near_places($cells); 
   
     print STDERR "# Trying chained placement of $node->{name}\n" if $self->{debug};
+
+    # weed out positions that are unsuitable
+    @tries = $self->_clear_tries($node, $cells, \@tries);
 
     splice (@tries,0,$try) if $try > 0;	# remove the first N tries
 
@@ -318,15 +346,11 @@ sub _find_node_place
     push @tries, $s->_near_places($cells); 
     }
 
-  foreach my $s (@suc)
-    {
-    # for each successors weed out too close positions
-    @tries = $self->_clear_tries($cells, $s, @tries);
-    }
+  # weed out positions that are unsuitable
+  @tries = $self->_clear_tries($node, $cells, \@tries);
 
   splice (@tries,0,$try) if $try > 0;	# remove the first N tries
-
-  print STDERR "# Trying simple placement of '$node->{name}', try #$try\n" if $self->{debug};
+  
   while (@tries > 0)
     {
     my $x = shift @tries;
@@ -337,18 +361,27 @@ sub _find_node_place
 
     } # for all trial positions
 
-  # all simple possibilities exhausted, try generic approach
+  ##############################################################################
+  # all simple possibilities exhausted, try a generic approach
 
-  # if no predecessors/incoming edges, try to place in column 0, otherwise in column 2
+  # If no predecessors/incoming edges, try to place in column 0, otherwise 
+  # considered the node's rank, too
+
   my $col = 0; $col = $node->{rank} * 2 if @pre > 0;
 
+  $col = $pre[0]->{x} if @pre > 0;
+  
   # find the first free row
   my $y = 0;
   $y +=2 while (exists $cells->{"$col,$y"});
   $y += 1 if exists $cells->{"$col," . ($y-1)};		# leave one cell spacing
 
   # now try to place node (or node cluster)
-  $y +=2 while (! $node->place($col,$y,$cells));
+  $y +=2 while (
+   !$node->place($col,$y,$cells) ||
+   ($self->_clear_tries($node, $cells, [ $col,$y ]) == 0));
+
+  $node->{x} = $col; #$node->{y} = $y;
 
   0;							# success, score 0 
   }
@@ -398,23 +431,6 @@ sub _create_cell
 
   my $path = Graph::Easy::Edge::Cell->new( type => $type, edge => $edge, x => $x, y => $y );
   $cells->{$xy} = $path;	# store in cells
-  }
-
-sub _remove_path
-  {
-  # Take an edge, and remove all the cells it covers from the cells area
-  my ($self, $edge) = @_;
-
-  my $cells = $self->{cells};
-  my $covered = $edge->cells();
-
-  for my $key (keys %$covered)
-    {
-    # XXX TODO: handle crossed edges differently (from CROSS => HOR or VER)
-    # free in our cells area
-    delete $cells->{$key};
-    }
-  $edge->clear_cells();
   }
 
 sub _path_is_clear

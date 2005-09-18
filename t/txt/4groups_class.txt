@@ -1,10 +1,5 @@
 node.city { color: #801010; }
 
-[ Bremen ] { class: city; }
-[ Cuxhaven ] { class: city; }
-[ Flensburg ] { class: city; }
-[ Hamburg ] { class: city; }
-
 ( German Cities
   [ Bremen ]
   [ Cuxhaven ]
@@ -12,4 +7,4 @@ node.city { color: #801010; }
   [ Hamburg ]
 ) { nodeclass: city; }
 
-[ Cuxhaven ] --> { background: #a0d0ff; } [ Bremen ]
+[ Cuxhaven ] --> [ Bremen ]

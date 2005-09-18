@@ -13,7 +13,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 use Scalar::Util qw/weaken/;
 
@@ -141,6 +141,7 @@ sub EDGE_LOOP_WEST	() { EDGE_W_S_E + EDGE_END_W + EDGE_START_E + EDGE_LABEL_CELL
   EDGE_MISC_MASK
 
   EDGE_LABEL_CELL
+  EDGE_NO_M_MASK
   /;
 
 my $edge_types = {
@@ -263,6 +264,10 @@ sub _make_cross
   my ($self, $edge, $flags) = @_;
   
   my $type = $self->{type};
+
+#  print STDERR "# edge ($edge->{id}: $edge->{from}->{name} to $edge->{to}->{name}) will cross\n";
+#  my $e = $self->{edge};
+#  print STDERR "# ($e->{id}: $e->{from}->{name} to $e->{to}->{name})\n";
 
   # return undef if (($type != EDGE_HOR) && ($type != EDGE_VER));
 
@@ -711,107 +716,110 @@ sub _draw_label
 
 my $edge_html = {
 
+  # The &nbsp; in empty table cells with borders are here to make IE display
+  # the border. I so hate browser bugs.
+
   EDGE_S_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>',
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     '',
    ],
 
   EDGE_S_W() => [
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     '',
    ],
 
   EDGE_S_E() + EDGE_START_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
-    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td rowspan=4 class="##class## ve"></td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     '',
    ],
 
   EDGE_S_E() + EDGE_END_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
-    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td rowspan=4 class="##class## ha"##edgecolor##>&gt;</td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     '',
    ],
 
   EDGE_S_E() + EDGE_START_S() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>',
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-left: ##border##;"></td>' . "\n",
+    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
     ' <td colspan=4 class="##class## eb"></td>',
    ],
 
   EDGE_S_E() + EDGE_END_S() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>',
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-left: ##border##;"></td>' . "\n",
+    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
     ' <td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>',
    ],
 
   EDGE_S_E() + EDGE_END_S() + EDGE_END_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
-    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td rowspan=4 class="##class## ha"##edgecolor##>&gt;</td>',
     '',
     ' <td colspan=2 rowspan=1 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=1 rowspan=1 class="##class## eb" style="border-left: ##border##;"></td>' . "\n",
+    ' <td colspan=1 rowspan=1 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
     ' <td colspan=3 class="##class## v"##edgecolor##>&nbsp;v</td>',
    ],
 
   EDGE_S_W() + EDGE_START_W() => [
     ' <td rowspan=2 class="##class## ve"></td>' . "\n" .
-    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     '',
    ],
 
   EDGE_S_W() + EDGE_END_W() => [
     ' <td rowspan=2 class="##class## va"##edgecolor##>&lt;</td>' . "\n" .
-    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     '',
    ],
 
   EDGE_S_W() + EDGE_START_S() => [
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
     '',
     ' <td colspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     ' <td colspan=4 class="##class## eb"></td>',
    ],
 
   EDGE_S_W() + EDGE_END_S() => [
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
     '',
     ' <td colspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     ' <td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>',
    ],
 
@@ -820,8 +828,8 @@ my $edge_html = {
   # N_W
 
   EDGE_N_W() => [
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     '',
     ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
     '',
@@ -829,23 +837,23 @@ my $edge_html = {
 
   EDGE_N_W() + EDGE_START_N() => [
     ' <td colspan=4 class="##class## eb"></td>' . "\n",
-    ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
-    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
     '',
    ],
 
   EDGE_N_W() + EDGE_END_N() => [
     ' <td colspan=4 class="##class## hat"##edgecolor##>&nbsp;^</td>' . "\n",
-    ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
-    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;"></td>',
+    ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
     '',
    ],
 
   EDGE_N_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;"></td>',
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>',
     '',
     ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
     '',
@@ -853,7 +861,7 @@ my $edge_html = {
 
   EDGE_N_E() + EDGE_START_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
-    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>' . "\n" .
     ' <td rowspan=4 class="##class## ve"></td>',
     '',
     ' <td colspan=3 rowspan=2 class="##class## eb"></td>',
@@ -862,7 +870,7 @@ my $edge_html = {
 
   EDGE_N_E() + EDGE_END_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
-    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>' . "\n" .
     ' <td rowspan=4 class="##class## va"##edgecolor##>&gt;</td>',
     '',
     ' <td colspan=3 rowspan=2 class="##class## eb"></td>',
@@ -872,7 +880,7 @@ my $edge_html = {
   EDGE_N_E() + EDGE_START_N() => [
     ' <td colspan=4 class="##class## eb"></td>' . "\n",
     ' <td colspan=2 rowspan=3 class="##class## eb"></td>' . "\n" .
-    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;"></td>',
+    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
     '',
    ],
@@ -880,15 +888,15 @@ my $edge_html = {
   EDGE_N_E() + EDGE_END_N() => [
     ' <td colspan=4 class="##class## hat"##edgecolor##>&nbsp;^</td>' . "\n",
     ' <td colspan=2 rowspan=3 class="##class## eb"></td>' . "\n" .
-    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;"></td>',
+    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
     '',
    ],
 
   EDGE_N_W() + EDGE_START_W() => [
     ' <td rowspan=2 class="##class## ve"></td>' . "\n" . 
-    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>' . "\n",
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
     '',
     ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
     '',
@@ -896,8 +904,8 @@ my $edge_html = {
 
   EDGE_N_W() + EDGE_END_W() => [
     ' <td rowspan=2 class="##class## va"##edgecolor##>&lt;</td>' . "\n" . 
-    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;"></td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;"></td>' . "\n",
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
     '',
     ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
     '',
@@ -916,9 +924,9 @@ sub _html_edge_hor
   my $e_flags = $self->{type} & EDGE_END_MASK;
 
   my $rc = [
-    ' <td colspan=##mod## rowspan=2 class="##class## lh" style="border-bottom: ##border####labelcolor##">##label##</td>' . "\n",
+    ' <td colspan=##mod## rowspan=2 class="##class## lh" style="border-bottom: ##border##;##lc####bg##">##label##</td>' . "\n",
     '',
-    '<td colspan=##mod## rowspan=2 class="##class## eb">&nbsp;</td>' . "\n", 
+    '<td colspan=##mod## rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' . "\n", 
     '',
     ];
 
@@ -929,22 +937,22 @@ sub _html_edge_hor
   if ($s_flags & EDGE_START_W)
     {
     $mod--;
-    $rc->[0] = '<td rowspan=4 class="##class## ve"></td>' . "\n" . $rc->[0];
+    $rc->[0] = '<td rowspan=4 class="##class## ve" style="##bg##"></td>' . "\n" . $rc->[0];
     };
   if ($s_flags & EDGE_START_E)
     {
     $mod--;
-    $rc->[0] .= "\n " . '<td rowspan=4 class="##class## ve"></td>';
+    $rc->[0] .= "\n " . '<td rowspan=4 class="##class## ve" style="##bg##"></td>';
     };
   if ($e_flags & EDGE_END_W)
     {
     $mod--;
-    $rc->[0] = '<td rowspan=4 class="##class## va"##edgecolor##>&lt;</td>' . "\n" . $rc->[0];
+    $rc->[0] = '<td rowspan=4 class="##class## va" style="##ec####bg##">&lt;</td>' . "\n" . $rc->[0];
     }
   if ($e_flags & EDGE_END_E)
     { 
     $mod--;
-    $rc->[0] .= "\n " . '<td rowspan=4 class="##class## va"##edgecolor##>&gt;</td>';
+    $rc->[0] .= "\n " . '<td rowspan=4 class="##class## va" style="##ec####bg##">&gt;</td>';
     };
 
   for my $e (@$rc)
@@ -969,7 +977,7 @@ sub _html_edge_ver
   # normal vertical edge with no start/end flags
   my $rc = [
     '<td colspan=2 rowspan=##mod## class="##class## el">&nbsp;</td>' . "\n " . 
-    '<td colspan=2 rowspan=##mod## class="##class## lv" style="border-left: ##border####labelcolor##">##label##</td>' . "\n",
+    '<td colspan=2 rowspan=##mod## class="##class## lv" style="border-left: ##border##;##lc##">##label##</td>' . "\n",
     '',
     '',
     '',
@@ -985,7 +993,7 @@ sub _html_edge_ver
   elsif ($e_flags & EDGE_END_N)
     {
     $mod--;
-    unshift @$rc, '<td colspan=4 class="##class## hat"##edgecolor##>&nbsp;^</td>' . "\n";
+    unshift @$rc, '<td colspan=4 class="##class## hat" style="##bg####ec##">&nbsp;^</td>' . "\n";
     delete $rc->[-1];
     }
 
@@ -999,7 +1007,7 @@ sub _html_edge_ver
   if ($e_flags & EDGE_END_S)
     {
     $mod--;
-    $rc->[3] = '<td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>' . "\n";
+    $rc->[3] = '<td colspan=4 class="##class## v" style="##bg####ec##">&nbsp;v</td>' . "\n";
     }
 
   for my $e (@$rc)
@@ -1020,11 +1028,11 @@ sub _html_edge_cross
   my $e_flags = $self->{type} & EDGE_END_MASK;
 
   my $rc = [
-    ' <td colspan=2 rowspan=2 class="##class## eb el" style="border-bottom: ##border##"></td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb el" style="border-left: ##border##; border-bottom: ##border##"></td>' . "\n",
+    ' <td colspan=2 rowspan=2 class="##class## eb el" style="border-bottom: ##border##">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb el" style="border-left: ##borderv##; border-bottom: ##border##">&nbsp;</td>' . "\n",
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb el"></td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb el" style="border-left: ##border##"></td>' . "\n",
+    ' <td colspan=2 rowspan=2 class="##class## eb el" style="border-left: ##borderv##">&nbsp;</td>' . "\n",
     '',
     ];
 
@@ -1087,9 +1095,13 @@ sub as_html
   $label_color = '' if $label_color eq 'black';
   
   my $edge_color = '';
-  $edge_color = " style=\"color: $color\"" if $color;
+  $edge_color = " color: $color;" if $color;
 
-  $label_color = "; color: $label_color" if $label_color;
+  $label_color = " color: $label_color;" if $label_color;
+
+  my $bg = $self->background();
+
+  $bg = " background: $bg;" if $bg;
 
   my @rc;
   for my $a (@$code)
@@ -1098,9 +1110,14 @@ sub as_html
     # insert the label, class and border
     $c =~ s/##label##/$label/;
     $c =~ s/##class##/$self->class()/eg;
-    $c =~ s/##border##/$border/g;
-    $c =~ s/##labelcolor##/$label_color/g;
-    $c =~ s/##edgecolor##/$edge_color/g;
+    # XXX TODO:
+    # replace borderv with the border for the vertical edge on CROSS sections
+    $c =~ s/##borderv?##/$border/g;
+    $c =~ s/##lc##/$label_color/g;
+    $c =~ s/##edgecolor##/ style="$edge_color"/g;
+    $c =~ s/##ec##/$edge_color/g;
+    $c =~ s/##bg##/$bg/g;
+    $c =~ s/style=""//g;		# remove empty styles
     $c .= "\n" unless $c =~ /\n\z/;
     push @rc, " " . $c;
     }

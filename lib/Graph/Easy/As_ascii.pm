@@ -4,6 +4,10 @@
 # (c) by Tels 2004-2005. Part of Graph::Easy
 #############################################################################
 
+package Graph::Easy::ASCII;
+
+$VERSION = '0.02';
+
 package Graph::Easy::Node;
 
 use strict;
@@ -23,6 +27,37 @@ sub _framebuffer
     push @fb, $line;
     }
   \@fb;
+  }
+
+sub _printfb_aligned
+  {
+  my ($self,$fb, $x1,$y1, $x2,$y2, $lines, $align_ver, $align_hor) = @_;
+    
+  my $w = $x2 - $x1;
+  my $h = $y2 - $y1;
+
+  my $y = $y1 + ($h / 2) - (scalar @$lines / 2); 
+  my $x = int($x1 + ($w / 2));
+
+  for my $l (@$lines)
+    {
+    my $xi = int($x - length($l) / 2);
+    $self->_printfb_line($fb, $xi, $y, $l);
+    $y++;
+    }
+  }
+
+sub _printfb_line
+  {
+  # Print a textline into a framebuffer
+  # Caller MUST ensure proper size of FB, for speed reasons,
+  # we do not check wether text fits!
+  my ($self, $fb, $x, $y, $l) = @_;
+
+  # [0] = '0123456789...'
+  # [1] = '0123456789...' etc
+
+  substr ($fb->[$y], $x, length($l)) = $l; $y++;
   }
 
 sub _printfb

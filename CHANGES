@@ -1,5 +1,47 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-09-18 v0.29 Tels 1113 tests - Draw, draw, draw, draw the corners...
+  * add attribute "label-pos" to class "graph"
+  * remove only quotation marks in attributes when they are both at the start
+    and end of the text. So "label: 2';" will work correctly now.
+  * as_html(): work-around for IE not displaying edge corner pieces
+  * as_html(): put caption below graph if label-pos: bottom
+  * as_html(): use remap_attributes()
+  * as_html(): correctly output nodes with "shape: none;"
+  * as_html(): encode ' in links to %27
+  * as_html(): do not combine cells with a set border (this produces incorrect
+	       output)
+  * as_html_file(): set correct document charset, and <title> tag
+  * as_ascii(): output graph label, below or above, according to label-pos
+  * as_graphviz(): remap border-styles, add support for border-style: double 
+  * as_graphviz(): handle attributes in node, edge and group classes, too
+  * as_graphviz(): handle graph attributes: label-pos, label
+  * as_graphviz(): skip over graph attributes: gid, autolink etc
+  * as_graphviz(): fix output of groups
+  * as_graphviz(): fix output of graph border and style: none
+  * as_txt(): do not list nodes twice in output of groups with 'nodeclass'
+  * Graph: set_attributes() also goes via set_attribute(), e.g. properly
+           checking arguments, handling "gid", decomposing "border" into
+	   border-(style|color|width) etc.
+  * default background attribute is ''
+  * drop node shapes:
+      egg (looks ugly, and impossible to support except in graphviz and SVG)
+      doubleoctagon (already done by "shape: octagon; border-style: double")
+  * optimize Graph::Easy::Group::Cell::_set_type, makes complex layouts with
+    groups about 10% faster overall
+  * remove unnec. routines in Graph::Easy::Group::Cell
+  * streamline $graph->groups() in list context
+  * Layout: Nodes are not placed next to each other (unless offset: is set)
+  * Layout: consider HOR and VER edge pieces running alongside a node as
+            potential start fields with penalty
+  * Edge/Cell: export EDGE_NO_M_MASK
+  * Node: add backgroud() routine that finds out the real background (for
+    groups etc)
+  * add POD tests via Test::POD (t/pod.t)
+  * add POD coverage tests via Test::POD::Coverage (t/pod_cov.t)
+  * 100% POD coverage for Nodes, Groups, Edges and Graph::Easy
+  * move build/ dir to Graph::Easy::Manual
+
 2005-09-05 v0.28 Tels 1058 tests - Offset, offset, offset, offset the position...
   * fix LIMITATIONS section in POD
   * fix POD in Graph::Easy::Attributes
@@ -17,7 +59,7 @@ Revision history for Graph::Easy (formerly known as Graph::Simple):
     + works correctly with multi-celled nodes
     + update doc for this feature
   * remove "point-style: none" - "shape: invisible;" already does the same
-  * remove "point-style: ring" - is: "point-style: circle; color: white;"
+  * remove "point-style: ring" - is: "point-style: circle; fill: white;"
   * add "point-style: diamond"
   * add attribute arrow-style (open, closed, filled) for edges
   * add attribute "fill" (color inside shape) and change notion of "background"

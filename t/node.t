@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 108;
+   plan tests => 114;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -15,7 +15,7 @@ BEGIN
 
 can_ok ("Graph::Easy::Node", qw/
   new
-  as_ascii as_txt as_html
+  as_html as_ascii
   error
   class
   dimensions
@@ -26,6 +26,7 @@ can_ok ("Graph::Easy::Node", qw/
   connections
   edges_to
   width
+  background
   height
   columns
   rows
@@ -42,9 +43,7 @@ can_ok ("Graph::Easy::Node", qw/
   set_attribute
   set_attributes
   attribute
-  attributes_as_txt
   border_attribute
-  as_pure_txt
   group groups add_to_groups
   origin
 
@@ -144,6 +143,10 @@ $graph->add_edge('Name', 'Name');
 
 my $r = 'colspan=4 rowspan=4';
 
+use_ok ('Graph::Easy::As_txt');
+
+can_ok ('Graph::Easy::Node', qw/attributes_as_txt as_txt as_pure_txt/);
+
 is ($node->as_txt(), '[ Node \#0 ]', 'as_txt');
 is ($node->as_html(), " <td $r class='node'>Node #0</td>\n",
  'as_html');
@@ -237,7 +240,7 @@ foreach my $l (
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: orange; link: http://bloodgate.com/; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar' style=\"color: #ffa500\"> <a class='l' href='http://bloodgate.com/'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #ffa500\"><a class='l' href='http://bloodgate.com/'>Node #0</a></td>\n",
     'as_html');
   }
 
@@ -251,7 +254,7 @@ foreach my $l (
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: orange; link: perl/; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar' style=\"color: #ffa500\"> <a class='l' href='/wiki/index.php/perl/'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #ffa500\"><a class='l' href='/wiki/index.php/perl/'>Node #0</a></td>\n",
     'as_html');
   }
 
@@ -259,26 +262,44 @@ $node->set_attribute('link', "test test&");
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: orange; link: test test&; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar' style=\"color: #ffa500\"> <a class='l' href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #ffa500\"><a class='l' href='/wiki/index.php/test+test&'>Node #0</a></td>\n",
     'as_html');
 
 $node->set_attribute('color', "\\#801010");
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: #801010; link: test test&; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar' style=\"color: #801010\"> <a class='l' href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #801010\"><a class='l' href='/wiki/index.php/test+test&'>Node #0</a></td>\n",
+    'as_html');
+
+# test quotation marks in link:
+
+$node->set_attribute('link', "test'test");
+  is ($node->as_txt(), 
+    '[ Node \#0 ] { color: #801010; link: test\'test; class: bar; }', 'as_txt');
+  is ($node->as_html(), 
+    " <td $r class='node-bar' style=\"color: #801010\"><a class='l' href='/wiki/index.php/test%27test'>Node #0</a></td>\n",
+    'as_html');
+
+# quotation mark at the end (but not at the start)
+$node->set_attribute('link', "test'");
+  is ($node->as_txt(), 
+    '[ Node \#0 ] { color: #801010; link: test\'; class: bar; }', 'as_txt');
+  is ($node->as_html(), 
+    " <td $r class='node-bar' style=\"color: #801010\"><a class='l' href='/wiki/index.php/test%27'>Node #0</a></td>\n",
     'as_html');
 
 #############################################################################
 # skipping of attributes (should not appear in HTML)
 
+$node->set_attribute('link', "test test&");
 $node->set_attribute('flow','right');
 $node->set_attribute('point-style','diamond');
 
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: #801010; flow: 90; link: test test&; point-style: diamond; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar' style=\"color: #801010\"> <a class='l' href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
+    " <td $r class='node-bar' style=\"color: #801010\"><a class='l' href='/wiki/index.php/test+test&'>Node #0</a></td>\n",
     'as_html');
 
 #############################################################################

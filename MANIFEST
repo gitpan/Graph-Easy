@@ -6,14 +6,6 @@ LICENSE
 README
 SIGNATURE
 TODO
-build/gen_manual
-build/attributes.tpl
-build/manual.css
-build/base.css
-build/att_graphs.tpl
-build/att_groups.tpl
-build/att_nodes.tpl
-build/att_edges.tpl
 examples/common.pl		generate example graphs
 examples/ascii.pl		examples as ASCII
 examples/html.pl		examples as HTML
@@ -57,6 +49,8 @@ t/path.t
 t/parser.t			general parser tests
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
+t/pod.t				test the POD for correctness
+t/pod_cov.t			test the POD for covering all subroutines
 t/split.t			[ A | B | C ] || [ D | E | F ] tests
 t/syntax/0000.txt		syntax tests for the parser
 t/syntax/0001.txt
@@ -134,6 +128,7 @@ t/in/2_selfloop.txt
 t/in/2_selfloop_flow_down.txt
 t/in/2_edges.txt
 t/in/2_long_labels.txt
+t/in/2_graph_label.txt
 t/in/3nodes.txt
 t/in/3_nodes_5_edges.txt
 t/in/3_cluster.txt
@@ -149,6 +144,7 @@ t/in/4_2x2nodes.txt
 t/in/4groups.txt
 t/in/4groups_class.txt
 t/in/4_edge_labels.txt
+t/in/4_edge_cross.txt
 t/in/2_invisible_left.txt
 t/in/2_invisible_right.txt
 t/in/3_invisible_both.txt
@@ -183,6 +179,7 @@ t/out/2_invisible_left.txt
 t/out/2_invisible_right.txt
 t/out/2_newlines.txt
 t/out/2_long_labels.txt
+t/out/2_graph_label.txt
 t/out/3nodes.txt
 t/out/3_cluster.txt
 t/out/3_selfloop.txt
@@ -201,6 +198,7 @@ t/out/4_near.txt
 t/out/4_nodes_5_edges.txt
 t/out/4_nodes_6_edges.txt
 t/out/4_edge_types.txt
+t/out/4_edge_cross.txt
 t/out/4_edge_labels.txt
 t/out/6_chained.txt
 t/out/6_chain_10_edges.txt
@@ -216,6 +214,7 @@ t/txt/2_cluster_3.txt
 t/txt/2_invisible_left.txt
 t/txt/2_invisible_right.txt
 t/txt/2_newlines.txt
+t/txt/2_graph_label.txt
 t/txt/3_invisible_both.txt
 t/txt/3_invisible.txt
 t/txt/3_cluster.txt
@@ -230,6 +229,7 @@ t/txt/4_2x2nodes.txt
 t/txt/4_nodes_5_edges.txt
 t/txt/4_nodes_6_edges.txt
 t/txt/4_edge_labels.txt
+t/txt/4_edge_cross.txt
 t/txt/7_cluster.txt
 t/txt/6_chained.txt
 t/txt/6_chain_10_edges.txt

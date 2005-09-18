@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 20;
+   plan tests => 29;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok qw/Graph::Easy::Edge/;
@@ -14,13 +14,15 @@ BEGIN
 
 can_ok ("Graph::Easy::Edge", qw/
   new
-  as_txt
   error
   label
   cells
   add_cell
   clear_cells
+  _unplace
   attribute
+  undirected
+  bidirectional
   set_attribute
   set_attributes
   groups
@@ -44,6 +46,10 @@ $edge->{graph} = $graph;
 is (ref($edge), 'Graph::Easy::Edge');
 
 is ($edge->error(), '', 'no error yet');
+is ($edge->undirected(), undef, 'not undirected');
+is ($edge->bidirectional(), undef, 'not bidiriectional');
+
+use_ok ('Graph::Easy::As_txt');
 
 is ($edge->as_txt(), ' --> ', 'default is "-->"');
 
@@ -111,4 +117,14 @@ is (scalar keys %{$edge->cells()}, 2, 'two cells');
 
 $edge->clear_cells();
 is (scalar keys %{$edge->cells()}, 0, 'no cells');
+
+#############################################################################
+# undirected/bidirectional
+
+is ($edge->undirected(2), 1, 'undirected');
+is ($edge->undirected(), 1, 'undirected');
+is ($edge->undirected(0), 0, 'not undirected');
+is ($edge->bidirectional(2), 1, 'bidiriectional');
+is ($edge->bidirectional(), 1, 'bidiriectional');
+is ($edge->bidirectional(0), 0, 'not bidiriectional');
 

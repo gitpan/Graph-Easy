@@ -88,10 +88,10 @@ sub set_attribute
   # if defined attribute "nodeclass", put our nodes into that class
   if ($atr eq 'nodeclass')
     {
-    for my $n (keys %{ $self->{nodes} } )
+    my $class = $self->{att}->{nodeclass};
+    for my $node (values %{ $self->{nodes} } )
       {
-      my $node = $self->{nodes}->{$n};
-      $node->sub_class($self->{att}->{nodeclass});
+      $node->sub_class($class);
       }
     }
   $self;
@@ -102,6 +102,7 @@ sub set_attribute
 
 sub add_node
   {
+  # add a node to this group
   my ($self,$n) = @_;
  
   if (!ref($n) || ref($n) =~ /Graph::Easy::Group/)
@@ -225,62 +226,60 @@ Return the group as a little box drawn in ASCII art as a string.
 
 Return the name of the group.
 
-=head2 contents()
-
-	my $contents = $node->contents();
-
-For nested nodes, returns the contents of the node.
-
-=head2 width()
-
-	my $width = $node->width();
-
-Returns the width of the node. This is a unitless number.
-
-=head2 height()
-
-	my $height = $node->height();
-
-Returns the height of the node. This is a unitless number.
-
-=head2 pos()
-
-	my ($x,$y) = $node->pos();
-
-Returns the position of the node. Initially, this is undef, and will be
-set from C<Graph::Easy::layout>.
-
-=head2 x()
-
-	my $x = $node->x();
-
-Returns the X position of the node. Initially, this is undef, and will be
-set from C<Graph::Easy::layout>.
-
-=head2 y()
-
-	my $y = $node->y();
-
-Returns the Y position of the node. Initially, this is undef, and will be
-set from C<Graph::Easy::layout>.
-
 =head2 id()
 
-	my $id = $node->id();
+	my $id = $group->id();
 
-Returns the node's unique ID number.
+Returns the group's unique ID number.
 
-=head2 predecessors()
+=head2 set_attribute()
 
-	my @pre = $node->predecessors();
+        $group->set_attribute('border-style', 'none');
 
-Returns all nodes (as objects) that link to us.
+Sets the specified attribute of this (and only this!) group to the
+specified value.
 
-=head2 successors()
+=head2 add_node()
 
-	my @suc = $node->successors();
+	$group->add_node($node);
 
-Returns all nodes (as objects) that we are linking to.
+Add the specified node to this group.
+
+=head2 add_nodes()
+
+	$group->add_nodes($node, $node2, ... );
+
+Add all the specified nodes to this group.
+
+=head2 add_cell()
+
+	$group->add_cell($cell);
+
+Add a cell to the list of cells this group covers.
+
+=head2 cells()
+
+	my @cells = $group->cells();
+
+Returns a list of all cells that belong to this group.
+
+=head2 nodes()
+
+	my @nodes = $group->nodes();
+
+Returns a list of all nodes that belong to this group.
+
+=head2 clear_cells()
+
+	$group->clear_cells();
+
+Clears the cells associated with this group.
+
+=head2 as_txt()
+
+	my $txt = $group->as_txt();
+
+Returns the group as Graph::Easy textual description.
 
 =head1 EXPORT
 
