@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.29';
+$VERSION = '0.30';
 
 use strict;
 
@@ -891,6 +891,8 @@ sub as_html
       while ($i < @$row)
         {
         next if $row->[$i] =~ /border[:-]/;
+        next if $row->[$i] !~ />(nbsp;)?</;	# non-empty?
+
         # count all sucessive equal ones
         my $j = $i + 1;
         while ($j < @$row && $row->[$j] eq $row->[$i]) { $j++; }
@@ -1011,7 +1013,7 @@ sub as_ascii_html
   # suitable to be embedded into an HTML page. Does not yet do colors.
   my ($self) = @_;
 
-  "<pre>\n" . $self->as_ascii() . "\n<pre>\n";
+  "<pre>\n" . $self->as_ascii() . "\n</pre>\n";
   }
 
 #############################################################################

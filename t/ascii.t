@@ -50,6 +50,8 @@ foreach my $f (sort @files)
     }
   is (scalar $graph->nodes(), $nodes, "$nodes nodes");
 
+  # for slow testing machines
+  $graph->timeout(20);
   my $ascii = $graph->as_ascii();
   my $out = readfile("out/$f");
   $out =~ s/(^|\n)\s*#[^#=].*\n//g;		# remove comments

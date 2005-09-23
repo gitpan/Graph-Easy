@@ -1,5 +1,11 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-09-23 v0.30 Tels 1114 tests - Draw, draw, draw, draw the corners...
+  * ascii.t could fail on very slow machines
+  * fix pod/t. and pod_cov.t when the Pod::Test modules are not installed
+  * fix as_ascii_html() to end with "</pre>"
+  * as_html(): do not combine non-empty cells
+
 2005-09-18 v0.29 Tels 1113 tests - Draw, draw, draw, draw the corners...
   * add attribute "label-pos" to class "graph"
   * remove only quotation marks in attributes when they are both at the start

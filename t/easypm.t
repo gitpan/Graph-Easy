@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 105;
+   plan tests => 106;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -259,6 +259,13 @@ my ($a,$b,$e) = $graph->add_edge( 'Test', 'Test' );
 
 is ($a->{id}, $b->{id}, "one node for ('test','test')");
 is ($a, $b, "one object for ('test','test')");
+
+#############################################################################
+# is_ascii_html()
+
+$ascii = $graph->as_ascii_html();
+
+like ($ascii, qr/<pre>(.|\n)*<\/pre>/, 'as_ascii_html');
 
 #############################################################################
 # is_simple_graph()

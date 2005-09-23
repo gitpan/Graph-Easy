@@ -2,17 +2,20 @@
 
 use Test::More;
 use strict;
+   
+my $tests;
 
 BEGIN
    {
-   plan tests => 16;
+   $tests = 16;
+   plan tests => $tests;
    chdir 't' if -d 't';
    use lib '../lib';
    };
 
 SKIP:
   {
-  skip( 'Test::Pod not installed on this system', 1 )
+  skip( 'Test::Pod not installed on this system', $tests )
     unless do
       {
       eval qq{
