@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 30;
+   plan tests => 48;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Attributes") or die($@);
@@ -108,10 +108,39 @@ $graph->set_attribute('graph', 'shape', 'point');
 is ($graph->error(),"Error: 'shape' is not a valid attribute for graph",'no error');
 $graph->error('');			# reset potential error for next test
 
+#############################################################################
+# text-style attribute
+
+for my $class (qw/edge graph node group/)
+  {
+  $graph->set_attribute($class, 'text-style', 'none');
+  is ($graph->error(), '', "could set text-style on $class");
+  $graph->error('');			# reset potential error for next test
+
+  $graph->set_attribute($class, 'text-style', 'bold');
+  is ($graph->error(), '', "could set text-style on $class");
+  $graph->error('');			# reset potential error for next test
+
+  $graph->set_attribute($class, 'text-style', 'bold underline');
+  is ($graph->error(), '', "could set text-style on $class");
+  $graph->error('');			# reset potential error for next test
+
+  $graph->set_attribute($class, 'text-style', 'bold underline overline italic');
+  is ($graph->error(), '', "could set text-style on $class");
+  $graph->error('');			# reset potential error for next test
+  }
+
+$graph->set_attribute('graph', 'text-style', 'bold underline overline italic');
+
+my $styles = $graph->text_styles();
+is (join(',', sort keys %$styles), 'bold,italic,overline,underline', 'text_styles()');
 
 
+my $node = $graph->add_node('one');
 
+$node->set_attribute('text-style', 'bold underline overline italic');
 
-
+$styles = $node->text_styles();
+is (join(',', sort keys %$styles), 'bold,italic,overline,underline', 'text_styles() on node');
 
 

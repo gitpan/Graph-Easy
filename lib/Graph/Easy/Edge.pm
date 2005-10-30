@@ -5,7 +5,6 @@
 
 package Graph::Easy::Edge;
 
-use 5.006001;
 use strict;
 use Graph::Easy::Node;
 
@@ -13,7 +12,7 @@ use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 #############################################################################
 
@@ -42,7 +41,7 @@ sub _init
   delete $self->{label};
 
   $self->{att}->{'border-style'} = 'none';
-  $self->{att}->{style} = $self->{style} || 'solid';
+  $self->{att}->{style} = $self->{style} if $self->{style};
   delete $self->{style};
  
   $self;
@@ -68,18 +67,20 @@ sub as_txt
   my $n = $self->{att}->{label}; $n = '' unless defined $n;
 
   my $left = ' '; $left = ' <' if $self->{bidirectional};
-  my $right = '> '; $right = ' <' if $self->{undirected};
+  my $right = '> '; $right = ' ' if $self->{undirected};
+  
+  my $s = $self->style() || 'solid';
 
-  my $style = $styles->{$self->{att}->{style}};
+  my $style = $styles->{ $s };
   if (!defined $style)
     {
     require Carp;
-    Carp::croak ("Unknown edge style $self->{att}->{style}\n");
+    Carp::croak ("Unknown edge style '$s'\n");
     }
 
   # suppress border on edges
   my $suppress = { all => { label => undef } };
-  if ($self->{att}->{style} eq 'bold')
+  if ($s eq 'bold')
     {
     # output "--> { style: bold; }"
     $style = '--';
@@ -98,19 +99,6 @@ sub as_txt
   # ' - Name -->' or ' --> ' or ' -- '
   my $a = $self->attributes_as_txt($suppress) . ' '; $a =~ s/^\s//;
   $left . $n . $style . $right . $a;
-  }
-
-sub _formatted_label
-  {
-  my $self = shift;
-
-  my $name = $self->label() || '';
-  # insert real newlines and remove spacing
-  $name =~ s/\s*\\n\s*/\n/g;		# insert real newlines
-
-  # split into lines
-  my @lines = split /\n/, $name;
-  @lines;
   }
 
 #############################################################################
@@ -138,7 +126,7 @@ sub style
   {
   my $self = shift;
 
-  $self->{att}->{style};
+  $self->{att}->{style} || $self->attribute('style') || 'solid';
   }
 
 sub cells

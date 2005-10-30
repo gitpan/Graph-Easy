@@ -3,7 +3,7 @@
 
 node { shape: circle; }
 
-[ main ] { shape: box; } # this is a comment
+[ main ] { shape: rect; } # this is a comment
 -> [ parse ]
 -> [ execute ] 
 -> [ make_string ] { label: make a\n string; }
@@ -13,6 +13,6 @@ node { shape: circle; }
 
 [ init ] -> [ make_string ]
 
-[ main ] == 100 times ==> [ printf ] 	# red edge!
+[ main ] == 100 times ==> { color: red; style: bold; } [ printf ] 	# bold red edge!
 
-[ execute ] -> [ compare ] { shape: box; background: #c1b2ff; }
+[ execute ] -> { color: red; } [ compare ] { shape: rect; background: #c1b2ff; }

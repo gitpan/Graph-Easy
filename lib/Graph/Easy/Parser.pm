@@ -6,13 +6,12 @@
 
 package Graph::Easy::Parser;
 
-use 5.006001;
 use strict;
 use Graph::Easy;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 sub new
   {
@@ -80,6 +79,7 @@ sub from_file
   else
     {
     open PARSER_FILE, $file or die (ref($self).": Cannot read $file: $!");
+    binmode PARSER_FILE, ':utf8' or die ("binmode '$file', 'utf8' failed: $!");
     $doc = <PARSER_FILE>;		# read entire file
     close PARSER_FILE;
     }
@@ -158,7 +158,6 @@ sub from_text
 
     # node { color: red; } or 
     # node.graph { color: red; }
-    # XXX TODO: group-label, edge-label
     if ($line =~ /^(node|graph|edge|group)(\.\w+)?$qr_attr/)
       {
       my $type = $1 || '';
@@ -206,6 +205,7 @@ sub from_text
 
       my $a1 = $self->_parse_attributes($1||'', 'group');	# group attributes
       return undef if $self->{error};
+      
       $group->set_attributes($a1);
 
       $line =~ s/^$qr_group_end$qr_oatr//;
@@ -264,7 +264,8 @@ sub from_text
       my $edge_un = 0;					# undirected edge?
       $edge_un = 1 if !defined $2 && !defined $5;
 
-      my $edge_label = $7 || '';			# optional edge label
+      # optional edge label
+      my $edge_label = $7; $edge_label = '' unless defined $edge_label;
       my $ed = $3 || $5 || $1;				# edge pattern/style ("--")
 
       my $edge_atr = $11 || '';				# save edge attributes
@@ -281,7 +282,7 @@ sub from_text
 
       my @nodes_b = $self->_new_node ($graph, $n, \@group_stack, $a1);
 
-      my $style = 'solid';			# default
+      my $style = undef;			# default is "inherit from class"
       $style = 'double-dash' if $ed =~ /^(= )+\z/; 
       $style = 'double' if $ed =~ /^=+\z/; 
       $style = 'dotted' if $ed =~ /^\.+\z/; 
@@ -294,8 +295,6 @@ sub from_text
       # add edges for all nodes in the left list
       foreach my $node (@stack)
         {
-#        print STDERR "# continued: edge from $node->{name} => $node_b->{name}\n";
-
         foreach my $node_b (@nodes_b)
           {
           my $edge = $e->new( { style => $style, name => $edge_label } );
@@ -306,8 +305,6 @@ sub from_text
           $graph->add_edge ( $node, $node_b, $edge );
           }
         }
-#      print STDERR "# handled stack\n";
- 
       # remember the right side
       @stack = @nodes_b;
 
@@ -343,8 +340,8 @@ sub _new_node
   {
   # Create a new node unless it doesn't already exist. If the group stack
   # contains entries, the new node appears first in this/these group(s), so
-  # add it to these groups. If the newly created node contains "|", we split
-  # it up into several nodes and cluster these together.
+  # add it to these groups. If the newly created node contains "|", we auto
+  # split it up into several nodes and cluster these together.
   my ($self, $graph, $name, $group_stack, $att) = @_;
 
   # strip trailing spaces
@@ -364,8 +361,6 @@ sub _new_node
     }
   elsif ($name =~ /[^\\]\|/)
     {
-#    print STDERR "$name is to be split\n";
-
     # build base name: "A|B |C||D" => "ABCD"
     my $base_name = $name; $base_name =~ s/\s*\|\|?\s*//g;
 
@@ -385,15 +380,13 @@ sub _new_node
     $self->{clusters}->{$base_name} = undef;	# reserve this name
 
     my $x = 0; my $y = 0; my $idx = 0;
-    my $remaining = $name;
+    my $remaining = $name; my $sep;
     while ($remaining ne '')
       {
       # XXX TODO: parsing of "\|" and "|" in one node
       $remaining =~ s/^([^\|]*)(\|\|?|\z)//;
       my $part = $1 || '';
-      my $sep = $2;
-
-#      print STDERR "# at part $part for $name ($idx=$x,$y) (remaining: $remaining)\n";
+      $sep = $2;
 
       my $class = "Graph::Easy::Node";
       if ($part eq ' ')
@@ -417,9 +410,24 @@ sub _new_node
       my $node = $class->new( { name => $node_name, label => $part } );
       $graph->add_node($node);
       push @rc, $node;
-      $node->relative_to($rc[0],$x,$y) if @rc > 1;	# second, third etc get first as origin 
+      if (@rc == 1)
+        {
+        # for correct as_txt output
+        $node->{autosplit} = $name;
+        }
+      else
+        {
+	# second, third etc get first as origin 
+        $node->relative_to($rc[0],$x,$y);
+	# suppress as_txt output for other parts
+        $node->{autosplit} = undef;
+        }	
+      # nec. for border-collapse
+      $node->{autosplit_xy} = "$x,$y";
+
       $idx++;						# next node ID
 
+      } continue {
       $x++;
       # || starts a new row:
       if ($sep eq '||')
@@ -562,7 +570,7 @@ sub _parse_attributes
     my $rc = 2;			# invaid attribute value
     if (ref($v) eq 'ARRAY')
       {
-      $rc = 2;			# invalid attribute name
+      $rc = 1;			# invalid attribute name
       $v = undef;
       }
     $self->parse_error($rc,$val,$name,$class), return
@@ -581,7 +589,7 @@ sub parse_error
 
   # XXX TODO: should really use the msg nr mapping
   my $msg = "Found unexpected group end at line $self->{line_nr}";			# 0
-  $msg = "Value '##param2##' is not a valid attribute name for a ##param3##"		# 1
+  $msg = "Error in attribute: '##param2##' is not a valid attribute name for a ##param3##"			# 1
         if $msg_nr == 1;
   $msg = "Error in attribute: '##param1##' is not a valid ##param2## for a ##param3##"
 	if $msg_nr == 2;								# 2
@@ -633,7 +641,7 @@ The resulting object can than be used to layout and output the graph.
 
 =head2 Input
 
-The input consists of text describing the graph.
+The input consists of text describing the graph, encoded in UTF-8.
 
 	[ Bonn ]      --> [ Berlin ]
 	[ Frankfurt ] <=> [ Dresden ]

@@ -8,7 +8,7 @@ package Graph::Easy::Node::Anon;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = 0.02;
+$VERSION = 0.03;
 
 use strict;
 
@@ -31,8 +31,6 @@ sub _init
 
 sub _correct_size
   {
-#  my ($self,$format) = @_;
-
   $_[0];
   }
 
@@ -73,6 +71,11 @@ sub title
   {
   # Returns a title of the node (or '', if none was set), which can be
   # used for mouse-over titles
+  '';
+  }
+
+sub text_styles_as_css
+  {
   '';
   }
 

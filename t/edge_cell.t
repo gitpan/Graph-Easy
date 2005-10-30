@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 
+# Test Graph::Easy::Edge::Cell
+
 use Test::More;
 use strict;
 
@@ -54,7 +56,7 @@ is ($path->error(), '', 'no error yet');
 
 is ($path->x(), 0, 'x == 0');
 is ($path->y(), 0, 'x == 0');
-is ($path->label(), undef, 'no label');
+is ($path->label(), '', 'no label');
 is (join(",", $path->pos()), "0,0", 'pos = 0,0');
 is ($path->width(), undef, 'w = undef');	# no graph => thus no width yet
 
@@ -108,7 +110,7 @@ $path->{type} = EDGE_HOR;
 $path->_make_cross($other);
 
 $ascii = $path->as_ascii();
-is ($ascii, "  '       \n.-#-.-.-.-\n  '       ", 'crossing between dot-dash and dashed');
+is ($ascii, "  '       \n.-+-.-.-.-\n  '       ", 'crossing between dot-dash and dashed');
 
 $path->{style} = 'dotted';
 $path->{style_ver} = 'solid';

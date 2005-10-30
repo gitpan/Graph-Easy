@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 #############################################################################
 #############################################################################
@@ -26,26 +26,20 @@ my $remap = {
     'border-width' => undef,
     'border' => undef,
     'shape' => \&_graphviz_remap_node_shape,
-    'font-size' => 'fontsize',
     'point-style' => undef,
-    'font-weight' => undef,
     },
   'edge' => {
     'title' => 'tooltip',
     'background' => undef,
     'border' => undef,
     'border-style' => undef,
-    'font-weight' => undef,
-    'font-size' => 'fontsize',
     'style' => \&_graphviz_remap_edge_style,
     'arrow-style' => \&_graphviz_remap_arrow_style,
-    'label-color' => 'fontcolor',
+    'label-color' => \&_graphviz_remap_label_color,
     },
   'graph' => {
     'fill' => 'bgcolor',
     'background' => undef,
-    'font-size' => 'fontsize',
-    'font-weight' => undef,
     'flow' => undef,
     'output' => undef,
     'label-pos' => 'labelloc',
@@ -54,18 +48,26 @@ my $remap = {
     'border-style' => \&_graphviz_remap_border_style,
     'border-width' => undef,
     },
+  'group' => {
+    'border-color' => undef,
+    'border-style' => undef,
+    'border-width' => undef,
+    'background' => undef,
+    },
   'all' => {
     class => undef,
     'link' => \&_graphviz_remap_link,
     'linkbase' => undef,
     'autolink' => undef,
     'autotitle' => undef,
+    'text-style' => undef,
+    'font-size' => \&_graphviz_remap_fontsize,
     },
   'always' => {
     'link' => 1,
     'label_pos' => 1,
+    'label-color' => 1,
     },
-#   'fallback' => \&_graphviz_filter_attribute,
   };
 
 sub _graphviz_remap_edge_style
@@ -73,6 +75,8 @@ sub _graphviz_remap_edge_style
   my ($self, $name, $style) = @_;
 
   # valid styles are: solid dashed dotted bold invis
+
+  $style = 'solid' unless defined $style;
 
   $style = 'dotted' if $style =~ /^dot-/;	# dot-dash, dot-dot-dash
   $style = 'dashed' if $style =~ /^double-/;	# double-dash
@@ -82,6 +86,36 @@ sub _graphviz_remap_edge_style
   return (undef, undef) if $style eq 'solid';	# default style can be suppressed
 
   ($name, $style);
+  }
+
+sub _graphviz_remap_fontsize
+  {
+  # make sure the fontsize is in pixel or percent
+  my ($self, $name, $style) = @_;
+
+  my $fs = 11;
+
+  if ($style =~ /^([\d.]+)em\z/)
+    {
+    $fs = $1 * 11;
+    }
+  elsif ($style =~ /^([\d.]+)%\z/)
+    {
+    $fs = ($1 / 100) * 11;
+    }
+#  # this is discouraged:
+#  elsif ($style =~ /^([\d.]+)px\z/)
+#    {
+#    $fs = $1;
+#    }
+  else
+    {
+    require Carp;
+    Carp::croak ("Illegal font-size '$fs'");
+    }
+
+  # font-size => fontsize
+  ('fontsize', $fs);
   }
 
 sub _graphviz_remap_border_style
@@ -105,17 +139,30 @@ sub _graphviz_remap_border_style
 
 sub _graphviz_remap_link
   {
-  my ($graph, $name, $l, $object) = @_;
+  my ($graph, $name, $l, $self) = @_;
 
-  if (!ref($object))
-    {
-    return (undef,undef);
-    }
+  # do this only for objects, not classes 
+  return (undef,undef) unless ref($self);
 
-  my $link = $object->link();
-  #print STDERR "# remapping $name $l to $link\n";
+  my $link = $self->link();
   
   ('URL', $link);
+  }
+
+sub _graphviz_remap_label_color
+  {
+  my ($graph, $name, $color, $self) = @_;
+
+  # do this only for objects, not classes 
+  return (undef,undef) unless ref($self);
+  
+  # no label => no color nec.
+  return (undef, $color) if ($self->label()||'') eq '';
+
+  # the label color falls back to the edge color
+  $color = $self->attribute('color') unless defined $color;
+
+  ('fontcolor', $color);
   }
 
 sub _graphviz_remap_node_shape
@@ -125,23 +172,24 @@ sub _graphviz_remap_node_shape
   # valid styles are: solid dashed dotted bold invis
 
   my $s = $style;
-  $s = 'plaintext' if $style eq 'invisible';
+  $s = 'plaintext' if $style =~ /^(invisible|none)/;
 
   ($name, $s);
   }
 
 sub _graphviz_remap_arrow_style
   {
-  my ($self, $style) = @_;
+  my ($self, $name, $style) = @_;
 
   my $s = 'normal';
-  $s = 'open' if $style eq 'open';
+ 
+  $s = $style if $style =~ /^(none|open)\z/;
   $s = 'empty' if $style eq 'closed';
 
-  my $name = 'arrowhead';
-  $name = 'arrowtail' if $self->{_flip_edges};
+  my $n = 'arrowhead';
+  $n = 'arrowtail' if $self->{_flip_edges};
 
-  ($name, $s);
+  ($n, $s);
   }
 
 sub _as_graphviz
@@ -188,7 +236,7 @@ sub _as_graphviz
     elsif ($class eq 'edge')
       {
       $out->{dir} = 'back' if $flow == 270 || $flow == 0;
-      my ($name,$style) = $self->_graphviz_remap_arrow_style(
+      my ($name,$style) = $self->_graphviz_remap_arrow_style('arrow-style',
         $self->attribute('edge','arrow-style') || 'open' );
       $out->{$name} = $style;
       }
@@ -313,6 +361,15 @@ sub attributes_as_graphviz
   my $style = $self->attribute('border-style') || 'solid';
   $a->{peripheries} = 2 if $style =~ /^double/;
 
+  # For nodes with shape plaintext, set the fillcolor to the background of
+  # the graph/group
+  if ($class =~ /node/ && exists $a->{shape} && $a->{shape} eq 'plaintext')
+    {
+    my $p = $self->parent();
+    $a->{fillcolor} = $p->attribute('fill') || 'white';
+    }
+
+  # create the attributes as text:
   for my $atr (sort keys %$a)
     {
     my $v = $a->{$atr};
@@ -348,6 +405,7 @@ sub as_graphviz_txt
  
 1;
 __END__
+
 =head1 NAME
 
 Graph::Easy::As_graphviz - Generate graphviz description from graph object

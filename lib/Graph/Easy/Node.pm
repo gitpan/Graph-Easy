@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 use strict;
 use Graph::Easy::Attributes;
@@ -120,13 +120,14 @@ sub _correct_size
     my ($w,$h) = $self->dimensions();
     $self->{h} = $h + 2;
     $self->{w} = $w + 2;
-    $self->{w} +=2 if $border ne 'none';
+    $self->{w} += 2 if $border ne 'none';
     }
 
-  # border-collapse not nec. if we do not have a border
-  # XXX TODO: base on "border-collapse: collapse;"
-  return if $border eq 'none';
+  return if $border eq 'none' || !exists $self->{autosplit};
 
+  my ($asx, $asy) = split /,/, $self->{autosplit_xy};
+
+  # XXX TODO: base on "border-collapse: collapse;"
   # find out whether the cell above/left of us is a node (w/ border)
   my $cells = $self->{graph}->{cells};
   my $x = $self->{x}; my $y = $self->{y};
@@ -134,16 +135,40 @@ sub _correct_size
   my $top = $cells->{"$x," . ($y-1)};
   my $left = $cells->{($x-1) . ",$y"};
 
-  # XXX TODO: base on "border-collapse: collapse;"
-  if (ref($top) =~ /^Graph::Easy::Node/)
+  my $bottom = $cells->{"$x," . ($y+1)};
+  my $right = $cells->{($x+1) . ",$y"};
+  my $bottomright = $cells->{($x+1) . "," . ($y+1)};
+  
+  my $check = qr/^Graph::Easy::Node/;
+  my $check_2 = qr/^Graph::Easy::Node\z/;
+
+  # count the number of cells below and right of us (0..3)
+  $self->{rightbelow_count} = 0;
+ 
+  # XXX TODO: we need to fix this 
+  $self->{rightbelow_count}++ if ref($bottom) =~ $check_2;
+  $self->{rightbelow_count}++ if ref($right) =~ $check_2;
+  $self->{rightbelow_count}++ if ref($bottomright) =~ $check_2;
+
+  $self->{have_below} = 1 if ref($bottom) =~ $check;
+#  $self->{have_above} = 1 if ref($top) =~ $check;
+#  $self->{have_left} = 1 if ref($left) =~ $check;
+  $self->{have_right} = 1 if ref($right) =~ $check;
+
+  $self->{border_collapse_bottom} = 1 if ref($bottom) =~ $check;
+  $self->{border_collapse_right} = 1 if ref($right) =~ $check;
+
+  # nodes not in first row/column are smaller
+  $self->{w}-- if $asx != 0;
+  $self->{h}-- if $asy != 0;
+
+  if (ref($top) =~ $check)
     {
-    $self->{h} --;
-    $self->{no_border_top} = 1;
+    $self->{no_border_top} = 1;# if $top;
     }
-  if (ref($left) =~ /^Graph::Easy::Node/)
+  if (ref($left) =~ $check)
     {
-    $self->{no_border_left} = 1;
-    $self->{w} --;
+    $self->{no_border_left} = 1;# if $left;
     }
   }
 
@@ -151,8 +176,6 @@ sub _unplace
   {
   # free the cells this node occupies from $cells
   my ($self,$cells) = @_;
-
-#  print STDERR "# unplace $self->{name}\n";
 
   my $x = $self->{x}; my $y = $self->{y};
   delete $cells->{"$x,$y"};
@@ -184,7 +207,7 @@ sub _unplace
 
 sub _place_children
   {
-  # recursively place node and it's children
+  # recursively place node and its children
   my ($self, $x, $y, $cells) = @_;
 
   no warnings 'recursion';
@@ -208,8 +231,6 @@ sub _place
   # place this node at the requested position (without checking)
   my ($self, $x, $y, $cells) = @_;
 
-#  print STDERR "# place $self->{name} on $x,$y\n";
-
   $self->{x} = $x;
   $self->{y} = $y;
   $cells->{"$x,$y"} = $self;
@@ -230,7 +251,7 @@ sub _place
         my $sy = $y + $ay - 1;
 
         # We might even get away with creating only one filler cell
-        # although then it's "x" and "y" values would be "wrong".
+        # although then its "x" and "y" values would be "wrong".
 
         my $filler = Graph::Easy::Node::Cell->new ( node => $self );
         $filler->{x} = $sx;
@@ -245,7 +266,7 @@ sub _place
 
 sub _check_place
   {
-  # chack that a node can be placed at $x,$y (w/o checking it's children)
+  # chack that a node can be placed at $x,$y (w/o checking its children)
   my ($self,$x,$y,$cells) = @_;
 
   # node cannot be placed here
@@ -335,7 +356,7 @@ sub _formatted_label
   {
   my $self = shift;
 
-  my $name = $self->label() || '';
+  my $name = $self->label();
   $name =~ s/\\n/\n/g;			# insert newlines
 
   # split into lines, remove extranous spacing
@@ -353,54 +374,33 @@ sub _formatted_label
 #############################################################################
 # as_html conversion and helper functions related to that
 
-sub link
-  {
-  # return the link, build from linkbase and link (or autolink)
-  my $self = shift;
-
-  my $link = $self->attribute('link');
-  my $autolink = $self->attribute('autolink');
-  if (!defined $link && defined $autolink)
-    {
-    $link = $self->{name} if $autolink eq 'name';
-    # defined to avoid overriding "name" with the non-existant label attribute
-    $link = $self->{att}->{label} if $autolink eq 'label' && defined $self->{att}->{label};
-    $link = $self->{name} if $autolink eq 'label' && !defined $self->{att}->{label};
-    }
-  $link = '' unless defined $link;
-
-  # prepend base only if link is relative
-  if ($link ne '' && $link !~ /^([\w]{3,4}:\/\/|\/)/)
-    {
-    my $base = $self->attribute('linkbase');
-    $link = $base . $link if defined $base;
-    }
-  $link;
-  }
-
 my $node_remap = {
   node => {
     fill => 'background',
     background => undef,
-    rows => undef, 
+    'border' => undef,
     columns => undef,
-    size => undef,
+    flow => undef,
     origin => undef,
     offset => undef, 
-    label => undef,
-    linkbase => undef,
-    link => undef,
-    autolink => undef,
-    autotitle => undef,
-    title => undef,
-    shape => undef,
-    style => undef,
-    flow => undef,
     'point-style' => undef,
-    'border' => undef,
+    rows => undef, 
+    size => undef,
+    shape => undef,
     },
   edge => {
     fill => undef,
+    },
+  all => {
+    autolink => undef,
+    autotitle => undef,
+    'font-size' => undef,
+    label => undef,
+    link => undef,
+    linkbase => undef,
+    style => undef,
+    'text-style' => undef,
+    title => undef,
     },
   };
 
@@ -431,8 +431,8 @@ sub as_html
   my $c = $class; $c =~ s/\./-/g;	# node.city => node-city
 
   my $html = " <$tag colspan=$cs rowspan=$rs";
-  $html .= " class='$c'" if $class ne '';
-
+  $html .= " class='$c'" if $c ne '';
+   
   my $name = $self->label(); 
 
   if (!$noquote)
@@ -476,9 +476,12 @@ sub as_html
     {
     $style .= "$atr: $out->{$atr}; ";
     }
-  $style =~ s/;\s$//;				# remove '; ' at end
 
-  $html .= " style=\"$style\"" if $style;
+  $style .= $self->text_styles_as_css();	# bold, italic, underline etc.
+
+  $style =~ s/;\s$//;				# remove '; ' at end
+  $style =~ s/\s+/ /g;				# '  ' => ' '
+  $style =~ s/^\s+//;				# remove ' ' at front
 
   my $title = $self->title();
   $title =~ s/"/&#22;/g;			# replace quotation marks
@@ -486,17 +489,19 @@ sub as_html
 
   my $link = $self->link();
 
+  my $end_tag = "</$tag>\n";
+
   if ($link ne '')
     {
     # encode critical entities
-    $link =~ s/\s/\+/g;			# space
-    $link =~ s/'/%27/g;			# replace quotation marks
-    $html .= "><a class='l' href='$link'>$name</a></$tag>\n";
+    $link =~ s/\s/\+/g;				# space
+    $link =~ s/'/%27/g;				# replace quotation marks
+    $html .= "><a class='l' href='$link'";	# put the style on "<a.."
+    $end_tag = '</a>'.$end_tag;
     }
-  else
-    {
-    $html .= ">$name</$tag>\n";
-    }
+  $html .= " style=\"$style\"" if $style;
+  $html .= ">$name";
+  $html .= "$end_tag";
   $html;
   }
 
@@ -509,7 +514,7 @@ sub grow
   # edges
   my $self = shift;
 
-  # XXX TODO: grow the node based on it's label dimensions
+  # XXX TODO: grow the node based on its label dimensions
 #  my ($w,$h) = $self->dimensions();
 #
 #  my $cx = int(($w+2) / 5) || 1;
@@ -608,6 +613,7 @@ sub label
   my $self = shift;
 
   my $label = $self->{att}->{label}; $label = $self->{name} unless defined $label;
+  $label = '' unless defined $label;
   $label;
   }
 
@@ -674,6 +680,7 @@ sub dimensions
   my $self = shift;
 
   my $label = $self->{att}->{label}; $label = $self->{name} unless defined $label;
+  $label = '' unless defined $label;
 
   $label =~ s/\\n/\n/g;
 
@@ -957,6 +964,9 @@ sub set_attribute
   $val =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
 
   my $g = $self->{graph};
+  
+  $g->{score} = undef if $g;	# invalidate layout to force a new layout
+
   my $strict = 0; $strict = $g->{strict} if $g;
   if ($strict)
     {
@@ -1050,7 +1060,7 @@ sub set_attribute
 sub set_attributes
   {
   my ($self, $atr) = @_;
-  
+ 
   foreach my $n (keys %$atr)
     {
     $n eq 'class' ? $self->sub_class($atr->{$n}) : $self->set_attribute($n, $atr->{$n});
@@ -1078,8 +1088,6 @@ sub border_attributes
 
   $border =~ s/\s+//g;				# rem unnec. spaces
 
-#  print STDERR "border: ($val) style '$style' color '$border' width '$width'\n";
-
   # left over must be color
   my $color = $border;
   $color = Graph::Easy->color_as_hex($border) if $border ne '';
@@ -1091,6 +1099,14 @@ sub border_attributes
     } 
 
   ($style,$width,$color);			
+  }
+
+BEGIN
+  {
+  *text_styles_as_css = \&Graph::Easy::text_styles_as_css;
+  *text_styles = \&Graph::Easy::text_styles;
+  *_font_size_in_pixels = \&Graph::Easy::_font_size_in_pixels;
+  *link = \&Graph::Easy::link;
   }
 
 #############################################################################
@@ -1142,6 +1158,22 @@ sub add_to_groups
     $group->add_node($self);
     }
   $self;
+  }
+
+sub parent
+  {
+  # return parent object, either a group the node belongs to, or the graph
+  my $self = shift;
+
+  my $p = $self->{graph};
+
+  if (keys (%{$self->{groups}}) > 0)
+    {
+    my $key;
+    ($key,$p) = each %{$self->{groups}};
+    }
+  
+  $p;
   }
 
 1;
@@ -1281,6 +1313,16 @@ into a string like "solid 1px red".
 
 Splits a border attribute like "solid 1px red" into the C<border-width>, C<border-color>
 and C<border-style> attribute.
+
+=head2 text_styles()
+
+        my $styles = $node->text_styles();
+        if ($styles->{'italic'})
+          {
+          print 'is italic\n';
+          }
+
+Return a hash with the given text-style properties, aka 'underline', 'bold' etc.
 
 =head2 find_grandparent()
 
@@ -1474,10 +1516,17 @@ name.
 
 =head2 group()
 
-	$node->group('groupname');
+	my $group = $node->group('groupname');
 
 Returns the group with the specified name if the node belongs to that group,
 othrwise undef.
+
+=head2 parent()
+
+	my $parent = $node->parent();
+
+Returns the parent object of the node, which is either the group the node belongs
+to, or the graph.
 
 =head2 origin()
 

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 103;
+   plan tests => 104;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -33,7 +33,7 @@ is ($parser->error(), '', 'no error yet');
 
 $parser->{line_nr} = 0;
 is ($parser->parse_error(1,'foo','bar','node'),
-    "Value 'bar' is not a valid attribute name for a node at line 0");
+    "Error in attribute: 'bar' is not a valid attribute name for a node at line 0");
 
 $parser->{line_nr} = 0;
 is ($parser->parse_error(2,'boldly','style','edge'),
@@ -114,6 +114,13 @@ foreach (<DATA>)
     $got .= "," . $n->name() unless $n->name() eq '';
     } 
   
+  my @groups = $graph->groups();
+
+  for my $gr ( @groups )
+    {
+    $got .= ',' . $gr->name();
+    }
+
   is ($got, $result, $in);
   }
 
@@ -207,14 +214,14 @@ graph { background: red; } [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ] -- Au-to --> [ Berlin ]|2+1,Au-to,Berlin,Bonn
 [ Bonn ] == Au--to ==> [ Berlin ]|2+1,Au--to,Berlin,Bonn
 # groups
-( Group [ Bonn ] -- Auto --> [ Berlin ] )|2+1,Auto,Berlin,Bonn
-( Group [ Bonn ] --> [ Berlin ] )|2,Berlin,Bonn
+( Group [ Bonn ] -- Auto --> [ Berlin ] )|2+1,Auto,Berlin,Bonn,Group
+( Group [ Bonn ] --> [ Berlin ] )|2,Berlin,Bonn,Group
 # lists
 [ Bonn ], [ Berlin ]\n --> [ Hamburg ]|3,Berlin,Bonn,Hamburg
 [ Bonn ], [ Berlin ] --> [ Hamburg ]|3,Berlin,Bonn,Hamburg
 [ Bonn ], [ Berlin ], [ Ulm ] --> [ Hamburg ]|4,Berlin,Bonn,Hamburg,Ulm
 [ Bonn ], [ Berlin ], [ Ulm ] --> [ Hamburg ] [ Trier ] --> [ Ulm ]|5,Berlin,Bonn,Hamburg,Trier,Ulm
-( Group [ Bonn ], [ Berlin ] => [ Leipzig ] ) { color: red; }|3,Berlin,Bonn,Leipzig
+( Group [ Bonn ], [ Berlin ] => [ Leipzig ] ) { color: red; }|3,Berlin,Bonn,Leipzig,Group
 [ Bonn ] -> [ Berlin ]\n --> { color: red; } [ Leipzig ]|3,Berlin,Bonn,Leipzig
 [ Bonn ] --> { label: test; } [ Berlin ]|2+1,test,Berlin,Bonn
 [ Bonn ] --> { label: test; } [ Berlin ] { color: blue; }|2+1,test,Berlin,Bonn
@@ -227,6 +234,7 @@ graph { background: red; } [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 # left over attributes due to node consumed first
 [ Bonn ]\n { color: red; } --> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ] { color:\n red; } --> [ Berlin ]|2,Berlin,Bonn
+( Group [ Bonn ] ) { color: red; }|1,Bonn,Group
 # XXX TODO: error testing
 # mismatching left/right side
 #[ Bonn ] - Auto--> [ Berlin ]|2+1,Auto--,Berlin,Bonn

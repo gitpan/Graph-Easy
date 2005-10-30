@@ -7,22 +7,28 @@ In addition:
 
 Important short-term TODO:
 
+* It would be good if we could remove Node::Empty (it blocks an empty field
+  just to draw the right/bottom border pieces)
+  (we might put these "invisible" nodes into a different "cells" field,
+   which will be rendered, but not queryied for path finding etc)
 * missing edges sometimes do not result in an error message
-* Node::Empty need to render their right/bottom border if their
-  right/bottom neighbour also has a border
-* unplacing edge-crossings does not work, leaving stray edge crossings
+* unplacing edge-crossings does not work properly, leaving stray crossings
 * implement HTML nodes as triangles, house, etc. using slanted edges
 * define missing HTML edge cells (selfloops, corners and CROSS w. end/start
   points)
 * as_html(): output of node-clusters is slightly wrong
-* as_html(): output of crossings with different styles is wrong
 * as_html(): there is no space between two nodes placed next (with filler
 	     cell) to each other. Make filler cells output a &nbsp;
-* Non-existant cells in a node-cluster are handled different than empty
-  ones (f.i. at the end of one row)
 * put framebuffer related routines into own package (Graph::Easy::As_ascii)
   to avoid the dilemma that we need them from both Node and Graph.
-* as_html(): output of groups is not optimal (Group::Cells needs overhaul)
+  Likewise, some routines used by objects (e.g. graph, node etc) should
+  be in a super-package and inherited)
+* as_html(): put edges into the proper group and set their cell_class so that
+	     they inherit the background from the group
+* as_txt: output of autosplit nodes is broken when no label gets set
+  "[A|B]" results in "[ A|B ] { label: A; }"
+* use "shape: record" and label="{ { 00 | 01 | 02 } | { 10 | 112 | 12 } }" to
+  implement auto-split nodes in graphviz
 
 Parser:
 
@@ -64,18 +70,17 @@ Output:
   | End | <-- | Main               | <-- | Start |
   +-----+     +--------------------+     +-------+
 
-* write as_box(): output with box-drawing chars (unicode or iso)
 * support different edge starting point styles ala:
 
-  ----->  |----->  o----->  +----->  *----->  >----->
+  ----->  |----->  o----->  +----->  *----->  >>---->
 
+* support egde "style: invisible"
 * as_txt(): output of node clusters is not optimal
 * as_txt(): output of node chains is not optimal
-* as_ascii(): render dotted nodes with ":" on their lower corners
 * as_ascii(): output group borders and group labels
 * better support for different shapes (circle, box, rounded, polygon etc)
   in ASCII
-* support "border-style: double" together with fill colors graphviz
+* as_graphviz(): support "border-style: double" together with fill colors
 * need better support for different edge styles in Graphviz
 * as_ascii() and others: grow cells around point-shaped nodes to intrude:
 
@@ -88,6 +93,21 @@ Output:
 	:-----> : * : <---- :     :
         :       :   :       :     :
 	...........................
+
+* as_boxart has some incorrect corner pieces:
+   echo "[A|B|C||D]" | perl examples/as_boxart
+   ┌───┬───┬───┐
+   │ A │ B │ C │
+   └───┼───┴───┘
+   │ D │
+   └───┘
+   echo "[A| |C||D| |E]" |perl examples/as_boxart
+   ┌───┬  │───┐
+   │ A │  │ C │
+   └───┼   ───┤
+   │   │  │   │
+   │ D │  │ E │
+   └───┘   ───┘
 
 Layout:
 
@@ -102,10 +122,14 @@ Layout:
     direction: (up|down|left|right|north|south|west|east|0|90|180|270|360);
     flow: (up|down|left|right|north|south|west|east|0|90|180|270|360);
   to force or suggest direction of edges leaving a node
+* the A* algorithm needs fine-tuning to generate less bendy paths
+
+Rendering/Layout:
+
 * allow user to specifiy "align: left, top;" or "align: center, middle" to
   specify alignment of labels. (left|right|center|middle|top|bottom)
 * add margin/padding attributes (especially usefull for HTML output)
-* the A* algorithm needs fine-tuning to generate less bendy paths
+* add a orientation attribute, to rotate node shapes (left-pointing triangle etc)
 
 Optimizer:
 

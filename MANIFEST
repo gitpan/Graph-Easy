@@ -18,8 +18,10 @@ examples/fun.tpl
 examples/as_graphviz		parse text and output as graphviz
 examples/as_svg			parse text and output as standalone SVG
 examples/as_ascii		parse text and output it as ASCII art
+examples/as_boxart		parse text and output it as box drawing using unicode
 examples/as_html		parse text and output it as standalone HTML page
 examples/as_txt			parse text and output as text again
+examples/complex.txt		a complex example
 todos/layouter_loop.txt
 todos/layouter_loop_2.txt
 todos/6_cluster.txt
@@ -29,6 +31,8 @@ bench/serie.pl
 t/anon.t
 t/attributes.t
 t/ascii.t
+t/as_txt.t
+t/boxart.t
 t/astar.t
 t/cell.t
 t/cluster.t
@@ -129,6 +133,7 @@ t/in/2_selfloop_flow_down.txt
 t/in/2_edges.txt
 t/in/2_long_labels.txt
 t/in/2_graph_label.txt
+t/in/2_zeros.txt
 t/in/3nodes.txt
 t/in/3_nodes_5_edges.txt
 t/in/3_cluster.txt
@@ -145,16 +150,18 @@ t/in/4groups.txt
 t/in/4groups_class.txt
 t/in/4_edge_labels.txt
 t/in/4_edge_cross.txt
-t/in/2_invisible_left.txt
-t/in/2_invisible_right.txt
-t/in/3_invisible_both.txt
-t/in/3_invisible.txt
-t/in/2_newlines.txt
 t/in/4_near.txt
 t/in/4_edge_types.txt
-t/in/7_cluster.txt
+t/in/4_cross.txt
+t/in/5_arrow_styles.txt
+t/in/2_invisible_left.txt
+t/in/2_invisible_right.txt
+t/in/2_newlines.txt
+t/in/3_invisible_both.txt
+t/in/3_invisible.txt
 t/in/6_chained.txt
 t/in/6_chain_10_edges.txt
+t/in/7_cluster.txt
 t/in/8_chain.txt
 t/in/8_points.txt
 t/in/8_labels.txt
@@ -180,6 +187,7 @@ t/out/2_invisible_right.txt
 t/out/2_newlines.txt
 t/out/2_long_labels.txt
 t/out/2_graph_label.txt
+t/out/2_zeros.txt
 t/out/3nodes.txt
 t/out/3_cluster.txt
 t/out/3_selfloop.txt
@@ -190,6 +198,7 @@ t/out/3_selfloop_flow_up.txt
 t/out/3_invisible_both.txt
 t/out/3_invisible.txt
 t/out/3_nodes_5_edges.txt
+t/out/4_cross.txt
 t/out/4nodes.txt
 t/out/4_2x2nodes.txt
 t/out/4groups.txt
@@ -200,6 +209,7 @@ t/out/4_nodes_6_edges.txt
 t/out/4_edge_types.txt
 t/out/4_edge_cross.txt
 t/out/4_edge_labels.txt
+t/out/5_arrow_styles.txt
 t/out/6_chained.txt
 t/out/6_chain_10_edges.txt
 t/out/7_cluster.txt
@@ -215,6 +225,7 @@ t/txt/2_invisible_left.txt
 t/txt/2_invisible_right.txt
 t/txt/2_newlines.txt
 t/txt/2_graph_label.txt
+t/txt/2_zeros.txt
 t/txt/3_invisible_both.txt
 t/txt/3_invisible.txt
 t/txt/3_cluster.txt
@@ -230,9 +241,11 @@ t/txt/4_nodes_5_edges.txt
 t/txt/4_nodes_6_edges.txt
 t/txt/4_edge_labels.txt
 t/txt/4_edge_cross.txt
-t/txt/7_cluster.txt
+t/txt/4_cross.txt
+t/txt/5_arrow_styles.txt
 t/txt/6_chained.txt
 t/txt/6_chain_10_edges.txt
+t/txt/7_cluster.txt
 t/txt/8_chain.txt
 t/txt/8_points.txt
 t/txt/8_labels.txt

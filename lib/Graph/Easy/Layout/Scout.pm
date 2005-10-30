@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 #############################################################################
 #############################################################################
@@ -45,6 +45,55 @@ use Graph::Easy::Edge::Cell qw/
 use Heap::Binary;		# Binary is faster than Fibonacci
 
 #############################################################################
+
+my $end_point = [
+  EDGE_END_E,
+  EDGE_END_W,
+  EDGE_END_S,
+  EDGE_END_N,
+  EDGE_START_W,
+  EDGE_START_E,
+  EDGE_START_N,
+  EDGE_START_S,
+  EDGE_END_W,
+  EDGE_END_E,
+  EDGE_END_N,
+  EDGE_END_S,
+  ];
+
+sub _end_points
+  {
+  # modify last field of path to be the correct endpoint and first field
+  # to be the correct startpoint:
+  my ($self, $edge, $coords, $type, $dx, $dy) = @_;
+  
+  return if $edge->undirected();
+
+  # there are four cases here:
+  my $case = 0;
+  # $case = 0 if $type == EDGE_HOR && $dx == 1;		# default
+  $case = 1 if $type == EDGE_HOR && $dx == -1;
+  $case = 2 if $type == EDGE_VER && $dy == 1;
+  $case = 3 if $type == EDGE_VER && $dy == -1;
+
+  # modify last cell
+  $coords->[-1] |= $end_point->[$case];
+
+  $type = $coords->[2] & EDGE_TYPE_MASK;
+
+  $case = 0;
+  # $case = 0 if $type == EDGE_HOR && $dx == 1;		# default
+  $case = 1 if $type == EDGE_HOR && $dx == -1;
+  $case = 2 if $type == EDGE_VER && $dy == 1;
+  $case = 3 if $type == EDGE_VER && $dy == -1;
+
+  # bidirectional: add end point, otherwise start point
+  $case += 4;
+  $case += 4 if $edge->bidirectional();
+
+  # modify first cell
+  $coords->[2] |= $end_point->[$case];
+  }
 
 sub _find_path
   {
@@ -133,9 +182,14 @@ sub _find_path
       last if ($x == $x1) && ($y == $y1);
       }
 
-    # modify type of last cell to be endpoint
+    if ($done == 0)
+      {
+      print STDERR "# success for ", scalar @coords, " steps in path\n" if $self->{debug};
+      $self->_end_points($edge, \@coords, $type, $dx, $dy);
 
-    return \@coords if $done == 0;			# return all fields of path
+      return \@coords;					# return all fields of path
+      }
+
     } # end else straight path try
 
   # ($dx != 0 && $dy != 0) => path with one bend
@@ -220,36 +274,11 @@ sub _find_path
         }
       }
 
-    # modify last field of path to be the correct endpoint and first field
-    # to be the correct startpoint:
     if ($done == 0)
       {
       print STDERR "# success for ", scalar @coords, " steps in path\n" if $self->{debug};
-      my $type_last = 0;
-      $type_last = EDGE_END_E if $type == EDGE_HOR && $dx == 1;
-      $type_last = EDGE_END_W if $type == EDGE_HOR && $dx == -1;
-      $type_last = EDGE_END_S if $type == EDGE_VER && $dy == 1;
-      $type_last = EDGE_END_N if $type == EDGE_VER && $dy == -1;
-      $coords[-1] |= $type_last;
- 
-      $type = $coords[2];
-      $type_last = 0;
-      if ($edge->bidirectional())
-        {
-        $type_last = EDGE_END_W if $type == EDGE_HOR && $dx == 1;
-        $type_last = EDGE_END_E if $type == EDGE_HOR && $dx == -1;
-        $type_last = EDGE_END_N if $type == EDGE_VER && $dy == 1;
-        $type_last = EDGE_END_S if $type == EDGE_VER && $dy == -1;
-        }
-      else
-        {
-        $type_last = EDGE_START_W if $type == EDGE_HOR && $dx == 1;
-        $type_last = EDGE_START_E if $type == EDGE_HOR && $dx == -1;
-        $type_last = EDGE_START_N if $type == EDGE_VER && $dy == 1;
-        $type_last = EDGE_START_S if $type == EDGE_VER && $dy == -1;
-        }
-      $coords[2] |= $type_last;
- 
+      $self->_end_points($edge, \@coords, $type, $dx, $dy);
+
       return \@coords;			# return all fields of path
       }
 
@@ -820,6 +849,7 @@ EOF
  
 1;
 __END__
+
 =head1 NAME
 
 Graph::Easy::Layout::Scout - Find paths in a Manhattan-style grid

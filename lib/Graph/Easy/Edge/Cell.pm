@@ -5,7 +5,6 @@
 
 package Graph::Easy::Edge::Cell;
 
-use 5.006001;
 use strict;
 use Graph::Easy::Edge;
 require Exporter;
@@ -13,7 +12,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 use Scalar::Util qw/weaken/;
 
@@ -84,6 +83,11 @@ sub EDGE_LOOP_SOUTH	() { EDGE_S_W_N + EDGE_END_N + EDGE_START_S + EDGE_LABEL_CEL
 sub EDGE_LOOP_EAST	() { EDGE_E_S_W + EDGE_END_E + EDGE_START_W + EDGE_LABEL_CELL; }
 sub EDGE_LOOP_WEST	() { EDGE_W_S_E + EDGE_END_W + EDGE_START_E + EDGE_LABEL_CELL; }
 
+sub ARROW_RIGHT () { 0; };
+sub ARROW_LEFT () { 1; };
+sub ARROW_UP () { 2; };
+sub ARROW_DOWN () { 3; };
+
 #############################################################################
 
 @EXPORT_OK = qw/
@@ -142,6 +146,11 @@ sub EDGE_LOOP_WEST	() { EDGE_W_S_E + EDGE_END_W + EDGE_START_E + EDGE_LABEL_CELL
 
   EDGE_LABEL_CELL
   EDGE_NO_M_MASK
+
+  ARROW_RIGHT
+  ARROW_LEFT
+  ARROW_UP
+  ARROW_DOWN
   /;
 
 my $edge_types = {
@@ -203,20 +212,6 @@ sub edge_type
   $t;
   }
 
-my $edge_styles = 
-  {
-  # style            hor, ver,   cross,	corner
-  'solid'	 => [ '--',  "|", '+', '+' ],	# simple line
-  'double'	 => [ '==',  "H", "#", '#' ],	# double line
-  'double-dash'	 => [ '= ',  '"', "#", '#' ],	# double dashed line
-  'dotted'	 => [ '..',  ":", ':', '.' ],	# dotted
-  'dashed'	 => [ '- ',  "'", '+', '+' ],	# dashed
-  'dot-dash'	 => [ '.-',  "!", '+', '+' ],	# dot-dash
-  'dot-dot-dash' => [ '..-', "!", '+', '+' ],	# dot-dot-dash
-  'wave' 	 => [ '~~',  "}", '+', '*' ],	# wave
-  'bold' 	 => [ '##',  "#", '#', '#' ],	# bold
-  };
-
 #############################################################################
 
 sub _init
@@ -243,7 +238,7 @@ sub _init
     # register ourselves at this edge
     $self->{edge}->add_cell ($self);
     # take over settings from edge
-    $self->{style} = $self->{edge}->{att}->{style};
+    $self->{style} = $self->{edge}->style();
     $self->{class} = $self->{edge}->{class};
     $self->{graph} = $self->{edge}->{graph};
     weaken($self->{graph});
@@ -264,451 +259,30 @@ sub _make_cross
   my ($self, $edge, $flags) = @_;
   
   my $type = $self->{type};
-
+    
 #  print STDERR "# edge ($edge->{id}: $edge->{from}->{name} to $edge->{to}->{name}) will cross\n";
 #  my $e = $self->{edge};
 #  print STDERR "# ($e->{id}: $e->{from}->{name} to $e->{to}->{name})\n";
 
   # return undef if (($type != EDGE_HOR) && ($type != EDGE_VER));
 
-  $self->{style_ver} = $edge->{att}->{style};
+  $self->{color} = $self->attribute('color');
+  $self->{style_ver} = $edge->style();
+  $self->{color_ver} = $edge->attribute('color');
   $self->{cross} = $edge;
 
   # if we are the VER piece, switch styles around
-  ($self->{style_ver}, $self->{style}) = ($self->{style},$self->{style_ver})
-    if $type == EDGE_VER;
- 
+  if ($type == EDGE_VER)
+    {
+    ($self->{style_ver}, $self->{style}) = ($self->{style},$self->{style_ver});
+    ($self->{color_ver}, $self->{color}) = ($self->{color},$self->{color});
+    }
+
   $edge->add_cell($self);
 
   $self->{type} = EDGE_CROSS + ($flags || 0);
 
   $self;
-  }
-
-#############################################################################
-# conversion to ASCII
-
-sub _draw_hor
-  {
-  # draw a HOR edge piece
-  my ($self, $fb) = @_;
-
-  my $style = $edge_styles->{ $self->{style} };
-  
-  my $w = $self->{w};
-  # '-' => '-----', '.-' => '.-.-.-'
-  # "(2 + ... )" to get space for the offset
-  my $len = length($style->[0]); 
-  my $line = $style->[0] x (2 + $w / $len); 
-
-  # '.-.-.-' => '-.-.-' if $x % $ofs == 1 (e.g. on odd positions)
-  my $ofs = $self->{rx} % $len;
-  my $type = ($self->{type} & (~EDGE_MISC_MASK));
-  substr($line,0,$ofs) = '' if $ofs != 0
-    && ($type != EDGE_SHORT_E && $type != EDGE_SHORT_W);
-
-  $line = substr($line, 0, $w) if length($line) > $w;
-
-  # handle start/end point
-
-  my $flags = $self->{type} & EDGE_FLAG_MASK; my $x = 0;
-
-  if (($flags & EDGE_START_W) != 0)
-    {
-    $x++; chop($line);			# ' ---'
-    }
-  if (($flags & EDGE_START_E) != 0)
-    {
-    chop($line);			# '--- '
-    }
-  if (($flags & EDGE_END_E) != 0)
-    {
-    chop($line);
-    substr($line,-1,1) = '>';		# '--> '
-    }
-  if (($flags & EDGE_END_W) != 0)
-    {
-    substr($line,0,2) = ' <';		# ' <--'
-    }
-
-  $self->_printfb ($fb, $x, $self->{h} - 2, $line);
-
-  if ($self->{type} & EDGE_LABEL_CELL)
-    {
-    # include our label
-    my @pieces = $self->_formatted_label();
-    $self->_printfb ($fb, 2, $self->{h} - @pieces - 2, @pieces) if @pieces > 0;
-    }
-
-  }
-
-sub _draw_ver
-  {
-  # draw a VER edge piece
-  my ($self, $fb) = @_;
-
-  my $style = $edge_styles->{ $self->{style} };
-  
-  my $h = $self->{h};
-  # '|' => '|||||', '{}' => '{}{}{}'
-  my $line = $style->[1] x (1 + $h / length($style->[1])); 
-  $line = substr($line, 0, $h) if length($line) > $h;
-
-  my $flags = $self->{type} & EDGE_FLAG_MASK;
-  # XXX TODO: handle here start points
-  # we get away with not handling them because in VER edges
-  # starting points are currently invisible.
-
-  substr($line,0,1) = '^' if (($flags & EDGE_END_N) != 0);
-  substr($line,-1,1) = 'v' if (($flags & EDGE_END_S) != 0);
-
-  $self->_printfb_ver ($fb, 2, 0, $line);
-  
-  if ($self->{type} & EDGE_LABEL_CELL)
-    {
-    # include our label
-    my @pieces = $self->_formatted_label();
-    $self->_printfb ($fb, 4, $self->{h} - 2, @pieces) if @pieces > 0;
-    }
-  }
-
-sub _draw_cross
-  {
-  # draw a CROSS sections
-  my ($self, $fb) = @_;
-  
-  # vertical piece
-  my $style = $edge_styles->{ $self->{style_ver} };
-  
-  my $h = $self->{h};
-  # '|' => '|||||', '{}' => '{}{}{}'
-  my $line = $style->[1] x (2 + $h / length($style->[1])); 
-
-  my $flags = $self->{type} & EDGE_FLAG_MASK;
-
-  print STDERR "# drawing cross at $self->{x},$self->{y} with flags $flags\n" if $self->{debug};
-
-  $line = substr($line, 0, $h) if length($line) > $h;
-  
-  substr($line,0,1) = '^' if (($flags & EDGE_END_N) != 0);
-  substr($line,-1,1) = 'v' if (($flags & EDGE_END_S) != 0);
-
-  $self->_printfb_ver ($fb, 2, 0, $line);
-
-  # horizontal piece
-  $style = $edge_styles->{ $self->{style} };
-  
-  my $w = $self->{w};
-  # '-' => '-----', '.-' => '.-.-.-'
-  my $len = length($style->[0]); 
-  $line = $style->[0] x (2 + $w / $len); 
-  
-  # '.-.-.-' => '-.-.-' if $x % $ofs == 1 (e.g. on odd positions)
-  my $ofs = $self->{rx} % $len;
-  substr($line,0,$ofs) = '' if $ofs != 0;
-
-  $line = substr($line, 0, $w) if length($line) > $w;
-  
-  my $x = 0;
-  if (($flags & EDGE_START_W) != 0)
-    {
-    $x++; chop($line);			# ' ---'
-    }
-  if (($flags & EDGE_START_E) != 0)
-    {
-    chop($line);			# '--- '
-    }
-  if (($flags & EDGE_END_E) != 0)
-    {
-    chop($line);
-    substr($line,-1,1) = '>';		# '--> '
-    }
-  if (($flags & EDGE_END_W) != 0)
-    {
-    substr($line,0,2) = ' <';		# ' <--'
-    }
-
-  my $y = $self->{h} - 2;
-
-  $self->_printfb ($fb, $x, $y, $line);
-
-  # the crossing character
-  my $cross = $style->[2];
-  
-  #    |       |        |        |        :        }       |     
-  # ===+=== ###+### ....!.... ~~~+~~~ ----+---  ...+... .-.+.-.-
-  #    |       |        |        |        :        {       |   
-
-  my %cross_style = ( 
-    'boldsolid' => '+',  
-    'dashedsolid' => '+',  
-    'dottedsolid' => '!',
-    'dottedwave' => '+',  
-    'doublesolid' => '+',  
-    'dot-dashsolid' => '+',  
-    'dot-dot-dashsolid' => '+',  
-    'soliddotted' => '+',  
-    'solidwave' => '+',  
-    'soliddashed' => '+',  
-    'soliddouble' => 'H',  
-    'wavesolid' => '+',  
-  );
-
-  my $s = $self->{style} . $self->{style_ver};
-
-  $cross = $cross_style{$s} || '#' if $self->{style_ver} ne $self->{style};
-
-  $self->_printfb ($fb, 2, $y, $cross);
-
-  # done
-  }
-
-sub _draw_corner
-  {
-  # draw a corner (N_E, S_E etc)
-  my ($self, $fb) = @_;
-
-  my $type = $self->{type} & EDGE_TYPE_MASK;
-  my $flags = $self->{type} & EDGE_FLAG_MASK;
-
-  ############
-  #   ........
-  # 0 :      :
-  # 1 :      :    label would appear here
-  # 2 :  +---:    (w-3) = 3 chars wide
-  # 3 :  |   :    always 1 char high
-  #   .......:
-  #    012345 
-
-  # draw the vertical piece
- 
-  # get the style
-  my $style = $edge_styles->{ $self->{style} };
- 
-  my $h = 1; my $y = $self->{h} -1; 
-  if ($type == EDGE_N_E || $type == EDGE_N_W)
-    {
-    $h = $self->{h} - 2; $y = 0; 
-    }
-  # '|' => '|||||', '{}' => '{}{}{}'
-  my $line = $style->[1] x (1 + $h / length($style->[1])); 
-  $line = substr($line, 0, $h) if length($line) > $h;
-
-  substr($line,0,1) = '^' if (($flags & EDGE_END_N) != 0);
-  substr($line,-1,1) = 'v' if (($flags & EDGE_END_S) != 0);
-
-  $self->_printfb_ver ($fb, 2, $y, $line);
-
-  # horizontal piece
-  my $w = $self->{w} - 3; $y = $self->{h} - 2; my $x = 3;
-  if ($type == EDGE_N_W || $type == EDGE_S_W)
-    {
-    $w = 2; $x = 0; 
-    }
-
-  # '-' => '-----', '.-' => '.-.-.-'
-  my $len = length($style->[0]); 
-  $line = $style->[0] x (2 + $w / $len); 
-  
-  # '.-.-.-' => '-.-.-' if $x % $ofs == 1 (e.g. on odd positions)
-  my $ofs = ($x + $self->{rx}) % $len;
-  substr($line,0,$ofs) = '' if $ofs != 0;
-
-  $line = substr($line, 0, $w) if length($line) > $w;
-  
-  substr($line,-1,2) = '>' if (($flags & EDGE_END_E) != 0);
-  substr($line,0,2) = ' <' if (($flags & EDGE_END_W) != 0);
-
-  $self->_printfb ($fb, $x, $y, $line);
-
-  # insert the corner character
-  $self->_printfb ($fb, 2, $y, $style->[3]);
-  }
-
-sub _draw_loop_hor
-  {
-  my ($self, $fb) = @_;
-
-  my $type = $self->{type} & EDGE_TYPE_MASK;
-  my $flags = $self->{type} & EDGE_FLAG_MASK;
-
-  ############
-  #   ..........
-  # 0 :        :
-  # 1 :        :    label would appear here
-  # 2 :  +--+  :    (w-6) = 2 chars wide
-  # 3 :  |  v  :    1 char high
-  #   .........:
-  #    01234567 
-
-  ############
-  #   ..........
-  # 0 :  |  ^  :    ver is h-2 chars high	
-  # 1 :  |  |  :    label would appear here
-  # 2 :  +--+  :    (w-6) = 2 chars wide
-  # 3 :        :
-  #   .........:
-  #    01234567 
-
-  # draw the vertical pieces
- 
-  # get the style
-  my $style = $edge_styles->{ $self->{style} };
- 
-  my $h = 1; my $y = $self->{h} - 1; 
-  if ($type == EDGE_S_W_N)
-    {
-    $h = $self->{h} - 2; $y = 0; 
-    }
-  # '|' => '|||||', '{}' => '{}{}{}'
-  my $line = $style->[1] x (1 + $h / length($style->[1])); 
-  $line = substr($line, 0, $h) if length($line) > $h;
-
-  $self->_printfb_ver ($fb, $self->{w}-3, $y, $line);
-
-  substr($line,0,1)  = '^' if (($flags & EDGE_END_N) != 0);
-  substr($line,-1,1) = 'v' if (($flags & EDGE_END_S) != 0);
-
-  $self->_printfb_ver ($fb, 2, $y, $line);
-
-  # horizontal piece
-  my $w = $self->{w} - 6; $y = $self->{h} - 2; my $x = 3;
-
-  # '-' => '-----', '.-' => '.-.-.-'
-  my $len = length($style->[0]); 
-  $line = $style->[0] x (2 + $w / $len); 
-  
-  # '.-.-.-' => '-.-.-' if $x % $ofs == 1 (e.g. on odd positions)
-  my $ofs = ($x + $self->{rx}) % $len;
-  substr($line,0,$ofs) = '' if $ofs != 0;
-
-  $line = substr($line, 0, $w) if length($line) > $w;
-  
-  substr($line,-1,2) = '>' if (($flags & EDGE_END_E) != 0);
-  substr($line,0,2) = ' <' if (($flags & EDGE_END_W) != 0);
-
-  $self->_printfb ($fb, $x, $y, $line);
-
-  # insert the corner character
-  $self->_printfb ($fb, 2, $y, $style->[3]);
-  $self->_printfb ($fb, $self->{w}-3, $y, $style->[3]);
-
-  if ($self->{type} & EDGE_LABEL_CELL)
-    {
-    # include our label
-    my @pieces = $self->_formatted_label();
-    $self->_printfb ($fb, 4, $self->{h} - 3, @pieces) if @pieces > 0;
-    }
-
-  # done
-  }
-
-sub _draw_loop_ver
-  {
-  my ($self, $fb) = @_;
-
-  my $type = $self->{type} & EDGE_TYPE_MASK;
-  my $flags = $self->{type} & EDGE_FLAG_MASK;
-
-  ############
-  #   ........
-  # 0 :      :  label would appear here
-  # 1 :  +-- :
-  # 2 :  |   :
-  # 3 :  +-> :
-  #   .......:
-  #    012345 
-
-  #   ........
-  # 0 :      :  label would appear here
-  # 1 : --+  :
-  # 2 :   |  :
-  # 3 : <-+  :
-  #   .......:
-  #    012345 
-
-  ###########################################################################
-  # draw the vertical piece
- 
-  # get the style
-  my $style = $edge_styles->{ $self->{style} };
- 
-  my $h = 1; my $y = $self->{h} - 3; 
-  # '|' => '|||||', '{}' => '{}{}{}'
-  my $line = $style->[1] x (1 + $h / length($style->[1])); 
-  $line = substr($line, 0, $h) if length($line) > $h;
-
-  my $x = 2; $x = $self->{w}-3 if ($type == EDGE_W_S_E);
-  $self->_printfb_ver ($fb, $x, $y, $line);
-
-  ###########################################################################
-  # horizontal pieces
-
-  my $w = $self->{w} - 3; $y = $self->{h} - 4;
-  $x = 2; $x = 1 if ($type == EDGE_W_S_E);
-
-  # '-' => '-----', '.-' => '.-.-.-'
-  my $len = length($style->[0]); 
-  $line = $style->[0] x (2 + $w / $len); 
-  
-  # '.-.-.-' => '-.-.-' if $x % $ofs == 1 (e.g. on odd positions)
-  my $ofs = ($x + $self->{rx}) % $len;
-  substr($line,0,$ofs) = '' if $ofs != 0;
-
-  $line = substr($line, 0, $w) if length($line) > $w;
- 
-  $self->_printfb ($fb, $x, $y, $line);
-
-  substr($line,-1,1) = '>' if (($flags & EDGE_END_E) != 0);
-  substr($line,0,1) = '<' if (($flags & EDGE_END_W) != 0);
-  
-  $self->_printfb ($fb, $x, $self->{h} - 2, $line);
-
-  $x = 2; $x = $self->{w}-3 if ($type == EDGE_W_S_E);
-
-  # insert the corner character
-  $self->_printfb ($fb, $x, $y, $style->[3]);
-  $self->_printfb ($fb, $x, $self->{h}-2, $style->[3]);
-
-  if ($self->{type} & EDGE_LABEL_CELL)
-    {
-    # include our label
-    my @pieces = $self->_formatted_label();
-    $x = 4; $x = 3 if ($type == EDGE_W_S_E);
-
-    $self->_printfb ($fb, $x, $self->{h} - 5, @pieces) if @pieces > 0;
-    }
-
-  # done
-  }
-
-sub _draw_label
-  {
-  # This routine is cunningly named _draw_label, because it actually
-  # draws the edge line(s). The label text will be drawn by the individual
-  # routines called below.
-  my ($self, $fb, $x, $y) = @_;
-
-  my $type = $self->{type} & EDGE_TYPE_MASK;
-
-  # store the coordinates of our upper-left corner (for seamless rendering)
-  $self->{rx} = $x || 0; $self->{ry} = $y || 0;
-
-  $self->_draw_hor($fb) if $type == EDGE_HOR;
-  $self->_draw_ver($fb) if $type == EDGE_VER;
-  $self->_draw_cross($fb) if $type == EDGE_CROSS;
-  $self->_draw_corner($fb) if 
-     $type == EDGE_S_E || 
-     $type == EDGE_S_W ||
-     $type == EDGE_N_E ||
-     $type == EDGE_N_W;
-  $self->_draw_loop_hor($fb) if $type == EDGE_N_W_S || $type == EDGE_S_W_N;
-  $self->_draw_loop_ver($fb) if $type == EDGE_E_S_W || $type == EDGE_W_S_E;
-
-  delete $self->{rx}; delete $self->{ry};	# no longer needed
-
-  # XXX TODO: joints (E to N/S etc)
-  # $self->_printfb ($fb, 0,0, 'unsupported edge type ' . $type);
   }
 
 #############################################################################
@@ -1065,19 +639,47 @@ sub as_html
 
   my $id = $self->{graph}->{id};
 
+  my $color = $self->attribute('color') || '';
   my $label = '';
+  my $label_style = '';
+
   # only include the label if we are the label cell
   if ($self->{type} & EDGE_LABEL_CELL)
     {
     $label = $self->{att}->{label}; $label = '' if !defined $label; $label =~ s/\\n/<br \/>/g;
+
+    my $label_color = $self->attribute('label-color') || $color;
+    $label_color = '' if $label_color eq 'black';
+    $label_style = "color: $label_color;" if $label_color;
+  
+    $label_style .= $self->text_styles_as_css() unless $label eq '';
+
+    $label_style =~ s/^\s*//;
+
+    my $link = $self->link();
+    if ($link ne '')
+      {
+      # encode critical entities
+      $link =~ s/\s/\+/g;			# space
+      $link =~ s/'/%27/g;			# single-quote
+
+      # put the style on the link
+      $label_style = " style='$label_style'" if $label_style;
+      $label = "<a class='l' href='$link'$label_style>$label</a>";
+      $label_style = '';
+      }
+
     }
   $label = '&nbsp;' unless $label ne '';
 
-  my $color = $self->attribute('color') || '';
+  ###########################################################################
+  # get the border styles/colors:
 
-  my $border_color = $self->{att}->{color} || $color || 'black';
+  my $bow = $self->attribute('border-width'); $bow = 2 unless defined $bow;
 
-  my $bw = '';
+  my $bw = $bow;
+
+  my $border_color = $color || 'black';
   if ($style eq 'bold')
     {
     $bw = 3; $style = 'solid';
@@ -1087,33 +689,57 @@ sub as_html
     $bw = '';
     }
   $bw .= 'px' if $bw;
+
   $border_color = ' ' . $border_color if $border_color;
 
   my $border = "$style ${bw}$border_color";
+  my $border_v = $border;
 
-  my $label_color = $self->attribute('label-color') || $color;
-  $label_color = '' if $label_color eq 'black';
-  
+  if (($self->{type} & EDGE_TYPE_MASK) == EDGE_CROSS)
+   {
+   my $bw = $bow;
+   if ($self->{style_ver} eq 'bold')
+     {
+     $bw = 3; $style = 'solid';
+     }
+   elsif ($self->{style_ver} eq 'double')
+     {
+     $bw = '';
+     }
+   $bw .= 'px' if $bw;
+
+   $border_color = $self->{color_ver};
+   $border_color = ' ' . $border_color if $border_color;
+   $border_v = "$self->{style_ver} ${bw}$border_color";
+   }
+
+  ###########################################################################
   my $edge_color = '';
   $edge_color = " color: $color;" if $color;
-
-  $label_color = " color: $label_color;" if $label_color;
-
+  
   my $bg = $self->background();
-
   $bg = " background: $bg;" if $bg;
+
+  my $title = $self->title();
+  $title =~ s/"/&#22;/g;			# replace quotation marks
+  $title = " title=\"$title\"" if $title ne '';	# add mouse-over title
+
+  # XXX TODO: replace "&gt;" and "&lt;" with unicode arrow chars
+
+  ###########################################################################
+  # replace templates
 
   my @rc;
   for my $a (@$code)
     {
     my $c = $a;					# make a copy
-    # insert the label, class and border
-    $c =~ s/##label##/$label/;
+    # insert the title, label, class and border
+    $c =~ s/>##label##/$title>$label/;
     $c =~ s/##class##/$self->class()/eg;
-    # XXX TODO:
     # replace borderv with the border for the vertical edge on CROSS sections
-    $c =~ s/##borderv?##/$border/g;
-    $c =~ s/##lc##/$label_color/g;
+    $c =~ s/##border##/$border/g;
+    $c =~ s/##borderv##/$border_v/g;
+    $c =~ s/##lc##/$label_style/g;
     $c =~ s/##edgecolor##/ style="$edge_color"/g;
     $c =~ s/##ec##/$edge_color/g;
     $c =~ s/##bg##/$bg/g;
@@ -1123,6 +749,13 @@ sub as_html
     }
  
   \@rc;
+  }
+
+sub class
+  {
+  my $self = shift;
+
+  $self->{class} . ($self->{cell_class} || '');
   }
 
 #############################################################################
@@ -1363,6 +996,11 @@ None by default. Can export the following on request:
   EDGE_START_MASK
   EDGE_END_MASK
   EDGE_MISC_MASK
+
+  ARROW_RIGHT
+  ARROW_LEFT
+  ARROW_UP
+  ARROW_DOWN
 
 =head1 TODO
 

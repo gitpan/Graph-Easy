@@ -455,6 +455,7 @@ sub _path_is_clear
 
 1;
 __END__
+
 =head1 NAME
 
 Graph::Easy::Layout::Path - Path management for Manhattan-style grids

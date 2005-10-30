@@ -1,7 +1,7 @@
 # Enlightment
 # http://bloodgate.com/perl/graph/
 
- [ Textual description ] { background: #804020; }
--> [ Parser ] { background: #a06040; }
--> [ Layouter ] { background: #d08060; }
--> [ Output (ASCII/HTML) ] { background: #ffa090; }
+ [ Textual description ] { fill: #804020; }
+-> [ Parser ] { fill: #a06040; }
+-> [ Layouter ] { fill: #d08060; }
+-> [ Output (ASCII/HTML) ] { fill: #ffa090; }

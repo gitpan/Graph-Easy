@@ -1,4 +1,4 @@
-use 5.006001;
+use 5.008000;
 use ExtUtils::MakeMaker;
 use strict;
 
@@ -55,7 +55,6 @@ WriteMakefile(
 	"Scalar::Util" => 1.13,
 	"Heap" => 0.71,
 	},
-    ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
-      (ABSTRACT_FROM  => 'lib/Graph/Easy.pm', # retrieve abstract from module
-       AUTHOR         => 'Tels <nospam-abuse@bloodgate.com>') : ()),
+    ABSTRACT_FROM	=> 'lib/Graph/Easy.pm',
+    AUTHOR		=> 'Tels <nospam-abuse@bloodgate.com>',
 );

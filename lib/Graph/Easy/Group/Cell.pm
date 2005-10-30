@@ -5,27 +5,13 @@
 
 package Graph::Easy::Group::Cell;
 
-use 5.006001;
-use strict;
 use Graph::Easy::Node;
-require Exporter;
 
-use vars qw/$VERSION @ISA @EXPORT_OK/;
+@ISA = qw/Graph::Easy::Node/;
 
-@ISA = qw/Graph::Easy::Node Exporter/;
+$VERSION = '0.03';
 
-$VERSION = '0.02';
-
-@EXPORT_OK = qw/
-  GROUP_INNER
-  GROUP_RIGHT
-  GROUP_LEFT
-  GROUP_TOP
-  GROUP_BOTTOM
-  GROUP_ALL
-
-  GROUP_MAX
-  /;
+use strict;
 
 #############################################################################
 
@@ -36,79 +22,68 @@ sub GROUP_LEFT	 	() { 2; }	# left border only
 sub GROUP_TOP	 	() { 3; }	# top border only
 sub GROUP_BOTTOM 	() { 4; }	# bottom border only
 sub GROUP_ALL	 	() { 5; }	# completely sourounded by non-group cells
+
 sub GROUP_BOTTOM_RIGHT	() { 6; }	# bottom and right border
 sub GROUP_BOTTOM_LEFT	() { 7; }	# bottom and left border
 sub GROUP_TOP_RIGHT	() { 8; }	# top and right border
 sub GROUP_TOP_LEFT	() { 9; }	# top and left order
 
-sub GROUP_MAX		() { 9; }	# max number
+sub GROUP_MAX		() { 5; }	# max number
 
 my $border_styles = 
   {
-  # type    	    top,	bottom, left,   right,	class
-  GROUP_INNER()	 => [ 0,	0,	0,	0,	''],
-  GROUP_RIGHT()	 => [ 0,	0,	0,	1,	'-r' ],
-  GROUP_LEFT()	 => [ 0,	0,	1,	0,	'-l' ],
-  GROUP_TOP()	 => [ 1,	0,	0,	0,	'-t' ],
-  GROUP_BOTTOM() => [ 0,	1,	0,	0,	'-b' ],
-  GROUP_ALL()	 => [ 0,	0,	0,	0,	'-all' ],
-  GROUP_BOTTOM_RIGHT() => [ 0,	1,	0,	1,	'-br' ],
-  GROUP_BOTTOM_LEFT() => [ 0,	1,	1,	0,	'-bl' ],
-  GROUP_TOP_RIGHT() => [ 1,	0,	0,	1,	'-tr' ],
-  GROUP_TOP_LEFT() => [ 1,	0,	1,	0,	'-tl' ],
+  # type		    top,	bottom, left,   right,	class
+  GROUP_INNER()		=> [ 0,		0,	0,	0,	['gi'] ],
+  GROUP_RIGHT()		=> [ 0,		0,	0,	1,	['gr'] ],
+  GROUP_LEFT()		=> [ 0,		0,	1,	0,	['gl'] ],
+  GROUP_TOP()		=> [ 1,		0,	0,	0,	['gt'] ],
+  GROUP_BOTTOM()	=> [ 0,		1,	0,	0,	['gb'] ],
+  GROUP_ALL()		=> [ 0,		0,	0,	0,	['ga'] ],
+  GROUP_BOTTOM_RIGHT()	=> [ 0,		1,	0,	1,	['gb','gr'] ],
+  GROUP_BOTTOM_LEFT()	=> [ 0,		1,	1,	0,	['gb','gl'] ],
+  GROUP_TOP_RIGHT()	=> [ 1,		0,	0,	1,	['gt','gr'] ],
+  GROUP_TOP_LEFT()	=> [ 1,		0,	1,	0,	['gt','gl'] ],
   };
 
 my $border_name = [ 'top', 'bottom', 'left', 'right' ];
 
 sub _css
   {
-  my ($c, $id, $type, $group, $border) = @_;
+  my ($c, $id, $group, $border) = @_;
 
-  my $b = $border_styles->{$type};
-  
-  # If border eq 'none', this would needlessly repeat the "border: none"
-  # from the general group class.
-  return '' if $border eq 'none';
+  my $css = '';
 
-  my $cl = ".group$b->[4]"; $cl .= "-$group" unless $group eq '';
-  my $css = "table.graph$id $cl {";
-  for (my $i = 0; $i < 4; $i++)
+  for my $type (0 .. 5)
     {
-    $css .= " border-$border_name->[$i]: $border;" if $b->[$i];
+    my $b = $border_styles->{$type};
+  
+    # If border eq 'none', this would needlessly repeat the "border: none"
+    # from the general group class.
+    next if $border eq 'none';
+
+    my $cl = '.' . $b->[4]->[0]; # $cl .= "-$group" unless $group eq '';
+
+    $css .= "table.graph$id $cl {";
+    if ($type == GROUP_INNER)
+      {
+      $css .= " border: none;";			# shorter CSS
+      }
+    elsif ($type == GROUP_ALL)
+      {
+      $css .= " border-style: $border;";	# shorter CSS
+      }
+    else
+      {
+      for (my $i = 0; $i < 4; $i++)
+        {
+        $css .= ' border-' . $border_name->[$i] . "-style: $border;" if $b->[$i];
+        }
+      }
+    $css .= "}\n";
     }
-  $css .= " border: $border;" if $type == GROUP_ALL;	# shorter CSS
-  $css .= "}\n";
 
   $css;
   }
-
-# Define the neighbour-patterns. If a cell matches this pattern, it is of that
-# type. '1' means the cell belongs to the same group, '0' means no or another
-# group, '.' means don't care. Index:
-
-  # +------+--------+-------+
-  # | 0    :1       : 2     |
-  # +......+........+.......+
-  # | 7    :        : 3     |
-  # +......+........+.......+
-  # | 6    : 5      : 4     |
-  # +------+--------+-------+
-
-my $neighbours = 
-  {
-  # 1735
-  '1111' => GROUP_INNER, 
-  '0111' => GROUP_TOP, 
-  '1101' => GROUP_BOTTOM, 
-  '1110' => GROUP_LEFT, 
-  '1011' => GROUP_RIGHT, 
-  '1001' => GROUP_BOTTOM_RIGHT, 
-  '1100' => GROUP_BOTTOM_LEFT, 
-  '0011' => GROUP_TOP_RIGHT, 
-  '0110' => GROUP_TOP_LEFT, 
-  '0000' => GROUP_ALL, 
-
-  };
 
 #############################################################################
 
@@ -117,13 +92,13 @@ sub _init
   # generic init, override in subclasses
   my ($self,$args) = @_;
   
-  $self->{type} = GROUP_INNER;
   $self->{class} = 'group';
+  $self->{cell_class} = 'gi';
   $self->{name} = '';
   
   $self->{x} = 0;
   $self->{y} = 0;
-  $self->{w} = 0; #undef;
+  $self->{w} = 0;
   $self->{h} = 0;
 
   # XXX TODO check arguments
@@ -142,8 +117,6 @@ sub _init
     $self->{groups}->{ $self->{group}->{name} } = $self->{group};
     }
  
-  $self->_set_type($self->{graph}->{cells}) if $self->{graph};
-
   $self;
   }
 
@@ -151,8 +124,6 @@ sub _set_type
   {
   # set the proper type of this cell based on the sourrounding cells
   my ($self, $cells) = @_;
-
-  # XXX TODO:
 
   # +------+--------+-------+
   # | LT     TOP      RU    |
@@ -163,39 +134,33 @@ sub _set_type
   # +------+--------+-------+
 
   my @coord = (
-    [  0,-1 ],
-    [ +1, 0 ],
-    [  0,+1 ],
-    [ -1, 0 ],
+    [  0, -1, ' gt' ],
+    [ +1,  0, ' gr' ],
+    [  0, +1, ' gb' ],
+    [ -1,  0, ' gl' ],
     );
 
-  my $pattern = '';
   my ($sx,$sy) = ($self->{x},$self->{y});
+
+  my $class = '';
   my $gr = $self->{group}->{name};
   foreach my $co (@coord)
     {
-    my ($x,$y) = @$co; $x += $sx; $y += $sy;
-    my $belongs = '0';
+    my ($x,$y,$c) = @$co; $x += $sx; $y += $sy;
+
     my $cell = $cells->{"$x,$y"};
-    $belongs = '1' if ref($cell) && defined $cell->{groups}->{$gr};
-    $pattern .= $belongs;
+
+    # belongs to the same group?
+    # print STDERR "# $x,$y ($sx,$sy) $gr\n";
+
+    $class .= $c unless ref($cell) && defined $cell->{groups}->{$gr};
     }
 
-  # get the type
-  $self->{type} = $neighbours->{$pattern};
+  $class = ' ga' if $class eq ' gt gr gb gl';
 
-  # replace subclass
-  my $new = 'group' . $border_styles->{$self->{type}}->[4];
-  $self->{class} =~ s/^group[^.]*/$new/;
+  $self->{cell_class} = $class;
 
   $self;
-  }
-
-sub type
-  {
-  my $self = shift;
-
-  $self->{type};
   }
 
 #############################################################################
@@ -203,12 +168,20 @@ sub type
 
 sub as_ascii
   {
+  # XXX TODO
   '';
+  }
+
+sub class
+  {
+  my $self = shift;
+
+  $self->{class} . $self->{cell_class};
   }
 
 #############################################################################
 
-# for rendering this path element as ASCII, we need to correct our width based
+# for rendering this cell as ASCII/Boxart, we need to correct our width based
 # on whether we have a border or not. But this is only known after parsing is
 # complete.
 
@@ -295,6 +268,16 @@ Returns the cell as HTML code.
 	my $label = $cell->label();
 
 Returns the name (also known as 'label') of the cell.
+
+=head2 class()
+
+	my $class = $cell->class();
+
+Returns the classname(s) of this cell, like:
+
+	group-cities gr gb
+
+for a cell with a bottom (gb) and right (gr) border in the class C<cities>.
 
 =head1 EXPORT
 

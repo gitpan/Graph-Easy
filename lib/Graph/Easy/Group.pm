@@ -5,15 +5,13 @@
 
 package Graph::Easy::Group;
 
-use 5.006001;
 use strict;
-
 use vars qw/$VERSION @ISA/;
 use Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 #############################################################################
 
@@ -22,7 +20,6 @@ sub _init
   # generic init, override in subclasses
   my ($self,$args) = @_;
   
-  $self->{border} = 'solid';
   $self->{name} = 'Group #'. $self->{id};
   $self->{label} = '';
   $self->{class} = 'group';
@@ -31,11 +28,15 @@ sub _init
   # XXX TODO check arguments
   foreach my $k (keys %$args)
     {
+    if ($k !~ /^(graph|name)\z/)
+      {
+      require Carp;
+      Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Group->new()");
+      }
     $self->{$k} = $args->{$k};
     }
   
   $self->{nodes} = {};
-  $self->{error} = '';
 
   $self;
   }
@@ -43,6 +44,8 @@ sub _init
 sub as_txt
   {
   my $self = shift;
+
+  require Graph::Easy::As_txt;
 
   my $n = $self->{name};
   # quote special chars in name
@@ -81,9 +84,9 @@ sub nodes
 
 sub set_attribute
   {
-  my ($self, $atr, $v) = @_;
+  my ($self, $atr, $v, $class) = @_;
 
-  $self->SUPER::set_attribute($atr,$v);
+  $self->SUPER::set_attribute($atr,$v, $class);
 
   # if defined attribute "nodeclass", put our nodes into that class
   if ($atr eq 'nodeclass')
@@ -171,18 +174,18 @@ Graph::Easy::Group - Represents a group of nodes in a simple graph
 
 =head1 SYNOPSIS
 
-        use Graph::Easy::Group;
+        use Graph::Easy;
 
-	my $bonn = Graph::Easy::Node->new(
-		name => 'Bonn',
-		border => 'solid 1px black',
-	);
-	my $berlin = Graph::Easy::Node->new(
-		name => 'Berlin',
-	);
+        my $bonn = Graph::Easy::Node->new('Bonn');
+
+        $bonn->set_attribute('border', 'solid 1px black');
+
+        my $berlin = Graph::Easy::Node->new( name => 'Berlin' );
+
 	my $cities = Graph::Easy::Group->new(
 		name => 'Cities',
 	);
+        $cities->set_attribute('border', 'dashed 1px blue');
 
 	$cities->add_nodes ($bonn);
 	# $bonn will be ONCE in the group

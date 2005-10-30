@@ -31,6 +31,10 @@ can_ok ("Graph::Easy", qw/
   id
   group groups add_group del_group
   is_simple_graph
+
+  text_style
+  text_styles
+  text_styles_as_css
   /);
 
 #############################################################################

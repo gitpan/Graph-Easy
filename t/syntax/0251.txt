@@ -1,2 +1,2 @@
 # A node-cluster (autosplit into three single nodes)
-[ Husum | Schleswig | Flensburg ] { background: #ddaaff; }
+[ Husum | Schleswig | Flensburg ] { fill: #ddaaff; }

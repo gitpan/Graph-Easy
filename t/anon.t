@@ -74,7 +74,7 @@ is ($node->as_graphviz_txt(), '"\#0"', 'anon as_graphviz');
 
 my $grviz = $graph->as_graphviz();
 
-my $match = quotemeta('"\#0" [ label=" ", shape=plaintext ]');
+my $match = quotemeta('"\#0" [ fillcolor=white, label=" ", shape=plaintext ]');
 
 like ($grviz, qr/$match/, 'anon node');
  

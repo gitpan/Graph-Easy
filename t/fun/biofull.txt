@@ -1,22 +1,25 @@
-# Example from:
+# Example from: http://www.islandseeds.org/wiki/Biofuel
 # http://www.islandseeds.org/wiki/Biofuel
 
-   [ solar energy ] { color: blue; },
-   [ water] { color: blue; },
-   [ soil ] { color: burlywood; }
+graph { flow: right; }
+node { shape: ellipse; }
+
+   [ solar energy ] { fill: yellow; },
+   [ water] { fill: cyan; },
+   [ soil ] { fill: burlywood; }
 
 -> [ vegetation ]
 -> [ processing ]
 -> [ biofuel ]
 -> [ combustion ]
--> [ useful work ] { background: lightgray; }
+-> [ useful work ] { fill: lightgray; }
 
 [ combustion ] -> [ carbon dioxide ]
 [ combustion ] -> [ pollution ]
 
-[ processing ] -> [ compost ] -> [ soil ]
-[ processing ] -> [ carbon dioxide ]
-[ processing ] -> [ pollution ]
+[ processing ] ..> [ compost ] ..> [ soil ]
+[ processing ] ..> [ carbon dioxide ]
+[ processing ] ..> [ pollution ]
 
 [ water ] -> [ vegetation ]
 [ solar energy ] -> [ vegetation ]

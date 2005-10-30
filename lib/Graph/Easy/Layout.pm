@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 #############################################################################
 #############################################################################
@@ -595,46 +595,22 @@ sub _fill_group_cells
     my $c = 'Graph::Easy::Group::Cell';
 
     # now insert filler cells around this cell
+    my $ofs = [ -1, 0,
+		0, -1,
+		+1, 0,
+		+1, 0,
+		0, +1,
+		0, +1,
+		-1, 0,
+		-1, 0,  ];
+    while (@$ofs > 0)
+      {
+      $x += shift @$ofs;
+      $y += shift @$ofs;
 
-    # left
-    $x -= 1;
-    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
-     unless exists $cells->{"$x,$y"};
-
-    # topleft
-    $y -= 1;
-    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
-     unless exists $cells->{"$x,$y"};
-
-    # top
-    $x += 1;
-    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
-     unless exists $cells->{"$x,$y"};
-
-    # topright
-    $x += 1;
-    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
-     unless exists $cells->{"$x,$y"};
-
-    # right
-    $y += 1;
-    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
-     unless exists $cells->{"$x,$y"};
-
-    # bottomright
-    $y += 1;
-    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
-     unless exists $cells->{"$x,$y"};
-
-    # bottom
-    $x -= 1;
-    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
-     unless exists $cells->{"$x,$y"};
-
-    # bottomleft
-    $x -= 1;
-    $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group )
-     unless exists $cells->{"$x,$y"};
+      $cells->{"$x,$y"} = $c->new ( graph => $self, group => $group, x => $x, y => $y )
+        unless exists $cells->{"$x,$y"};
+      }
     }
 
   $self->{cells} = $cells;		# override with new cell layout
@@ -654,6 +630,7 @@ sub _fill_group_cells
 
 1;
 __END__
+
 =head1 NAME
 
 Graph::Easy::Layout - Layout the graph from Graph::Easy

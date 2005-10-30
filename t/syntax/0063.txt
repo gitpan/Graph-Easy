@@ -3,14 +3,14 @@
 node { shape: ellipse; }
 node.lilac { background: #deadff; }
 
-[ Bergheim ] { shape: rectangle; } ->
-[ Kirchheim ] { shape: rect; } ->
-[ Weilheim ] { shape: box; } 
+[ Bergheim ] { shape: diamond; } ->
+[ Kirchheim ] { shape: triangle; } ->
+[ Weilheim ] { shape: house; } 
 
 [ Wilhelmshaven ] { shape: invisible; } ->
 [ Cuxhaven ] { shape: rounded; } ->
 [ Zeven ] { class: lilac; }
 
 [ Bremerhaven ] { shape: circle; } ->
-[ Templin ]
+[ Templin ] { shape: triangle; }
 

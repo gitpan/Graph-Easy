@@ -5,10 +5,11 @@ use strict;
 
 BEGIN
    {
-   plan tests => 20;
+   plan tests => 19;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Group") or die($@);
+   use_ok ("Graph::Easy::Group::Cell") or die($@);
    use_ok ("Graph::Easy") or die($@);
    };
 
@@ -20,8 +21,10 @@ can_ok ("Graph::Easy::Group", qw/
   add_nodes
   nodes
   /);
-
-use Graph::Easy::Group::Cell qw/GROUP_INNER GROUP_ALL GROUP_LEFT/;
+can_ok ("Graph::Easy::Group::Cell", qw/
+  _set_type
+  class
+  /);
 
 #############################################################################
 
@@ -76,15 +79,12 @@ is ($first->class(),'node.city', 'class is now "node.city"');
 
 my $cell = Graph::Easy::Group::Cell->new( group => $group );
 
-is ($cell->type(), GROUP_INNER, 'group_inner as default');
-
 $cell->{x} = 0; $cell->{y} = 0;
 my $cells = { '0,0' => $cell };
 
 $cell->_set_type( $cells );
 
-is ($cell->type(), GROUP_ALL, 'GROUP_ALL');
-is ($cell->class(), 'group-all', 'group-all');
+is ($cell->class(), 'group ga', 'group ga');
 
 is ($cell->group( $group->{name} ), $group, "group()");
 
@@ -103,6 +103,5 @@ $cells->{'0,1'} = $cell4;
 is ($cell2->group( $group->{name} ), $group, "group()");
 
 $cell->_set_type( $cells );
-is ($cell->type(), GROUP_LEFT, 'GROUP_LEFT');
-is ($cell->class(), 'group-l', 'group-l');
+is ($cell->class(), 'group gl', 'group gl');
 

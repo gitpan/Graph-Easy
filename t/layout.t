@@ -33,6 +33,8 @@ use Graph::Easy;
 Graph::Easy::Edge::Cell->import (qw/
   EDGE_HOR EDGE_VER EDGE_LABEL_CELL
   EDGE_SHORT_S
+  EDGE_END_S
+  EDGE_START_N
 /);
 
 #############################################################################
@@ -141,6 +143,7 @@ $coords = $graph->_find_path( $src, $dst, $edge);
 
 is (scalar @$coords, 4*$e, 'straight path down');
 my $type = EDGE_VER();
-my $type_label = EDGE_VER() + EDGE_LABEL_CELL();
-is (join (":", @$coords), "1:1:$type_label:1:2:$type:1:3:$type:1:4:$type", 'path 1,0 => 1,5');
+my $type_label = EDGE_VER() + EDGE_LABEL_CELL() + EDGE_START_N();
+my $type_end = EDGE_VER() + EDGE_END_S();
+is (join (":", @$coords), "1:1:$type_label:1:2:$type:1:3:$type:1:4:$type_end", 'path 1,0 => 1,5');
 

@@ -110,6 +110,7 @@ sub _as_txt
     if ((@out == 0) && ( (scalar $n->predecessors() || 0) == 0))
       {
       # single node without any connections (unless already output)
+      next if exists $n->{autosplit} && !defined $n->{autosplit};
       $txt .= $first . "\n" unless defined $n->{_p};
       }
 
@@ -139,11 +140,25 @@ sub attributes_as_txt
   # return the attributes of this node as text description
   my ($self, $remap) = @_;
 
+  # nodes that were autosplit
+  if (exists $self->{autosplit})
+    {
+    # other nodes are invisible in as_txt: 
+    return '' unless defined $self->{autosplit};
+    # the first one might have had no label set
+    }
+
   my $att = '';
   my $class = $self->class();
   my $g = $self->{graph};
 
   my $new = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'remap_colors');
+
+  if (defined $self->{origin})
+    {
+    $new->{origin} = $self->{origin}->{name};
+    $new->{offset} = join(',', $self->offset());
+    }
 
   for my $atr (sort keys %$new)
     {
@@ -184,6 +199,12 @@ sub as_pure_txt
   {
   my $self = shift;
 
+  if (exists $self->{autosplit})
+    {
+    return '[ '. $self->{autosplit} .' ]' if defined $self->{autosplit};
+    return '';
+    }
+
   my $name = $self->{name};
 
   # quote special chars in name
@@ -196,6 +217,12 @@ sub as_txt
   {
   my $self = shift;
 
+  if (exists $self->{autosplit})
+    {
+    return '[ ' . $self->{autosplit}.' ]' if defined $self->{autosplit};
+    return '';
+    }
+
   my $name = $self->{name};
 
   # quote special chars in name
@@ -206,6 +233,7 @@ sub as_txt
  
 1;
 __END__
+
 =head1 NAME
 
 Graph::Easy::As_txt - Generate textual description from graph object

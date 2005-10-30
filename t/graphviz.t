@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 71;
+   plan tests => 79;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -219,6 +219,13 @@ is ($graph->error(),'', 'no error');
 $grviz = $graph->as_graphviz();
 like ($grviz, qr/arrowhead=normal/, 'arrow-style filled => normal');
 
+$edge->set_attribute('arrow-style','none');
+is ($graph->error(),'', 'no error');
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/arrowhead=none/, 'arrow-style none');
+
+
 #############################################################################
 # bidirectional edges
 
@@ -229,20 +236,38 @@ $e->bidirectional(1);
 $grviz = $graph->as_graphviz();
 like ($grviz, qr/A -> B.*dir=both/, 'bidirectional edge');
 
+
+#############################################################################
 #############################################################################
 # label-color vs. color
 
 $e->set_attribute('color','red');
 $e->set_attribute('label-color','blue');
+$e->set_attribute('label','A to B');
 
 $grviz = $graph->as_graphviz();
-like ($grviz, qr/A -> B \[ color="#ff0000", dir=both, fontcolor="#0000ff" \]/, 'label-color');
+like ($grviz, qr/A -> B \[ color="#ff0000", dir=both, fontcolor="#0000ff", label/, 'label-color');
 
+#############################################################################
+# missing label-color (fall back to color)
+
+$e->del_attribute('label-color');
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/A -> B \[ color="#ff0000", dir=both, fontcolor="#ff0000", label/, 'label-color');
+
+$e->del_attribute('label','A to B');
+
+#############################################################################
+# no label, no fontcolor nec.:
+
+$e->del_attribute('label');
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/A -> B \[ color="#ff0000", dir=both \]/, 'label-color');
 
 #############################################################################
 # link vs. autolink and linkbase
 
-$graph->set_attribute('node','linkbase','http://bloodgate.com');
+$graph->set_attribute('node','linkbase','http://bloodgate.com/');
 
 $grviz = $graph->as_graphviz();
 unlike ($grviz, qr/bloodgate.com/, 'linkbase alone does nothing');
@@ -261,6 +286,7 @@ is ($graph->attribute('graph','autolink'), 'name', 'autolink=name');
 $grviz = $graph->as_graphviz();
 like ($grviz, qr/URL="http:\/\/bloodgate.com/, 'linkbase plus link');
 
+
 #############################################################################
 # link vs. autolink and linkbase
 
@@ -270,5 +296,25 @@ is ($graph->error(),'', 'no error');
 $grviz = $graph->as_graphviz();
 unlike ($grviz, qr/point-style/, 'point-style is filtered out');
 
+
+#############################################################################
+# node shape "none"
+
+$bonn->{name} = 'Bonn';
+$bonn->set_attribute( 'shape' => 'none' );
+
+$grviz = $graph->as_graphviz();
+like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($graph->as_graphviz(), qr/Bonn.*shape=plaintext/, 'contains shape=plaintext');
+
+
+#############################################################################
+# font-size support
+
+$bonn->set_attribute( 'font-size' => '2em' );
+
+$grviz = $graph->as_graphviz();
+like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($graph->as_graphviz(), qr/Bonn.*fontsize=22/, '11px eq 1em');
 
 

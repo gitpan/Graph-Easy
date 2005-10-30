@@ -1,5 +1,56 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-10-30 v0.31 Tels 1171 tests
+  * require at least Perl 5.8.0 (we need proper Unicode support)
+  * Edge.pm: remove unnec. _formatted_label()
+  * fix examples in t/fun and t/syntax
+  * include newline before first =head1 (Thanx to Ivan Tubert-Brohman!)
+  * fix package name in As_ascii.pm
+  * As_ascii: add _u8() (for box-art)
+  * add: as_boxart(), as_boxart_file(), as_boxart_html()
+  * add examples/as_boxart
+  * examples/as_*: input utf8 from STDIN
+  * Parser: do a binmode ':utf8' on input files
+  * support "graph { output: boxart; }"
+  * add some X<> keywords for POD indexing
+  * Graph: you can call get_attribute('attribute'), too (the class is now
+    optional and defaults to 'graph' if missing)
+  * Graph: you can do set_attribute('attribute','value'), too.
+  * added attributes:
+    + edgeclass for groups
+    + font-size for graphs, groups, nodes and edges
+    + text-style for graphs, groups, nodes and edges
+    + arrow-style: none for edges
+  * clarify that "label-color" falls back to "color" if unspecified
+  * setting "edge { style: X; }" changes the style for all solid edges to X
+  * Node: add parent() - return parent object (group or graph)
+  * Parser: throw correct error message for unknown attribute names
+  * horizontal straight, non-short edges were missing their arrows
+  * as_txt(): fix output of undirected edges (" -- " vs. " -- <")
+  * as_txt(): "origin" and "offset" attributes were missing in output
+  * handle a label of "0" correctly
+  * as_html(): render edge cross sections with the correct styles and colors
+  * as_html(): do not output invalid CSS definitions for edges (style, label
+	       link, title etc)
+  * as_html(): setting a color on a node with a link works correctly now
+  * as_html(): 'autolink' and 'link' on edges correctly create links
+  * as_html(): 'title' on edges inserts a mouse-over title on the edge label
+  * as_html(): remove trailing empty <tr></tr> pairs
+  * as_html(): put the "empty-cells" definition inside table.graph
+  * as_html(): create links on graph label (caption) if requested
+  * as_html(): include the graph label into the table, this looks more
+		consistent than the <caption>, which placed it floating above
+		or below the graph
+  * as_html(): repaired the output of group cells (see t/fun/0131.txt)
+  * as_ascii(): do not draw border for nodes with "shape: none;"
+  * as_graphviz(): nodes with shape none work now correctly
+  * as_graphviz(): color of edge labels falls back to edge color if no
+		   label-color is specified (was formerly rendered black)
+  * _css_styles(): inplement $overlay support (add custom attributes) and
+                   skip the border-attribute generation if it matches $skip
+		   (both fixes are mainly for SVG output)
+  * setting attributes on Edges/Nodes/Groups invalidates a former layout
+
 2005-09-23 v0.30 Tels 1114 tests - Draw, draw, draw, draw the corners...
   * ascii.t could fail on very slow machines
   * fix pod/t. and pod_cov.t when the Pod::Test modules are not installed

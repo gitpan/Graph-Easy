@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 
+# Test Graph::Easy::Node::Cell
+
 use Test::More;
 use strict;
 

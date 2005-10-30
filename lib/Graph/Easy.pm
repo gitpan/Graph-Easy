@@ -6,7 +6,7 @@
 
 package Graph::Easy;
 
-use 5.006001;
+use 5.008000;
 use Graph::Easy::Attributes;
 use Graph::Easy::Edge;
 use Graph::Easy::Group;
@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.30';
+$VERSION = '0.31';
 
 use strict;
 
@@ -28,6 +28,7 @@ BEGIN
   *as_html_page = \&as_html_file;
   *as_graphviz_file = \&as_graphviz;
   *as_ascii_file = \&as_ascii;
+  *as_boxart_file = \&as_boxart;
   *as_txt_file = \&as_txt;
   *_formatted_label = \&Graph::Easy::Node::_formatted_label;
   }
@@ -238,6 +239,32 @@ sub label
   $label;
   }
 
+sub link
+  {
+  # return the link, build from linkbase and link (or autolink)
+  my $self = shift;
+
+  my $link = $self->attribute('link');
+  my $autolink = $self->attribute('autolink');
+  if (!defined $link && defined $autolink)
+    {
+    $link = $self->{name} if $autolink eq 'name';
+    # defined to avoid overriding "name" with the non-existant label attribute
+    $link = $self->{att}->{label} if $autolink eq 'label' && defined $self->{att}->{label};
+    $link = $self->{name} if $autolink eq 'label' && !defined $self->{att}->{label};
+    }
+  $link = '' unless defined $link;
+
+  # prepend base only if link is relative
+  if ($link ne '' && $link !~ /^([\w]{3,4}:\/\/|\/)/)
+    {
+    my $base = $self->attribute('linkbase');
+    $link = $base . $link if defined $base;
+    }
+
+  $link;
+  }
+
 sub seed
   {
   my $self = shift;
@@ -350,8 +377,7 @@ sub border_attribute
   my ($self, $class) = @_;
 
   my $style = $self->attribute($class, 'border-style') || '';
-
-  return $style if $style =~ /^(none|)\z/;
+  return $style if $style eq 'none';
 
   my $width = $self->attribute($class, 'border-width') || '';
   my $color = $self->attribute($class, 'border-color') || '';
@@ -373,6 +399,12 @@ sub get_attribute
   # return the value of attribute $att from class $class
   my ($self, $class, $att) = @_;
 
+  # allow calls of the style get_attribute('background');
+  if (scalar @_ == 2)
+    {
+    $att = $class; $class = 'graph';
+    }
+
   return $self->border_attribute($class) if $att eq 'border'; # virtual attribute
 
   return $self->{class} if $att eq 'class' && $class ne 'graph';
@@ -385,6 +417,14 @@ sub get_attribute
 sub set_attribute
   {
   my ($self, $class, $name, $val) = @_;
+
+  # allow calling in the style of $graph->set_attribute($name,$val);
+  if (@_ == 3)
+    {
+    $val = $name;
+    $name = $class;
+    $class = 'graph';
+    }
 
   $name = 'undef' unless defined $name;
   $val = 'undef' unless defined $val;
@@ -523,19 +563,29 @@ sub _class_styles
 
   $indent = '' unless defined $indent;
 
-#  my $a = $overlay;
-#  $a = {} unless defined $a;
+  if (defined $overlay)
+    {
+    $a = {};
 
-#  # Put all key/value pairs from att into overlay, overwriting possible
-#  # existing default values 
-#  foreach my $class (keys %$org_a)
-#    {
-#    my $ac = $a->{$class};
-#    foreach my $k (keys %$org_a)
-#      {
-#      $ac->{$k} = $org_a->{$k};
-#      }
-#    }
+    # make a copy from $self->{att} to $a:
+
+    for my $class (keys %{$self->{att}})
+      {
+      my $ac = $self->{att}->{$class};
+      $a->{$class} = {};
+      my $acc = $a->{$class};
+      for my $k (keys %$ac)
+        {
+        $acc->{$k} = $ac->{$k};
+        }
+      # add the exra keys
+      my $oc = $overlay->{$class};
+      for my $k (keys %$oc)
+        {
+        $acc->{$k} = $oc->{$k} unless exists $acc->{$k};
+        }
+      }
+    }
 
   my $id = $self->{id};
 
@@ -586,22 +636,23 @@ sub _class_styles
     foreach my $att (sort keys %{$a->{$class}})
       {
       # should be skipped?
-      next if $att =~ /$skip/;
+      next if $att =~ $skip || $att eq 'border';
+
+      # do not specify font-size for the entire graph (only for it's label)
+      next if $class eq 'graph' && $att eq 'font-size';
 
       $done++;						# how many did we really?
       my $val = $a->{$class}->{$att};
 
-# XXX TODO CHECK
-#      # set for inner group cells "border: none"
-#      $val = 'none' if $att eq 'border' && $c eq 'group';
+      # for groups, set to none, it will be later overriden for the different
+      # cells (like "ga") with a border only on the appropriate side:
+      $val = 'none' if $att eq 'border-style' && $class eq 'group';
+      # fix border-widths to be in pixel
+      $val .= 'px' if $att eq 'border-width' && $val !~ /(px|em|%)\z/;
 
       $att = $map->{$att} if exists $map->{$att};	# change attribute name?
       $css_txt .= "$indent  $att: $val;\n";
       }
-
-    # add the border attribute
-    my $border = $self->border_attribute ($class);
-    $css_txt .= "$indent  border: $border;\n" if $border ne '';
 
     $css_txt .= "$indent}\n";
     $css .= $css_txt if $done > 0;			# skip if no attributes at all
@@ -611,11 +662,11 @@ sub _class_styles
 
 sub _skip
   {
-  # return the regexp that
+  # return a regexp that specifies which attributes to suppress in CSS
   my ($self) = shift;
 
   # skip these for CSS
-  qr/^(rows|column|size|offset|origin|label|linkbase|(auto)?(link|title)|nodeclass|shape|arrow-style|label-color|point-style|border-(color|style|width))\z/;
+  qr/^(rows|column|size|offset|origin|label|link|linkbase|(auto)?(link|title)|(node|edge)class|shape|arrow-style|label-color|point-style|text-style|style)\z/;
   }
 
 sub css
@@ -631,13 +682,18 @@ sub css
 
   my $css = $self->_class_styles( $self->_skip(),
     {
-    'fill' => 'background',
+      fill => 'background',
+    }, undef, undef, 
+    {
+      graph => {
+        'empty-cells' => 'show' 
+      },
     } );
 
   my @groups = $self->groups();
 
   # Set attributes for all TDs that start with "group" (hyphen seperated,
-  # so that group classes are something like "group-l-cities". The second rule
+  # so that group classes are something like "group-cities". The second rule
   # is for all TD without any class at all (these are the "filler" cells):
   $css .= <<CSS
 table.graph##id## td[class|="group"] { padding: 0.2em; }
@@ -652,7 +708,8 @@ table.graph##id## td {
 CSS
 ;
 
-  # append va (vertical arrow (left/right), vertical empty
+  # append CSS for edge cells (and their parts like va (vertical arrow
+  # (left/right), vertical empty), etc)
   $css .= <<CSS
 table.graph##id## .va {
   vertical-align: bottom;
@@ -687,25 +744,18 @@ CSS
 
   # append CSS for group cells (only if we actually have groups)
 
-  $css .= "table.graph$id { empty-cells: show; }\n";
-
   if (@groups > 0)
     {
     foreach my $group (@groups)
       {
-      # could include only the ones we actually need
+      my $class = $group->{class};
+
       my $border = $group->attribute('border-style') || 'none'; 
-      my $class = $group->{class}; $class =~ s/.*\.//;	# leave only subclass
-      for (my $i = 1; $i <= GROUP_MAX; $i++)
-	{
-        $css .= Graph::Easy::Group::Cell->_css($self->{id}, $i, $class, $border); 
-	}
+
+      $class =~ s/.*\.//;	# leave only subclass
+      $css .= Graph::Easy::Group::Cell->_css($self->{id}, $class, $border); 
       }
-    my $border = $self->attribute('group','border-style') || 'none'; 
-    for (my $i = 1; $i <= GROUP_MAX; $i++)
-      {
-      $css .= Graph::Easy::Group::Cell->_css($self->{id}, $i, '', $border); 
-      }
+
     }
 
   # replace the id with either '' or '123', depending on our ID
@@ -727,14 +777,14 @@ sub html_page_header
  <title>##title##</title>
  <style type="text/css">
  <!--
- ##CSS##
-  -->
+ ##CSS## -->
  </style>
  </head>
 <body bgcolor=white text=black>
 HTML
 ;
 
+  $html =~ s/\n\z//;
   $html =~ s/##charset##/utf-8/g;
   my $t = $self->title();
   $html =~ s/##title##/$t/g;
@@ -780,7 +830,7 @@ sub as_html
 
   $self->layout() unless defined $self->{score};
 
-  my $html = "\n" . $self->{html_header};
+  my $top = "\n" . $self->{html_header};
 
   my $cells = $self->{cells};
   my ($rows,$cols);
@@ -811,27 +861,46 @@ sub as_html
   my $groups = scalar $self->groups();
 
   my $id = $self->{id};
- 
-  $html .= "\n<table class=\"graph$id\" cellpadding=0 cellspacing=0";
-  $html .= " style=\"$self->{html_style}\"" if $self->{html_style};
-  $html .= ">\n";
 
+  $top .=  "\n<table class=\"graph$id\" cellpadding=0 cellspacing=0";
+  $top .= " style=\"$self->{html_style}\"" if $self->{html_style};
+  $top .= ">\n";
+
+  my $html = '';
+
+  # prepare the graph label
+  my $pos = '';
   my $caption = $self->attribute('graph','label');
   if (defined $caption && $caption ne '')
     {
     my $bg = $self->attribute('graph','background');
     my $style = '';
     $bg = '' if !defined $bg;
-    $style = " style='background: $bg" if $bg ne '';
+    $style = " style='background: $bg;" if $bg ne '';
+    
+    my $fs = $self->attribute('graph','font-size') || '';
+    $style .= " font-size: $fs;" if $fs ne '';
 
-    my $pos = $self->attribute('graph','label-pos') || 'top';
-    if ($pos eq 'bottom')
-      {
-      $style .= '; caption-side: bottom' if $style ne '';
-      $style = " style='caption-side: bottom" if $style eq '';
-      }
+    $style .= $self->text_styles_as_css();	# bold, italic, underline etc.
+
+    $style .= " text-align: center;";
+
+    $pos = $self->attribute('graph','label-pos') || 'top';
+
+    $style =~ s/;\z//;				# remove last ';'
     $style .= "'" unless $style eq '';
-    $html .= "<caption$style>$caption</caption>\n"
+
+    my $link = $self->link();
+
+    if ($link ne '')
+      {
+      # encode critical entities
+      $link =~ s/\s/\+/g;				# space
+      $link =~ s/'/%27/g;				# replace quotation marks
+      $caption = "<a class='l' href='$link'>$caption</a>";
+      }
+
+    $caption = "<tr>\n  <td colspan=##cols##$style>$caption</td>\n</tr>\n";
     }
  
   # now run through all rows, and for each of them through all columns 
@@ -924,19 +993,74 @@ sub as_html
       }
     }
 
-  $html .= "</table>\n" . $self->{html_footer} . "\n";
+  ###########################################################################
+  # finally insert the graph label
+  $max_cells *= 4;					# 4 rows for each cell
+  $caption =~ s/##cols##/$max_cells/ if defined $caption;
+
+  $html .= $caption if $pos eq 'bottom';
+  $top .= $caption if $pos eq 'top';
+
+  $html = $top . $html;
+
+  # remove empty trailing <tr></tr> pairs
+  $html =~ s#(<tr></tr>\n\n)+\z##;
+
+  $html .= "</table>\n" . $self->{html_footer};
  
   $html;
   } 
 
 ############################################################################# 
+# as_boxart_*
   
-sub as_ascii
+sub as_boxart
   {
-  # convert the graph to pretty ASCII art
+  # Create box-drawing art using Unicode characters - will return utf-8.
   my ($self) = shift;
 
   require Graph::Easy::As_ascii;
+  
+  # select unicode box drawing characters
+  $self->{_ascii_style} = 1;
+
+  $self->_as_ascii(@_);
+  }
+
+sub as_boxart_html
+  {
+  # Output a box-drawing using Unicode, then return it as a HTML chunk
+  # suitable to be embedded into an HTML page.
+  my ($self) = shift;
+
+  "<pre style='font-style: monospaced;'>\n" . $self->as_boxart(@_) . "\n</pre>\n";
+  }
+
+#############################################################################
+# as_ascii_*
+
+sub as_ascii
+  {
+  # Convert the graph to pretty ASCII art - will return utf-8.
+  my $self = shift;
+
+  # select 'ascii' characters
+  $self->{_ascii_style} = 0;
+
+  $self->_as_ascii(@_);
+  }
+
+sub _as_ascii
+  {
+  # Convert the graph to pretty ASCII or box art art - will return utf-8.
+  my $self = shift;
+
+  require Graph::Easy::As_ascii;
+
+  my $opt = ref($_[0]) eq 'HASH' ? $_[0] : { @_ };
+
+  # include links?
+  $self->{_links} = $opt->{links};
 
   $self->layout() unless defined $self->{score};
 
@@ -1010,10 +1134,10 @@ sub as_ascii
 sub as_ascii_html
   {
   # Convert the graph to pretty ASCII art, then return it as a HTML chunk
-  # suitable to be embedded into an HTML page. Does not yet do colors.
-  my ($self) = @_;
+  # suitable to be embedded into an HTML page.
+  my ($self) = shift;
 
-  "<pre>\n" . $self->as_ascii() . "\n</pre>\n";
+  "<pre>\n" . $self->_as_ascii(@_) . "\n</pre>\n";
   }
 
 #############################################################################
@@ -1343,6 +1467,7 @@ sub groups
 
 1;
 __END__
+
 =head1 NAME
 
 Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
@@ -1433,6 +1558,12 @@ nodes connected by edges (with optional labels).
 
 It works on a grid (manhattan layout), and thus the output is
 most usefull for flow charts, network diagrams, or hierarchy trees.
+
+X<graph>
+X<drawing>
+X<diagram>
+X<flowchart>
+X<layout>
 
 =head2 Input
 
@@ -1739,7 +1870,7 @@ Output the graph in the format set by C<output_format()>.
 
 	print $graph->as_ascii();
 
-Return the graph layout in ASCII art.
+Return the graph layout in ASCII art, in utf-8.
 
 =head2 as_ascii_file()
 
@@ -1752,7 +1883,31 @@ Is an alias for C<as_ascii>.
 	print $graph->as_ascii_html();
 
 Return the graph layout in ASCII art, suitable to be embedded into an HTML
-page. Basically wraps the output from L<as_ascii()> into C<< <pre> </pre> >>.
+page. Basically it wraps the output from L<as_ascii()> into
+C<< <pre> </pre> >> and inserts real HTML links. The returned
+string is in utf-8.
+
+=head2 as_boxart()
+
+	print $graph->as_box();
+
+Return the graph layout as box drawing using Unicode characters in utf-8.
+
+=head2 as_boxart_file()
+
+	print $graph->as_boxart_file();
+
+Is an alias for C<as_box>.
+
+=head2 as_boxart_html()
+
+	print $graph->as_boxart_html();
+
+Return the graph layout as box drawing using Unicode characters.
+
+page. Basically it wraps the output from L<as_ascii()> into
+C<< <pre> </pre> >> and inserts real HTML links. The returned
+string is in utf-8.
 
 =head2 as_html()
 
@@ -1824,6 +1979,13 @@ Returns the label of the graph.
 	my $title = $graph->title();
 
 Returns the title of the graph.
+
+=head2 link()
+
+	my $link = $graph->link();
+
+Return the link, build from linkbase and link (or autolink). Returns ''
+if there is no link.
 
 =head2 as_graphviz()
 
@@ -2064,6 +2226,33 @@ Takes a hex color value and returns the name of the color.
 
 Return a hash with name => value mapping for all known colors.
 
+=head2 text_style()
+
+	if ($graph->text_style('bold, italic'))
+	  {
+	  ...
+	  }
+
+Checks the given style list for being valid.
+
+=head2 text_styles()
+
+	my $styles = $graph->text_styles();	# or $edge->text_styles() etc.
+
+	if ($styles->{'italic'})
+	  {
+	  print 'is italic\n';
+	  }
+
+Return a hash with the given text-style properties, aka 'underline', 'bold' etc.
+
+=head2 text_styles_as_css()
+
+	my $styles = $graph->text_styles_as_css();	# or $edge->...() etc.
+
+Return the text styles as a chunk of CSS styling that can be embedded into
+a C< style="" > parameter.
+
 =head1 EXPORT
 
 Exports nothing.
@@ -2190,5 +2379,7 @@ Creating graphs should be easy even when the graphs are quite complex.
 =head1 AUTHOR
 
 Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+
+X<tels>
 
 =cut

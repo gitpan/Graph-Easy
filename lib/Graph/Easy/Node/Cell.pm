@@ -5,7 +5,6 @@
 
 package Graph::Easy::Node::Cell;
 
-use 5.006001;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;

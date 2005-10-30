@@ -12,6 +12,7 @@ group.outer { background: #f07070; }
 ( DMZ
 [ Inner Firewall ] -> [ Proxy ]
 --> [ Outer Firewall ]
+[ Proxy ] --> [ Database\n Server ]
 ) { class: dmz; }
 
 ( Outer 
@@ -19,3 +20,4 @@ group.outer { background: #f07070; }
 ) { class: outer }
 
 [ Outer Firewall ] --> [ Internet ]
+

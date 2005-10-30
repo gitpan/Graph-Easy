@@ -19,5 +19,5 @@ graph {
 [ One ] ==> [ Three ]
 [ One ] .. Test\n label ..> [ Four ]
 [ One ] -- label --> [ Two ]
-[ Seven ] -- <[ Eight ]
+[ Seven ] -- [ Eight ]
 [ Three ] <.. Test label ..> [ Six ]

@@ -4,9 +4,11 @@
 # (c) by Tels 2004-2005.
 #############################################################################
 
-package Graph::Easy;
+package Graph::Easy::Attributes;
 
-$VERSION = '0.07';
+$VERSION = '0.08';
+
+package Graph::Easy;
 
 use strict;
 
@@ -211,6 +213,96 @@ sub color_as_hex
   $color;
   }
 
+sub text_style
+  {
+  # check whether the given list of text-style attributes is valid
+  my ($self, $style) = @_;
+
+  return $style if $style =~ /^(normal|none|)\z/;
+
+  my @styles = split /\s+/, $style;
+  
+  return undef if grep(!/^(underline|overline|line-through|italic|bold)\z/, @styles);
+
+  $style;
+  }
+
+sub text_styles
+  {
+  # return a hash with the defined text-styles checked
+  my ($self) = @_;
+
+  my $style = $self->attribute('text-style') || '';
+  return { none => 1 } if $style =~ /^(normal|none)\z/;
+  return { } if $style eq '';
+
+  my $styles = {};
+  for my $key ( split /\s+/, $style )
+    {
+    $styles->{$key} = 1;
+    }
+  $styles;
+  }
+
+sub text_styles_as_css
+  {
+  my $self = shift;
+
+  my $style = '';
+  my $ts = $self->text_styles();
+
+  $style .= " font-style: italic;" if $ts->{italic};
+  $style .= " font-weight: bold;" if $ts->{bold};
+
+  if ($ts->{underline} || $ts->{none} || $ts->{overline} || $ts->{'line-through'})
+    {
+    # XXX TODO: HTML does seem to allow only one of them
+    my @s;
+    foreach my $k (qw/underline overline line-through none/)
+      {
+      push @s, $k if $ts->{$k};
+      }
+    my $s = join(' ', @s);
+    $style .= " text-decoration: $s;" if $s;
+    }
+
+  # XXX TODO: this will needless include the font-size if set via
+  # "node { font-size: X }:
+  my $fs = $self->attribute('font-size') || '';
+
+  $style .= " font-size: $fs;" if $fs;
+
+  $style;
+  }
+
+sub _font_size_in_pixels
+  {
+  my ($self, $em) = @_;
+  
+  my $fs = $self->attribute('font-size') || '';
+  return $em if $fs eq '';
+
+  if ($fs =~ /^([\d.]+)em\z/)
+    {
+    $fs = $1 * $em;
+    }
+  elsif ($fs =~ /^([\d.]+)%\z/)
+    {
+    $fs = ($1 / 100) * $em;
+    }
+#  # this is discouraged:
+#  elsif ($fs =~ /^([\d.]+)px\z/)
+#    {
+#    $fs = $1;
+#    }
+  else
+    {
+    require Carp;
+    Carp::croak ("Illegal font-size '$fs'");
+    }
+  $fs;
+  }
+
 sub direction_as_number
   {
   my ($self, $dir) = @_;
@@ -247,13 +339,18 @@ sub ATTR_TYPE_SLOT	() { 4; }
 
 my $attributes = {
   all => {
-    color => [
-     'The foreground/text color. See the section about color names and values for reference.',
-     undef,
-     'black',
-     'rgb(255,255,0)',
-     ATTR_COLOR,
-     "[ Crimson ] { color: crimson; }\n -> { color: blue; }\n [ Dark Orange ] { color: rgb(255,140,0); }",
+    autolink => [
+     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<link>. This attribute is inherited by nodes, edges and groups.",
+     [ qw/ label title name none / ],
+     'none',
+     'title',
+     ],
+
+    autotitle => [
+     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<title>. This attribute is inherited by nodes, edges and groups.",
+     [ qw/ label name none / ],
+     'none',
+     'label',
      ],
 
     background => [
@@ -263,15 +360,6 @@ my $attributes = {
      'rgb(255,0,0)',
      ATTR_COLOR,
      "[ Crimson ] { shape: circle; background: crimson; }\n -- Aqua Marine --> { background: #7fffd4; }\n [ Misty Rose ] { fill: rgb(255,228,221); }",
-     ],
-
-    fill => [
-     "The fill color, e.g. the color inside the shape. See the section about color names and values for reference.",
-     undef,
-     '"white" for the graph and nodes, "inherit" for edges',
-     'rgb(255,0,0)',
-     ATTR_COLOR,
-     "[ Crimson ]\n  {\n  shape: octagon;\n  background: crimson;\n  fill: red;\n  border-color: slategrey;\n  }\n-- Aqua Marine -->\n  {\n  arrow-style: filled;\n  fill: red;\n  }\n[ Two ]",
      ],
 
     "border-color" => [
@@ -300,6 +388,15 @@ my $attributes = {
      'dotted red',
      ],
 
+    color => [
+     'The foreground/text color. See the section about color names and values for reference.',
+     undef,
+     'black',
+     'rgb(255,255,0)',
+     ATTR_COLOR,
+     "[ Crimson ] { color: crimson; }\n -> { color: blue; }\n [ Dark Orange ] { color: rgb(255,140,0); }",
+     ],
+
     class => [
      'The subclass. See the section about class names for reference.',
      undef,
@@ -307,25 +404,29 @@ my $attributes = {
      'mynodeclass',
      ],
 
+    fill => [
+     "The fill color, e.g. the color inside the shape. See the section about color names and values for reference.",
+     undef,
+     '"white" for the graph and nodes, "inherit" for edges',
+     'rgb(255,0,0)',
+     ATTR_COLOR,
+     "[ Crimson ]\n  {\n  shape: octagon;\n  background: crimson;\n  fill: red;\n  border-color: slategrey;\n  }\n-- Aqua Marine -->\n  {\n  arrow-style: filled;\n  fill: red;\n  }\n[ Two ]",
+     ],
+
+    'font-size' => [
+     "The size of the label text, best expressed in I<em> (1.0em, 0.5em etc) or percent (100%, 50% etc)",
+     undef,
+     '"1.0" for the graph and nodes, "0.75" for edges',
+     '50%',
+     undef,
+     "graph { font-size: 200%; label: Sample; }\n  [ Crimson ] { font-size: 1.5em; fill: darkred; }\n  -- Aqua Marine -->\n { font-size: 0.2em; }\n  [ Two ]",
+     ],
+
     label => [
      "The text displayed as label. If not set, equals the name (for nodes) or no label (for edges, groups and the graph itself).",
      undef,
      '',
      'My label',
-     ],
-
-    title => [
-     "The text displayed as mouse-over for nodes/edges. If not set, no title will be generated.",
-     undef,
-     '',
-     'My title',
-     ],
-
-    autotitle => [
-     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<title>. This attribute is inherited by nodes, edges and groups.",
-     [ qw/ label name none / ],
-     'none',
-     'label',
      ],
 
     linkbase => [
@@ -340,15 +441,58 @@ my $attributes = {
      undef,
      '',
      'Graph',
+     undef,
+     <<LINK_EOF
+node {
+  autolink: name;
+  text-style: none;
+  font-size: 1.1em;
+  }
+graph {
+  linkbase: http://de.wikipedia.org/wiki/;
+  }
+edge {
+  text-style: overline;
+  }
+
+[] --> [ Friedrichshafen ]
+ -- Schiff --> { autolink: label; color: orange; title: Vrooom!; }
+[ Immenstaad ] { color: green; } --> [ Hagnau ]
+LINK_EOF
      ],
 
-    autolink => [
-     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<link>. This attribute is inherited by nodes, edges and groups.",
-     [ qw/ label title name none / ],
+    title => [
+     "The text displayed as mouse-over for nodes/edges, or as the title for the graph. No title will be generated unless L<autotitle> is set.",
+     undef,
+     '',
+     'My title',
+     ],
+
+    'text-style' => [
+     "The style of the label text. Either 'none', or any combination (separated with spaces) of 'underline', 'overline', 'bold', 'italic', 'line-through'. 'none' disables underlines on links.",
+     'text_style',
      'none',
-     'title',
-     ],
+     'underline italic bold',
+     undef,
+     <<EOF
+graph {
+  font-size: 150%;
+  label: Verbindung;
+  text-style: bold italic;
+  }
+node {
+  text-style: underline bold;
+  fill: #ffd080;
+  }
+edge {
+  text-style: italic bold overline;
+  }
 
+[ Meersburg ] { font-size: 2em; }
+ -- Fähre --> { font-size: 1.2em; color: red; }
+ [ Konstanz ]
+EOF
+     ],
    },
 
   node => {
@@ -409,7 +553,7 @@ my $attributes = {
 
     'border-style' => [
      'The style of the L<border>.',
-     [ qw/ none solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
+     [ qw/none solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
      'solid',
      'dotted',
      ],
@@ -418,7 +562,7 @@ my $attributes = {
   graph => {
     'border-style' => [
       'The style of the L<border>.',
-      [ qw/ none solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
+      [ qw/none solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
       'none',
       'dotted',
      ],
@@ -439,14 +583,14 @@ my $attributes = {
 
     output => [
       "The desired output format. Only used when calling Graph::Easy::output(), or by mediawiki-graph.",
-      [ qw/ ascii html svg graphviz / ],
+      [ qw/ascii html svg graphviz boxart/ ],
       '',
       'ascii',
      ],
 
     "label-pos" => [
       "The position of the graph label.",
-      [ qw/ top bottom / ],
+      [ qw/top bottom/ ],
       'top',
       'bottom',
      ],
@@ -456,23 +600,23 @@ my $attributes = {
   edge => {
 
     style => [
-      'The line style of the edge.',
-      [ qw/ solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
+      'The line style of the edge. When set on the general edge class, this attribute changes only the style of all solid edges to the specified one.',
+      [ qw/solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
       'solid',
       'dotted',
      ],
 
     "arrow-style" => [
-      'The style of the arrow. Open arrows are vee-shaped and the bit inside the arrow has the color of the L<background>. Closed arrows are triangle shaped, with a background-color fill. Filled arrows are closed, too, but use the L<fill> color for the inside.',
-      [ qw/open closed filled/ ],
+      'The style of the arrow. Open arrows are vee-shaped and the bit inside the arrow has the color of the L<background>. Closed arrows are triangle shaped, with a background-color fill. Filled arrows are closed, too, but use the L<fill> color for the inside. An arrow-style of none creates undirected edges just like "[A] -- [B]" would do.',
+      [ qw/none open closed filled/ ],
       'open',
       'closed',
       undef,
-      "[ A ] -- open --> [ B ]\n -- closed --> { arrow-style: closed; } [ C ]\n -- filled --> { arrow-style: filled; } [ D ]\n -- filled --> { arrow-style: filled; fill: lime; } [ E ]",
+      "[ A ] -- open --> [ B ]\n -- closed --> { arrow-style: closed; } [ C ]\n -- filled --> { arrow-style: filled; } [ D ]\n -- filled --> { arrow-style: filled; fill: lime; } [ E ]\n -- none --> { arrow-style: none; } [ F ]",
      ],
 
     "label-color" => [
-     'The text color for the label. See the section about color names and values for reference.',
+     'The text color for the label. If unspecified, will fall back to L<color>. See the section about color names and values for reference.',
      undef,
      'black',
      'rgb(255,255,0)',
@@ -487,6 +631,13 @@ my $attributes = {
       undef,
       '',
       'cities',
+     ],
+
+    edgeclass => [
+      'The class into which all edges defined in this group are put. This includes edges that run between two nodes belonging to the same group.',
+      undef,
+      '',
+      'connections',
      ],
 
    }, # group
@@ -642,6 +793,7 @@ sub _remap_attributes
 
 1;
 __END__
+
 =head1 NAME
 
 Graph::Easy::Attributes - Define and check attributes for Graph::Easy
