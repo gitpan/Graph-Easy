@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.31';
+$VERSION = '0.32';
 
 use strict;
 
@@ -349,14 +349,7 @@ sub edge
 
   my @ids = $x->edges_to($y);
   
-  if (scalar @ids > 1)
-    {
-    # XXX TODO: make it return a list
-    require Carp;
-    Carp::croak ("There exist more than one edge from $x->{name} to $y->{name}");
-    }
- 
-  $ids[0];				# first edge or undef for none
+  wantarray ? @ids : $ids[0];
   }
 
 sub node
@@ -1033,7 +1026,9 @@ sub as_boxart_html
   # suitable to be embedded into an HTML page.
   my ($self) = shift;
 
-  "<pre style='font-style: monospaced;'>\n" . $self->as_boxart(@_) . "\n</pre>\n";
+  "<pre style='line-height: 1em; line-spacing: 0;'>\n" . 
+    $self->as_boxart(@_) . 
+    "\n</pre>\n";
   }
 
 #############################################################################
@@ -1128,6 +1123,12 @@ sub _as_ascii
 
   $out =~ s/\n+\z/\n/;		# remove trailing empty lines
 
+  # restore height/width of cells from minw/minh
+  foreach my $v (@$cells)
+    {
+    $v->{h} = $v->{minh};
+    $v->{w} = $v->{minw};
+    } 
   $out;				# return output
   }
 
@@ -1389,10 +1390,19 @@ sub add_node
   {
   my ($self,$x) = @_;
 
-  my $n = $x; $n = ($x->{name}||'') if ref($x);
+  my $n = $x;
+  if (ref($x))
+    {
+    $n = $x->{name}; $n = '0' unless defined $n;
+    }
+
+  if ($n eq '')
+    {
+    require Carp;
+    Carp::confess("Cannot add node with empty name to graph.");
+    }
 
   my $no = $self->{nodes};
-
   return $no->{$n} if exists $no->{$n};
 
   $x = Graph::Easy::Node->new( $x ) unless ref $x;
@@ -1410,6 +1420,116 @@ sub add_node
   $self->{score} = undef;			# invalidate last layout
 
   $x;
+  }
+
+#############################################################################
+# merging
+
+sub merge_nodes
+  {
+  # Merge two nodes, by dropping all connections between them, and then
+  # drawing all connections from/to $B to $A, then drop $B
+  my ($self, $A, $B) = @_;
+
+  $A = $self->node($A) unless ref($A);
+  $B = $self->node($B) unless ref($B);
+
+  my @edges = values %{$A->{edges}};
+
+  # drop all connections from A --> B
+  for my $edge (@edges)
+    {
+    next unless $edge->{to} == $B;
+
+#    print STDERR "# dropping $edge->{from}->{name} --> $edge->{to}->{name}\n";
+    $self->del_edge($edge);
+    }
+
+  # Move all edges from/to B over to A, but drop "B --> B" and "B --> A".
+  for my $edge (values %{$B->{edges}})
+    {
+    # skip if going from B --> A or B --> B
+    next if $edge->{to} == $A || ($edge->{to} == $B && $edge->{from} == $B);
+
+#    print STDERR "# moving $edge->{from}->{name} --> $edge->{to}->{name} to ";
+
+    $edge->{from} = $A if $edge->{from} == $B;
+    $edge->{to} = $A if $edge->{to} == $B;
+
+#   print STDERR " $edge->{from}->{name} --> $edge->{to}->{name}\n";
+
+    delete $B->{edges}->{$edge->{id}};
+    $A->{edges}->{$edge->{id}} = $edge;
+    }
+
+  $self->del_node($B);
+
+  $self;
+  }
+
+#############################################################################
+# deletion
+
+sub del_node
+  {
+  my ($self, $node) = @_;
+
+  # make object
+  $node = $self->{nodes}->{$node} unless ref($node);
+
+  # doesn't exist, so we don't need to do anything
+  return unless ref($node);
+
+  delete $self->{nodes}->{$node->{name}};
+
+  # delete all edges from/to this node
+  for my $edge (values %{$node->{edges}})
+    {
+    # drop the edge from our global edge list
+    delete $self->{edges}->{$edge->{id}};
+ 
+    my $to = $edge->{to}; my $from = $edge->{from};
+
+    # drop the edge from the other node
+    delete $from->{edges}->{$edge->{id}} if $from != $node;
+    delete $to->{edges}->{$edge->{id}} if $to != $node;
+    }
+
+  # decouple node from the graph
+  $node->{graph} = undef;
+  # reset cached size
+  $node->{w} = undef;
+
+  # drop all edges from the node locally
+  $node->{edges} = { };
+
+  $self->{score} = undef;			# invalidate last layout
+
+  $self;
+  }
+
+sub del_edge
+  {
+  my ($self, $edge) = @_;
+
+  if (!ref($edge))
+    { 
+    require Carp; Carp::confess("del_edge() needs an object");
+    }
+
+  my $to = $edge->{to}; my $from = $edge->{from};
+
+  # delete the edge from the nodes
+  delete $from->{edges}->{$edge->{id}};
+  delete $to->{edges}->{$edge->{id}};
+  
+  # drop the edge from our global edge list
+  delete $self->{edges}->{$edge->{id}};
+
+  $edge->{from} = undef;
+  $edge->{to} = undef;
+
+  $self;
   }
 
 #############################################################################
@@ -1762,6 +1882,32 @@ nothing if the node already exists in the graph.
 
 It returns an C<Graph::Easy::Node> object.
 
+=head2 del_node()
+
+	$graph->del_node('Node name');
+	$graph->del_node($node);
+
+Delete the node with the given name from the graph.
+
+=head2 del_edge()
+
+	$graph->del_edge($edge);
+
+Delete the given edge object from the graph. You can use C<edge()> to find
+an edge from Node A to B:
+
+	$graph->del_edge( $graph->edge('A','B') );
+
+=head2 merge_nodes()
+
+	$graph->merge_nodes( $first_node, $second_node );
+
+Merge two nodes. Will delete all connections between the two nodes, then
+move over any connection to/from the second node to the first, then delete
+the second node from the graph.
+
+Any set attributes on the second node will be lost.
+
 =head2 get_attribute()
 
 	my $value = $graph->get_attribute( $class, $name );
@@ -2092,13 +2238,13 @@ does not exist in the graph.
 
 	my $edge = $graph->edge( $x, $y );
 
-Returns the edge object between nodes C<$x> and C<$y>. Both C<$x> and C<$y>
+Returns the edge objects between nodes C<$x> and C<$y>. Both C<$x> and C<$y>
 can be either scalars with names or C<Graph::Easy::Node> objects.
 
 Returns undef if the edge does not yet exist.
 
-If there exist more than one edge from C<$x> to C<$y>, then only the
-first edge object will be returned.
+In list context it will return all edges from C<$x> to C<$y>, in
+scalar context it will return only one (arbitrary) edge.
 
 =head2 id()
 
@@ -2203,6 +2349,15 @@ This would print '#ff0000';
 It returns an array ref if the attribute name is invalid, and undef if the
 value is invalid.
 	
+=head2 angle()
+
+	my $degrees = Graph::Easy->angle( 'right' );
+ 	my $degrees = Graph::Easy->angle( 120 );
+
+Check an angle for being valid and return a value between -359 and 359
+degrees. The special values C<right>, C<left>, C<up> and C<down> are
+also valid and converted to 90, -90, 0 and 180 degrees, respectively.
+
 =head2 color_as_hex()
 
 	my $hexred   = Graph::Easy->color_as_hex( 'red' );
@@ -2357,6 +2512,9 @@ details.
 This library is free software; you can redistribute it and/or modify
 it under the same terms of the GPL version 2.
 See the LICENSE file for information.
+
+X<gpl>
+X<license>
 
 =head1 NAME CHANGE
 

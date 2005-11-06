@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 41;
+   plan tests => 45;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -101,6 +101,10 @@ shape: qiggle;|error=Error in attribute: 'qiggle' is not a valid shape for a nod
 offset: -3,-2;|offset=-3,-2;
 offset: 3,-2;|offset=3,-2;
 offset: -3,2;|offset=-3,2;
+offset: 2, 0;|offset=2, 0;
+offset:  2 , 0;|offset=2 , 0;
+offset:  2  ,  0;|offset=2  ,  0;
+offset:  2  ,  0 ;|offset=2  ,  0;
 fill: brown;|fill=#a52a2a;
 point-style: qiggle;|error=Error in attribute: 'qiggle' is not a valid point-style for a node
 toint-shape: qiggle;|error=Error in attribute: 'toint-shape' is not a valid attribute name for a node

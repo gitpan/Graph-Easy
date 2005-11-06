@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 #############################################################################
 #############################################################################
@@ -298,6 +298,8 @@ sub layout
     {
     $n->{x} = undef;			# mark every node as not placed yet
     $n->{y} = undef;
+
+    $n->{w} = undef;			# force size recalculation
 
     # node needs to be placed
     push @todo, [ ACTION_NODE, $n, 0 ] unless exists $done->{$n};

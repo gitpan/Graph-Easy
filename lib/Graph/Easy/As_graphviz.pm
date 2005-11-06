@@ -27,6 +27,7 @@ my $remap = {
     'border' => undef,
     'shape' => \&_graphviz_remap_node_shape,
     'point-style' => undef,
+    'rotate' => \&_graphviz_remap_node_rotate,
     },
   'edge' => {
     'title' => 'tooltip',
@@ -67,6 +68,7 @@ my $remap = {
     'link' => 1,
     'label_pos' => 1,
     'label-color' => 1,
+    'rotate' => 1,
     },
   };
 
@@ -86,6 +88,19 @@ sub _graphviz_remap_edge_style
   return (undef, undef) if $style eq 'solid';	# default style can be suppressed
 
   ($name, $style);
+  }
+
+sub _graphviz_remap_node_rotate
+  {
+  my ($graph, $name, $angle, $self) = @_;
+
+  # do this only for objects, not classes 
+  return (undef,undef) unless ref($self) && defined $angle;
+
+  # despite what the manual says, dot rotates counter-clockwise, so fix that
+  $angle = 360 - $angle;
+
+  ('orientation', $angle);
   }
 
 sub _graphviz_remap_fontsize
@@ -373,6 +388,7 @@ sub attributes_as_graphviz
   for my $atr (sort keys %$a)
     {
     my $v = $a->{$atr};
+    $v =~ s/"/\\"/g;		# '2"' => '2\"'
     $v = '"' . $v . '"' if $v !~ /^[a-z0-9A-Z]+\z/
 	|| $atr eq 'URL';	# quote if nec.
     $att .= "$atr=$v, ";

@@ -12,7 +12,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 use Scalar::Util qw/weaken/;
 
@@ -709,6 +709,7 @@ sub as_html
    $bw .= 'px' if $bw;
 
    $border_color = $self->{color_ver};
+   $border_color = '' unless defined $border_color;
    $border_color = ' ' . $border_color if $border_color;
    $border_v = "$self->{style_ver} ${bw}$border_color";
    }
@@ -790,69 +791,71 @@ sub _correct_size
   {
   my ($self,$format) = @_;
 
-  if (!defined $self->{w})
-    {
-    my $border = $self->{edge}->attribute('border-style') || 'none';
+  return if defined $self->{w};
 
-    # min-size is this 
-    $self->{w} = 5; $self->{h} = 3;
+  my $border = $self->{edge}->attribute('border-style') || 'none';
+
+  # min-size is this 
+  $self->{w} = 5; $self->{h} = 3;
     
-    my $arrows = ($self->{type} & EDGE_ARROW_MASK);
-    my $type = ($self->{type} & EDGE_TYPE_MASK);
+  my $arrows = ($self->{type} & EDGE_ARROW_MASK);
+  my $type = ($self->{type} & EDGE_TYPE_MASK);
 
-    if ($self->{edge}->{bidirectional} && $arrows != 0)
+  if ($self->{edge}->{bidirectional} && $arrows != 0)
+    {
+    $self->{w}++ if $type == EDGE_HOR;
+    $self->{h}++ if $type == EDGE_VER;
+    }
+
+  my $style = $self->{edge}->attribute('style') || 'solid';
+
+  # make the edge to display ' ..-> ' instead of ' ..> ':
+  $self->{w}++ if $style eq 'dot-dot-dash';
+
+  if ($type >= EDGE_LOOP_TYPE)
+    {
+    #  +---+ 
+    #  |   V
+
+    #       +
+    #  +--> |
+    #  |    |
+    #  +--- |
+    #       +
+    $self->{w} = 7;
+    $self->{w} = 8 if $type == EDGE_N_W_S || $type == EDGE_S_W_N;
+    $self->{h} = 3;
+    $self->{h} = 5 if $type != EDGE_N_W_S && $type != EDGE_S_W_N;
+    }
+
+  if ($self->{type} == EDGE_HOR)
+    {
+    $self->{w} = 0;
+    }
+  elsif ($self->{type} == EDGE_VER)
+    {
+    $self->{h} = 0;
+    }
+  elsif ($self->{type} & EDGE_LABEL_CELL)
+    {
+    my @lines = $self->_formatted_label();
+
+    # find longest line
+    my $chars = 0;
+    foreach my $line (@lines)
       {
-      $self->{w}++ if $type == EDGE_HOR;
-      $self->{h}++ if $type == EDGE_VER;
+      $chars = length($line) if length($line) > $chars;
       }
-
-    if ($type >= EDGE_LOOP_TYPE)
-      {
-      #
-      # 
-      #  +---+ 
-      #  |   V
-
-      #       +
-      #  +--> |
-      #  |    |
-      #  +--- |
-      #       +
-      $self->{w} = 7;
-      $self->{w} = 8 if $type == EDGE_N_W_S || $type == EDGE_S_W_N;
-      $self->{h} = 3;
-      $self->{h} = 5 if $type != EDGE_N_W_S && $type != EDGE_S_W_N;
-      }
-
-    if ($self->{type} == EDGE_HOR)
-      {
-      $self->{w} = 0;
-      }
-    elsif ($self->{type} == EDGE_VER)
-      {
-      $self->{h} = 0;
-      }
-    elsif ($self->{type} & EDGE_LABEL_CELL)
-      {
-      my @lines = $self->_formatted_label();
-
-      # find longest line
-      my $chars = 0;
-      foreach my $line (@lines)
-        {
-        $chars = length($line) if length($line) > $chars;
-        }
-      $chars += $self->{w};
+    $chars += $self->{w};
      
-      my $h = (scalar @lines - 1); $h = 0 if $h < 0;
-      $h += $self->{h};
-      if ($border ne 'none')
-        {
-        $h += 2; $chars += 2;
-        }
-      $self->{w} = $chars;
-      $self->{h} = $h;
+    my $h = (scalar @lines - 1); $h = 0 if $h < 0;
+    $h += $self->{h};
+    if ($border ne 'none')
+      {
+      $h += 2; $chars += 2;
       }
+    $self->{w} = $chars;
+    $self->{h} = $h;
     }
   }
 

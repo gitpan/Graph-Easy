@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 22;
+   plan tests => 24;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node::Anon") or die($@);
@@ -46,8 +46,8 @@ is ($node->error(), '', 'no error yet');
 
 is ($node->x(), 0, 'x == 0');
 is ($node->y(), 0, 'y == 0');
-is ($node->width(), 3, 'w == 3');
-is ($node->height(), 3, 'h == 3');
+is ($node->width(), undef, 'w == undef');
+is ($node->height(), undef, 'h == undef');
 is ($node->label(), ' ', 'label');
 is ($node->name(), '#0', 'name');
 is ($node->title(), '', 'no title per default');
@@ -57,6 +57,11 @@ is ($node->{graph}, undef, 'no graph');
 is (scalar $node->successors(), undef, 'no outgoing links');
 is (scalar $node->predecessors(), undef, 'no incoming links');
 is ($node->{graph}, undef, 'successors/predecssors leave graph alone');
+
+$node->_correct_size();
+
+is ($node->width(), 3, 'w == 3');
+is ($node->height(), 3, 'h == 3');
 
 #############################################################################
 # as_txt/as_html

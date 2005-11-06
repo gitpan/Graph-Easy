@@ -213,6 +213,25 @@ sub color_as_hex
   $color;
   }
 
+sub angle
+  {
+  # check an angle for being valid, and turn "down" into "180" etc
+  my ($self, $angle) = @_;
+
+  $angle = 180 if $angle eq 'down';
+  $angle = 0 if $angle eq 'up';
+  $angle = 90 if $angle eq 'right';
+  $angle = -90 if $angle eq 'left';
+
+  return undef if $angle =~ /[^\d\.+-]/;
+
+  $angle += 0;
+
+  $angle %= 360 if abs($angle) > 360;
+
+  $angle;
+  }
+
 sub text_style
   {
   # check whether the given list of text-style attributes is valid
@@ -321,7 +340,7 @@ sub direction_as_number
 # different types of attributes with pre-defined handling
 sub ATTR_STRING		() { 0; }
 sub ATTR_COLOR		() { 1; }
-sub ATTR_LIST		() { 2; }
+sub ATTR_ANGLE		() { 2; }
 
 sub ATTR_DESC_SLOT	() { 0; }
 sub ATTR_MATCH_SLOT	() { 1; }
@@ -517,7 +536,7 @@ EOF
 
     offset => [
      'The offset of this node from the L<origin> node, in columns and rows. Only used if you also set the L<origin> node.',
-     qr/^[+-]?\d+,[+-]?\d+\z/,
+     qr/^[+-]?\d+\s*,\s*[+-]?\d+\z/,
      '0,0',
      '3,2',
      ],
@@ -542,6 +561,15 @@ EOF
              point triangle trapezium septagon rect rounded none/ ],
       'rect',
       'circle',
+     ],
+
+    rotate => [
+     "The rotation of the node shape, clockwise from 0..359 degrees.",
+       undef,
+       '0',
+       '180',
+       ATTR_ANGLE,
+     "[ Bonn ] { rotate: 45; } -- ICE --> \n [ Berlin ] { shape: triangle; rotate: 90; }",
      ],
 
     "point-style" => [
@@ -678,6 +706,7 @@ sub valid_attribute
   my $check = $entry->[1];
 
   $check = 'color_as_hex' if ($entry->[4] || ATTR_STRING) == ATTR_COLOR;
+  $check = 'angle' if ($entry->[4] || ATTR_STRING) == ATTR_ANGLE;
 
   if (defined $check && !ref($check))
     {
@@ -781,7 +810,7 @@ sub _remap_attributes
     next if !defined $atr || !defined $val || $val eq '';
 
     # encode critical characters (including ")
-    $val =~ s/([;"\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
+    $val =~ s/([;"\x00-\x1f])/sprintf("%%%02x",ord($1))/eg if !$noquote;
     # quote if nec.
     $val = '"' . $val . '"' if !$noquote;
 

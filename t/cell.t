@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 29;
+   plan tests => 31;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node::Cell") or die($@);
@@ -51,8 +51,8 @@ is ($node->label(), '', 'label');
 is ($node->name(), '', 'name');
 is ($node->title(), '', 'no title per default');
 is (join(",", $node->pos()), "0,0", 'pos = 0,0');
-is ($node->width(),  0, 'w = 0');
-is ($node->height(), 0, 'h = 0');
+is ($node->width(),  undef, 'w == undef');
+is ($node->height(), undef, 'h == undef');
 
 is (scalar $node->successors(), undef, 'no outgoing links');
 is (scalar $node->predecessors(), undef, 'no incoming links');
@@ -64,6 +64,11 @@ is ($node->class(), '', 'class filler');
 
 is ($node->as_ascii(), '', 'as_ascii');
 is ($node->as_html(), '', 'as_html');
+
+$node->_correct_size();
+
+is ($node->width(),  0, 'w = 0');
+is ($node->height(), 0, 'h = 0');
 
 #############################################################################
 # group tests

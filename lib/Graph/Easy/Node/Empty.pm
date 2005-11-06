@@ -8,7 +8,7 @@ package Graph::Easy::Node::Empty;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 use strict;
 
@@ -21,9 +21,6 @@ sub _init
 
   $self->SUPER::_init($args);
   
-  $self->{w} = 3;
-  $self->{h} = 3;
-
   $self->{class} = 'node.empty';
 
   $self->{no_border_left} = 1;
@@ -35,6 +32,9 @@ sub _init
 sub _correct_size
   {
   my $self = shift;
+
+  $self->{w} = 3;
+  $self->{h} = 3;
 
   # find out whether the cell above/left of us is a node (w/ border)
   my $cells = $self->{graph}->{cells};

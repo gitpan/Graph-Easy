@@ -8,7 +8,7 @@ package Graph::Easy::Node::Anon;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = 0.03;
+$VERSION = 0.04;
 
 use strict;
 
@@ -19,8 +19,6 @@ sub _init
   $self->SUPER::_init(@_);
 
   $self->{name} = '#' . $self->{id};
-  $self->{w} = 3;
-  $self->{h} = 3;
   $self->{class} = 'node.anon';
 
   $self->{att}->{shape} = 'invisible';
@@ -31,7 +29,12 @@ sub _init
 
 sub _correct_size
   {
-  $_[0];
+  my $self = shift;
+
+  $self->{w} = 3;
+  $self->{h} = 3;
+
+  $self;
   }
 
 sub attributes_as_txt

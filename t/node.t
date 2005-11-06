@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 115;
+   plan tests => 130;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -20,11 +20,15 @@ can_ok ("Graph::Easy::Node", qw/
   class
   dimensions
   name
+
   sorted_successors
   successors
   predecessors
   connections
   edges_to
+  incoming
+  outgoing
+
   width
   background
   height
@@ -69,7 +73,7 @@ is ($node->class(), 'node', 'class node');
 is ($node->title(), '', 'no title per default');
 is (join(",", $node->pos()), "0,0", 'pos = 0,0');
 is ($node->width(), undef, 'w = undef');	# no graph => thus no width yet
-is ($node->height(), 3, 'h = 3');
+is ($node->height(), undef, 'h == undef');
 is ($node->shape(), 'rect', 'default shape is "rect"');
 is ($node->border_attribute(), '', 'border_attribute()');
 is ($node->connections(), 0, 'no connections yet');
@@ -90,6 +94,8 @@ is (join(",",$node->offset()), '0,0', 'not clustered');
 is (scalar $node->successors(), undef, 'no outgoing links');
 is (scalar $node->sorted_successors(), 0, 'no outgoing links');
 is (scalar $node->predecessors(), undef, 'no incoming links');
+is (scalar $node->incoming(), undef, 'no incoming links');
+is (scalar $node->outgoing(), undef, 'no outgoing links');
 
 my $edge = Graph::Easy::Node->new();
 
@@ -182,8 +188,15 @@ $node->{name} = 'name';
 
 is ($node->as_txt(), '[ name ] { label: thelabel; }', 'as_txt');
 
-# reset name for next tests
+# reset node for next tests
 $node->{name} = 'Node #0';
+$node->del_attribute('label');
+
+# test setting after deletion
+$node->set_attribute('label', 'my label');
+is ($node->as_txt(), '[ Node \#0 ] { label: my label; }', 'as_txt');
+
+# reset node for next tests
 $node->del_attribute('label');
 
 #############################################################################
@@ -381,5 +394,36 @@ is ($node->place(1,1,$cells), 0, 'node cannot be placed again');
 is ($cells->{"1,1"}, $node, 'node still there placed');
 is (scalar keys %$cells, 1, 'one entry');
 
+#############################################################################
+# outgoing/incoming
 
+$graph = Graph::Easy->new();
+
+my ($A,$B);
+($A,$B, $edge) = $graph->add_edge('A','B');
+
+is ($A->incoming(), 0, 'no incoming');
+is ($B->outgoing(), 0, 'no outgoing');
+
+is ($B->incoming(), 1, 'one incoming');
+is ($A->outgoing(), 1, 'one outgoing');
+
+my $C;
+
+($B,$C, $edge) = $graph->add_edge('B', 'C');
+
+is ($B->incoming(), 1, 'one incoming');
+is ($C->incoming(), 1, 'one incoming');
+is ($A->outgoing(), 1, 'one outgoing');
+is ($B->outgoing(), 1, 'one outgoing');
+
+$graph->add_edge('A', 'C');
+
+is ($C->incoming(), 2, 'two incoming');
+is ($A->outgoing(), 2, 'one outgoing');
+
+$graph->add_edge('C', 'C');
+
+is ($C->incoming(), 3, 'C -> C');
+is ($C->outgoing(), 1, 'C -> C');
 

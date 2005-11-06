@@ -18,9 +18,7 @@ SKIP:
   skip( 'Test::Pod not installed on this system', $tests )
     unless do
       {
-      eval qq{
-      use Test::Pod
-      };
+      eval "use Test::Pod;";
       $@ ? 0 : 1;
       };
   pod_file_ok( '../lib/Graph/Easy.pm' );

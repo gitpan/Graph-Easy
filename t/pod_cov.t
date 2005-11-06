@@ -40,9 +40,9 @@ SKIP:
 	ATTR_DEFAULT_SLOT|
 	ATTR_DESC_SLOT|
 	ATTR_EXAMPLE_SLOT|
-	ATTR_LIST|
 	ATTR_MATCH_SLOT|
 	ATTR_STRING|
+	ATTR_ANGLE|
 	ATTR_TYPE_SLOT|
     )\z/x ] };
   pod_coverage_ok( "Graph::Easy", $trustme );

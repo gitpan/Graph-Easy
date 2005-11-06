@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 use strict;
 use Graph::Easy::Attributes;
@@ -61,9 +61,6 @@ sub _init
     $self->{att}->{$k} = $args->{$k} if $k eq 'label';
     }
   
-  # w can only be computed once we know our graph and our border style, so postpone it
-  $self->{h} = 1 + 2 if !defined $self->{h};
-  
   $self->{x} = 0;
   $self->{y} = 0;
  
@@ -112,7 +109,7 @@ sub _correct_size
 
   if ($shape eq 'point' || $shape eq 'invisible')
     {
-    $self->{w} = 3;
+    $self->{w} = 5;
     $self->{h} = 3;
     }
   else
@@ -713,6 +710,58 @@ sub edges_to
   @edges;
   }
 
+sub incoming
+  {
+  # return all edges that end at this node
+  my $self = shift;
+
+  # no graph, no dice
+  return unless ref $self->{graph};
+
+  if (!wantarray)
+    {
+    my $count = 0;
+    for my $edge (values %{$self->{edges}})
+      {
+      $count++ if $edge->{to} == $self;
+      }
+    return $count;
+    }
+
+  my @edges;
+  for my $edge (values %{$self->{edges}})
+    {
+    push @edges, $edge if $edge->{to} == $self;
+    }
+  @edges;
+  }
+
+sub outgoing
+  {
+  # return all edges that start at this node
+  my $self = shift;
+
+  # no graph, no dice
+  return unless ref $self->{graph};
+
+  if (!wantarray)
+    {
+    my $count = 0;
+    for my $edge (values %{$self->{edges}})
+      {
+      $count++ if $edge->{from} == $self;
+      }
+    return $count;
+    }
+
+  my @edges;
+  for my $edge (values %{$self->{edges}})
+    {
+    push @edges, $edge if $edge->{from} == $self;
+    }
+  @edges;
+  }
+
 sub connections
   {
   # return number of connections (incoming+outgoing)
@@ -951,9 +1000,8 @@ sub set_attribute
 
   if (!defined $class)
     {
-    # Graph::Easy::Edge => "edge"
-    ref($self) =~ /Graph::Easy::([^:]+)/;
-    $class = lc($1);
+    # edge.cities => edge
+    $class = $self->{class}; $class =~ s/\..*//; # remove subclass
     }
 
   my $val = $v;
@@ -1038,15 +1086,15 @@ sub set_attribute
   if ($name eq 'offset')
     {
     # if it doesn't exist, add it
-    my ($x,$y) = split/,/, $val;
+    my ($x,$y) = split/\s*,\s*/, $val;
 
     $x = int($x);
     $y = int($y);
 
     if ($x == 0 && $y == 0)
       {
-      require Carp;
-      Carp::confess ("Attribute offset is 0,0 in node $self->{name}");
+      $g->error("Error in attribute: 'offset' is 0,0 in node with class '$class'");
+      return;
       }
     $self->{dx} = $x;
     $self->{dy} = $y;
@@ -1499,6 +1547,18 @@ Return successors of the node sorted by their chain value
 	my @edges = $node->edges_to($other_node);
 
 Returns all the edge objects that start at C<< $node >> and go to C<< $other_node >>.
+
+=head2 incoming()
+
+	my @edges = $node->incoming();
+
+Return all edges that end at this node.
+
+=head2 outgoing()
+
+	my @edges = $node->outgoing();
+
+Return all edges that start at this node.
 
 =head2 add_to_groups()
 

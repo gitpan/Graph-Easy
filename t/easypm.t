@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 106;
+   plan tests => 108;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -20,8 +20,13 @@ can_ok ("Graph::Easy", qw/
   html_page_footer
   error
   node nodes edges
+
   add_edge
   add_node
+  merge_nodes
+  del_node
+  del_edge
+
   set_attributes
   set_attribute
   get_attribute
@@ -295,6 +300,19 @@ $edge = $graph->add_edge( 'Test', 'Test' );
 is ($graph->edges(), 3, '3 edges');
 is ($graph->nodes(), 2, '2 nodes');
 is ($graph->is_simple_graph(), 0, 'not simple graph');
+
+#############################################################################
+# adding nodes with name '0' and ''
+
+$graph = Graph::Easy->new();
+
+$node = Graph::Easy::Node->new( { name => '0' } );
+
+$node = $graph->add_node($node);
+
+is ($graph->nodes(), '1', 'one node');
+
+is ($graph->{nodes}->{0}, $node, 'got inserted with name 0');
 
 1; # all tests done
 

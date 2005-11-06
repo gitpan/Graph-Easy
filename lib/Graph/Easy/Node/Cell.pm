@@ -8,7 +8,7 @@ package Graph::Easy::Node::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 use strict;
 
@@ -24,8 +24,6 @@ sub _init
   
   $self->{x} = 0;
   $self->{y} = 0;
-  $self->{w} = 0;
-  $self->{h} = 0;
 
   # default: belongs to no node
   $self->{node} = undef;
@@ -40,6 +38,16 @@ sub _init
     $self->{$k} = $args->{$k};
     }
  
+  $self;
+  }
+
+sub _correct_size
+  {
+  my $self = shift;
+
+  $self->{w} = 0;
+  $self->{h} = 0;
+
   $self;
   }
 

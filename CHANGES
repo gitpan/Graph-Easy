@@ -1,5 +1,33 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-11-06 v0.32 Tels 1291 tests
+  * as_boxart():
+    + use "v" and "^" instead of 0x2227 and 0x2228 for arrows
+      (because most fonts seem to not have these characters)
+    + border/edge styles "dot-dash" & "dot-dot-dash" use midot instead of "."
+    + fix horizontal pieces of dot-dash borders
+  * as_ascii()/as_boxart():
+    + align point-shaped nodes with edge lines
+    + edge-pieces with style "dot-dot-dash" must be at least 6 characters
+      wide to properly show the full "..-" style
+  * as_graphviz(): fix handling of special characters like [;"] in attributes
+  * Parser: accept "offset: 1, 2" (space around ",") as valid
+  * Graph: prevent adding of Nodes with no name
+  * Graph: can add nodes with name '0'
+  * Graph: added del_node(), del_edge(), merge_nodes()
+  * Graph: edge(X,Y) returns list of all edges from X to Y in list context
+  * Node: add incoming(), outgoing()
+  * Node/Edge: setting an attribute resets the size cache to force a re-calc
+               (the node should grow/shrink when you change the label)
+  * fix an undef warning in Edge/Cell line 713
+  * streamline printfb_line() and use it whenever possible
+  * Node: more rebust detection of class in set_attribute (no longer depends
+	  on blessed class name)  
+  * Node: add attribute "rotate"
+  * preserve cell sizes after as_ascii()/as_boxart() for next call
+    (multiple calls to as_ascii()/as_boxart() in a row did grow node-heights
+     by 3 every iteration)
+ 
 2005-10-30 v0.31 Tels 1171 tests
   * require at least Perl 5.8.0 (we need proper Unicode support)
   * Edge.pm: remove unnec. _formatted_label()

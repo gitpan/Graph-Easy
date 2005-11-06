@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 sub _u8
   {
@@ -55,8 +55,8 @@ my $edge_styles = [
   'double-dash'	 => [ _u8('50').' ', _u8('2225'), _u8('6c'),  _u8('54'), _u8('57'), _u8('5a'), _u8('5d') ], # double dashed
   'dotted'	 => [ _u8('00b7'), ':',     _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # dotted
   'dashed'	 => [ _u8('74'), _u8('75'), _u8('18'),  _u8('0c'), _u8('10'), _u8('75'), _u8('18') ], # dashed
-  'dot-dash'	 => [ '.-',  "!",           _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # dot-dash
-  'dot-dot-dash' => [ '..-', "!",           _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # dot-dot-dash
+  'dot-dash'	 => [ _u8('00b7').'-',  "!",   _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # dot-dash
+  'dot-dot-dash' => [ (_u8('00b7') x 2).'-', "!",  _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # dot-dot-dash
   'wave' 	 => [ _u8('223c'), _u8('2240'),     _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # wave
   'bold' 	 => [ _u8('01'), _u8('03'), _u8('4b'),  _u8('0f'), _u8('13'), _u8('17'), _u8('1b') ], # bold
   },
@@ -160,7 +160,7 @@ sub _draw_hor
     substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT) if $as ne 'none';
     }
 
-  $self->_printfb ($fb, $x, $self->{h} - 2, $line);
+  $self->_printfb_line ($fb, $x, $self->{h} - 2, $line);
 
   if ($self->{type} & EDGE_LABEL_CELL)
     {
@@ -278,7 +278,7 @@ sub _draw_cross
 
   my $y = $self->{h} - 2;
 
-  $self->_printfb ($fb, $x, $y, $line);
+  $self->_printfb_line ($fb, $x, $y, $line);
 
   # the crossing character
   my $cross = $style->[2];
@@ -361,7 +361,7 @@ sub _draw_corner
     substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT) if $as ne 'none';
     }
 
-  $self->_printfb ($fb, $x, $y, $line);
+  $self->_printfb_line ($fb, $x, $y, $line);
 
   my $idx = 3; 		# corner (SE, SW, NE, NW)
   $idx = 4 if $type == EDGE_S_W;
@@ -445,7 +445,7 @@ sub _draw_loop_hor
     substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT) if $as ne 'none';
     }
 
-  $self->_printfb ($fb, $x, $y, $line);
+  $self->_printfb_line ($fb, $x, $y, $line);
   
   my $corner_idx = 3; $corner_idx = 5 if $type == EDGE_S_W_N;
 
@@ -517,7 +517,7 @@ sub _draw_loop_ver
 
   $line = substr($line, 0, $w) if length($line) > $w;
  
-  $self->_printfb ($fb, $x, $y, $line);
+  $self->_printfb_line ($fb, $x, $y, $line);
 
   my $as = $self->attribute('arrow-style') || 'open';
   if ($as ne 'none')
@@ -526,7 +526,7 @@ sub _draw_loop_ver
     substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT) if (($flags & EDGE_END_E) != 0);
     }
   
-  $self->_printfb ($fb, $x, $self->{h} - 2, $line);
+  $self->_printfb_line ($fb, $x, $self->{h} - 2, $line);
 
   $x = 2; $x = $self->{w}-3 if ($type == EDGE_W_S_E);
 
@@ -626,15 +626,14 @@ sub _printfb_aligned
 
 sub _printfb_line
   {
-  # Print a textline into a framebuffer
+  # Print one textline into a framebuffer
   # Caller MUST ensure proper size of FB, for speed reasons,
   # we do not check wether text fits!
   my ($self, $fb, $x, $y, $l) = @_;
 
   # [0] = '0123456789...'
-  # [1] = '0123456789...' etc
 
-  substr ($fb->[$y], $x, length($l)) = $l; $y++;
+  substr ($fb->[$y], $x, length($l)) = $l;
   }
 
 sub _printfb
@@ -649,7 +648,6 @@ sub _printfb
 
   for my $l (@lines)
     {
-
 #    # XXX DEBUG:
 #    if ( $x + length($l) > length($fb->[$y]))
 #      {
@@ -720,8 +718,8 @@ my $border_styles =
   double =>		[ _u8('54'), _u8('57'), _u8('5d'), _u8('5a'), _u8('50'),   [ _u8('51') ],    _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
   dotted =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('22ef'), [ _u8('22ee') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
   dashed =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('2212'), [ _u8('4e') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  'dot-dash' =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('2010'), [ '!' ],	     _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  'dot-dot-dash' =>	[ '+', '+', '+', '+', '..-', [ '|', ':' ],				     _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  'dot-dash' =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('00b7').'-', [ '!' ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  'dot-dot-dash' =>	[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), (_u8('00b7') x 2) .'-', [ _u8('02'), ':' ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
   bold =>		[ _u8('0f'), _u8('13'), _u8('1b'), _u8('17'), _u8('01'), [ _u8('03') ],      _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
   'double-dash' =>	[ _u8('54'), _u8('57'), _u8('5d'), _u8('5a'), _u8('50').' ', [ _u8('2225') ],_u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
   wave =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('223c'),  [ _u8('2240') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
@@ -756,7 +754,7 @@ my $point_styles =
   {
   'star' => _u8('2605'),
   'square' => _u8('a0'),
-  'dot' => _u8('2022'),
+  'dot' => _u8('00b7'),
   'circle' => _u8('cf'),
   'cross' => '+',
   'diamond' => _u8('c6'),
@@ -801,7 +799,10 @@ my $arrow_styles =
     filled => [ '>', '<', '^', 'v', ],
   },
   {
-    open => [ '>', '<', _u8('2227'), _u8('2228'), ],
+    # Using '2227' and '2228' for up/down does have problems with many Fonts
+    # not shwoing these characters. So we use "^" and "v", even though they
+    # do not look as "good".
+    open => [ '>', '<', '^', 'v', ],
     filled => [ _u8('25b6'), _u8('25c0'), _u8('25b2'), _u8('25bc') ],
     closed => [ _u8('25b7'), _u8('25c1'), _u8('25b3'), _u8('25bd') ],
   },
@@ -932,24 +933,21 @@ sub _draw_label
 
   my $shape = $self->attribute('shape') || 'rect';
 
-  my @lines; 
   if ($shape eq 'point')
     {
     # point-shaped nodes do not show their label in ASCII
     my $style = $self->attribute('point-style') || 'point';
-    @lines = ($self->_point_style($style));
+    my $l = $self->_point_style($style);
+
+    $self->_printfb_line ($fb, 2, $self->{h} - 2, $l);
+    return;
     }
-  else
-    {
-    @lines = $self->_formatted_label();
-    }
+
+  my @lines = $self->_formatted_label();
 
   #        +----
   #        | Label  
   # 2,1: ----^
-
-  #my $border = $self->attribute('border-style') || 'none';
-  #my $y = 1; $y = 0 if $border eq 'none';
 
   my $y = int( ($self->{h} - @lines) / 2);
   my $max = length($lines[0] || '');

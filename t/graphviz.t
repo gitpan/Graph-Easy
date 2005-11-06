@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 79;
+   plan tests => 101;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -308,6 +308,21 @@ like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
 like ($graph->as_graphviz(), qr/Bonn.*shape=plaintext/, 'contains shape=plaintext');
 
 
+# some different node shapes
+
+for my $s (qw/
+  invhouse invtrapezium invtriangle
+  triangle octagon hexagon pentagon house
+  septagon trapezium
+  /)
+  {
+  $bonn->set_attribute( 'shape' => $s );
+
+  $grviz = $graph->as_graphviz();
+  like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+  like ($graph->as_graphviz(), qr/Bonn.*shape=$s/, 'contains shape=plaintext');
+  }
+
 #############################################################################
 # font-size support
 
@@ -316,5 +331,18 @@ $bonn->set_attribute( 'font-size' => '2em' );
 $grviz = $graph->as_graphviz();
 like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
 like ($graph->as_graphviz(), qr/Bonn.*fontsize=22/, '11px eq 1em');
+
+#############################################################################
+# quoting of special characters
+
+$bonn->set_attribute( 'label' => '$a = 2;' );
+$grviz = $graph->as_graphviz();
+
+like ($graph->as_graphviz(), qr/Bonn.*label="\$a = 2;"/, 'contains label unquoted');
+
+$bonn->set_attribute( 'label' => '2"' );
+$grviz = $graph->as_graphviz();
+
+like ($graph->as_graphviz(), qr/Bonn.*label="2\\""/, 'contains label 2"');
 
 

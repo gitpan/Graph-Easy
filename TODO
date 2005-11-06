@@ -7,7 +7,7 @@ In addition:
 
 Important short-term TODO:
 
-* It would be good if we could remove Node::Empty (it blocks an empty field
+* It would be good if we could remove Node::Empty (it blocks a cell
   just to draw the right/bottom border pieces)
   (we might put these "invisible" nodes into a different "cells" field,
    which will be rendered, but not queryied for path finding etc)
@@ -129,7 +129,6 @@ Rendering/Layout:
 * allow user to specifiy "align: left, top;" or "align: center, middle" to
   specify alignment of labels. (left|right|center|middle|top|bottom)
 * add margin/padding attributes (especially usefull for HTML output)
-* add a orientation attribute, to rotate node shapes (left-pointing triangle etc)
 
 Optimizer:
 

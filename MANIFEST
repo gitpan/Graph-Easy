@@ -32,10 +32,12 @@ t/anon.t
 t/attributes.t
 t/ascii.t
 t/as_txt.t
-t/boxart.t
 t/astar.t
+t/boxart.t
 t/cell.t
 t/cluster.t
+t/delete.t			test deletion of nodes/edges
+t/drop.t
 t/fb.t
 t/graph.t
 t/graphviz.t
@@ -55,6 +57,7 @@ t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
 t/pod.t				test the POD for correctness
 t/pod_cov.t			test the POD for covering all subroutines
+t/re_layout.t			test forcing a relayout/recalc
 t/split.t			[ A | B | C ] || [ D | E | F ] tests
 t/syntax/0000.txt		syntax tests for the parser
 t/syntax/0001.txt
@@ -106,6 +109,8 @@ t/stress/0010.txt
 t/stress/0011.txt
 t/stress/0012.txt
 t/stress/0020.txt
+t/stress/drop.txt
+t/stress/drop_result.txt
 t/layouter/edge_label.txt
 t/layouter/layouter_chain.txt
 t/layouter/layouter_loop.txt
@@ -128,6 +133,7 @@ t/in/2nodes.txt
 t/in/2_cluster.txt
 t/in/2_cluster_2.txt
 t/in/2_cluster_3.txt
+t/in/2_dot_dot_dash.txt
 t/in/2_selfloop.txt
 t/in/2_selfloop_flow_down.txt
 t/in/2_edges.txt
@@ -182,6 +188,7 @@ t/out/2_edges.txt
 t/out/2_cluster.txt
 t/out/2_cluster_2.txt
 t/out/2_cluster_3.txt
+t/out/2_dot_dot_dash.txt
 t/out/2_invisible_left.txt
 t/out/2_invisible_right.txt
 t/out/2_newlines.txt
@@ -229,6 +236,7 @@ t/txt/2_zeros.txt
 t/txt/3_invisible_both.txt
 t/txt/3_invisible.txt
 t/txt/3_cluster.txt
+t/txt/2_dot_dot_dash.txt
 t/txt/3_nodes_5_edges.txt
 t/txt/3_selfloop.txt
 t/txt/3_selfloop_flip.txt
