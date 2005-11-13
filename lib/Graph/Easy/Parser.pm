@@ -11,7 +11,9 @@ use Graph::Easy;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.15';
+$VERSION = '0.16';
+
+sub NO_MULTIPLES () { 1; }
 
 sub new
   {
@@ -162,7 +164,7 @@ sub from_text
       {
       my $type = $1 || '';
       my $class = $2 || '';
-      my $att = $self->_parse_attributes($3 || '', $type);
+      my $att = $self->_parse_attributes($3 || '', $type, NO_MULTIPLES );
 
       return undef unless defined $att;		# error in attributes?
 
@@ -203,7 +205,7 @@ sub from_text
         }
       my $group = pop @group_stack;
 
-      my $a1 = $self->_parse_attributes($1||'', 'group');	# group attributes
+      my $a1 = $self->_parse_attributes($1||'', 'group', NO_MULTIPLES);	# group attributes
       return undef if $self->{error};
       
       $group->set_attributes($a1);
@@ -249,7 +251,7 @@ sub from_text
       my $a1 = $self->_parse_attributes($2||'');
       return undef if $self->{error};
 
-      @stack = $self->_new_node ($graph, $n1, \@group_stack, $a1);
+      push @stack, $self->_new_node ($graph, $n1, \@group_stack, $a1);
 
       $line =~ s/^$qr_comma$qr_node$qr_oatr//;
       }
@@ -280,6 +282,7 @@ sub from_text
       # strip trailing spaces
       $edge_label =~ s/\s*\z//;
 
+      # the right side nodes
       my @nodes_b = $self->_new_node ($graph, $n, \@group_stack, $a1);
 
       my $style = undef;			# default is "inherit from class"
@@ -327,6 +330,8 @@ sub from_text
     return undef;
     }
 
+  print STDERR "# Parsing done\n" if $graph->{debug};
+
   # turn on strict checking on returned graph
   $graph->strict(1);
 
@@ -356,8 +361,7 @@ sub _new_node
     {
     # create a new anon node and add it to the graph
     my $node = Graph::Easy::Node::Anon->new();
-    $graph->add_node($node);
-    @rc = ( $node );
+    @rc = ( $graph->add_node($node) );
     }
   elsif ($name =~ /[^\\]\|/)
     {
@@ -407,8 +411,10 @@ sub _new_node
 
       my $node_name = "$base_name.$idx";
 
-      my $node = $class->new( { name => $node_name, label => $part } );
-      $graph->add_node($node);
+      # if it doesn't exist, add it, otherwise retrieve node object to $node
+      my $node = $graph->add_node($node_name);
+      $node->set_attribute('label', $part);
+
       push @rc, $node;
       if (@rc == 1)
         {
@@ -447,10 +453,12 @@ sub _new_node
     @rc = ( $graph->add_node($name) );		# add unless exists
     }
 
+  my $index = 0;
   foreach my $node (@rc)
     {
-    $node->add_to_groups(@$group_stack) if @$group_stack != 0;
-    $node->set_attributes ($att);
+    $node->add_to_group($group_stack->[-1]) if @$group_stack != 0;
+    $node->set_attributes ($att, $index);
+    $index++;
     }
 
   # return list of created nodes (usually one, but more for "A|B")
@@ -546,7 +554,7 @@ sub _parse_attributes
   {
   # takes a text like "attribute: value;  attribute2 : value2;" and
   # returns a hash with the attributes. $class defaults to 'node'.
-  my ($self,$text,$class) = @_;
+  my ($self, $text, $class, $no_multiples) = @_;
 
   $class ||= 'node';
   my $att = {};
@@ -566,9 +574,14 @@ sub _parse_attributes
 
     $val =~ s/\\#/#/g;					# unquote \#
 
+    $self->parse_error(4,$val,$name,$class), return
+      if $no_multiples && $val =~ /\|/;			# | and no multiples
+							# => error
+
     my $v = Graph::Easy->valid_attribute($name,$val,$class);
+
     my $rc = 2;			# invaid attribute value
-    if (ref($v) eq 'ARRAY')
+    if (ref($v) eq 'ARRAY' && @$v == 0)
       {
       $rc = 1;			# invalid attribute name
       $v = undef;
@@ -595,6 +608,8 @@ sub parse_error
 	if $msg_nr == 2;								# 2
   $msg = "Error: Found attributes, but expected group or node start"
 	if $msg_nr == 3;								# 3
+  $msg = "Error in attribute: multi-attribute '##param1##' not allowed here"
+	if $msg_nr == 4;								# 4
 
   my $i = 1;
   foreach my $p (@_)

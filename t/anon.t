@@ -5,11 +5,12 @@ use strict;
 
 BEGIN
    {
-   plan tests => 24;
+   plan tests => 29;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node::Anon") or die($@);
    use_ok ("Graph::Easy") or die($@);
+   use_ok ("Graph::Easy::As_txt") or die($@);
    };
 
 can_ok ("Graph::Easy::Node::Anon", qw/
@@ -33,7 +34,7 @@ can_ok ("Graph::Easy::Node::Anon", qw/
   attribute
   attributes_as_txt
   as_pure_txt
-  group groups add_to_groups
+  group add_to_group
   /);
 
 #############################################################################
@@ -77,9 +78,32 @@ is ($node->as_ascii(), "", 'anon as_ascii');
 
 is ($node->as_graphviz_txt(), '"\#0"', 'anon as_graphviz');
 
+#############################################################################
+# as_graphviz
+
 my $grviz = $graph->as_graphviz();
 
 my $match = quotemeta('"\#0" [ fillcolor=white, label=" ", shape=plaintext ]');
 
 like ($grviz, qr/$match/, 'anon node');
- 
+
+#############################################################################
+# with border attribute
+
+$node->set_attribute('border-style', 'dotted');
+
+is ($node->as_txt(), '[ ] { border: dotted; }', 'anon as_txt');
+
+is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon' style=\"border: dotted 1px black\"> </td>\n",
+ 'as_html');
+
+#############################################################################
+# with fill attribute
+
+$node->set_attribute('fill', 'orange');
+
+is ($node->as_txt(), '[ ] { fill: orange; border: dotted; }', 'anon as_txt');
+
+is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon' style=\"background: #ffa500; border: dotted 1px black\"> </td>\n",
+ 'as_html');
+

@@ -8,7 +8,7 @@ package Graph::Easy::As_txt;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 #############################################################################
@@ -33,7 +33,7 @@ sub _as_txt
     {
 
     my $out = $self->_remap_attributes(
-     $class, $att->{$class}, {}, 'noquote', 'remap_colors' );
+     $class, $att->{$class}, {}, 'noquote', 'encode', 'remap_colors' );
 
     my $att = '';
     for my $atr (sort keys %$out)
@@ -152,13 +152,22 @@ sub attributes_as_txt
   my $class = $self->class();
   my $g = $self->{graph};
 
-  my $new = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'remap_colors');
+  my $new = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'encode', 'remap_colors');
 
   if (defined $self->{origin})
     {
     $new->{origin} = $self->{origin}->{name};
     $new->{offset} = join(',', $self->offset());
     }
+
+  # shorten output for multi-celled nodes
+  # for "rows: 2;" still output "rows: 2;", because it is shorter
+  if (exists $new->{columns})
+    {
+    $new->{size} = ($new->{columns}||1) . ',' . ($new->{rows}||1);
+    delete $new->{rows};
+    delete $new->{columns};
+    } 
 
   for my $atr (sort keys %$new)
     {
@@ -173,6 +182,7 @@ sub attributes_as_txt
     {
     my $DEF = $g->border_attribute ($class);
     $border = '' if $border eq $DEF;
+    $border = '' if $border eq 'none' && $class eq 'node.anon';
     }
   $att .= "border: $border; " if $border ne '';
 
@@ -181,13 +191,10 @@ sub attributes_as_txt
   $c = $1 if $class =~ /\.(\w+)/;
 
   # but we do not need to include it if our group has a nodeclass attribute
-  for my $g (values %{$self->{groups}})
-    {
-    $c = '', last if defined $g->attribute('nodeclass');
-    }
+  $c = '' if ref($self->{group}) && defined $self->{group}->attribute('nodeclass');
 
   # include our subclass as attribute
-  $att .= "class: $c; " if $c ne '';
+  $att .= "class: $c; " if $c ne '' && $c ne 'anon';
 
   # generate attribute text if nec.
   $att = ' { ' . $att . '}' if $att ne '';

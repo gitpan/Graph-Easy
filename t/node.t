@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 130;
+   plan tests => 127;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -34,6 +34,8 @@ can_ok ("Graph::Easy::Node", qw/
   height
   columns
   rows
+  size
+
   grow
   parent
   pos
@@ -49,7 +51,7 @@ can_ok ("Graph::Easy::Node", qw/
   set_attributes
   attribute
   border_attribute
-  group groups add_to_groups
+  group add_to_group
   origin
 
   is_multicelled
@@ -319,18 +321,14 @@ $node->set_attribute('point-style','diamond');
 #############################################################################
 # group tests
 
-is ($node->groups(), 0, 'no groups yet');
-
-is ($node->group('foo'), undef, 'no groups yet');
-is ($node->groups(), 0, 'no groups yet');
+is ($node->group(), undef, 'no groups yet');
 
 use Graph::Easy::Group;
 
 my $group = Graph::Easy::Group->new( { name => 'foo' } );
-$node->add_to_groups($group);
+$node->add_to_group($group);
 
-is ($node->group('foo'), $group, 'group foo');
-is ($node->groups(), 1, 'one group');
+is ($node->group(), $group, 'group foo');
 
 #############################################################################
 # title tests

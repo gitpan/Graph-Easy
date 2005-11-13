@@ -8,7 +8,7 @@ package Graph::Easy::Node::Anon;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = 0.04;
+$VERSION = 0.05;
 
 use strict;
 
@@ -22,6 +22,7 @@ sub _init
   $self->{class} = 'node.anon';
 
   $self->{att}->{shape} = 'invisible';
+  $self->{att}->{'border-style'} = 'none';
   $self->{att}->{label} = ' ';
 
   $self;
@@ -39,7 +40,14 @@ sub _correct_size
 
 sub attributes_as_txt
   {
-  '';
+  my $self = shift;
+
+  $self->SUPER::attributes_as_txt( {
+     node => {
+       label => undef,
+       shape => undef,
+       class => undef,
+       } } );
   }
 
 sub as_ascii
@@ -67,7 +75,9 @@ sub as_graphviz_txt
 
 sub as_txt
   {
-  '[ ]';
+  my $self = shift;
+
+  '[ ]' . $self->attributes_as_txt();
   }
 
 sub title

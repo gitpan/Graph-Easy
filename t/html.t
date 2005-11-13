@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 23;
+   plan tests => 26;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -132,8 +132,6 @@ like ($html, qr/<title>My Graph Label<\/title>/, 'html_file includes <title>');
 
 $graph = Graph::Easy->new();
 
-$edge = Graph::Easy::Edge->new();
-
 $edge = $graph->add_edge('Friedrichshafen', 'Immenstaad');
 
 $edge->set_attribute('title', 'Vrooom!');
@@ -153,7 +151,6 @@ EDGE
 is ($edge->as_html(), $edge_html, 'edge->as_html()');
 
 # entire graph as html
-
 $html = $graph->as_html();
 
 $edge_html = <<EDGE_CELL
@@ -163,4 +160,41 @@ EDGE_CELL
 my $like = quotemeta($edge_html); 
 
 like ($html, qr/$like/, 'graph->as_html() contains proper edge html');
+
+#############################################################################
+# edge style double, double-dash, bold etc
+
+$graph = Graph::Easy->new();
+
+$edge = $graph->add_edge('Friedrichshafen', 'Immenstaad');
+
+$edge->set_attribute('style', 'double');
+
+$edge_html = <<EDGE_2
+ <td colspan=4 rowspan=4 class='edge'></td>
+EDGE_2
+;
+is ($edge->as_html(), $edge_html, 'edge->as_html()');
+
+$edge_html = <<EDGE_CELL
+<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double;">&nbsp;</td>
+EDGE_CELL
+;
+
+$like = quotemeta($edge_html); 
+$html = $graph->as_html();
+like ($html, qr/$like/, 'edge->as_html()');
+
+$edge->set_attribute('style', 'double-dash');
+
+$edge_html = <<EDGE_CELL
+<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double;">&nbsp;</td>
+EDGE_CELL
+;
+
+$like = quotemeta($edge_html); 
+$html = $graph->as_html();
+like ($html, qr/$like/, 'edge->as_html()');
+
+
 

@@ -25,7 +25,7 @@ can_ok ("Graph::Easy::Edge", qw/
   bidirectional
   set_attribute
   set_attributes
-  groups
+  group add_to_group
   /);
   
 use Graph::Easy::Edge::Cell qw/EDGE_SHORT_E/;

@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 package Graph::Easy;
 
@@ -317,7 +317,7 @@ sub _font_size_in_pixels
   else
     {
     require Carp;
-    Carp::croak ("Illegal font-size '$fs'");
+    Carp::confess ("Illegal font-size '$fs'");
     }
   $fs;
   }
@@ -332,6 +332,136 @@ sub direction_as_number
   $dir =~ s/^(north|up)\z/0/;
 
   $dir =~ /^(0|90|180|270)\z/ ? $dir : undef;
+  }
+
+sub _border_attribute_as_html
+  {
+  # Return "solid 1px red" from the individual border-(style|color|width)
+  # attributes, mainly for HTML output.
+  my ($style, $width, $color) = @_;
+
+  $style ||= '';
+  $width = '' unless defined $width;
+  $color = '' unless defined $color;
+
+  return $style if $style =~ /^(none|)\z/;
+
+  # width: 2px for double would collapse to one line
+  $width = '' if $style =~ /^double/;
+
+  # convert the style and widths to something HTML can understand
+
+  $width = '0.5em' if $style eq 'broad';
+  $width = '4px' if $style =~ /^bold/;
+  $width = '1em' if $style eq 'wide';
+  $style = 'solid' if $style =~ /(broad|wide|bold)\z/;
+  $style = 'dashed' if $style eq 'bold-dash';
+  $style = 'double' if $style eq 'double-dash';
+
+  $width = $width.'px' if $width =~ /^\s*\d+\s*\z/;
+
+  return '' if $width eq '' && $style ne 'double';
+
+  my $val = join(" ", $style, $width, $color);
+  $val =~ s/^\s+//;
+  $val =~ s/\s+\z//;
+
+  $val;
+  }
+
+sub _border_attribute
+  {
+  # Return "solid 1px red" from the individual border-(style|color|width)
+  # attributes. For as_txt() output.
+  my ($style, $width, $color) = @_;
+
+  $style ||= '';
+  $width = '' unless defined $width;
+  $color = '' unless defined $color;
+
+  return $style if $style =~ /^(none|)\z/;
+
+  $color = Graph::Easy->color_name($color) if $color ne '';
+
+  $width = $width.'px' if $width =~ /^\s*\d+\s*\z/;
+
+  my $val = join(" ", $style, $width, $color);
+  $val =~ s/^\s+//;
+  $val =~ s/\s+\z//;
+
+  $val;
+  }
+
+sub _border_width_in_pixels
+  {
+  my ($self, $em) = @_;
+  
+  my $bw = $self->attribute('border-width') || '0';
+  return 0 if $bw eq '0';
+
+  my $bs = $self->attribute('border-style') || 'none';
+
+  return 0 if $bs eq 'none';
+  return 3 if $bs =~ /^bold/;
+  return $em / 2 if $bs =~ /^broad/;
+  return $em if $bs =~ /^wide/;
+
+  # width: 1 is 1px;
+  return $bw if $bw =~ /^([\d.]+)\z/;
+
+  if ($bw =~ /^([\d.]+)em\z/)
+    {
+    $bw = $1 * $em;
+    }
+  elsif ($bw =~ /^([\d.]+)%\z/)
+    {
+    $bw = ($1 / 100) * $em;
+    }
+#  # this is discouraged:
+#  elsif ($fs =~ /^([\d.]+)px\z/)
+#    {
+#    $fs = $1;
+#    }
+  else
+    {
+    require Carp;
+    Carp::confess ("Illegal border-width '$bw'");
+    }
+  $bw;
+  }
+
+sub split_border_attributes
+  {
+  # split "1px solid black" or "red dotted" into style, width and color
+  my ($self,$border) = @_;
+
+  # extract style
+  my $style;
+  $border =~ s/(solid|dotted|dot-dot-dash|dot-dash|dashed|double-dash|double|bold-dash|bold|broad|wide|wave|none)/ $style = $1; ''/eg;
+
+  $style ||= 'solid';
+
+  # extract width
+  $border =~ s/(\d+(px|em))//g;
+
+  my $width = $1 || '';
+  $width =~ s/\D+//g;                           # leave only digits
+
+  $width = undef if $width eq '';
+
+  $border =~ s/\s+//g;                          # rem unnec. spaces
+
+  # left over must be color
+  my $color = $border;
+  $color = Graph::Easy->color_as_hex($border) if $border ne '';
+
+  if (!defined $color)
+    {
+    require Carp;
+    Carp::confess( $self->error("$border is not a valid border-color") );
+    }
+
+  ($style,$width,$color);
   }
 
 #############################################################################
@@ -387,15 +517,18 @@ my $attributes = {
      'black',
      'rgb(255,255,0)',
      ATTR_COLOR,
+     "node { border: black bold; }\n[ Black ]\n --> [ Red ]      { border-color: red; }\n --> [ Green ]    { border-color: green; }",
      ],
     'border-style' => [
-     'The style of the L<border>.',
-     [ qw/ none solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
-     'solid',
+     'The style of the L<border>. The special styles "bold", "broad", "wide", "double-dash" and "bold-dash" will set and override the L<border-width>.',
+     [ qw/none solid dotted dashed dot-dash dot-dot-dash double wave bold bold-dash broad double-dash wide/ ],
+     '"none" for graphs and edges, "solid" for nodes and "dotted" for groups.',
      'dotted',
+     undef,
+     "node { border: dotted; }\n[ Dotted ]\n --> [ Dashed ]      { border-style: dashed; }\n --> [ broad ]    { border-style: broad; }",
      ],
     'border-width' => [
-     'The width of the L<border>.',
+     'The width of the L<border>. Certain L<border>-styles will override the width.',
      qr/^\d+(px|em)?\z/,
      '1px',
      '2px',
@@ -405,6 +538,8 @@ my $attributes = {
      undef,
      '1px solid black',
      'dotted red',
+     undef,
+     "[ Normal ]\n --> [ Bold ]      { border: bold; }\n --> [ Broad ]     { border: broad; }\n --> [ Wide ]      { border: wide; }\n --> [ Bold-Dash ] { border: bold-dash; }",
      ],
 
     color => [
@@ -434,7 +569,7 @@ my $attributes = {
 
     'font-size' => [
      "The size of the label text, best expressed in I<em> (1.0em, 0.5em etc) or percent (100%, 50% etc)",
-     undef,
+     qr/^\d+(\.\d+)?(em|px|%)?\z/,
      '"1.0" for the graph and nodes, "0.75" for edges',
      '50%',
      undef,
@@ -516,8 +651,8 @@ EOF
 
   node => {
     size => [
-     'The size of the node in columns and rows.',
-     qr/^\d+,\d+\z/,
+     'The size of the node in columns and rows. Must be greater than 1 in each direction.',
+     qr/^\d+\s*,\s*\d+\z/,
      '1,1',
      '3,2',
      ],
@@ -579,21 +714,9 @@ EOF
       'square',
      ], 
 
-    'border-style' => [
-     'The style of the L<border>.',
-     [ qw/none solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
-     'solid',
-     'dotted',
-     ],
   }, # node
 
   graph => {
-    'border-style' => [
-      'The style of the L<border>.',
-      [ qw/none solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
-      'none',
-      'dotted',
-     ],
 
     flow => [
       "The graph's general flow direction. One of 0, up north, 90, east, right, 180, south, down, 270, west, left.",
@@ -629,7 +752,7 @@ EOF
 
     style => [
       'The line style of the edge. When set on the general edge class, this attribute changes only the style of all solid edges to the specified one.',
-      [ qw/solid dotted dashed dot-dash dot-dot-dash bold double-dash double wave/ ],
+      [ qw/solid dotted dashed dot-dash dot-dot-dash bold bold-dash double-dash double wave broad wide/], # broad-dash wide-dash/ ],
       'solid',
       'dotted',
      ],
@@ -701,6 +824,7 @@ sub valid_attribute
 
   my $entry = $attributes->{all}->{$name} || $attributes->{$class}->{$name};
 
+  # didn't found an entry
   return [] unless ref($entry);
 
   my $check = $entry->[1];
@@ -708,25 +832,40 @@ sub valid_attribute
   $check = 'color_as_hex' if ($entry->[4] || ATTR_STRING) == ATTR_COLOR;
   $check = 'angle' if ($entry->[4] || ATTR_STRING) == ATTR_ANGLE;
 
-  if (defined $check && !ref($check))
+  my @values = ($value);
+
+  @values = split /\s*\|\s*/, $value if $value =~ /\|/;
+
+  # check each part on it's own
+  my @rc;
+  for my $v (@values)
     {
-    no strict 'refs';
-    return $self->$check($value, $name);
-    }
-  elsif ($check)
-    {
-    if (ref($check) eq 'ARRAY')
+    if (defined $check && !ref($check))
       {
-      # build a regexp from the list of words
-      my $list = 'qr/^(' . join ('|', @$check) . ')\z/;';
-      $entry->[1] = eval($list);
-      $check = $entry->[1];
+      no strict 'refs';
+      push @rc, $self->$check($v, $name);
       }
-    return $value =~ $check ? $value : undef;
+    elsif ($check)
+      {
+      if (ref($check) eq 'ARRAY')
+        {
+        # build a regexp from the list of words
+        my $list = 'qr/^(' . join ('|', @$check) . ')\z/;';
+        $entry->[1] = eval($list);
+        $check = $entry->[1];
+        }
+      return undef unless $value =~ $check;	# invalid
+      push @rc, $value;				# valid
+      }
+    # entry found, but no specific check => anything goes as value
+    else { push @rc, $value; }
     }
 
-  # entry found, no specific check => anything goes as value
-  $value;
+  # only one value ('green')
+  return $rc[0] if @rc == 1;
+
+  # multiple values ('green|red')
+  \@rc;
   }
 
 ###########################################################################
@@ -742,7 +881,7 @@ sub _remap_attributes
   # }
   # and remap it according to the given remap hash (similiar structured).
   # Also encode/quote the value. Suppresses default attributes.
-  my ($self, $object, $att, $remap, $noquote, $color_remap ) = @_;
+  my ($self, $object, $att, $remap, $noquote, $encode, $color_remap ) = @_;
 
   my $out = {};
 
@@ -810,7 +949,7 @@ sub _remap_attributes
     next if !defined $atr || !defined $val || $val eq '';
 
     # encode critical characters (including ")
-    $val =~ s/([;"\x00-\x1f])/sprintf("%%%02x",ord($1))/eg if !$noquote;
+    $val =~ s/([;"%\x00-\x1f])/sprintf("%%%02x",ord($1))/eg if $encode;
     # quote if nec.
     $val = '"' . $val . '"' if !$noquote;
 

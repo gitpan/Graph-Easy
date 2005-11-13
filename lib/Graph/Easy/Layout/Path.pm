@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 #############################################################################
 #############################################################################
@@ -16,11 +16,8 @@ $VERSION = '0.06';
 package Graph::Easy::Node;
 
 use Graph::Easy::Edge::Cell qw/
-  EDGE_HOR EDGE_VER EDGE_CROSS
-  EDGE_START_E EDGE_START_N EDGE_START_S EDGE_START_W
-  EDGE_END_E EDGE_END_N EDGE_END_S EDGE_END_W
-  EDGE_TYPE_MASK
- /;
+ EDGE_END_E EDGE_END_N EDGE_END_S EDGE_END_W
+/;
 
 sub _shuffle_dir
   {
@@ -30,6 +27,8 @@ sub _shuffle_dir
   # $dir: 0 => north, 90 => east, 180 => south, 270 => west
 
   $dir = 90 unless defined $dir;		# default is east
+
+  return [ @$e ] if $dir == 90;			# default is no shuffling
 
   my @shuffle = (0,1,2,3);			# the default
   @shuffle = (1,2,0,3) if $dir == 180;		# south
@@ -42,6 +41,19 @@ sub _shuffle_dir
     $e->[ $shuffle[2] ],
     $e->[ $shuffle[3] ],
   ];
+  }
+
+sub _shift
+  {
+  # get a direction shifted by X° to $dir
+  my ($self, $turn) = @_;
+
+  $dir = $self->attribute('flow') || 90;
+
+  $dir += $turn;
+  $dir += 360 if $dir < 0;
+  $dir -= 360 if $dir > 360;
+  $dir;
   }
 
 sub _near_places
@@ -57,14 +69,13 @@ sub _near_places
   # If $loose is true, no checkingg wether the returned fields are free
   # is done.
 
-  my ($n, $cells, $d, $type, $loose) = @_;
+  my ($n, $cells, $d, $type, $loose, $dir) = @_;
 
   my $cx = $n->{cx} || 1;
   my $cy = $n->{cy} || 1;
   
   $d = 2 unless defined $d;		# default is distance = 2
 
-  my $idx = 0; 
   my $flags = $type;
 
   if (ref($flags) ne 'ARRAY')
@@ -76,7 +87,9 @@ sub _near_places
       EDGE_END_S,
      ];
     }
-  my $index = $n->_shuffle_dir( [0,1,2,3], $n->attribute('flow'));
+  $dir = $n->attribute('flow') unless defined $dir;
+
+  my $index = $n->_shuffle_dir( [ 0,3,6,9], $dir);
 
   my @places = ();
 
@@ -84,18 +97,16 @@ sub _near_places
   if ($cx + $cy == 2)
     {
     my @tries  = (
-  	$n->{x} + $d, $n->{y}, $flags->[$idx],   # right
-	$n->{x}, $n->{y} + $d, $flags->[$idx+1], # down
-	$n->{x} - $d, $n->{y}, $flags->[$idx+2], # left
-	$n->{x}, $n->{y} - $d, $flags->[$idx+3], # up
+  	$n->{x} + $d, $n->{y}, $flags->[0],   # right
+	$n->{x}, $n->{y} + $d, $flags->[1], # down
+	$n->{x} - $d, $n->{y}, $flags->[2], # left
+	$n->{x}, $n->{y} - $d, $flags->[3], # up
       );
 
     for my $i (0..3)
       {
-      my $idx = $index->[$i] * 3;
-      my $x = $tries[$idx];
-      my $y = $tries[$idx+1];
-      my $t = $tries[$idx+2];
+      my $idx = $index->[$i];
+      my ($x,$y,$t) = ($tries[$idx], $tries[$idx+1], $tries[$idx+2]);
 
       # This quick check does not take node clusters or multi-celled nodes
       # into account. These are handled in $node->place() later.
@@ -117,8 +128,9 @@ sub _near_places
   my $ny = $n->{y};
   my ($px,$py);
 
-  # XXX TODO: shuffling of directons
-
+  my $idx = 0;
+  my @results = ( [], [], [], [] );
+ 
   $cy--; $cx--;
   my $t = $flags->[$idx++];
   # right
@@ -127,8 +139,8 @@ sub _near_places
     {
     $py = $y + $ny;
     next if exists $cells->{"$px,$py"} && !$loose;
-    push @places, $px, $py;
-    push @places, $t if defined $type;
+    push @{$results[0]}, $px, $py;
+    push @{$results[0]}, $t if defined $type;
     }
 
   # below
@@ -138,8 +150,8 @@ sub _near_places
     {
     $px = $x + $nx;
     next if exists $cells->{"$px,$py"} && !$loose;
-    push @places, $px, $py;
-    push @places, $t if defined $type;
+    push @{$results[1]}, $px, $py;
+    push @{$results[1]}, $t if defined $type;
     }
 
   # left
@@ -149,19 +161,26 @@ sub _near_places
     {
     $py = $y + $ny;
     next if exists $cells->{"$px,$py"} && !$loose;
-    push @places, $px, $py;
-    push @places, $t if defined $type;
+    push @{$results[2]}, $px, $py;
+    push @{$results[2]}, $t if defined $type;
     }
 
   # top
   $py = $ny - $d;
-  $t = $flags->[$idx++];
+  $t = $flags->[$idx];
   for my $x (0 .. $cx)
     {
     $px = $x + $nx;
     next if exists $cells->{"$px,$py"} && !$loose;
-    push @places, $px, $py;
-    push @places, $t if defined $type;
+    push @{$results[3]}, $px, $py;
+    push @{$results[3]}, $t if defined $type;
+    }
+
+  # accumulate the results in the requested, shuffled order
+  for my $i (0..3)
+    {
+    my $idx = $index->[$i] / 3;
+    push @places, @{$results[$idx]};
     }
 
   @places;
@@ -186,7 +205,9 @@ sub _clear_tries
 
   my $src = 0; my @new;
 
-  print STDERR "# clearing tries for $node->{name}\n" if $self->{debug};
+  print STDERR "# clearing ", scalar @$tries / 2, " tries for $node->{name}\n" if $self->{debug};
+
+  my $node_grandpa = $node->find_grandparent();
 
   while ($src < scalar @$tries)
     {
@@ -195,6 +216,9 @@ sub _clear_tries
     # temporary place node here
     my $x = $tries->[$src];
     my $y = $tries->[$src+1];
+
+    print STDERR "# checking $x,$y\n" if $self->{debug};
+
     $node->{x} = $x;
     $node->{y} = $y;
 
@@ -206,14 +230,29 @@ sub _clear_tries
                 $x+($node->{cx}||1), $y+($node->{cy}||1),	# lowerright corner
                 $x+($node->{cx}||1), $y-1;			# upperright corner
     
-    # check all near places to be free from nodes
+    # check all near places to be free from nodes (except our children)
     my $j = 0; my $g = 0;
     while ($j < @near)
       {
       my $xy = $near[$j]. ',' . $near[$j+1];
-      $g ++ and last if ref($cells->{$xy}) =~ /::Node/;
-      $j += 2;
-      }
+
+      print STDERR "# checking near-place: $xy: " . ref($cells->{$xy}) . "\n" if $self->{debug};
+      
+      my $cell = $cells->{$xy};
+
+      # skip, unless we are a children of node, or the cell is our children
+      next unless ref($cell) && $cell->isa('Graph::Easy::Node');
+
+      my $grandpa = $cell->find_grandparent();
+
+      #       this cell is our children
+      #                            this cell is our grandpa
+      #                                                      has the same grandpa as node
+      next if $grandpa == $node || $cell == $node_grandpa || $grandpa == $node_grandpa;
+
+      $g++; last;
+
+      } continue { $j += 2; }
 
     if ($g == 0)
       {
@@ -246,6 +285,8 @@ sub _find_node_place
 
     # weed out positions that are unsuitable
     @tries = $self->_clear_tries($node, $cells, \@tries);
+
+    print STDERR "# Left with " . scalar @tries . " for node $node->{name}\n" if $self->{debug};
 
     splice (@tries,0,$try) if $try > 0;	# remove the first N tries
 
@@ -349,6 +390,8 @@ sub _find_node_place
   # weed out positions that are unsuitable
   @tries = $self->_clear_tries($node, $cells, \@tries);
 
+  print STDERR "# Left with " . scalar @tries . " for node $node->{name}\n" if $self->{debug};
+
   splice (@tries,0,$try) if $try > 0;	# remove the first N tries
   
   while (@tries > 0)
@@ -363,6 +406,8 @@ sub _find_node_place
 
   ##############################################################################
   # all simple possibilities exhausted, try a generic approach
+
+  print STDERR "# No more simple possibilities for node $node->{name}\n" if $self->{debug};
 
   # If no predecessors/incoming edges, try to place in column 0, otherwise 
   # considered the node's rank, too
@@ -427,7 +472,8 @@ sub _create_cell
 
   my $cells = $self->{cells}; my $xy = "$x,$y";
   
-  return $cells->{$xy}->_make_cross($edge,$type & EDGE_FLAG_MASK) if ref($cells->{$xy}) =~ /^Graph::Easy::Edge/;
+  return $cells->{$xy}->_make_cross($edge,$type & EDGE_FLAG_MASK)
+    if ref($cells->{$xy}) && $cells->{$xy}->isa('Graph::Easy::Edge');
 
   my $path = Graph::Easy::Edge::Cell->new( type => $type, edge => $edge, x => $x, y => $y );
   $cells->{$xy} = $path;	# store in cells

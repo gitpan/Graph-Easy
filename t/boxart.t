@@ -15,6 +15,7 @@ BEGIN
 can_ok ("Graph::Easy", qw/
   as_boxart
   as_boxart_html
+  as_boxart_html_file
   as_boxart_file
   /);
 

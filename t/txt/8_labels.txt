@@ -5,7 +5,7 @@ edge {
 graph {
   background: oldlace;
   label: My sample graph;
-  border: 1px solid black;
+  border: solid 1px black;
 }
 
 [ Five ] { color: yellow; fill: maroon; }

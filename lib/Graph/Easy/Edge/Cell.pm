@@ -12,7 +12,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 use Scalar::Util qw/weaken/;
 
@@ -253,6 +253,20 @@ sub _init
   $self;
   }
 
+sub arrow_count
+  {
+  # return 0, 1 or 2, depending on the number of end points
+  my $self = shift;
+
+  my $count = 0;
+  my $type = $self->{type};
+  $count ++ if ($type & EDGE_END_N) != 0;
+  $count ++ if ($type & EDGE_END_S) != 0;
+  $count ++ if ($type & EDGE_END_W) != 0;
+  $count ++ if ($type & EDGE_END_E) != 0;
+  $count;
+  }
+
 sub _make_cross
   {
   # Upgrade us to a cross-section.
@@ -291,7 +305,7 @@ sub _make_cross
 my $edge_html = {
 
   # The &nbsp; in empty table cells with borders are here to make IE display
-  # the border. I so hate browser bugs.
+  # the border. I so hate browser bugs :-(
 
   EDGE_S_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
@@ -302,23 +316,14 @@ my $edge_html = {
     '',
    ],
 
-  EDGE_S_W() => [
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
-    '',
-    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
-    '',
-   ],
-
-  EDGE_S_E() + EDGE_START_E() => [
+  EDGE_S_E() + EDGE_START_E() + EDGE_END_S() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
     ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td rowspan=4 class="##class## ve"></td>',
     '',
-    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
-    '',
+    ' <td colspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+    ' <td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>',
    ],
 
   EDGE_S_E() + EDGE_END_E() => [
@@ -327,7 +332,7 @@ my $edge_html = {
     ' <td rowspan=4 class="##class## ha"##edgecolor##>&gt;</td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+    ' <td rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
     '',
    ],
 
@@ -336,8 +341,18 @@ my $edge_html = {
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
     ' <td colspan=4 class="##class## eb"></td>',
+   ],
+
+  EDGE_S_E() + EDGE_START_S() + EDGE_END_E() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>'.
+    ' <td rowspan=4 class="##class## ha"##edgecolor##>&gt;</td>',
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
+    ' <td colspan=1 class="##class## eb"></td>',
    ],
 
   EDGE_S_E() + EDGE_END_S() => [
@@ -345,18 +360,31 @@ my $edge_html = {
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
     ' <td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>',
    ],
 
   EDGE_S_E() + EDGE_END_S() + EDGE_END_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
-    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td rowspan=4 class="##class## ha"##edgecolor##>&gt;</td>',
     '',
-    ' <td colspan=2 rowspan=1 class="##class## eb"></td>'. "\n" .
-    ' <td colspan=1 rowspan=1 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
+    ' <td colspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
     ' <td colspan=3 class="##class## v"##edgecolor##>&nbsp;v</td>',
+   ],
+
+  ###########################################################################
+  ###########################################################################
+  # S_W
+
+  EDGE_S_W() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+    '',
    ],
 
   EDGE_S_W() + EDGE_START_W() => [
@@ -397,6 +425,26 @@ my $edge_html = {
     ' <td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>',
    ],
 
+  EDGE_S_W() + EDGE_START_W() + EDGE_END_S() => [
+    ' <td rowspan=2 class="##class## ve"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
+    '',
+    ' <td colspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+    ' <td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>',
+   ],
+
+  EDGE_S_W() + EDGE_START_S() + EDGE_END_W() => [
+    ' <td rowspan=3 class="##class## va"##edgecolor##>&lt;</td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
+    '',
+    ' <td class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+    ' <td colspan=4 class="##class## eb"></td>',
+   ],
+
   ###########################################################################
   ###########################################################################
   # N_W
@@ -425,6 +473,37 @@ my $edge_html = {
     '',
    ],
 
+  EDGE_N_W() + EDGE_END_N() + EDGE_START_W() => [
+    ' <td colspan=4 class="##class## hat"##edgecolor##>&nbsp;^</td>' . "\n",
+    ' <td rowspan=3 class="##class## eb"></td>'.
+    ' <td class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+    ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_W() + EDGE_START_W() => [
+    ' <td rowspan=2 class="##class## ve"></td>' . "\n" . 
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
+    '',
+    ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_W() + EDGE_END_W() => [
+    ' <td rowspan=2 class="##class## va"##edgecolor##>&lt;</td>' . "\n" . 
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
+    '',
+    ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  ###########################################################################
+  ###########################################################################
+  # N_E
+
   EDGE_N_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>',
@@ -451,10 +530,28 @@ my $edge_html = {
     '',
    ],
 
+  EDGE_N_E() + EDGE_END_E() + EDGE_START_N() => [
+    ' <td colspan=4 class="##class## eb"></td>' . "\n",
+    ' <td colspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td rowspan=3 class="##class## va"##edgecolor##>&gt;</td>',
+    ' <td colspan=3 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
+  EDGE_N_E() + EDGE_START_E() + EDGE_END_N() => [
+    ' <td colspan=4 class="##class## hat"##edgecolor##>&nbsp;^</td>' . "\n",
+    ' <td colspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td rowspan=3 class="##class## eb">&nbsp;</td>',
+    ' <td colspan=3 rowspan=2 class="##class## eb"></td>',
+    '',
+   ],
+
   EDGE_N_E() + EDGE_START_N() => [
     ' <td colspan=4 class="##class## eb"></td>' . "\n",
     ' <td colspan=2 rowspan=3 class="##class## eb"></td>' . "\n" .
-    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>',
+    ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
     '',
    ],
@@ -462,26 +559,8 @@ my $edge_html = {
   EDGE_N_E() + EDGE_END_N() => [
     ' <td colspan=4 class="##class## hat"##edgecolor##>&nbsp;^</td>' . "\n",
     ' <td colspan=2 rowspan=3 class="##class## eb"></td>' . "\n" .
-    ' <td colspan=2 rowspan=1 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>',
+    ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
-    '',
-   ],
-
-  EDGE_N_W() + EDGE_START_W() => [
-    ' <td rowspan=2 class="##class## ve"></td>' . "\n" . 
-    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
-    '',
-    ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
-    '',
-   ],
-
-  EDGE_N_W() + EDGE_END_W() => [
-    ' <td rowspan=2 class="##class## va"##edgecolor##>&lt;</td>' . "\n" . 
-    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
-    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
-    '',
-    ' <td colspan=4 rowspan=2 class="##class## eb"></td>',
     '',
    ],
 
@@ -676,56 +755,26 @@ sub as_html
   # get the border styles/colors:
 
   my $bow = $self->attribute('border-width'); $bow = 2 unless defined $bow;
+  my $border = Graph::Easy::_border_attribute_as_html( $self->{style}, $bow, $color);
 
-  my $bw = $bow;
-
-  my $border_color = $color || 'black';
-  if ($style eq 'bold')
-    {
-    $bw = 3; $style = 'solid';
-    }
-  elsif ($style eq 'double')
-    {
-    $bw = '';
-    }
-  $bw .= 'px' if $bw;
-
-  $border_color = ' ' . $border_color if $border_color;
-
-  my $border = "$style ${bw}$border_color";
   my $border_v = $border;
 
   if (($self->{type} & EDGE_TYPE_MASK) == EDGE_CROSS)
    {
-   my $bw = $bow;
-   if ($self->{style_ver} eq 'bold')
-     {
-     $bw = 3; $style = 'solid';
-     }
-   elsif ($self->{style_ver} eq 'double')
-     {
-     $bw = '';
-     }
-   $bw .= 'px' if $bw;
-
-   $border_color = $self->{color_ver};
-   $border_color = '' unless defined $border_color;
-   $border_color = ' ' . $border_color if $border_color;
-   $border_v = "$self->{style_ver} ${bw}$border_color";
+   $border_v = Graph::Easy::_border_attribute_as_html( $self->{style}, $bow, $self->{color_ver});
    }
 
   ###########################################################################
-  my $edge_color = '';
-  $edge_color = " color: $color;" if $color;
+  my $edge_color = ''; $edge_color = " color: $color;" if $color;
   
-  my $bg = $self->background();
-  $bg = " background: $bg;" if $bg;
+  my $bg = $self->background(); $bg = " background: $bg;" if $bg;
 
   my $title = $self->title();
   $title =~ s/"/&#22;/g;			# replace quotation marks
   $title = " title=\"$title\"" if $title ne '';	# add mouse-over title
 
-  # XXX TODO: replace "&gt;" and "&lt;" with unicode arrow chars
+  # XXX TODO: replace "&gt;" and "&lt;" with unicode arrow chars for
+  # arrow-style: (filled|closed)
 
   ###########################################################################
   # replace templates
@@ -736,7 +785,8 @@ sub as_html
     my $c = $a;					# make a copy
     # insert the title, label, class and border
     $c =~ s/>##label##/$title>$label/;
-    $c =~ s/##class##/$self->class()/eg;
+    my $cl = $self->class(); $cl =~ s/\./-/g;	# group.cities => group-cities
+    $c =~ s/##class##/$cl/g;
     # replace borderv with the border for the vertical edge on CROSS sections
     $c =~ s/##border##/$border/g;
     $c =~ s/##borderv##/$border_v/g;
@@ -756,7 +806,18 @@ sub class
   {
   my $self = shift;
 
-  $self->{class} . ($self->{cell_class} || '');
+  my $c = $self->{class} . ($self->{cell_class} || '');
+  $c = $self->{edge}->{group}->class() . ' ' . $c if ref($self->{edge}->{group});
+
+  $c;
+  }
+
+sub group
+  {
+  # return the group we belong to as the group of our parent-edge
+  my $self = shift;
+
+  $self->{edge}->{group};
   }
 
 #############################################################################
@@ -773,7 +834,7 @@ sub type
     if (defined $type && $type < 0 || $type > EDGE_MAX_TYPE)
       {
       require Carp;
-      Carp::croak ("Cell type $type for cell $self->{x},$self->{y} is not valid.");
+      Carp::confess ("Cell type $type for cell $self->{x},$self->{y} is not valid.");
       }
     $self->{type} = $type;
     }

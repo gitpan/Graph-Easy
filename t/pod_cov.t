@@ -23,7 +23,6 @@ SKIP:
     };
   for my $m (qw/
     Graph::Easy::Node
-    Graph::Easy::Parser
     Graph::Easy::Group
     Graph::Easy::Edge
    /)
@@ -46,6 +45,12 @@ SKIP:
 	ATTR_TYPE_SLOT|
     )\z/x ] };
   pod_coverage_ok( "Graph::Easy", $trustme );
+
+  # Define the global CONSTANTS for internal usage
+  $trustme = { trustme => [ qr/^(
+	NO_MULTIPLES
+    )\z/x ] };
+  pod_coverage_ok( "Graph::Easy::Parser", $trustme );
 
   }
 

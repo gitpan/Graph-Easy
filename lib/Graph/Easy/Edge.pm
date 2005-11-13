@@ -56,7 +56,6 @@ my $styles = {
   'dot-dash' => '.-',
   'dot-dot-dash' => '..-',
   wave => '~~',
-  bold => '##',
   };
 
 sub as_txt
@@ -71,24 +70,26 @@ sub as_txt
   
   my $s = $self->style() || 'solid';
 
-  my $style = $styles->{ $s };
-  if (!defined $style)
-    {
-    require Carp;
-    Carp::croak ("Unknown edge style '$s'\n");
-    }
+  my $style = '--';
 
   # suppress border on edges
   my $suppress = { all => { label => undef } };
-  if ($s eq 'bold')
+  if ($s =~ /^(bold|bold-dash|broad|wide)\z/)
     {
-    # output "--> { style: bold; }"
+    # output "--> { style: XXX; }"
     $style = '--';
     }
   else
     {
     # output "-->" or "..>" etc
     $suppress->{all}->{style} = undef;
+
+    $style = $styles->{ $s };
+    if (!defined $style)
+      {
+      require Carp;
+      Carp::confess ("Unknown edge style '$s'\n");
+      }
     }
  
   $n = $style . " $n " if $n ne '';

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 108;
+   plan tests => 109;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -19,7 +19,7 @@ can_ok ("Graph::Easy", qw/
   html_page_header
   html_page_footer
   error
-  node nodes edges
+  node nodes edges anon_nodes
 
   add_edge
   add_node
@@ -56,6 +56,7 @@ my $node = Graph::Easy::Node->new( name => 'Bonn' );
 my $node2 = Graph::Easy::Node->new( name => 'Berlin' );
 
 is (scalar $graph->nodes(), 0, 'no nodes');
+is (scalar $graph->anon_nodes(), 0, 'no anon nodes');
 is (scalar $graph->edges(), 0, 'no edges');
 
 $graph->add_edge( $node, $node2 );
@@ -170,7 +171,7 @@ node.cities { color: grey; }
 HERE
 , 'with empty group Cities'); 
 
-$node->add_to_groups($group);
+$node->add_to_group($group);
 
 is ($graph->as_txt(), <<HERE
 graph {

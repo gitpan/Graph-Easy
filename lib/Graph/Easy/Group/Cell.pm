@@ -9,7 +9,7 @@ use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 use strict;
 
@@ -143,17 +143,16 @@ sub _set_type
   my ($sx,$sy) = ($self->{x},$self->{y});
 
   my $class = '';
-  my $gr = $self->{group}->{name};
+  my $gr = $self->{group};
   foreach my $co (@coord)
     {
     my ($x,$y,$c) = @$co; $x += $sx; $y += $sy;
-
     my $cell = $cells->{"$x,$y"};
 
     # belongs to the same group?
-    # print STDERR "# $x,$y ($sx,$sy) $gr\n";
+    my $go = 0; $go = $cell->group() if UNIVERSAL::can($cell, 'group');
 
-    $class .= $c unless ref($cell) && defined $cell->{groups}->{$gr};
+    $class .= $c unless defined $go && $gr == $go;
     }
 
   $class = ' ga' if $class eq ' gt gr gb gl';

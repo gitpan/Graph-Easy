@@ -23,6 +23,7 @@ can_ok ('Graph::Easy', qw/
   debug
 
   border_attribute
+  anon_nodes
   /);
 
 #############################################################################
@@ -40,8 +41,8 @@ is ($graph->strict(), 1, 'is strict');
 is ($graph->nodes(), 0, '0 nodes');
 is ($graph->edges(), 0, '0 edges');
 is ($graph->border_attribute('graph'), '', 'graph border is none');
-is ($graph->border_attribute('group'), '1px dashed black', 'group border is 1px dashed black');
-is ($graph->border_attribute('node'), '1px solid black', 'node border is 1px solid black');
+is ($graph->border_attribute('group'), 'dashed 1px black', 'group border is dashed 1px black');
+is ($graph->border_attribute('node'), 'solid 1px black', 'node border is solid 1px black');
 is ($graph->border_attribute('edge'), 'none', 'edge border is none');
 
 is (join (',', $graph->edges()), '', '0 edges');
@@ -144,8 +145,8 @@ $graph->set_attribute('node', 'border', 'blue solid 1px');
 # graph/node/edge attributes come first
 
 is ( $graph->as_txt(), <<HERE
-graph { border: 1px dashed; }
-node { border: 1px solid blue; }
+graph { border: dashed 1px; }
+node { border: solid 1px blue; }
 
 [ Berlin ] { color: blue; }
 [ Bonn ] { color: red; border: none; class: cities; }

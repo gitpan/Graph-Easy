@@ -19,6 +19,7 @@ examples/as_graphviz		parse text and output as graphviz
 examples/as_svg			parse text and output as standalone SVG
 examples/as_ascii		parse text and output it as ASCII art
 examples/as_boxart		parse text and output it as box drawing using unicode
+examples/as_boxart_html		parse text and output it as standalone HTML page with box drawing
 examples/as_html		parse text and output it as standalone HTML page
 examples/as_txt			parse text and output as text again
 examples/complex.txt		a complex example
@@ -111,6 +112,7 @@ t/stress/0012.txt
 t/stress/0020.txt
 t/stress/drop.txt
 t/stress/drop_result.txt
+t/stress/anon.txt
 t/layouter/edge_label.txt
 t/layouter/layouter_chain.txt
 t/layouter/layouter_loop.txt
@@ -140,6 +142,7 @@ t/in/2_edges.txt
 t/in/2_long_labels.txt
 t/in/2_graph_label.txt
 t/in/2_zeros.txt
+t/in/3_autosplit_hang.txt
 t/in/3nodes.txt
 t/in/3_nodes_5_edges.txt
 t/in/3_cluster.txt
@@ -148,6 +151,12 @@ t/in/3_selfloop_flip.txt
 t/in/3_selfloop_flow_left.txt
 t/in/3_selfloop_flow_down.txt
 t/in/3_selfloop_flow_up.txt
+t/in/3_bend_bug.txt
+t/in/3_invisible_both.txt
+t/in/3_invisible.txt
+t/in/4_bend_bug.txt
+t/in/4_autosplit_offset.txt
+t/in/4_att.txt
 t/in/4nodes.txt
 t/in/4_nodes_5_edges.txt
 t/in/4_nodes_6_edges.txt
@@ -159,18 +168,24 @@ t/in/4_edge_cross.txt
 t/in/4_near.txt
 t/in/4_edge_types.txt
 t/in/4_cross.txt
+t/in/4_endless_loop.txt
+t/in/4_endless_loop_2.txt
+t/in/4_comma.txt
 t/in/5_arrow_styles.txt
+t/in/5_offsets.txt
+t/in/5_offsets_2.txt
+t/in/5_a-star_bug.txt
 t/in/2_invisible_left.txt
 t/in/2_invisible_right.txt
 t/in/2_newlines.txt
-t/in/3_invisible_both.txt
-t/in/3_invisible.txt
 t/in/6_chained.txt
 t/in/6_chain_10_edges.txt
+t/in/6_multicell.txt
 t/in/7_cluster.txt
 t/in/8_chain.txt
 t/in/8_points.txt
 t/in/8_labels.txt
+t/in/8_endless_loop.txt
 t/in/9_chain.txt
 t/in/10borders.txt
 t/in/18_multiples.txt
@@ -195,6 +210,8 @@ t/out/2_newlines.txt
 t/out/2_long_labels.txt
 t/out/2_graph_label.txt
 t/out/2_zeros.txt
+t/out/3_autosplit_hang.txt
+t/out/3_bend_bug.txt
 t/out/3nodes.txt
 t/out/3_cluster.txt
 t/out/3_selfloop.txt
@@ -205,7 +222,11 @@ t/out/3_selfloop_flow_up.txt
 t/out/3_invisible_both.txt
 t/out/3_invisible.txt
 t/out/3_nodes_5_edges.txt
+t/out/4_bend_bug.txt
+t/out/4_autosplit_offset.txt
+t/out/4_att.txt
 t/out/4_cross.txt
+t/out/4_comma.txt
 t/out/4nodes.txt
 t/out/4_2x2nodes.txt
 t/out/4groups.txt
@@ -216,13 +237,20 @@ t/out/4_nodes_6_edges.txt
 t/out/4_edge_types.txt
 t/out/4_edge_cross.txt
 t/out/4_edge_labels.txt
+t/out/4_endless_loop.txt
+t/out/4_endless_loop_2.txt
 t/out/5_arrow_styles.txt
+t/out/5_offsets.txt
+t/out/5_offsets_2.txt
+t/out/5_a-star_bug.txt
 t/out/6_chained.txt
 t/out/6_chain_10_edges.txt
+t/out/6_multicell.txt
 t/out/7_cluster.txt
 t/out/8_points.txt
 t/out/8_chain.txt
 t/out/8_labels.txt
+t/out/8_endless_loop.txt
 t/out/9_chain.txt
 t/out/18_multiples.txt
 t/txt/2_cluster.txt
@@ -241,22 +269,31 @@ t/txt/3_nodes_5_edges.txt
 t/txt/3_selfloop.txt
 t/txt/3_selfloop_flip.txt
 t/txt/3_nodes_5_edges.txt
+t/txt/3_autosplit_hang.txt
+t/txt/4_autosplit_offset.txt
 t/txt/4groups.txt
 t/txt/4groups_class.txt
 t/txt/4_near.txt
+t/txt/4_comma.txt
 t/txt/4_2x2nodes.txt
 t/txt/4_nodes_5_edges.txt
 t/txt/4_nodes_6_edges.txt
 t/txt/4_edge_labels.txt
 t/txt/4_edge_cross.txt
 t/txt/4_cross.txt
+t/txt/4_endless_loop.txt
+t/txt/4_endless_loop_2.txt
 t/txt/5_arrow_styles.txt
+t/txt/5_offsets.txt
+t/txt/5_offsets_2.txt
 t/txt/6_chained.txt
 t/txt/6_chain_10_edges.txt
+t/txt/6_multicell.txt
 t/txt/7_cluster.txt
 t/txt/8_chain.txt
 t/txt/8_points.txt
 t/txt/8_labels.txt
+t/txt/8_endless_loop.txt
 t/txt/9_chain.txt
 t/txt/10borders.txt
 t/txt/18_multiples.txt

@@ -10,14 +10,14 @@ use 5.008000;
 use Graph::Easy::Attributes;
 use Graph::Easy::Edge;
 use Graph::Easy::Group;
-use Graph::Easy::Group::Cell qw/GROUP_MAX/;
+use Graph::Easy::Group::Cell;
 use Graph::Easy::Layout;
 use Graph::Easy::Node;
 use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.32';
+$VERSION = '0.33';
 
 use strict;
 
@@ -96,7 +96,7 @@ sub _init
 
   $self->{att} = {
   node => {
-    'border' => '1px solid black',
+    'border' => 'solid 1px black',
     'border-style' => 'solid',
     'border-width' => '1',
     'border-color' => 'black',
@@ -123,7 +123,7 @@ sub _init
     'font-family' => 'monospaced, courier-new, courier, sans-serif',
     },
   group => { 
-    'border' => '1px dashed black',
+    'border' => 'dashed 1px black',
     'border-style' => 'dashed',
     'border-width' => '1',
     'border-color' => 'black',
@@ -294,6 +294,31 @@ sub nodes
   values %$n;
   }
 
+sub anon_nodes
+  {
+  # return all anon nodes as objects
+  my ($self) = @_;
+
+  my $n = $self->{nodes};
+
+  if (!wantarray)
+    {
+    my $count = 0;
+    for my $node (values %$n)
+      {
+      $count++ if $node->isa('Graph::Easy::Node::Anon');
+      }
+    return $count;
+    }
+
+  my @anon = ();
+  for my $node (values %$n)
+    {
+    push @anon, $node if $node->isa('Graph::Easy::Node::Anon');
+    }
+  @anon;
+  }
+
 sub edges
   {
   # return all the edges as objects
@@ -375,16 +400,7 @@ sub border_attribute
   my $width = $self->attribute($class, 'border-width') || '';
   my $color = $self->attribute($class, 'border-color') || '';
 
-  $color = $self->color_name($color) unless $color eq '';
-
-  $width = $width.'px' if $width =~ /^\s*\d+\s*\z/;
-  $width = '' if $style eq 'double';
-
-  my $val = join(" ", $width, $style, $color);
-  $val =~ s/^\s+//;
-  $val =~ s/\s+\z//;
-
-  $val;
+  Graph::Easy::_border_attribute($style, $width, $color);
   }
 
 sub get_attribute
@@ -438,6 +454,7 @@ sub set_attribute
     {
     my $v = $self->valid_attribute($name,$val,$class);
 
+    # catch [] (invalid) and [ "red", "green" ] (multi-attribute on single object)
     if (ref($v) eq 'ARRAY')
       {
       $self->error("Error: '$name' is not a valid attribute for $class");
@@ -471,8 +488,10 @@ sub set_attribute
     {
     my $c = $self->{att}->{$class};
 
-    ( $c->{'border-style'}, $c->{'border-width'}, $c->{'border-color'} ) = 
-	Graph::Easy::Node->border_attributes( $val ); 
+    my @rc = $self->split_border_attributes( $val ); 
+    $c->{'border-style'} = $rc[0] if defined $rc[0];
+    $c->{'border-width'} = $rc[1] if defined $rc[1];
+    $c->{'border-color'} = $rc[2] if defined $rc[2];
 
     return $val;
     }
@@ -533,7 +552,7 @@ sub output
   if (!$self->can($method))  
     {
     require Carp;
-    Carp::croak("Cannot find a method to generate '$self->{output_format}'");
+    Carp::confess("Cannot find a method to generate '$self->{output_format}'");
     }
   $self->$method();
   }
@@ -701,6 +720,14 @@ table.graph##id## td {
 CSS
 ;
 
+  # count anon nodes and append CSS for them if nec.
+  $css .= <<CSSANON
+table.graph##id## .node-anon {
+  border: none;
+  }
+CSSANON
+ if $self->anon_nodes() > 0;
+
   # append CSS for edge cells (and their parts like va (vertical arrow
   # (left/right), vertical empty), etc)
   $css .= <<CSS
@@ -760,18 +787,14 @@ CSS
 sub html_page_header
   {
   # return the HTML header for as_html_file()
-  my $self = shift;
+  my ($self, $css) = @_;
   
   my $html = <<HTML
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
  <head>
  <meta http-equiv="Content-Type" content="text/html; charset=##charset##">
- <title>##title##</title>
- <style type="text/css">
- <!--
- ##CSS## -->
- </style>
+ <title>##title##</title>##CSS##
  </head>
 <body bgcolor=white text=black>
 HTML
@@ -781,7 +804,12 @@ HTML
   $html =~ s/##charset##/utf-8/g;
   my $t = $self->title();
   $html =~ s/##title##/$t/g;
-  $html =~ s/##CSS##/$self->css()/e;
+
+  # insert CSS if requested
+  $css = $self->css() unless defined $css;
+
+  $html =~ s/##CSS##/\n <style type="text\/css">\n <!--\n $css -->\n <\/style>/ if $css ne '';
+  $html =~ s/##CSS##//;
 
   $html;
   }
@@ -1029,6 +1057,16 @@ sub as_boxart_html
   "<pre style='line-height: 1em; line-spacing: 0;'>\n" . 
     $self->as_boxart(@_) . 
     "\n</pre>\n";
+  }
+
+sub as_boxart_html_file
+  {
+  my $self = shift;
+
+  $self->layout() unless defined $self->{score};
+
+  $self->html_page_header(' ') . "\n" . 
+    $self->as_boxart_html() . $self->html_page_footer();
   }
 
 #############################################################################
@@ -1540,6 +1578,12 @@ sub add_group
   # add a group object
   my ($self,$group) = @_;
 
+  # group with that name already exists?  
+  $group = $self->{groups}->{ $group } unless ref $group;
+
+  # group with that name doesn't exist, so create new one
+  $group = Graph::Easy::Group->new( name => $group ) unless ref $group;
+
   # index under the group name for easier lookup
   $self->{groups}->{ $group->{name} } = $group;
 
@@ -1684,6 +1728,7 @@ X<drawing>
 X<diagram>
 X<flowchart>
 X<layout>
+X<manhattan>
 
 =head2 Input
 
@@ -1754,6 +1799,14 @@ Creates a Scalable Vector Graphics output.
 Creates graphviz code that can be feed to 'dot', 'neato' or similiar programs.
 
 =back
+
+X<ascii>
+X<html>
+X<svg>
+X<boxart>
+X<graphviz>
+X<dot>
+X<neato>
 
 =head1 EXAMPLES
 
@@ -1965,6 +2018,12 @@ Delete the attribute with the given name.
 Return the combined border attribute like "1px solid red" from the
 border-(style|color|width) attributes.
 
+=head2 split_border_attributes()
+
+  	my ($style,$width,$color) = $graph->split_border_attribute($border);
+
+Split the border attribute (like "1px solid red") into the three different parts.
+
 =head2 direction_as_number()
 
 	my $graph = direction_as_number($dir);
@@ -2049,11 +2108,19 @@ Is an alias for C<as_box>.
 
 	print $graph->as_boxart_html();
 
-Return the graph layout as box drawing using Unicode characters.
+Return the graph layout as box drawing using Unicode characters,
+as chunk that can be embedded into an HTML page.
 
-page. Basically it wraps the output from L<as_ascii()> into
+Basically it wraps the output from L<as_boxart()> into
 C<< <pre> </pre> >> and inserts real HTML links. The returned
 string is in utf-8.
+
+=head2 as_boxart_html_file()
+
+	print $graph->as_boxart_html_file();
+
+Return the graph layout as box drawing using Unicode characters,
+as a full HTML page complete with header and footer.
 
 =head2 as_html()
 
@@ -2152,12 +2219,27 @@ Is an alias for C<as_graphviz()>.
 
 In scalar context, returns the number of nodes/vertices the graph has.
 
+In list context, returns all nodes as objects.
+
+=head2 anon_nodes()
+
+	my $anon_nodes = $graph->anon_nodes();
+
+In scalar context, returns the number of anon nodes (aka
+C<Graph::Easy::Node::Anon>) the graph has.
+
+In list context, returns all anon nodes as objects.
+
 =head2 html_page_header()
 
 	my $header = $graph->html_page_header();
+	my $header = $graph->html_page_header($css);
 
 Return the header of an HTML page. Used together with L<html_page_footer>
 by L<as_html_page> to construct a complete HTML page.
+
+Takes an optional parameter with the CSS styles to be inserted into the
+header. If C<$css> is not defined, embedds the result of C<< $self->css() >>.
 
 =head2 html_page_footer()
 
@@ -2506,6 +2588,10 @@ Some output formats are not yet complete in their
 implementation. Please see the online manual at
 L<http://bloodgate.com/perl/graph/manual> under "Output" for
 details.
+
+X<graph>
+X<manual>
+X<online>
 
 =head1 LICENSE
 

@@ -7,6 +7,9 @@ In addition:
 
 Important short-term TODO:
 
+* as_txt(): the following are wrong as txt:
+  + 4_autosplit_offset.txt
+  + 3_autosplit_hangt.txt
 * It would be good if we could remove Node::Empty (it blocks a cell
   just to draw the right/bottom border pieces)
   (we might put these "invisible" nodes into a different "cells" field,
@@ -14,8 +17,7 @@ Important short-term TODO:
 * missing edges sometimes do not result in an error message
 * unplacing edge-crossings does not work properly, leaving stray crossings
 * implement HTML nodes as triangles, house, etc. using slanted edges
-* define missing HTML edge cells (selfloops, corners and CROSS w. end/start
-  points)
+* define missing HTML edge cells (selfloops, and CROSS w. end/start points)
 * as_html(): output of node-clusters is slightly wrong
 * as_html(): there is no space between two nodes placed next (with filler
 	     cell) to each other. Make filler cells output a &nbsp;
@@ -23,12 +25,14 @@ Important short-term TODO:
   to avoid the dilemma that we need them from both Node and Graph.
   Likewise, some routines used by objects (e.g. graph, node etc) should
   be in a super-package and inherited)
-* as_html(): put edges into the proper group and set their cell_class so that
-	     they inherit the background from the group
+* as_html(): attributes "fill" and "border-XXX" on a group are not put on
+             the individual group cells, making these only work when defined
+	     as part of a group-class
 * as_txt: output of autosplit nodes is broken when no label gets set
   "[A|B]" results in "[ A|B ] { label: A; }"
 * use "shape: record" and label="{ { 00 | 01 | 02 } | { 10 | 112 | 12 } }" to
-  implement auto-split nodes in graphviz
+  implement auto-split nodes in graphviz (including <port>'s and rerouting
+  edges to the ports)
 
 Parser:
 
@@ -38,10 +42,6 @@ Parser:
 * support for node splitting ala:
 
     "[ A ] | [ B | C ] || [ D | E ]"
-
-* support for attribute lists on autosplit nodes ala:
-
-    "[ A || B | C ] { background: red|blue|green; }"
 
 * use "{}" to nest blocks?
 * Nodes with both "|" and "\|" in their name are not parsed correctly
@@ -81,6 +81,8 @@ Output:
 * better support for different shapes (circle, box, rounded, polygon etc)
   in ASCII
 * as_graphviz(): support "border-style: double" together with fill colors
+  (Needs postscript code in the style argument, and I have not yet an
+   idea how to write this)
 * need better support for different edge styles in Graphviz
 * as_ascii() and others: grow cells around point-shaped nodes to intrude:
 
@@ -113,6 +115,8 @@ Layout:
 
 * the longest-chain code (walk recursively children of startig node) needs
   some tuning, especially when it encounters loops in the graph.
+  (rewrite it to always work from front-to-back and make it skipp self-loops,
+   multi-edges and back-loops, then combine longest chain from subchains)
 * allow user to specify max graph width (in cells) to avoid overly wide graphs
 * auto-grow nodes to be multicelled depending on the dimensions of their label
   ("main page" gets 2x1, while "a \nb \nc \nd \ne \n" gets 1x2 cells)
@@ -135,8 +139,7 @@ Optimizer:
 * write an optimizer for already laid out graphs to optimize layout
 * less memory: store border and edge styles as ints instead of "solid" etc
 * use AUTOLOAD for accessors in Node.pm: most are never used by normal code
-* edges_to() is the new hot-spot. It could be faster if we keep track of
-  edges per node indexed by their target, too.
+* when in a run-away situation, A* becomes the single largest CPU eater
 
 Manual:
 

@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 #############################################################################
 #############################################################################
@@ -46,53 +46,52 @@ use Heap::Binary;		# Binary is faster than Fibonacci
 
 #############################################################################
 
-my $end_point = [
-  EDGE_END_E,
-  EDGE_END_W,
-  EDGE_END_S,
-  EDGE_END_N,
-  EDGE_START_W,
-  EDGE_START_E,
-  EDGE_START_N,
-  EDGE_START_S,
-  EDGE_END_W,
-  EDGE_END_E,
-  EDGE_END_N,
-  EDGE_END_S,
-  ];
+# mapping edge type (HOR, VER, NW etc) and dx/dy to startpoint flag
+my $start_points = {
+#               [ dx == 1, 	dx == -1,     dy == 1,      dy == -1 ,
+#                 dx == 1, 	dx == -1,     dy == 1,      dy == -1 ]
+  EDGE_HOR() => [ EDGE_START_W, EDGE_START_E, 0,	    0 			,
+		  EDGE_END_E,   EDGE_END_W,   0,	    0,			],
+  EDGE_VER() => [ 0,		0, 	      EDGE_START_N, EDGE_START_S 	,
+		  0,		0,	      EDGE_END_S,   EDGE_END_N,		],
+  EDGE_N_E() => [ 0,		EDGE_START_E, EDGE_START_N, 0		 	,
+		  EDGE_END_E,	0,	      0, 	    EDGE_END_N, 	],
+  EDGE_N_W() => [ EDGE_START_W,	0, 	      EDGE_START_N, 0			,
+		  0,	        EDGE_END_W,   0,	    EDGE_END_N,		],
+  EDGE_S_E() => [ 0,		EDGE_START_E, 0,	    EDGE_START_S 	,
+		  EDGE_END_E,   0,            EDGE_END_S,   0,			],
+  EDGE_S_W() => [ EDGE_START_W,	0, 	      0,	    EDGE_START_S	,
+		  0,		EDGE_END_W,   EDGE_END_S,   0,			],
+  };
 
 sub _end_points
   {
   # modify last field of path to be the correct endpoint and first field
   # to be the correct startpoint:
-  my ($self, $edge, $coords, $type, $dx, $dy) = @_;
+  my ($self, $edge, $coords, $dx, $dy) = @_;
   
   return if $edge->undirected();
 
-  # there are four cases here:
-  my $case = 0;
-  # $case = 0 if $type == EDGE_HOR && $dx == 1;		# default
-  $case = 1 if $type == EDGE_HOR && $dx == -1;
-  $case = 2 if $type == EDGE_VER && $dy == 1;
-  $case = 3 if $type == EDGE_VER && $dy == -1;
+  # there are two cases (for each dx and dy)
+  my $i = 0;					# index 0,1
+  my $co = 2;
+  my $case;
 
-  # modify last cell
-  $coords->[-1] |= $end_point->[$case];
+  for my $d ($dx,$dy,$dx,$dy)
+    {
+    next if $d == 0;
 
-  $type = $coords->[2] & EDGE_TYPE_MASK;
+    my $type = $coords->[$co] & EDGE_TYPE_MASK;
 
-  $case = 0;
-  # $case = 0 if $type == EDGE_HOR && $dx == 1;		# default
-  $case = 1 if $type == EDGE_HOR && $dx == -1;
-  $case = 2 if $type == EDGE_VER && $dy == 1;
-  $case = 3 if $type == EDGE_VER && $dy == -1;
+    $case = 0; $case = 1 if $d == -1;
 
-  # bidirectional: add end point, otherwise start point
-  $case += 4;
-  $case += 4 if $edge->bidirectional();
+    # modify first/last cell
+    $coords->[$co] += $start_points->{ $type }->[ $case + $i ];
 
-  # modify first cell
-  $coords->[2] |= $end_point->[$case];
+    } continue {
+    $i += 2; 					# index 2,3, 4,5 etc
+    $co = -1 if $i == 4;			# modify now last cell
+    }
   }
 
 sub _find_path
@@ -184,8 +183,8 @@ sub _find_path
 
     if ($done == 0)
       {
-      print STDERR "# success for ", scalar @coords, " steps in path\n" if $self->{debug};
-      $self->_end_points($edge, \@coords, $type, $dx, $dy);
+      print STDERR "# success for ", scalar @coords / 3, " steps in path\n" if $self->{debug};
+      $self->_end_points($edge, \@coords, $dx, $dy);
 
       return \@coords;					# return all fields of path
       }
@@ -220,6 +219,9 @@ sub _find_path
       $x += $dx;					# next field
       };
 
+    # check the bend itself     
+    $done++ if exists $cells->{"$x,$y"};	# cell already full
+
     if ($done == 0)
       {
       my $type_bend = _astar_edge_type ($x-$dx,$y, $x,$y, $x,$y+$dy);
@@ -244,6 +246,7 @@ sub _find_path
       print STDERR "# hm, now trying first vertical, then horizontal\n" if $self->{debug};
       $type = EDGE_VER;
 
+      @coords = ();					# drop old version
       ($x,$y) = ($x0, $y0 + $dy);			# starting pos
       while ($y != $y1)
         {
@@ -252,6 +255,9 @@ sub _find_path
         push @coords, $x, $y, $type;			# good one, is free
         $y += $dy;					# next field
         };
+
+      # check the bend itself     
+      $done++ if exists $cells->{"$x,$y"};		# cell already full
 
       if ($done == 0)
         {
@@ -276,8 +282,8 @@ sub _find_path
 
     if ($done == 0)
       {
-      print STDERR "# success for ", scalar @coords, " steps in path\n" if $self->{debug};
-      $self->_end_points($edge, \@coords, $type, $dx, $dy);
+      print STDERR "# success for ", scalar @coords / 3, " steps in path\n" if $self->{debug};
+      $self->_end_points($edge, \@coords, $dx, $dy);
 
       return \@coords;			# return all fields of path
       }
@@ -394,9 +400,9 @@ sub _astar_modifier
   my $add = 1;
 
   my $xy = "$x1,$y1";
-  # add a harsh penalty for crossing an edge
-  # 30 means we could travel many fields to go around the crossing
-  $add += 30 if ref($cells->{$xy}) =~ /^Graph::Easy::Edge/;
+  # add a harsh penalty for crossing an edge, meaning we can travel many
+  # fields to go around.
+  $add += 20 if ref($cells->{$xy}) && $cells->{$xy}->isa('Graph::Easy::Edge');
  
   if (defined $px)
     {
@@ -486,8 +492,7 @@ sub _astar_near_nodes
     my ($x,$y) = ($tries[$i], $tries[$i+1]);
     my $p = "$x,$y";
 
-    #if (ref($cells->{$p}) =~ /^Graph::Easy::Edge/)
-    if (exists $cells->{$p} && ref($cells->{$p}) =~ /^Graph::Easy::Edge/)
+    if (exists $cells->{$p} && ref($cells->{$p}) && $cells->{$p}->isa('Graph::Easy::Edge'))
       {
       # if the existing cell is an VER/HOR edge, then we may cross it
       my $type = $cells->{$p}->{type};	# including flags, because only flagless edges
@@ -538,8 +543,16 @@ sub _find_path_astar
   ]; 
 
   # get all the starting positions and add them to OPEN:
-  # distance = 1: slots, generate starting types
-  my @start = $src->_near_places($cells, 1, $start_flags, 1);
+  # distance = 1: slots, generate starting types, the direction is shifted
+  # by 90° counter-clockwise
+
+  my @start = $src->_near_places($cells, 1, $start_flags, 1, $src->_shift(-90) );
+
+  # potential stop positions
+  my @stop = $dst->_near_places($cells, 1, $end_flags, 1);	# distance = 1: slots
+  my $stop = scalar @stop;
+
+  return unless $stop > 0;			# no free slots on target node?
 
   my $i = 0; my $bias = 0;
   while ($i < scalar @start)
@@ -555,14 +568,20 @@ sub _find_path_astar
     my $t = 0; $t = $cell->{type} & EDGE_NO_M_MASK if $rcell =~ /::Edge/;
     next if $t != 0 && $t != EDGE_HOR && $t != EDGE_VER;
 
-#    print STDERR "# considering $sx, $sy with type $t\n";
+    # for each start point, calculate the distance to each stop point, then use
+    # the smallest as value
+
+    my $lowest = _astar_distance($sx,$sy, $stop[0], $stop[1]);
+    for (my $u = 3; $u < $stop; $u += 3)
+      {
+      my $dist = _astar_distance($sx,$sy, $stop[$u], $stop[$u+1]);
+      $lowest = $dist if $dist < $lowest;
+      }
+
+    $open->add( Graph::Easy::Astar::Node->new( $lowest, $sx, $sy, undef, undef, $type ));
 
     # add a penalty for crossings
     my $malus = 0; $malus = 30 if $t != 0;
-
-    $open->add( Graph::Easy::Astar::Node->new(
-      _astar_distance($sx,$sy, $dst->{x}, $dst->{y}),
-      $sx, $sy, undef, undef, $type ));
 
     # The cost to reach the starting node is obviously 0. That means that there is
     # a tie between going down/up if both possibilities are equal likely. We insert
@@ -571,12 +590,6 @@ sub _find_path_astar
     # first hits the target, it will explore only one.
     $open_by_pos->{"$sx,$sy"} = $malus + $bias; $bias += $self->{_astar_bias} || 0;
     }
-
-  # potential stop positions
-  my @stop = $dst->_near_places($cells, 1, $end_flags, 1);	# distance = 1: slots
-  my $stop = scalar @stop;
-
-  return unless $stop > 0;			# no free slots on target node?
  
   my $elem;
   # max. 10000 steps to prevent endless searching in case no path can be found
@@ -586,6 +599,7 @@ sub _find_path_astar
     {
     last STEP if $tries++ > $max_tries;
     #sleep(1);
+
     print STDERR "# Smallest elem is weight ", $elem->val, " at ", join(",", $elem->pos()),"\n" if $self->{debug};
 
     my (undef, $val, $x,$y, $px,$py, $type) = @$elem;
@@ -599,7 +613,7 @@ sub _find_path_astar
     # we are done when we hit one of the potential stop positions
     for (my $i = 0; $i < $stop; $i += 3)
       {
-      # reached on stop position
+      # reached one stop position?
       if ($x == $stop[$i] && $y == $stop[$i+1])
         {
         $closed->{$key}->[4] += $stop[$i+2];

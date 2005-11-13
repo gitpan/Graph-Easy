@@ -13,10 +13,11 @@ use strict;
 use lib 'lib';
 use Graph::Easy::Parser;
 
-my $parser = Graph::Easy::Parser->new( debug => 0 );
-
 my $file = shift;
 my $id = shift || '';
+my $debug = shift || 0;
+
+my $parser = Graph::Easy::Parser->new( debug => $debug );
 
 if (!defined $file)
   {
@@ -28,7 +29,7 @@ my $graph = $parser->from_file( $file );
 die ($parser->error()) unless defined $graph;
 
 $graph->id($id);
-$graph->timeout(120);
+$graph->timeout(360);
 $graph->layout();
 
 warn ($graph->error()) if $graph->error();

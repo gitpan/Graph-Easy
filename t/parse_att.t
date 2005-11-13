@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 45;
+   plan tests => 46;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -109,3 +109,4 @@ fill: brown;|fill=#a52a2a;
 point-style: qiggle;|error=Error in attribute: 'qiggle' is not a valid point-style for a node
 toint-shape: qiggle;|error=Error in attribute: 'toint-shape' is not a valid attribute name for a node
 autolink: qiggle;|error=Error in attribute: 'qiggle' is not a valid autolink for a node
+size: 1, 2;|size=1, 2;

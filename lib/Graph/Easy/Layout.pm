@@ -448,7 +448,7 @@ sub layout
     else
       {
       require Carp;
-      Carp::croak ("Illegal action $action->[0] on TODO stack");
+      Carp::confess ("Illegal action $action->[0] on TODO stack");
       }
 
     if (!defined $mod)
@@ -539,12 +539,22 @@ sub _fill_group_cells
   # if layout not done yet, do so
   $self->layout() unless defined $self->{score};
 
-  print STDERR "\n# Padding with fill cells, have ", scalar $self->groups(), " groups.\n" if $self->{debug};
+  print STDERR "\n# Padding with fill cells, have ", 
+    scalar $self->groups(), " groups.\n" if $self->{debug};
 
   # take a shortcut if we do not have groups
   return $self if $self->groups == 0;
 
   $self->{padding_cells} = 1;		# set to true
+
+  # Put all edges between two nodes with the same group in the group as well
+  for my $edge (values %{$self->{edges}})
+    {
+    my $gf = $edge->{from}->group();
+    my $gt = $edge->{to}->group();
+
+    $edge->add_to_group($gf) if defined $gf && defined $gt && $gf == $gt;
+    }
 
   # We need to insert "filler" cells around each node/edge/cell.
 
@@ -552,6 +562,7 @@ sub _fill_group_cells
   # is O(N) where N is the number of actually existing cells. Otherwise we
   # would have to create the full table-layout, and then insert rows/columns.
 
+  my $c = 'Graph::Easy::Group::Cell';
   my $cells = {};
   for my $key (keys %$cells_layout)
     {
@@ -565,36 +576,14 @@ sub _fill_group_cells
 
 #    print STDERR "# inserting for $x, $y, ", $cell->{name} || '', "\n";
 
-    my $group;
-
     # find the primary node/edge for node/edge cells
-    $cell = $cell->{node} if ref($cell) =~ /Node::Cell/;
-    $cell = $cell->{edge} if ref($cell) =~ /Edge::Cell/;
+    $cell = $cell->{node} if $cell->isa('Graph::Node::Cell');
+    $cell = $cell->{edge} if $cell->isa('Graph::Edge::Cell');
 
-    if (ref($cell) =~ /Node\z/)
-      {
-      my @groups = $cell->groups();
-      $group = $groups[0] if @groups;
-      }
-    elsif (ref($cell) =~ /Edge\z/)
-      {
-      # for edges, check group of left/right node
-      my $left = $cell->from();
-      my $right = $cell->to();
-      my @l_g = $left->groups();
-      my @r_g = $right->groups();
-      if (@l_g == @r_g && @l_g > 0 && $l_g[-1] == $r_g[-1])
-        {
-        # edge inside group
-        $group = $l_g[-1];
-        $cells->{"$x,$y"}->{group} = $group;
-        }
-      }
+    my $group = $cell->group();
 
     # not part of group, so no group-cells nec.
     next unless $group;
-
-    my $c = 'Graph::Easy::Group::Cell';
 
     # now insert filler cells around this cell
     my $ofs = [ -1, 0,

@@ -47,6 +47,9 @@ my $edge_styles = [
   'dot-dot-dash' => [ '..-', "!", '+', '+','+','+','+' ],	# dot-dot-dash
   'wave' 	 => [ '~~',  "}", '+', '*','*','*','*' ],	# wave
   'bold' 	 => [ '##',  "#", '#', '#','#','#','#' ],	# bold
+  'bold-dash' 	 => [ '# ',  "#", '#', '#','#','#','#' ],	# bold-dash
+  'wide' 	 => [ '##',  "#", '#', '#','#','#','#' ],	# wide
+  'broad' 	 => [ '##',  "#", '#', '#','#','#','#' ],	# broad
   },
   {
   # style            hor, ver,   	    cross,     corner (SE, SW, NE, NW)
@@ -59,6 +62,13 @@ my $edge_styles = [
   'dot-dot-dash' => [ (_u8('00b7') x 2).'-', "!",  _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # dot-dot-dash
   'wave' 	 => [ _u8('223c'), _u8('2240'),     _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # wave
   'bold' 	 => [ _u8('01'), _u8('03'), _u8('4b'),  _u8('0f'), _u8('13'), _u8('17'), _u8('1b') ], # bold
+  'bold-dash' 	 => [ _u8('01').' ', _u8('7b'), _u8('4b'),  _u8('0f'), _u8('13'), _u8('17'), _u8('1b') ], # bold-dash
+  'broad' 	 => [ _u8('ac'), _u8('ae'), _u8('88'),  _u8('88'), _u8('88'), _u8('88'), _u8('88') ], # wide
+  'wide' 	 => [ _u8('88'), _u8('88'), _u8('88'),  _u8('88'), _u8('88'), _u8('88'), _u8('88') ], # broad
+
+# these two make it nec. to support multi-line styles for the vertical edge pieces
+#  'broad-dash' 	 => [ _u8('fc'), _u8('fc'), _u8('fc'),  _u8('fc'), _u8('fc'), _u8('fc'), _u8('fc') ], # broad-dash
+#  'wide-dash' 	 => [ (_u8('88')x 2) .'  ', _u8('88'), _u8('88'),  _u8('88'), _u8('88'), _u8('88'), _u8('88') ], # wide-dash
   },
   ];
 
@@ -680,14 +690,16 @@ sub _printfb_ver
  # upper right edge
  # lower right edge
  # lower left edge
- # hor style
- # ver style (multiple characters possible)
+ # hor style (top edge)
+ # hor style (bottom side)
+ # ver style (right side) (multiple characters possible)
+ # ver style (left side) (multiple characters possible)
  # T crossing (see drawing below)
  # T to right
  # T to left
  # T to top
- # T shpe (to bottom)
-
+ # T shape (to bottom)
+ 
  #
  # +-----4-----4------+
  # |     |     |      |
@@ -702,28 +714,34 @@ sub _printfb_ver
 my $border_styles = 
   [
   {
-  solid =>		[ '+', '+', '+', '+', '-',   [ '|'      ], '+', '+', '+', '+', '+' ],
-  dotted =>		[ '.', '.', ':', ':', '.',   [ ':'      ], '.', '.', '.', '.', '.' ],
-  dashed =>		[ '+', '+', '+', '+', '- ',  [ "'"      ], '+', '+', '+', '+', '+' ],
-  'dot-dash' =>		[ '+', '+', '+', '+', '.-',  [ '!'      ], '+', '+', '+', '+', '+' ],
-  'dot-dot-dash' =>	[ '+', '+', '+', '+', '..-', [ '|', ':' ], '+', '+', '+', '+', '+' ],
-  bold =>		[ '#', '#', '#', '#', '#',   [ '#'      ], '#', '#', '#', '#', '#' ],
-  double =>		[ '#', '#', '#', '#', '=',   [ 'H'      ], '#', '#', '#', '#', '#' ],
-  'double-dash' =>	[ '#', '#', '#', '#', '= ',  [ '"'      ], '#', '#', '#', '#', '#' ],
-  wave =>		[ '+', '+', '+', '+', '~',   [ '{', '}' ], '+', '+', '+', '+', '+' ],
-  none =>		[ ' ', ' ', ' ', ' ', ' ',   [ ' '      ], ' ', ' ', ' ', ' ', ' ' ],
+  solid =>		[ '+', '+', '+', '+', '-',   '-',   [ '|'      ], [ '|'     ], '+', '+', '+', '+', '+' ],
+  dotted =>		[ '.', '.', ':', ':', '.',   '.',   [ ':'      ], [ ':'     ], '.', '.', '.', '.', '.' ],
+  dashed =>		[ '+', '+', '+', '+', '- ',  '- ',  [ "'"      ], [ "'"     ], '+', '+', '+', '+', '+' ],
+  'dot-dash' =>		[ '+', '+', '+', '+', '.-',  '.-',  [ '!'      ], [ '!'     ], '+', '+', '+', '+', '+' ],
+  'dot-dot-dash' =>	[ '+', '+', '+', '+', '..-', '..-', [ '|', ':' ], [ '|',':' ], '+', '+', '+', '+', '+' ],
+  bold =>		[ '#', '#', '#', '#', '#',   '#',   [ '#'      ], [ '#'     ], '#', '#', '#', '#', '#' ],
+  'bold-dash' =>	[ '#', '#', '#', '#', '# ',  '# ',  ['#',' '   ], [ '#',' ' ], '#', '#', '#', '#', '#' ],
+  double =>		[ '#', '#', '#', '#', '=',   '=',   [ 'H'      ], [ 'H'     ], '#', '#', '#', '#', '#' ],
+  'double-dash' =>	[ '#', '#', '#', '#', '= ',  '= ',  [ '"'      ], [ '"'     ], '#', '#', '#', '#', '#' ],
+  wave =>		[ '+', '+', '+', '+', '~',   '~',   [ '{', '}' ], [ '{','}' ], '+', '+', '+', '+', '+' ],
+  broad =>		[ '#', '#', '#', '#', '#',   '#',   [ '#'      ], [ '#'     ], '#', '#', '#', '#', '#' ],
+  wide =>		[ '#', '#', '#', '#', '#',   '#',   [ '#'      ], [ '#'     ], '#', '#', '#', '#', '#' ],
+  none =>		[ ' ', ' ', ' ', ' ', ' ',   ' ',   [ ' '      ], [ ' '     ], ' ', ' ', ' ', ' ', ' ' ],
   },
   {
-  solid =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('00'),   [ _u8('02') ],    _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  double =>		[ _u8('54'), _u8('57'), _u8('5d'), _u8('5a'), _u8('50'),   [ _u8('51') ],    _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  dotted =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('22ef'), [ _u8('22ee') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  dashed =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('2212'), [ _u8('4e') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  'dot-dash' =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('00b7').'-', [ '!' ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  'dot-dot-dash' =>	[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), (_u8('00b7') x 2) .'-', [ _u8('02'), ':' ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  bold =>		[ _u8('0f'), _u8('13'), _u8('1b'), _u8('17'), _u8('01'), [ _u8('03') ],      _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  'double-dash' =>	[ _u8('54'), _u8('57'), _u8('5d'), _u8('5a'), _u8('50').' ', [ _u8('2225') ],_u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  wave =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('223c'),  [ _u8('2240') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  none =>		[ ' ', ' ', ' ', ' ', ' ',   [ ' '      ], 				    ' ', ' ', ' ', ' ', ' ', ],
+  solid =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('00'), _u8('00'),     [ _u8('02') ], [ _u8('02') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  double =>		[ _u8('54'), _u8('57'), _u8('5d'), _u8('5a'), _u8('50'), _u8('50'),     [ _u8('51') ], [ _u8('51') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  dotted =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('22ef'), _u8('22ef'), [ _u8('22ee') ], [ _u8('22ee') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  dashed =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('2212'), _u8('2212'), [ _u8('4e') ], [ _u8('4e') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  'dot-dash' =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('00b7').'-', _u8('00b7').'-', ['!'], ['!'], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  'dot-dot-dash' =>	[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), (_u8('00b7') x 2) .'-', (_u8('00b7') x 2) .'-', [ _u8('02'), ':' ], [ _u8('02'), ':' ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  bold =>		[ _u8('0f'), _u8('13'), _u8('1b'), _u8('17'), _u8('01'), _u8('01'), [ _u8('03') ], [ _u8('03') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  'bold-dash' =>	[ _u8('0f'), _u8('13'), _u8('1b'), _u8('17'), _u8('01').' ', _u8('01').' ', [ _u8('7b') ], [ _u8('7b') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  'double-dash' =>	[ _u8('54'), _u8('57'), _u8('5d'), _u8('5a'), _u8('50').' ', _u8('50').' ', [ _u8('2225') ], [ _u8('2225') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  wave =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('223c'),  _u8('223c'), [ _u8('2240') ], [ _u8('2240') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  broad =>		[ _u8('9b'), _u8('9c'), _u8('9f'), _u8('99'), _u8('80'), _u8('84'), [ _u8('8c') ], [ _u8('90') ], _u8('84'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
+  wide =>		[ _u8('88'), _u8('88'), _u8('88'), _u8('88'), _u8('88'), _u8('88'), [ _u8('88') ], [ _u8('88') ], _u8('88'), _u8('88'), _u8('88'), _u8('88'), _u8('88') ],
+  none =>		[ ' ', ' ', ' ', ' ', ' ', ' ',  [ ' '      ], [ ' ' ], 		    ' ', ' ', ' ', ' ', ' ', ],
   },
   ];
 
@@ -874,7 +892,7 @@ sub _draw_border
     my $bl = $style->[3]; $bl = '' if $do_left eq 'none';
 
     # the bottom row '+--------+' etc
-    my $bottom = $bl . $style->[4] x (($self->{w}) / length($style->[4]) + 1);
+    my $bottom = $bl . $style->[5] x (($self->{w}) / length($style->[5]) + 1);
 
     $bottom = substr($bottom,0,$w) if length($bottom) > $w;
 
@@ -887,10 +905,10 @@ sub _draw_border
       if ($self->{rightbelow_count} > 0)
         {
         # place a cross or T piece (see drawing above)
-        my $piece = 6;	# cross
+        my $piece = 8;	# cross
         # inverted T
-        $piece = 9 if $self->{rightbelow_count} < 2 && !$self->{have_below};
-        $piece = 8 if $self->{rightbelow_count} < 2 && !$self->{have_right};
+        $piece = 11 if $self->{rightbelow_count} < 2 && !$self->{have_below};
+        $piece = 10 if $self->{rightbelow_count} < 2 && !$self->{have_right};
 
 #        print STDERR "# for $self->{label}: $piece ($self->{rightbelow_count} $self->{have_below} $self->{have_right})\n";
         substr($bottom,-1,1) = $style->[$piece];
@@ -904,12 +922,12 @@ sub _draw_border
   return if $do_right.$do_left eq 'nonenone';	# both none => done
 
   my $style = $self->_border_style($do_left, 'left');
-  my $left = $style->[5];
-  my $lc = scalar @{ $style->[5] } - 1;		# count of characters
+  my $left = $style->[6];
+  my $lc = scalar @{ $style->[6] } - 1;		# count of characters
 
   $style = $self->_border_style($do_right, 'right');
-  my $right = $style->[5];
-  my $rc = scalar @{ $style->[5] } - 1;		# count of characters
+  my $right = $style->[7];
+  my $rc = scalar @{ $style->[7] } - 1;		# count of characters
 
   my (@left, @right);
   my $l = 0; my $r = 0;				# start with first character
@@ -976,13 +994,16 @@ sub as_ascii
   if ($shape !~ /^(point|none)\z/)
     {
     my $border_style = $self->attribute('border-style') || 'solid';
-    my $border_width = $self->attribute('border-width') || '1';
+    my $EM = 14;
+    my $border_width = Graph::Easy::_border_width_in_pixels($self,$EM);
 
     # XXX TODO: borders for groups in ASCII output
     $border_style = 'none' if ref($self) =~ /Group/;
 
-    # "3px" => "bold"
+    # convert overly broad borders to the correct style
     $border_style = 'bold' if $border_width > 2;
+    $border_style = 'broad' if $border_width > $EM * 0.2 && $border_width < $EM * 0.75;
+    $border_style = 'wide' if $border_width >= $EM * 0.75;
 
     my $style = $border_style;
 

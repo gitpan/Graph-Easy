@@ -84,6 +84,12 @@ sub _graphviz_remap_edge_style
   $style = 'dashed' if $style =~ /^double-/;	# double-dash
   $style = 'dotted' if $style =~ /^wave/;	# wave
   $style = 'bold' if $style eq 'double';	# double
+
+  # XXX TODO: These should be (3, 0.5em, 1em) instead of 3,7,14
+
+ $style = 'setlinewidth(3)' if $style =~ /^bold-dash/;
+  $style = 'setlinewidth(7)' if $style =~ /^broad/;
+  $style = 'setlinewidth(14)' if $style =~ /^wide/;
   
   return (undef, undef) if $style eq 'solid';	# default style can be suppressed
 
@@ -108,6 +114,7 @@ sub _graphviz_remap_fontsize
   # make sure the fontsize is in pixel or percent
   my ($self, $name, $style) = @_;
 
+  # XXX TODO: This be 1 em
   my $fs = 11;
 
   if ($style =~ /^([\d.]+)em\z/)
@@ -126,7 +133,7 @@ sub _graphviz_remap_fontsize
   else
     {
     require Carp;
-    Carp::croak ("Illegal font-size '$fs'");
+    Carp::confess ("Illegal font-size '$fs'");
     }
 
   # font-size => fontsize
@@ -145,6 +152,11 @@ sub _graphviz_remap_border_style
 
   # border-style double will be handled extra with peripheries=2 later
   $style = 'solid' if $style eq 'double';
+
+  # XXX TODO: These should be (3, 0.5em, 1em) instead of 3,7,14
+  $style = 'setlinewidth(3)' if $style =~ /^bold/;
+  $style = 'setlinewidth(7)' if $style =~ /^broad/;
+  $style = 'setlinewidth(14)' if $style =~ /^wide/;
   
   # default style can be suppressed
   return (undef, undef) if $style =~ /^(solid|none)\z/;

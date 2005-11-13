@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 101;
+   plan tests => 103;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -331,6 +331,15 @@ $bonn->set_attribute( 'font-size' => '2em' );
 $grviz = $graph->as_graphviz();
 like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
 like ($graph->as_graphviz(), qr/Bonn.*fontsize=22/, '11px eq 1em');
+
+#############################################################################
+# bold-dash, broad and wide edges
+
+$bonn->set_attribute( 'border-style' => 'broad' );
+
+$grviz = $graph->as_graphviz();
+like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($graph->as_graphviz(), qr/Bonn.*style="setlinewidth\(7\)"/, '7 pixel for broad border');
 
 #############################################################################
 # quoting of special characters

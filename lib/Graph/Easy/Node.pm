@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 
 use strict;
 use Graph::Easy::Attributes;
@@ -107,9 +107,14 @@ sub _correct_size
 
   my $shape = $self->attribute('shape') || 'rect';
 
-  if ($shape eq 'point' || $shape eq 'invisible')
+  if ($shape eq 'point')
     {
     $self->{w} = 5;
+    $self->{h} = 3;
+    }
+  elsif ($shape eq 'invisible')
+    {
+    $self->{w} = 3;
     $self->{h} = 3;
     }
   else
@@ -219,8 +224,6 @@ sub _place_children
     return $rc if $rc == 0;
     }
   $self->_place($x,$y,$cells);
-
-  1;
   }
 
 sub _place
@@ -335,8 +338,6 @@ sub place
 
   # finally place this node at the requested position
   $self->_place($x,$y,$cells);
-
-  1;							# success
   }
 
 #############################################################################
@@ -376,6 +377,9 @@ my $node_remap = {
     fill => 'background',
     background => undef,
     'border' => undef,
+    'border-style' => undef,
+    'border-width' => undef,
+    'border-color' => undef,
     columns => undef,
     flow => undef,
     origin => undef,
@@ -387,6 +391,7 @@ my $node_remap = {
     },
   edge => {
     fill => undef,
+    'border' => undef,
     },
   all => {
     autolink => undef,
@@ -409,6 +414,7 @@ sub as_html
 
   my $id = $self->{graph}->{id};
   my $a = $self->{att};
+  my $g = $self->{graph};
 
   # return yourself as HTML
   my $shape = $self->attribute('shape') || '';
@@ -456,7 +462,19 @@ sub as_html
     $style .= "-moz-border-radius: 100%; border-radius: 100%; height: $size; width: $size; ";
     }
 
-  my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $node_remap, 'noquote');
+  my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $node_remap, 'noquote', 'encode');
+
+  if (!$self->isa('Graph::Easy::Edge'))
+    {
+    $out->{border} = Graph::Easy::_border_attribute_as_html( 
+	$self->attribute('border-style'),
+	$self->attribute('border-width'),
+	$self->attribute('border-color'));
+    my $c = $class; $c =~ s/\..*//;
+    my $DEF = $g->border_attribute ($c);
+    delete $out->{border} if $out->{border} =~ /^\s*\z/ || $out->{border} eq $DEF; #$g->{att}->{node}->{border};
+    delete $out->{border} if $class eq 'node.anon' && $out->{border} eq 'none';
+    }
 
   # shape: none; means no border, and background instead fill color
   if ($shape eq 'none')
@@ -464,9 +482,6 @@ sub as_html
     my $bg = $self->attribute('background') || 'inherit'; 
     $out->{background} = $bg;
     $out->{border} = 'none';
-    delete $out->{'border-style'};
-    delete $out->{'border-color'};
-    delete $out->{'border-width'};
     }
 
   for my $atr (sort keys %$out)
@@ -661,6 +676,13 @@ sub rows
   my $self = shift;
 
   $self->{cy};
+  }
+
+sub size
+  {
+  my $self = shift;
+
+  ($self->{cx}, $self->{cy});
   }
 
 sub shape
@@ -866,7 +888,7 @@ sub relative_to
   # Sets the new origin if passed a Graph::Easy::Node object.
   my ($self,$parent,$dx,$dy) = @_;
 
-  if (ref($parent) !~ /^Graph::Easy::Node/)
+  if (!ref($parent) || !$parent->isa('Graph::Easy::Node'))
     {
     require Carp;
     Carp::confess("Can't set origin to non-node object $parent");
@@ -922,7 +944,7 @@ sub find_grandparent
 sub border_attribute
   {
   # Return "solid 1px red" from the individual border-(style|color|width)
-  # attributes
+  # attributes, mainly for HTML output.
   my ($self) = @_;
 
   my $style = $self->{att}->{'border-style'} || '';
@@ -932,16 +954,7 @@ sub border_attribute
   my $width = $self->{att}->{'border-width'} || '';
   my $color = $self->{att}->{'border-color'} || '';
 
-  $color = Graph::Easy->color_name($color) if $color ne '';
-
-  $width = $width.'px' if $width =~ /^\s*\d+\s*\z/;
-  $width = '' if $style eq 'double';
-
-  my $val = join(" ", $width, $style, $color);
-  $val =~ s/^\s+//;
-  $val =~ s/\s+\z//;
-
-  $val;
+  Graph::Easy::_border_attribute($style, $width, $color);
   }
 
 sub attribute
@@ -973,6 +986,8 @@ sub attribute
 
   # try "node" next
   $att = $g->attribute ($c, $atr) unless defined $att;
+
+  # XXX TODO: this should use $self->parent() instead of just graph
 
   # If neither our group nor our parent class had the attribute, try to
   # inherit it from "graph" as a last resort:
@@ -1048,8 +1063,10 @@ sub set_attribute
     {
     my $c = $self->{att};
 
-    ( $c->{'border-style'}, $c->{'border-width'}, $c->{'border-color'} ) =
-        $self->border_attributes( $val );
+    my @rc = $g->split_border_attributes( $val );
+    $c->{'border-style'} = $rc[0] if defined $rc[0];
+    $c->{'border-width'} = $rc[1] if defined $rc[1];
+    $c->{'border-color'} = $rc[2] if defined $rc[2];
 
     return $val;
     }
@@ -1060,7 +1077,7 @@ sub set_attribute
       {
       $val =~ /^(\d+),(\d+)\z/;
       ($self->{cx}, $self->{cy}) = (abs(int($1)),abs(int($2)));
-      ($self->{att}->{rows}, $self->{att}->{columns}) = ($self->{cx}, $self->{cy});
+      ($self->{att}->{columns}, $self->{att}->{rows}) = ($self->{cx}, $self->{cy});
       }
     elsif ($name eq 'rows')
       {
@@ -1075,29 +1092,32 @@ sub set_attribute
     return $self;
     }
 
-  if ($name eq 'origin')
+  if ($name =~ /^(origin|offset)\z/)
     {
-    # if it doesn't exist, add it
-    my $org = $self->{graph}->add_node($val);
-    $self->relative_to($org);
-    return $self;
-    }
+    # Only the first autosplit node get the offset/origin
+    return $self if exists $self->{autosplit} && !defined $self->{autosplit};
 
-  if ($name eq 'offset')
-    {
-    # if it doesn't exist, add it
-    my ($x,$y) = split/\s*,\s*/, $val;
-
-    $x = int($x);
-    $y = int($y);
-
-    if ($x == 0 && $y == 0)
+    if ($name eq 'origin')
       {
-      $g->error("Error in attribute: 'offset' is 0,0 in node with class '$class'");
-      return;
+      # if it doesn't exist, add it
+      my $org = $self->{graph}->add_node($val);
+      $self->relative_to($org);
       }
-    $self->{dx} = $x;
-    $self->{dy} = $y;
+    else
+      {
+      # offset
+      # if it doesn't exist, add it
+      my ($x,$y) = split/\s*,\s*/, $val;
+      $x = int($x);
+      $y = int($y);
+      if ($x == 0 && $y == 0)
+        {
+        $g->error("Error in attribute: 'offset' is 0,0 in node $self->{name} with class '$class'");
+        return;
+        }
+      $self->{dx} = $x;
+      $self->{dy} = $y;
+      }
     return $self;
     }
 
@@ -1107,46 +1127,20 @@ sub set_attribute
 
 sub set_attributes
   {
-  my ($self, $atr) = @_;
+  my ($self, $atr, $index) = @_;
  
   foreach my $n (keys %$atr)
     {
-    $n eq 'class' ? $self->sub_class($atr->{$n}) : $self->set_attribute($n, $atr->{$n});
+    my $val = $atr->{$n};
+    $val = $val->[$index] if ref($val) eq 'ARRAY' && defined $index;
+
+    next if !defined $val;
+
+#    print STDERR "# $val ($n) index $index\n";
+
+    $n eq 'class' ? $self->sub_class($val) : $self->set_attribute($n, $val);
     }
   $self;
-  }
-
-sub border_attributes
-  {
-  # split "1px solid black" or "red dotted" into style, width and color
-  my ($self,$border) = @_;
-
-  # extract style
-  my $style;
-  $border =~ s/(solid|dotted|dot-dash|dot-dot-dash|dashed|double-dash|double|bold|none|wave)/ $style = $1; ''/eg;
-
-  $style ||= 'solid';
-
-  # extract width
-  $border =~ s/(\d+(px|em))//g;
-
-  my $width = $1 || '1';
-  $width =~ s/\D+//g;				# leave only digits
-  $width = 0 if $style eq 'none';
-
-  $border =~ s/\s+//g;				# rem unnec. spaces
-
-  # left over must be color
-  my $color = $border;
-  $color = Graph::Easy->color_as_hex($border) if $border ne '';
-
-  if (!defined $color)
-    {
-    require Carp;
-    Carp::confess( $self->error("$border is not a valid border-color") );
-    } 
-
-  ($style,$width,$color);			
   }
 
 BEGIN
@@ -1159,52 +1153,28 @@ BEGIN
 
 #############################################################################
 
-sub groups
-  {
-  # in scalar context, return number of groups this node belongs to
-  # in list context, returns all groups as list of objects, sorted by their
-  # name
-  my ($self) = @_;
-
-  if (wantarray)
-    {
-    my @groups;
-    for my $g (sort keys %{$self->{groups}})
-      {
-      push @groups, $self->{groups}->{$g};
-      }
-    return @groups;
-    }
-  scalar keys %{$self->{groups}};
-  }
-
 sub group
   {
-  # return group with name $name
-  my ($self, $group) = @_;
+  # return the group this object belongs to
+  my $self = shift;
 
-  $self->{groups}->{$group};
+  $self->{group};
   }
 
-sub add_to_groups
+sub add_to_group
   {
-  my ($self,@groups) = @_;
+  my ($self,$group) = @_;
 
   my $graph = $self->{graph};				# shortcut
 
-  for my $group (@groups)
-    {
-    # if passed a group name, create or find group object
-    if (!ref($group) && $graph)
-      {
-      my $g = $graph->group($group);
-      $g = Graph::Easy::Group->new( { name => $group } ) unless defined $g;
-      $group = $g;
-      }
-    # store the group, indexed by name (to avoid double entries)
-    $self->{groups}->{ $group->{name} } = $group;
-    $group->add_node($self);
-    }
+  # delete from old group if nec.
+  $self->{group}->del_member($self) if ref $self->{group};
+
+  # if passed a group name, create or find group object
+  $group = $graph->add_group($group) if (!ref($group) && $graph);
+
+  $group->add_member($self);
+
   $self;
   }
 
@@ -1355,13 +1325,6 @@ Sets all attributes specified in C<$hash> as key => value pairs in this
 Assembles the C<border-width>, C<border-color> and C<border-style> attributes
 into a string like "solid 1px red".
 
-=head2 border_attributes()
-
-	my ($style,$color,$width) = $node->border_attributes($border);
-
-Splits a border attribute like "solid 1px red" into the C<border-width>, C<border-color>
-and C<border-style> attribute.
-
 =head2 text_styles()
 
         my $styles = $node->text_styles();
@@ -1435,6 +1398,12 @@ string.
 
 Returns the dimensions of the node/cell derived from the label (or name) in characters.
 Assumes the label/name has literal '\n' replaced by "\n".
+
+=head2 size()
+
+	my ($cx,$cy) = $node->size();
+
+Returns the node size in cells.
 
 =head2 contents()
 
@@ -1560,26 +1529,17 @@ Return all edges that end at this node.
 
 Return all edges that start at this node.
 
-=head2 add_to_groups()
+=head2 add_to_group()
 
-	$node->add_to_groups( @groupd );
+	$node->add_to_group( $group );
 
-Add the node to multiple groups at once.
-
-=head2 groups()
-
-	my @groups = $node->groups();
-
-In scalar context, return number of groups this node belongs to.
-In list context, returns all groups as list of objects, sorted by their
-name.
+Put the node into this group.
 
 =head2 group()
 
-	my $group = $node->group('groupname');
+	my $group = $node->group();
 
-Returns the group with the specified name if the node belongs to that group,
-othrwise undef.
+Return the group this node belongs to, or undef.
 
 =head2 parent()
 
