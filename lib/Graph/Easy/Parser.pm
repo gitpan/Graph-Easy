@@ -6,26 +6,15 @@
 
 package Graph::Easy::Parser;
 
-use strict;
 use Graph::Easy;
+use Graph::Easy::Base;
 
-use vars qw/$VERSION/;
+$VERSION = '0.17';
+@ISA = qw/Graph::Easy::Base/;
 
-$VERSION = '0.16';
+use strict;
 
 sub NO_MULTIPLES () { 1; }
-
-sub new
-  {
-  my $class = shift;
-
-  my $self = bless {}, $class;
-
-  my $args = $_[0];
-  $args = { @_ } if ref($args) ne 'HASH';
-
-  $self->_init($args);
-  }
 
 sub _init
   {
@@ -60,7 +49,7 @@ sub reset
 
   $self->{clusters} = {};		# cluster names we already created
 
-  Graph::Easy::Node::_reset_id();	# start with the same set of IDs
+  Graph::Easy::Base::_reset_id();	# start with the same set of IDs
 
   $self;
   }
@@ -349,37 +338,60 @@ sub _new_node
   # split it up into several nodes and cluster these together.
   my ($self, $graph, $name, $group_stack, $att) = @_;
 
+  print STDERR "# Parser: new node '$name'\n" if $graph->{debug};
+
   # strip trailing spaces
-  $name =~ s/\s*\z//;
+  $name =~ s/\s*\z//; 
 
   # unquote special chars
   $name =~ s/\\([\[\(\{\}\]\)#])/$1/g;
+
+  my $autosplit;
 
   my @rc = ();
 
   if ($name eq '')
     {
+    print STDERR "# Parser: Creating anon node\n" if $graph->{debug};
+
     # create a new anon node and add it to the graph
     my $node = Graph::Easy::Node::Anon->new();
     @rc = ( $graph->add_node($node) );
     }
   elsif ($name =~ /[^\\]\|/)
     {
+    $autosplit = 1;
+
+    $name =~ s/^\s*\|\s*//;		# remove first empty part
+    $name =~ s/\s*\|\s*\z//;		# remove last empty part
+
     # build base name: "A|B |C||D" => "ABCD"
     my $base_name = $name; $base_name =~ s/\s*\|\|?\s*//g;
+
+    # use user-provided base name
+    $base_name = $att->{basename} if exists $att->{basename};
+
+    # strip trailing spaces on basename
+    $base_name =~ s/\s+\z//;
 
     # first one gets: "ABC", second one "ABC.1" and so on
     # Try to find a unique cluster name in case some one get's creative and names the
     # last part "-1":
 
-    my $g = 1;
-    while ($g == 1)
+    # does work without cluster-id?
+    if (exists $self->{clusters}->{$base_name})
       {
-      my $base_try = $base_name; $base_try .= '-' . $self->{cluster_id} if $self->{cluster_id};
-      last if !exists $self->{clusters}->{$base_try};
-      $self->{cluster_id}++;
+      my $g = 1;
+      while ($g == 1)
+        {
+        my $base_try = $base_name; $base_try .= '-' . $self->{cluster_id} if $self->{cluster_id};
+        last if !exists $self->{clusters}->{$base_try};
+        $self->{cluster_id}++;
+        }
+      $base_name .= '-' . $self->{cluster_id} if $self->{cluster_id}; $self->{cluster_id}++;
       }
-    $base_name .= '-' . $self->{cluster_id} if $self->{cluster_id}; $self->{cluster_id}++;
+
+    print STDERR "# Parser: Autosplitting node with basename '$base_name'\n" if $graph->{debug};
 
     $self->{clusters}->{$base_name} = undef;	# reserve this name
 
@@ -405,21 +417,33 @@ sub _new_node
         }
       else
         {
-        $part =~ s/^\s*//;	# rem spaces at front
-        $part =~ s/\s*$//;	# rem spaces at end
+        $part =~ s/^\s+//;	# rem spaces at front
+        $part =~ s/\s+\z//;	# rem spaces at end
         }
 
       my $node_name = "$base_name.$idx";
 
       # if it doesn't exist, add it, otherwise retrieve node object to $node
-      my $node = $graph->add_node($node_name);
-      $node->set_attribute('label', $part);
+      my $node;
+      if ($class eq 'Graph::Easy::Node')
+        { 
+        print STDERR "# Parser:  Creating autosplit part '$part'\n" if $graph->{debug};
+        $node = $graph->add_node($node_name);
+        $node->set_attribute('label', $part);
+        }
+      else
+        {
+        print STDERR "# Parser:  Creating empty autosplit part '$part'\n" if $graph->{debug};
+        $node = $class->new( $node_name ); $graph->add_node($node);
+        $node->set_attribute('label', $part);
+        }
 
       push @rc, $node;
       if (@rc == 1)
         {
         # for correct as_txt output
         $node->{autosplit} = $name;
+        $node->{autosplit} =~ s/\s+\z//;		# strip trailing spaces
         }
       else
         {
@@ -444,6 +468,8 @@ sub _new_node
     }
   else
     {
+    print STDERR "# Parser: Creating normal node\n" if $graph->{debug};
+
     # collapse multiple spaces
     $name =~ s/\s+/ /g;
 
@@ -453,13 +479,21 @@ sub _new_node
     @rc = ( $graph->add_node($name) );		# add unless exists
     }
 
+  $self->parse_error(5) if exists $att->{basename} && !$autosplit;
+
+  my $b = $att->{basename};
+  delete $att->{basename};
+
   my $index = 0;
   foreach my $node (@rc)
     {
     $node->add_to_group($group_stack->[-1]) if @$group_stack != 0;
+    
     $node->set_attributes ($att, $index);
     $index++;
     }
+  
+  $att->{basename} = $b if defined $b;
 
   # return list of created nodes (usually one, but more for "A|B")
   @rc;
@@ -610,6 +644,8 @@ sub parse_error
 	if $msg_nr == 3;								# 3
   $msg = "Error in attribute: multi-attribute '##param1##' not allowed here"
 	if $msg_nr == 4;								# 4
+  $msg = "Error in attribute: basename not allowed for non-autosplit nodes"
+	if $msg_nr == 5;								# 5
 
   my $i = 1;
   foreach my $p (@_)

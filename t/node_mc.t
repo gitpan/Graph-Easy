@@ -55,7 +55,7 @@ $node->grow();
 
 is ($node->connections(), 5, '5 connections');
 is ($node->columns(), 1, '1 column');
-is ($node->rows(), 2, '2 rows');
+is ($node->rows(), 3, '3 rows');
 is ($node->is_multicelled(), 1, 'is multicelled');
 
 #############################################################################
@@ -101,7 +101,7 @@ my $cells = { };
 
 is ($node->place(1,1,$cells), 1, 'node can be placed');
 
-is (scalar keys %$cells, 2, '2 entries');
+is (scalar keys %$cells, 3, '3 entries (3 rows)');
 is ($cells->{"1,1"}, $node, 'node was really placed');
 my $filler = $cells->{"1,2"};
 is (ref($filler), 'Graph::Easy::Node::Cell', 'filler cell');
@@ -109,6 +109,6 @@ is ($filler->node(), $node, 'filler associated with node');
 
 is ($node->place(1,1,$cells), 0, 'node cannot be placed again');
 is ($cells->{"1,1"}, $node, 'node still there placed');
-is (scalar keys %$cells, 2, 'still two entries');
+is (scalar keys %$cells, 3, 'still three entries');
 
 

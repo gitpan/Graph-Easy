@@ -508,14 +508,14 @@ sub _draw_loop_ver
   my $line = $style->[1] x (1 + $h / length($style->[1])); 
   $line = substr($line, 0, $h) if length($line) > $h;
 
-  my $x = 2; $x = $self->{w}-3 if ($type == EDGE_W_S_E);
+  my $x = 2; $x = $self->{w}-3 if ($type == EDGE_E_S_W);
   $self->_printfb_ver ($fb, $x, $y, $line);
 
   ###########################################################################
   # horizontal pieces
 
   my $w = $self->{w} - 3; $y = $self->{h} - 4;
-  $x = 2; $x = 1 if ($type == EDGE_W_S_E);
+  $x = 2; $x = 1 if ($type == EDGE_E_S_W);
 
   # '-' => '-----', '.-' => '.-.-.-'
   my $len = length($style->[0]); 
@@ -538,9 +538,9 @@ sub _draw_loop_ver
   
   $self->_printfb_line ($fb, $x, $self->{h} - 2, $line);
 
-  $x = 2; $x = $self->{w}-3 if ($type == EDGE_W_S_E);
+  $x = 2; $x = $self->{w}-3 if ($type == EDGE_E_S_W);
 
-  my $corner_idx = 3; $corner_idx = 4 if $type == EDGE_W_S_E;
+  my $corner_idx = 3; $corner_idx = 4 if $type == EDGE_E_S_W;
 
   # insert the corner character
   $self->_printfb ($fb, $x, $y, $style->[$corner_idx]);
@@ -550,7 +550,7 @@ sub _draw_loop_ver
     {
     # include our label
     my @pieces = $self->_formatted_label();
-    $x = 4; $x = 3 if ($type == EDGE_W_S_E);
+    $x = 4; $x = 3 if ($type == EDGE_E_S_W);
 
     $self->_printfb ($fb, $x, $self->{h} - 5, @pieces) if @pieces > 0;
     }
@@ -851,7 +851,7 @@ sub _arrow
 sub _draw_border
   {
   # draws a border into the framebuffer
-  my ($self, $fb, $do_right, $do_bottom, $do_left, $do_top) = @_;
+  my ($self, $fb, $do_right, $do_bottom, $do_left, $do_top, $x, $y) = @_;
 
   return if $do_right.$do_left.$do_bottom.$do_top eq 'nonenonenonenone';
 
@@ -866,7 +866,19 @@ sub _draw_border
     my $tl = $style->[0]; $tl = '' if $do_left eq 'none';
 
     # generate the top border
-    my $top = $tl . $style->[4] x (($self->{w}) / length($style->[4]) + 1);
+    my $top = $style->[4] x (($self->{w}) / length($style->[4]) + 1);
+
+    my $len = length($style->[4]); 
+
+    # for seamless rendering
+    if (defined $x)
+      {
+      my $ofs = $x % $len;
+      substr($top,0,$ofs) = '' if $ofs != 0;
+      }
+
+    # insert left upper corner (if it is there)
+    substr($top,0,1) = $tl if $tl ne '';
 
     $top = substr($top,0,$w) if length($top) > $w;
     
@@ -892,7 +904,19 @@ sub _draw_border
     my $bl = $style->[3]; $bl = '' if $do_left eq 'none';
 
     # the bottom row '+--------+' etc
-    my $bottom = $bl . $style->[5] x (($self->{w}) / length($style->[5]) + 1);
+    my $bottom = $style->[5] x (($self->{w}) / length($style->[5]) + 1);
+
+    my $len = length($style->[5]);
+ 
+    # for seamless rendering
+    if (defined $x)
+      {
+      my $ofs = $x % $len;
+      substr($bottom,0,$ofs) = '' if $ofs != 0;
+      }
+
+    # insert left bottom corner (if it is there)
+    substr($bottom,0,1) = $bl if $bl ne '';
 
     $bottom = substr($bottom,0,$w) if length($bottom) > $w;
 
@@ -932,7 +956,10 @@ sub _draw_border
   my (@left, @right);
   my $l = 0; my $r = 0;				# start with first character
   my $s = 1; $s = 0 if $do_top eq 'none';
-  for ($s..$self->{h}-2)
+
+  my $h = $self->{h} - 2;
+  $h ++ if defined $x && $do_bottom eq 'none';	# for seamless rendering
+  for ($s..$h)
     {
     push @left, $left->[$l]; $l ++; $l = 0 if $l > $lc;
     push @right, $right->[$r]; $r ++; $r = 0 if $r > $rc;

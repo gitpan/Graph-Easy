@@ -41,7 +41,7 @@ if (!defined $ver)
   print "         SVG output is not possible until you install it afterwards.\n\n";
   }
 
-if (defined $ver && $ver <= 0.10)
+if (defined $ver && $ver <= 0.12)
   {
   print "\n************\n";
   print "Warning: Your Graph::Easy::As_svg version is outdated.\n";

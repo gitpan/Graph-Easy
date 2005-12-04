@@ -9,7 +9,7 @@ use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 use strict;
 
@@ -98,8 +98,6 @@ sub _init
   
   $self->{x} = 0;
   $self->{y} = 0;
-  $self->{w} = 0;
-  $self->{h} = 0;
 
   # XXX TODO check arguments
   foreach my $k (keys %$args)
@@ -167,8 +165,41 @@ sub _set_type
 
 sub as_ascii
   {
-  # XXX TODO
-  '';
+  my ($self, $x,$y) = @_;
+
+  my $fb = $self->_framebuffer($self->{w}, $self->{h});
+
+  my $border_style = $self->{group}->attribute('border-style') || 'dashed';
+  my $EM = 14;
+  my $border_width = Graph::Easy::_border_width_in_pixels($self->{group},$EM);
+
+  # convert overly broad borders to the correct style
+  $border_style = 'bold' if $border_width > 2;
+  $border_style = 'broad' if $border_width > $EM * 0.2 && $border_width < $EM * 0.75;
+  $border_style = 'wide' if $border_width >= $EM * 0.75;
+
+  return '' if $border_style eq 'none';
+
+  #########################################################################
+  # draw our border into the framebuffer
+
+  my $c = $self->{cell_class};
+
+  my $b_top = $border_style;
+  my $b_left = $border_style;
+  my $b_right = $border_style; 
+  my $b_bottom = $border_style;
+  if ($c !~ 'ga')
+    {
+    $b_top = 'none' unless $c =~ /gt/;
+    $b_left = 'none' unless $c =~ /gl/;
+    $b_right = 'none' unless $c =~ /gr/;
+    $b_bottom = 'none' unless $c =~ /gb/;
+    }
+
+  $self->_draw_border($fb, $b_right, $b_bottom, $b_left, $b_top, $x, $y);
+
+  join ("\n", @$fb);
   }
 
 sub class
@@ -188,21 +219,17 @@ sub _correct_size
   {
   my ($self,$format) = @_;
 
-  my $border = $self->{group}->attribute('border-style') || 'none';
   if (!defined $self->{w})
     {
-    if ($border eq 'none')
-      {
-      $self->{w} = 0;
-      $self->{h} = 0;
-      }
-    else
+    my $border = $self->{group}->attribute('border-style') || 'dashed';
+    $self->{w} = 0;
+    $self->{h} = 0;
+    if ($border ne 'none')
       {
       $self->{w} = 2;
       $self->{h} = 2;
       }
     }
-
   }
 
 1;

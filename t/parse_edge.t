@@ -42,11 +42,6 @@ my $qr_oatr = $parser->_match_optional_attributes();
 #$r = '<- Label -> [ AB ]';
 #$r = '--> { color: red; } [ AB ]';
 
-#if ($r =~ /^$qr_edge$qr_oatr$qr_node$qr_oatr/)
-#  {
-#  print STDERR "# '$1' '$2' '$3' '$4' '$5' '$6' '$7' '$8' '$9' '$10' '$11' '$12'\n";
-#  }
-
 foreach my $l (<DATA>)
   {
   chomp ($l);
@@ -60,7 +55,7 @@ foreach my $l (<DATA>)
     if (!unlike ($in, qr/^$qr_edge\z/, "$in"))
       {
       $in =~ /^$qr_edge/;
-      print STDERR "# '$1' '$2' '$3' '$4' '$5' '$6'\n";
+      diag ("# '$1' '$2' '$3' '$4' '$5' '$6'\n");
       }
     next;
     }
@@ -73,7 +68,7 @@ foreach my $l (<DATA>)
   like ($in, qr/^$qr_edge\z/, "$in");
 
 #  $in =~ /^$qr_edge\z/;
-#  print STDERR "# '$1' '$2' '$3' '$4' '$5' '$6' '$7' '$8' '$9'\n";
+#  diag("# '$1' '$2' '$3' '$4' '$5' '$6' '$7' '$8' '$9'\n");
   }
 
 __DATA__

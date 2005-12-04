@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 26;
+   plan tests => 28;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -196,5 +196,30 @@ $like = quotemeta($edge_html);
 $html = $graph->as_html();
 like ($html, qr/$like/, 'edge->as_html()');
 
+#############################################################################
+# a node with a link and a fill color at the same time
+
+my $f = $graph->node('Friedrichshafen');
+$f->set_attribute('link', 'http://bloodgate.com');
+$f->set_attribute('fill', 'red');
+
+$html = $f->as_html();
+
+is ($html, <<EOF
+ <td colspan=4 rowspan=4 class='node' style="background: #ff0000"><a class='l' href='http://bloodgate.com'>Friedrichshafen</a></td>
+EOF
+, 'fill is on the TD, not the A HREF');
+
+#############################################################################
+# a node with a link and a border at the same time
+
+$f->set_attribute('border', 'orange');
+
+$html = $f->as_html();
+
+is ($html, <<EOF
+ <td colspan=4 rowspan=4 class='node' style="background: #ff0000;border: solid 1px #ffa500"><a class='l' href='http://bloodgate.com'>Friedrichshafen</a></td>
+EOF
+, 'border is on the TD, not the A HREF');
 
 

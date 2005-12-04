@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 104;
+   plan tests => 106;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -152,7 +152,8 @@ edge { color: red; }|0
 [ A | B | C ] => [ A ]|4,A,A,ABC.0,B,ABC.1,C,ABC.2
 [ A | B | C ] => [ A ] [ A | B | C ] => [ A ]|7,A,A,ABC-1.0,B,ABC-1.1,C,ABC-1.2,A,ABC.0,B,ABC.1,C,ABC.2
 # unique cluster names, despite trickery in source with "ABC-1" as split node:
-[ A | B | C | -1 ] => [ A ] [ A | B | C ] => [ A ]|8,A,A,ABC-1.0,B,ABC-1.1,C,ABC-1.2,-1,ABC-1.3,A,ABC-2.0,B,ABC-2.1,C,ABC-2.2
+[ A | B | C | -1 ] => [ A ] [ A | B | C ] => [ A ]|8,A,A,ABC-1.0,B,ABC-1.1,C,ABC-1.2,-1,ABC-1.3,A,ABC.0,B,ABC.1,C,ABC.2
+[ A | B | C | -1 ] => [ A ] [ A | B | C ] => [ A ] [ A | B | C ]|11,A,A,ABC-1.0,B,ABC-1.1,C,ABC-1.2,-1,ABC-1.3,A,ABC-2.0,B,ABC-2.1,C,ABC-2.2,A,ABC.0,B,ABC.1,C,ABC.2
 # normal tests
 [ Berlin ]|1,Berlin
 [Hamburg]|1,Hamburg
@@ -235,6 +236,7 @@ graph { background: red; } [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ]\n { color: red; } --> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ] { color:\n red; } --> [ Berlin ]|2,Berlin,Bonn
 ( Group [ Bonn ] ) { color: red; }|1,Bonn,Group
+[ $sys$Node ]|1,$sys$Node
 # XXX TODO: error testing
 # mismatching left/right side
 #[ Bonn ] - Auto--> [ Berlin ]|2+1,Auto--,Berlin,Bonn

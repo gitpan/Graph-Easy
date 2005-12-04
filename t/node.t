@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 127;
+   plan tests => 151;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -57,6 +57,7 @@ can_ok ("Graph::Easy::Node", qw/
   is_multicelled
 
   _place _check_place _place_children find_grandparent
+  _near_places _allowed_places
   /);
 
 #############################################################################
@@ -424,4 +425,95 @@ $graph->add_edge('C', 'C');
 
 is ($C->incoming(), 3, 'C -> C');
 is ($C->outgoing(), 1, 'C -> C');
+
+#############################################################################
+# _allowed_places()
+
+$graph = Graph::Easy->new();
+
+($A,$B, $edge) = $graph->add_edge('A','B');
+
+my @allowed = $A->_allowed_places ( [ 0,0, 0,1, 0,2, 0,3 ], [ 0,0, 0,2, 1,2 ]);
+is_deeply (\@allowed, [ 0,0, 0,2 ], '_allowed_places');
+
+@allowed = $A->_allowed_places ( [ 0,0, 0,1, 0,2, 0,3 ], [ ]);
+is_deeply (\@allowed, [ ], '_allowed_places');
+
+@allowed = $A->_allowed_places ( [ 0,0, 0,1, 0,2, 0,3 ], [ 3,1, 1,2, 0,4 ]);
+is_deeply (\@allowed, [ ], '_allowed_places');
+
+@allowed = $A->_allowed_places ( [ 0,0, 0,1, 0,2, 0,3 ], [ 3,1, 1,2, 0,3 ]);
+is_deeply (\@allowed, [ 0,3 ], '_allowed_places');
+
+#############################################################################
+# _allow()
+
+$A->{x} = 1; $A->{y} = 2;
+
+$A->{cx} = 3; $A->{cy} = 2;
+
+my $allow = $A->_allow('south','');
+is_deeply ($allow, [ 1,4, 2,4, 3,4 ], 'south');
+
+$allow = $A->_allow('south','0');
+is_deeply ($allow, [ 1,4 ], 'south,0');
+
+$allow = $A->_allow('south','1');
+is_deeply ($allow, [ 2,4 ], 'south,1');
+
+$allow = $A->_allow('south','2');
+is_deeply ($allow, [ 3,4 ], 'south,2');
+
+$allow = $A->_allow('south','3');
+is_deeply ($allow, [ 3,4 ], 'south,3');
+
+$allow = $A->_allow('south','-1');
+is_deeply ($allow, [ 3,4 ], 'south,-1');
+
+$allow = $A->_allow('south','-2');
+is_deeply ($allow, [ 2,4 ], 'south,-2');
+
+$allow = $A->_allow('south','-3');
+is_deeply ($allow, [ 1,4 ], 'south,-3');
+
+$allow = $A->_allow('south','-4');
+is_deeply ($allow, [ 1,4 ], 'south,-4');
+
+$allow = $A->_allow('north','');
+is_deeply ($allow, [ 1,1, 2,1, 3,1 ], 'north');
+
+$allow = $A->_allow('north','0');
+is_deeply ($allow, [ 1,1 ], 'north,0');
+
+$allow = $A->_allow('north','2');
+is_deeply ($allow, [ 3,1 ], 'north,0');
+
+$allow = $A->_allow('north','-1');
+is_deeply ($allow, [ 3,1 ], 'north,0');
+
+$allow = $A->_allow('west','');
+is_deeply ($allow, [ 0,2, 0,3 ], 'west');
+
+$allow = $A->_allow('west','0');
+is_deeply ($allow, [ 0,2 ], 'west');
+
+$allow = $A->_allow('west','1');
+is_deeply ($allow, [ 0,3 ], 'west');
+
+$allow = $A->_allow('east','');
+is_deeply ($allow, [ 4,2, 4,3 ], 'east');
+
+$allow = $A->_allow('east','1');
+is_deeply ($allow, [ 4,3 ], 'east,1');
+
+$allow = $A->_allow('east','2');
+is_deeply ($allow, [ 4,3 ], 'east,2');
+
+$allow = $A->_allow('east','-1');
+is_deeply ($allow, [ 4,3 ], 'east,-1');
+
+
+
+
+
 

@@ -6,38 +6,13 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.17';
+$VERSION = '0.18';
+
+use Graph::Easy::Attributes;
+use Graph::Easy::Base;
+@ISA = qw/Graph::Easy::Base/;
 
 use strict;
-use Graph::Easy::Attributes;
-
-#############################################################################
-
-{
-  # protected vars
-  my $id = 0;
-  sub _new_id { $id++; }
-  sub _reset_id { $id = 0; }
-}
-
-#############################################################################
-
-sub new
-  {
-  # Create a new object. This is a generic routine that is inherited
-  # by many other things like Edge, Cell etc.
-  my $class = shift;
-
-  my $args = $_[0];
-  $args = { name => $_[0] } if ref($args) ne 'HASH' && @_ == 1;
-  $args = { @_ } if ref($args) ne 'HASH' && @_ > 1;
-  
-  my $self = bless {}, $class;
-
-  $self->{id} = _new_id();
-
-  $self->_init($args);
-  }
 
 sub _init
   {
@@ -220,7 +195,12 @@ sub _place_children
 
   for my $child (values %{$self->{children}})
     {
-    my $rc = $child->_place_children($x + $child->{dx},$y + $child->{dy},$cells);
+    # compute place of children (depending on whether we are multicelled or not)
+
+    my $dx = $child->{dx} > 0 ? $self->{cx} - 1 : 0;
+    my $dy = $child->{dy} > 0 ? $self->{cy} - 1 : 0;
+
+    my $rc = $child->_place_children($x + $dx + $child->{dx},$y + $dy + $child->{dy},$cells);
     return $rc if $rc == 0;
     }
   $self->_place($x,$y,$cells);
@@ -341,14 +321,6 @@ sub place
   }
 
 #############################################################################
-
-sub error
-  {
-  my $self = shift;
-
-  $self->{error} = $_[0] if defined $_[0];
-  $self->{error} || '';
-  }
 
 sub _formatted_label
   {
@@ -484,8 +456,15 @@ sub as_html
     $out->{border} = 'none';
     }
 
+  my $link = $self->link();
+
   for my $atr (sort keys %$out)
     {
+    if ($link ne '')
+      {
+      # put certain styles not on the link
+      next if $atr =~ /^(background|border)\z/;
+      }
     $style .= "$atr: $out->{$atr}; ";
     }
 
@@ -499,8 +478,6 @@ sub as_html
   $title =~ s/"/&#22;/g;			# replace quotation marks
   $html .= " title=\"$title\"" if $title ne '';	# add mouse-over title
 
-  my $link = $self->link();
-
   my $end_tag = "</$tag>\n";
 
   if ($link ne '')
@@ -508,7 +485,16 @@ sub as_html
     # encode critical entities
     $link =~ s/\s/\+/g;				# space
     $link =~ s/'/%27/g;				# replace quotation marks
-    $html .= "><a class='l' href='$link'";	# put the style on "<a.."
+
+    # put certain styles like border and background on the table cell,
+    # but the other styles on the link
+    my $td_style = '';
+    $td_style .= "background: $out->{background};" if exists $out->{background};
+    $td_style .= "border: $out->{border};" if exists $out->{border};
+    $td_style =~ s/;\z//;				# remove last ;
+    $td_style = " style=\"$td_style\"" if $td_style;
+
+    $html .= "$td_style><a class='l' href='$link'";	# put the style on "<a.."
     $end_tag = '</a>'.$end_tag;
     }
   $html .= " style=\"$style\"" if $style;
@@ -535,6 +521,73 @@ sub grow
 #  $self->{cx} = $cx if $cx > $self->{cx};
 #  $self->{cy} = $cy if $cy > $self->{cy};
 
+  # satisfy the edge start/end port constraints:
+
+  # We calculate a bitmap (vector) for each side, and mark each
+  # used port. Edges that have an unspecified port will just be
+  # counted.
+
+  # bitmap for each side:
+  my $vec = { north => '', south => '', east => '', west => '' };
+  # number of edges constrained to one side, but without port number
+  my $cnt = { north => 0, south => 0, east => 0, west => 0 };
+  # number of edges constrained to one side, with port number
+  my $portnr = { north => 0, south => 0, east => 0, west => 0 };
+  # max number of ports for each side
+  my $max = { north => 0, south => 0, east => 0, west => 0 };
+
+  my @idx = ( [ 'start', 'from' ], [ 'end', 'to' ] );
+
+  # first for north/south
+  for my $e (values %{$self->{edges}})
+    {
+
+    # do always both ends, because self-loops can start AND end at this node:
+    for my $end (0..1)
+      {
+      # if the edge starts/ends here
+      if ($e->{$idx[$end]->[1]} == $self)
+	{
+	my $port = $e->attribute($idx[$end]->[0]);
+
+	if (defined $port)
+	  {
+	  my ($side, $nr) = split /\s*,\s*/, $port;
+	  $nr = '' unless defined $nr;
+	  if ($nr eq '')
+	    {
+	    # no port number specified, so just count
+	    $cnt->{$side}++;
+	    }
+	  else
+	    {
+	    # mark the bit in the vector
+	    # limit to four digits
+	    $nr = 9999 if abs($nr) > 9999; 
+
+	    # if slot was used yet, count it
+	    $portnr->{$side} ++ if vec($vec->{$side}, $nr, 1) == 0x0;
+
+	    # calculate max number of ports
+            $nr = abs($nr) - 1 if $nr < 0;		# 3 => 3, -3 => 2
+            $nr++;					# 3 => 4, -3 => 3
+
+	    # mark as used
+	    vec($vec->{$side}, $nr - 1, 1) = 0x01;
+
+	    $max->{$side} = $nr if $nr > $max->{$side};
+	    }
+          }
+        } # end if port is constrained
+      } # end for start/end port
+    } # end for all edges
+
+  # XXX TODO:
+  # now grow the node based on what port restrictions we found out
+#  use Data::Dumper; 
+#  print STDERR "# port contraints for $self->{name}:\n";
+#  print STDERR "# count: ", Dumper($cnt), "# max: ", Dumper($max),"\n";
+#  print STDERR "# ports: ", Dumper($portnr),"\n";
 
   # since selfloops count twice in connections(), but actually block only
   # one port, we can just count the edges here:
@@ -545,13 +598,13 @@ sub grow
 
   my $first = "cy"; my $second = "cx";
   ($first,$second) = ($second,$first) if $flow == 0 || $flow == 180;
-  while ( ($self->{cx} * 2 + $self->{cy} * 2) < $connections)
+  while ( (2 + $self->{cx} + $self->{cy}) < $connections)
     {
     # find the minimum
     # XXX TODO: use "flow" attribute to choose Y or X preference
     my $grow = $first;		# first in Y direction
     $grow = $second if $self->{$second} < $self->{$first};
-    $self->{$grow}++;
+    $self->{$grow} += 2;
     }
 
   $self;
@@ -1220,6 +1273,8 @@ like L<Graph::Easy>.
 
 =head1 METHODS
 
+=head2 new()
+
         my $node = Graph::Easy::Node->new( name => 'node name' );
         my $node = Graph::Easy::Node->new( 'node name' );
 
@@ -1230,21 +1285,6 @@ then please use the following to create the node object:
 
 You can then use C<< $node->set_attribute(); >>
 or C<< $node->set_attributes(); >> to set the new Node's attributes.
-
-=head2 new()
-
-	my $node = Graph::Easy::Node->new('Name');
-
-Create a new node with the name C<Name>.
-
-=head2 error()
-
-	$last_error = $node->error();
-
-	$node->error($error);			# set new messags
-	$node->error('');			# clear error
-
-Returns the last error message, or '' for no error.
 
 =head2 as_ascii()
 

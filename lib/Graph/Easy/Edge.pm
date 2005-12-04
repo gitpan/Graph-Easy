@@ -5,14 +5,11 @@
 
 package Graph::Easy::Edge;
 
-use strict;
 use Graph::Easy::Node;
-
-use vars qw/$VERSION @ISA/;
-
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
+$VERSION = '0.17';
 
-$VERSION = '0.16';
+use strict;
 
 #############################################################################
 
@@ -24,7 +21,7 @@ sub _init
   $self->{class} = 'edge';
 
   # leave this unitialized until we need it
-  # $self->{cells} = { };
+  # $self->{cells} = [ ];
 
   foreach my $k (keys %$args)
     {
@@ -123,6 +120,17 @@ sub undirected
   $self->{undirected};
   }
 
+sub has_ports
+  {
+  my $self = shift;
+
+  my $s_port = $self->{att}->{start} || $self->attribute('start');
+  my $e_port = $self->{att}->{end} || $self->attribute('end');
+
+  return 1 if defined $s_port || defined $e_port;
+  0;
+  }
+
 sub style
   {
   my $self = shift;
@@ -135,8 +143,9 @@ sub cells
   # return all the cells this edge currently occupies
   my $self = shift;
 
-  $self->{cells} = {} unless defined $self->{cells};
-  $self->{cells};
+  $self->{cells} = [] unless defined $self->{cells};
+
+  @{$self->{cells}};
   }
 
 sub clear_cells
@@ -144,7 +153,7 @@ sub clear_cells
   # remove all belonging cells
   my $self = shift;
 
-  $self->{cells} = {};
+  $self->{cells} = [];
 
   $self;
   }
@@ -154,27 +163,104 @@ sub _unplace
   # Take an edge, and remove all the cells it covers from the cells area
   my ($self, $cells) = @_;
 
-  my $covered = $self->cells();
-
   print STDERR "# clearing path from $self->{from}->{name} to $self->{to}->{name}\n" if $self->{debug};
 
-  for my $key (keys %$covered)
+  for my $key (@{$self->{cells}})
     {
     # XXX TODO: handle crossed edges differently (from CROSS => HOR or VER)
     # free in our cells area
     delete $cells->{$key};
     }
-  # clear cells
-  $self->{cells} = {};
+
+  $self->clear_cells();
+
   $self;
+  }
+
+sub _distance
+  {
+  # estimate the distance from SRC to DST node
+  my ($self) = @_;
+
+  my $src = $self->{from};
+  my $dst = $self->{to};
+
+  # one of them not yet placed?
+  return 100000 unless defined $src->{x} && defined $dst->{x};
+
+  my $cells = $self->{graph}->{cells};
+
+  # get all the starting positions
+  # distance = 1: slots, generate starting types, the direction is shifted
+  # by 90° counter-clockwise
+
+  my @start = $src->_near_places($cells, 1, undef, undef, $src->_shift(-90) );
+
+  # potential stop positions
+  my @stop = $dst->_near_places($cells, 1);		# distance = 1: slots
+
+  my ($s_p,@ss_p) = split (/,/, $self->attribute('start') || '');
+  my ($e_p,@ee_p) = split (/,/, $self->attribute('end') || '');
+
+  # the edge has a port description, limiting the start places
+  @start = $src->_allowed_places( \@start, $src->_allow( $s_p, @ss_p ), 3)
+    if defined $s_p;
+
+  # the edge has a port description, limiting the stop places
+  @stop = $dst->_allowed_places( \@stop, $dst->_allow( $e_p, @ee_p ), 3)
+    if defined $e_p;
+
+  my $stop = scalar @stop;
+
+  return 0 unless @stop > 0 && @start > 0;	# no free slots on one node?
+
+  my $lowest;
+
+  my $i = 0;
+  while ($i < scalar @start)
+    {
+    my $sx = $start[$i]; my $sy = $start[$i+1]; $i += 2;
+
+    # for each start point, calculate the distance to each stop point, then use
+    # the smallest as value
+
+    for (my $u = 0; $u < $stop; $u += 2)
+      {
+      my $dist = Graph::Easy::_astar_distance($sx,$sy, $stop[$u], $stop[$u+1]);
+      $lowest = $dist if !defined $lowest || $dist < $lowest;
+      }
+    }
+
+  $lowest;
   }
 
 sub add_cell
   {
-  # add a cell to the list of cells this edge covers
-  my ($self,$cell) = @_;
-  
-  $self->{cells}->{"$cell->{x},$cell->{y}"} = $cell;
+  # add a cell to the list of cells this edge covers. If $after is a ref
+  # to a cell, then the new cell will be inserted right after this cell.
+  my ($self, $cell, $after) = @_;
+ 
+  $self->{cells} = [] unless defined $self->{cells};
+  my $cells = $self->{cells};
+
+  if (defined $after)
+    {
+    # insert the new cell right after $after
+    my $ofs = 0;
+    for my $cell (@$cells)
+      {
+      last if $cell == $after;
+      $ofs++; 
+      }
+    splice (@$cells, $ofs, 0, $cell);
+    } 
+  else
+    {
+    # insert new cell at the end
+    push @$cells, $cell;
+    }
+
+  $self;
   }
 
 sub from
@@ -324,6 +410,17 @@ An optional parameter will set the bidirectional status of the edge.
 
 Returns true if the edge is undirected, aka has now arrow at all.
 An optional parameter will set the undirected status of the edge.
+
+=head2 has_ports()
+
+	if ($edge->has_ports())
+	  {
+	  ...
+	  }
+
+Return true if the edge has restriction on the starting or ending
+port, e.g. either the C<start> or C<end> attribute is set on
+this edge. 
 
 =head2 from()
 

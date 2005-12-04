@@ -7,6 +7,19 @@ In addition:
 
 Important short-term TODO:
 
+* grow nodes based on the used start/end port numbers
+* bidirectional self-loops are rendered with only one arrow: [A] <--> [A]
+* undirected self-loops are rendered with one arrow: [A] -- [A]
+* layout() will grow nodes base on layout contraints, an as_txt() afterwards
+  will produce these sizes, even when the input did not specify a node size.
+* grow nodes based on edge start/end ports (if port "south,7" is specified, the
+  node must be at least 8 cells wide)
+* "[A],[B],[C] -> [ very wide node ] { size: 7,1; }" results in A being very
+  broad, and B and C being very small. They should be roughly the same size.
+  (for multicelled nodes: find smallest row/column, increase, until all
+   columns/rows are equal size, the distribute remaining nec. min. size
+   to all columns/rows)
+* fix border on groups without subclass
 * as_txt(): the following are wrong as txt:
   + 4_autosplit_offset.txt
   + 3_autosplit_hangt.txt
@@ -14,10 +27,20 @@ Important short-term TODO:
   just to draw the right/bottom border pieces)
   (we might put these "invisible" nodes into a different "cells" field,
    which will be rendered, but not queryied for path finding etc)
-* missing edges sometimes do not result in an error message
-* unplacing edge-crossings does not work properly, leaving stray crossings
+* A* will "cross" edges multiple times along their line e.g.:
+ 
+      A 
+      |
+      |
+  C---|-----|-----|-----D
+                  |
+                  |
+		  B
+
+   Where A->B and C->D.
+
 * implement HTML nodes as triangles, house, etc. using slanted edges
-* define missing HTML edge cells (selfloops, and CROSS w. end/start points)
+* define missing HTML edge pieces: CROSS sections w/ end/start points
 * as_html(): output of node-clusters is slightly wrong
 * as_html(): there is no space between two nodes placed next (with filler
 	     cell) to each other. Make filler cells output a &nbsp;
@@ -77,7 +100,7 @@ Output:
 * support egde "style: invisible"
 * as_txt(): output of node clusters is not optimal
 * as_txt(): output of node chains is not optimal
-* as_ascii(): output group borders and group labels
+* output group labels
 * better support for different shapes (circle, box, rounded, polygon etc)
   in ASCII
 * as_graphviz(): support "border-style: double" together with fill colors
@@ -113,19 +136,11 @@ Output:
 
 Layout:
 
-* the longest-chain code (walk recursively children of startig node) needs
-  some tuning, especially when it encounters loops in the graph.
-  (rewrite it to always work from front-to-back and make it skipp self-loops,
-   multi-edges and back-loops, then combine longest chain from subchains)
 * allow user to specify max graph width (in cells) to avoid overly wide graphs
 * auto-grow nodes to be multicelled depending on the dimensions of their label
   ("main page" gets 2x1, while "a \nb \nc \nd \ne \n" gets 1x2 cells)
   This currently causes problems and wierd layouts.
 * Use the seed to generate randomized layouts
-* allow user to specify on an edge:
-    direction: (up|down|left|right|north|south|west|east|0|90|180|270|360);
-    flow: (up|down|left|right|north|south|west|east|0|90|180|270|360);
-  to force or suggest direction of edges leaving a node
 * the A* algorithm needs fine-tuning to generate less bendy paths
 
 Rendering/Layout:
@@ -139,9 +154,30 @@ Optimizer:
 * write an optimizer for already laid out graphs to optimize layout
 * less memory: store border and edge styles as ints instead of "solid" etc
 * use AUTOLOAD for accessors in Node.pm: most are never used by normal code
-* when in a run-away situation, A* becomes the single largest CPU eater
 
-Manual:
-
-* finish the POD to HTML conversion (Graph::Easy::Pod2HTML)
-
+* write our own Heap::Binary, which doesn't need objects (from todos/big.txt):
+ Total Elapsed Time = 2.845439 Seconds
+   User+System Time = 2.845439 Seconds
+ Exclusive Times
+ %Time ExclSec CumulS #Calls sec/call Csec/c  Name
+  27.4   0.782  3.392     62   0.0126 0.0547  Graph::Easy::_find_path_astar
+  15.1   0.430  0.430 179301   0.0000 0.0000  Graph::Easy::Astar::Node::cmp
+  14.8   0.423  1.042  15380   0.0000 0.0001  Heap::Binary::heapdown
+  14.2   0.406  0.411  15327   0.0000 0.0000  Graph::Easy::_astar_near_nodes
+  11.1   0.317  0.486 122985   0.0000 0.0000  Heap::Binary::moveto
+  7.91   0.225  0.225  89840   0.0000 0.0000  Graph::Easy::_astar_distance
+  7.77   0.221  0.221 138373   0.0000 0.0000  Graph::Easy::Astar::Node::heap
+  4.92   0.140  0.436  17788   0.0000 0.0000  Heap::Binary::heapup
+  4.25   0.121  0.121  17788   0.0000 0.0000  Graph::Easy::Astar::Node::new
+  4.22   0.120  0.120     62   0.0019 0.0019  Graph::Easy::_astar_boundaries
+  2.78   0.079  0.384      1   0.0792 0.3837  Graph::Easy::_as_ascii
+  2.53   0.072  0.072  15957   0.0000 0.0000  Graph::Easy::get_attribute
+  2.39   0.068  0.086  17788   0.0000 0.0000  Graph::Easy::_astar_modifier
+  2.07   0.059  0.058    464   0.0001 0.0001  Graph::Easy::Node::_near_places
+  2.04   0.058  0.130   9028   0.0000 0.0000  Graph::Easy::Node::attribute
+  1.83   0.052  0.488  17788   0.0000 0.0000  Heap::Binary::add
+  1.41   0.040  0.070     34   0.0012 0.0021  Graph::Easy::BEGIN
+  1.02   0.029  0.072      1   0.0287 0.0721  Graph::Easy::_prepare_layout
+  0.98   0.028  0.032   1217   0.0000 0.0000  Graph::Easy::Edge::Cell::_init
+  0.95   0.027  1.122  15389   0.0000 0.0001  Heap::Binary::extract_top
+  0.74   0.021  0.021  17365   0.0000 0.0000  UNIVERSAL::isa

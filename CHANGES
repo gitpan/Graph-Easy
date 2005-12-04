@@ -1,5 +1,60 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-12-04 v0.34 Tels 1437 tests
+  * as_html: align arrow heads better with the edge line
+	     (still breaks sometimes, espc. with edge labels)
+  * as_html: implement missing edge corner piece E->S
+  * as_html: implement selfloop edge pieces
+  * as_html: fix crossings of different edge styles
+  * as_html: putting a "fill" or "border" on an node with a link did put
+	     these styles on the link, not on the table cell.
+  * as_ascii()/as_boxart(): render group borders
+  * as_graphviz(): fix arrows on undirected/bidirectional edges
+  * A*: compute the working space and disregard cells outside this area
+	This prevents the run-away situation in case no path can be found.
+  * A*: did not close crossings on edges, getting it stuck in an add-del-add
+	cycle until it hit the hard limit of 10000 steps, thus never finding
+	the path.
+  * A*: find less bendy paths (no inward bend corners anymore)
+  * fix a bug in trying placements of nodes, where the node would be
+    registered on all potential places, instead of only the final selected
+    one. In HTML, the node would thus appear multiple times in the output.
+  * Graph: streamline sorted_nodes();
+  * Edge: keep edge cells in sorted order (from start to end), and allow 
+	  add_cell() to insert a cell into the list (to repair edge-splitting
+	  from the group-padding code). Also allows rendering cells in order.
+  * Edge: has_ports(): return true if start or ending port of the edge are
+	  restricted in some way (attributes 'start' and 'end')
+  * Nodes relative to multi-celled nodes did not take into account the size
+    of the origin node (when the offset was positive in X and/or Y dir.).
+  * add Graph:Easy::Base as base class for common code for all objects
+  * add Graph:Easy::Layout::Chain for internal use in the Layouter
+  * completely rewrite the chain-tracking code, and the code that generates
+    layouts based on the chain info. Handles now bidirectional edges,
+    forwad/backward loops and is generally more robust.
+  * Layouter: grow nodes by 2 in each direction, instead of 1. This fixes
+	      layouts with star-shaped auto-grown multi-celled nodes (try to
+	      say this three times fast...) where you have on node at
+	      the center. Since nodes are never placed next to each other,
+	      growing the node by 1 did not make enough space for all adjacent
+	      nodes.	
+  * use diag() instead of printing to STDERR in tests
+  * edge crossings with a start/end point had the type check wrong and
+    thus could lead to the styles being switched around (HOR vs. VER)
+  * Graph: add svg_information()
+  * add attribute "basename" to autosplit nodes to make referencing easier
+  * add edge attributes: 'start' and 'end' - node starting/ending port to
+     specific node ports for specific layouts
+  * create Empty nodes for autosplit nodes again (regression)
+  * trailing/leading empty parts on autosplit nodes are always removed, so
+    "[ |A|B| ]" equals [ A|B ]
+  * move _prepare_grid() to Graph::Easy::Layout::Grid and load it on demand
+  * autosplit nodes only get an unique ID when their basename doesn't already
+    exist, so this now works:
+
+	[ A|B ] { basename: one; } [ C|D ] { basename: two; }
+	[ one.1 ] -> [ two.0 ]
+
 2005-11-13 v0.33 Tels 1337 tests
   * simplify group code: Nodes can only be in one group at a time
   * Groups: edges with their to/from nodes in the same group are also

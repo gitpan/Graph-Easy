@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 package Graph::Easy;
 
@@ -471,6 +471,7 @@ sub split_border_attributes
 sub ATTR_STRING		() { 0; }
 sub ATTR_COLOR		() { 1; }
 sub ATTR_ANGLE		() { 2; }
+sub ATTR_PORT		() { 3; }
 
 sub ATTR_DESC_SLOT	() { 0; }
 sub ATTR_MATCH_SLOT	() { 1; }
@@ -503,12 +504,12 @@ my $attributes = {
      ],
 
     background => [
-     "The background color, e.g. the color outside the shape. See the section about color names and values for reference.",
+     "The background color, e.g. the color B<outside> the shape. Do not confuse with L<fill>. See the section about color names and values for reference.",
      undef,
      '"white" for the graph, "inherit" for edges, and undef and nodes',
      'rgb(255,0,0)',
      ATTR_COLOR,
-     "[ Crimson ] { shape: circle; background: crimson; }\n -- Aqua Marine --> { background: #7fffd4; }\n [ Misty Rose ] { fill: rgb(255,228,221); }",
+     "[ Crimson ] { shape: circle; background: crimson; }\n -- Aqua Marine --> { background: #7fffd4; }\n [ Misty Rose ] { background: white; fill: rgb(255,228,221); }",
      ],
 
     "border-color" => [
@@ -714,6 +715,15 @@ EOF
       'square',
      ], 
 
+    "basename" => [
+     "Controls the base name of an autosplit node. Ignored for all other nodes.",
+     undef,
+      'automatically generated from the parts',
+      '123',
+       undef,
+     "[ A|B|C ] { basename: A } [ 1 ] -> [ A.2 ]\n [ A|B|C ] [ 2 ] -> [ ABC.2 ]",
+     ], 
+
   }, # node
 
   graph => {
@@ -774,6 +784,25 @@ EOF
      ATTR_COLOR,
      "[ Bonn ] -- ICE --> { label-color: blue; }\n [ Berlin ]",
      ],
+
+    "start" => [
+     'The starting port of this edge. See the section about node ports for reference.',
+     qr/^(south|north|east|west)(,\s*-?[\d{1,4}])?\z/,
+     '',
+     'south',
+     ATTR_PORT,
+     "[ Bonn ] -- NORTH --> { start: north; end: north; } [ Berlin ]",
+     ],
+
+    "end" => [
+     'The ending port of this edge. See the section about node ports for reference.',
+     qr/^(south|north|east|west)(,\s*-?[\d{1,4}])?\z/,
+     '',
+     'west',
+     ATTR_PORT,
+     "[ Bonn ] -- NORTH --> { start: south; end: east; } [ Berlin ]",
+     ],
+
    }, # edge
 
   group => {
@@ -828,9 +857,10 @@ sub valid_attribute
   return [] unless ref($entry);
 
   my $check = $entry->[1];
+  my $type = $entry->[4] || ATTR_STRING;
 
-  $check = 'color_as_hex' if ($entry->[4] || ATTR_STRING) == ATTR_COLOR;
-  $check = 'angle' if ($entry->[4] || ATTR_STRING) == ATTR_ANGLE;
+  $check = 'color_as_hex' if $type == ATTR_COLOR;
+  $check = 'angle' if $type == ATTR_ANGLE;
 
   my @values = ($value);
 

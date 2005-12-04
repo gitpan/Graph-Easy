@@ -5,6 +5,6 @@ node.city { color: #801010; }
   [ Cuxhaven ]
   [ Flensburg ]
   [ Hamburg ]
-) { nodeclass: city; }
+) { nodeclass: city; border: dot-dash; }
 
 [ Cuxhaven ] --> [ Bremen ]

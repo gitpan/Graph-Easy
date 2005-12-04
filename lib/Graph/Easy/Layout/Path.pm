@@ -8,12 +8,14 @@ package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 #############################################################################
 #############################################################################
 
 package Graph::Easy::Node;
+
+use strict;
 
 use Graph::Easy::Edge::Cell qw/
  EDGE_END_E EDGE_END_N EDGE_END_S EDGE_END_W
@@ -48,7 +50,7 @@ sub _shift
   # get a direction shifted by X° to $dir
   my ($self, $turn) = @_;
 
-  $dir = $self->attribute('flow') || 90;
+  my $dir = $self->attribute('flow') || 90;
 
   $dir += $turn;
   $dir += 360 if $dir < 0;
@@ -186,8 +188,93 @@ sub _near_places
   @places;
   }
 
-package Graph::Easy;
+sub _allowed_places
+  {
+  # given a list of potential positions, and a list of allowed positions,
+  # return the valid ones (e.g. that are in both lists)
+  my ($self, $places, $allowed, $step) = @_;
 
+  print STDERR "# calculating allowed places for $self->{name}\n" if $self->{graph}->{debug};
+
+  $step ||= 2;				# default: "x,y"
+
+  my @good;
+  my $i = 0;
+  while ($i < @$places)
+    {
+    my ($x,$y) = ($places->[$i], $places->[$i+1]);
+    my $allow = 0;
+    my $j = 0;
+    while ($j < @$allowed)
+      {
+      my ($m,$n) = ($allowed->[$j], $allowed->[$j+1]);
+      $allow++ and last if ($m == $x && $n == $y);
+      } continue { $j += 2; }
+    next unless $allow;
+    push @good, $places->[$i + $_ -1] for (1..$step);
+    } continue { $i += $step; }
+
+  @good;
+  }
+
+sub _allow
+  {
+  # return a list of places, depending on the start/end atribute:
+  # "south" - any place south
+  # "south,0" - first place south
+  # "south,-1" - last place south  
+  # XXX TODO:
+  # "south,0..2" - first three places south
+  # "south,0,1,-1" - first, second and last place south  
+
+  my ($self, $dir, @pos) = @_;
+
+  my $place = {
+    'south' => [  0,0, 0,1, 'cx', 1,0 ],
+    'north' => [ 0,-1, 0,0, 'cx', 1,0 ],
+    'east' =>  [  0,0, 1,0, 'cy', 0,1 ],
+    'west' =>  [ -1,0, 0,0, 'cy', 0,1 ] ,
+    };
+
+  my $p = $place->{$dir};
+
+  return [] unless defined $p;
+
+  # start pos
+  my $x = $p->[0] + $self->{x} + $p->[2] * $self->{cx};
+  my $y = $p->[1] + $self->{y} + $p->[3] * $self->{cy};
+
+  my @allowed;
+  push @pos, '' if @pos == 0;
+
+  my $c = $p->[4];
+  if (@pos == 1 && $pos[0] eq '')
+    {
+    # allow all of them
+    for (1 .. $self->{$c})
+      {
+      push @allowed, $x, $y;
+      $x += $p->[5];
+      $y += $p->[6];
+      }
+    } 
+  else
+    {
+    # allow only the given position
+    my $ps = $pos[0];
+    # limit to 0..$self->{cx}-1
+    $ps = $self->{$c} + $ps if $ps < 0;
+    $ps = 0 if $ps < 0;
+    $ps = $self->{$c} - 1 if $ps >= $self->{$c};
+    $x += $p->[5] * $ps;
+    $y += $p->[6] * $ps;
+    push @allowed, $x, $y;
+    }
+
+  \@allowed;
+  }
+
+package Graph::Easy;
 use strict;
 use Graph::Easy::Node::Cell;
 
@@ -217,7 +304,7 @@ sub _clear_tries
     my $x = $tries->[$src];
     my $y = $tries->[$src+1];
 
-    print STDERR "# checking $x,$y\n" if $self->{debug};
+#    print STDERR "# checking $x,$y\n" if $self->{debug};
 
     $node->{x} = $x;
     $node->{y} = $y;
@@ -236,7 +323,7 @@ sub _clear_tries
       {
       my $xy = $near[$j]. ',' . $near[$j+1];
 
-      print STDERR "# checking near-place: $xy: " . ref($cells->{$xy}) . "\n" if $self->{debug};
+#      print STDERR "# checking near-place: $xy: " . ref($cells->{$xy}) . "\n" if $self->{debug};
       
       my $cell = $cells->{$xy};
 
@@ -330,7 +417,7 @@ sub _find_node_place
       {
       # only one placed predecessor, so place $node near it
       print STDERR "# placing $node->{name} near predecessor\n" if $self->{debug};
-      @tries = $pre[0]->_near_places($cells); 
+      @tries = ( $pre[0]->_near_places($cells), $pre[0]->_near_places($cells,4) ); 
       }
     else
       {
@@ -381,10 +468,12 @@ sub _find_node_place
     {
     push @suc, $s if defined $s->{x};
     }
+  print STDERR "# Number of placed successors of $node->{name}: " . scalar @suc . "\n" if $self->{debug};
   foreach my $s (@suc)
     {
     # for each successors (especially if there is only one), try to place near
     push @tries, $s->_near_places($cells); 
+    push @tries, $s->_near_places($cells,4); 
     }
 
   # weed out positions that are unsuitable
@@ -408,6 +497,11 @@ sub _find_node_place
   # all simple possibilities exhausted, try a generic approach
 
   print STDERR "# No more simple possibilities for node $node->{name}\n" if $self->{debug};
+  #print STDERR "# $node->{name} has ", scalar @pre ," predecessorts\n" if $self->{debug};
+
+  # XXX TODO:
+  # find out which sides of the node predecessor node(s) still have free
+  # ports/slots. With increasing distances, try to place the node around these.
 
   # If no predecessors/incoming edges, try to place in column 0, otherwise 
   # considered the node's rank, too
@@ -422,9 +516,14 @@ sub _find_node_place
   $y += 1 if exists $cells->{"$col," . ($y-1)};		# leave one cell spacing
 
   # now try to place node (or node cluster)
-  $y +=2 while (
-   !$node->place($col,$y,$cells) ||
-   ($self->_clear_tries($node, $cells, [ $col,$y ]) == 0));
+  while (3 < 5)
+    {
+    next if $self->_clear_tries($node, $cells, [ $col,$y ]) == 0;
+    last if $node->place($col,$y,$cells);
+    }
+    continue {
+    $y += 2;
+    }
 
   $node->{x} = $col; #$node->{y} = $y;
 

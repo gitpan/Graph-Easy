@@ -21,6 +21,8 @@ can_ok ("Graph::Easy", qw/
   error
   node nodes edges anon_nodes
 
+  svg_information
+
   add_edge
   add_node
   merge_nodes

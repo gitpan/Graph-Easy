@@ -85,14 +85,14 @@ sub _for_all_files
     {
     my $f = "../t/$dir/" . $file;
     next unless -f $f;			# not a file?
+
+    print STDERR "# at file $f\n";
  
     open FILE, "$f" or die ("Cannot read '$f': $!");
     local $/ = undef;
     my $input = <FILE>;
     close FILE;
     my $graph = $parser->from_text( $input );
-
-    $graph->layout() if defined $graph;
 
     if (!defined $graph)
       {
@@ -107,6 +107,24 @@ sub _for_all_files
 	"</div>\n";
       next;
       }
+
+    $graph->timeout(100);
+    $graph->layout();
+
+    if ($graph->error())
+      {
+      my $error = $graph->error();
+      $output .=
+        "<h2>$dir/$file</h2>" .
+	"<a class='top' href='#top' title='Go to the top'>Top -^</a>\n".
+	"<div class='text'>\n".
+	"Error: $error</b>".
+	"<br>Input was:\n" .
+	"<pre>$input</pre>\n".
+	"</div>\n";
+      next;
+      }
+
     $output .= out ($input, $graph, 'html', $dir, $file);
     }
   }

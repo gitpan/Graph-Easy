@@ -21,7 +21,7 @@ node { shape: ellipse; }
 [ processing ] ..> [ carbon dioxide ]
 [ processing ] ..> [ pollution ]
 
-[ water ] -> [ vegetation ]
-[ solar energy ] -> [ vegetation ]
+#[ water ] -> [ vegetation ]
+#[ solar energy ] -> [ vegetation ]
 
 

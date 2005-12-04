@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 29;
+   plan tests => 33;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok qw/Graph::Easy::Edge/;
@@ -23,6 +23,7 @@ can_ok ("Graph::Easy::Edge", qw/
   attribute
   undirected
   bidirectional
+  has_ports
   set_attribute
   set_attributes
   group add_to_group
@@ -48,6 +49,7 @@ is (ref($edge), 'Graph::Easy::Edge');
 is ($edge->error(), '', 'no error yet');
 is ($edge->undirected(), undef, 'not undirected');
 is ($edge->bidirectional(), undef, 'not bidiriectional');
+is ($edge->has_ports(), 0, 'has no port restrictions');
 
 use_ok ('Graph::Easy::As_txt');
 
@@ -97,7 +99,7 @@ is ($edge->as_txt(), ' -- train --> ', ' -- train -->');
 #############################################################################
 # cells
 
-is (scalar keys %{$edge->cells()}, 0, 'no cells');
+is (scalar $edge->cells(), 0, 'no cells');
 
 my $path = Graph::Easy::Edge::Cell->new (
   edge => $edge,
@@ -105,18 +107,17 @@ my $path = Graph::Easy::Edge::Cell->new (
   x => 1, y => 1,
 );
 
-$edge->add_cell($path);
-is (scalar keys %{$edge->cells()}, 1, 'one cell');
+is (scalar $edge->cells(), 1, 'one cell');
 
-$edge->add_cell($path);
-is (scalar keys %{$edge->cells()}, 1, 'still one cell');
+#$edge->add_cell($path);
+#is (scalar $edge->cells(), 1, 'still one cell');
 
 $path->{x}++;
 $edge->add_cell($path);
-is (scalar keys %{$edge->cells()}, 2, 'two cells');
+is (scalar $edge->cells(), 2, 'two cells');
 
 $edge->clear_cells();
-is (scalar keys %{$edge->cells()}, 0, 'no cells');
+is (scalar $edge->cells(), 0, 'no cells');
 
 #############################################################################
 # undirected/bidirectional
@@ -127,4 +128,19 @@ is ($edge->undirected(0), 0, 'not undirected');
 is ($edge->bidirectional(2), 1, 'bidiriectional');
 is ($edge->bidirectional(), 1, 'bidiriectional');
 is ($edge->bidirectional(0), 0, 'not bidiriectional');
+
+#############################################################################
+# has_ports()
+
+$edge->set_attribute('start', 'south');
+is ($edge->has_ports(), 1, 'has port restrictions');
+
+$edge->set_attribute('end', 'north');
+is ($edge->has_ports(), 1, 'has port restrictions');
+
+$edge->del_attribute('start');
+is ($edge->has_ports(), 1, 'has port restrictions');
+
+$edge->del_attribute('end');
+is ($edge->has_ports(), 0, 'has no port restrictions');
 

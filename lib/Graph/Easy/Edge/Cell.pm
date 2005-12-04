@@ -12,7 +12,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 use Scalar::Util qw/weaken/;
 
@@ -80,8 +80,8 @@ sub EDGE_SHORT_UN_NS	() { EDGE_VER + EDGE_START_S + EDGE_START_N; }  # |
 
 sub EDGE_LOOP_NORTH	() { EDGE_N_W_S + EDGE_END_S + EDGE_START_N + EDGE_LABEL_CELL; }
 sub EDGE_LOOP_SOUTH	() { EDGE_S_W_N + EDGE_END_N + EDGE_START_S + EDGE_LABEL_CELL; }
-sub EDGE_LOOP_EAST	() { EDGE_E_S_W + EDGE_END_E + EDGE_START_W + EDGE_LABEL_CELL; }
-sub EDGE_LOOP_WEST	() { EDGE_W_S_E + EDGE_END_W + EDGE_START_E + EDGE_LABEL_CELL; }
+sub EDGE_LOOP_WEST	() { EDGE_W_S_E + EDGE_END_E + EDGE_START_W + EDGE_LABEL_CELL; }
+sub EDGE_LOOP_EAST	() { EDGE_E_S_W + EDGE_END_W + EDGE_START_E + EDGE_LABEL_CELL; }
 
 sub ARROW_RIGHT () { 0; };
 sub ARROW_LEFT () { 1; };
@@ -171,8 +171,8 @@ my $edge_types = {
 
   EDGE_N_W_S() => 'selfloop, northwards',
   EDGE_S_W_N() => 'selfloop, southwards',
-  EDGE_E_S_W() => 'selfloop, westwards',
-  EDGE_W_S_E() => 'selfloop, eastwards',
+  EDGE_E_S_W() => 'selfloop, eastwards',
+  EDGE_W_S_E() => 'selfloop, westwards',
   };
 
 my $flag_types = {
@@ -272,13 +272,13 @@ sub _make_cross
   # Upgrade us to a cross-section.
   my ($self, $edge, $flags) = @_;
   
-  my $type = $self->{type};
+  my $type = $self->{type} & EDGE_TYPE_MASK;
     
 #  print STDERR "# edge ($edge->{id}: $edge->{from}->{name} to $edge->{to}->{name}) will cross\n";
 #  my $e = $self->{edge};
 #  print STDERR "# ($e->{id}: $e->{from}->{name} to $e->{to}->{name})\n";
 
-  # return undef if (($type != EDGE_HOR) && ($type != EDGE_VER));
+  return undef if (($type != EDGE_HOR) && ($type != EDGE_VER));
 
   $self->{color} = $self->attribute('color');
   $self->{style_ver} = $edge->style();
@@ -286,6 +286,7 @@ sub _make_cross
   $self->{cross} = $edge;
 
   # if we are the VER piece, switch styles around
+
   if ($type == EDGE_VER)
     {
     ($self->{style_ver}, $self->{style}) = ($self->{style},$self->{style_ver});
@@ -326,6 +327,16 @@ my $edge_html = {
     ' <td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>',
    ],
 
+  EDGE_S_E() + EDGE_START_E() => [
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
+    ' <td rowspan=4 class="##class## ve"></td>',
+    '',
+    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+    '',
+   ],
+
   EDGE_S_E() + EDGE_END_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
     ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
@@ -359,7 +370,7 @@ my $edge_html = {
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>',
     '',
-    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 class="##class## eb"></td>'. "\n" .
     ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
     ' <td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>',
    ],
@@ -564,6 +575,65 @@ my $edge_html = {
     '',
    ],
 
+  ###########################################################################
+  ###########################################################################
+  # self loops
+
+  EDGE_LOOP_NORTH() - EDGE_LABEL_CELL() => [
+    ' <td rowspan=2 class="##class## eb">&nbsp;</td>' . "\n".
+    ' <td colspan=2 rowspan=2 class="##class## lh" style="border-bottom: ##border##;##lc####bg##">##label##</td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb">&nbsp;</td>',
+    '',
+    ' <td class="##class## eb">&nbsp;</td>' . "\n".
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>'."\n".
+    ' <td colspan=1 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+
+    ' <td colspan=2 class="##class## v"##edgecolor##>&nbsp;v</td>' . "\n" .
+    ' <td colspan=2 class="##class## eb">&nbsp;</td>',
+
+   ],
+
+  EDGE_LOOP_SOUTH() - EDGE_LABEL_CELL() => [
+    ' <td colspan=2 class="##class## v"##edgecolor##>&nbsp;^</td>' . "\n" . 
+    ' <td colspan=2 class="##class## eb">&nbsp;</td>',
+
+    ' <td rowspan=2 class="##class## eb">&nbsp;</td>' . "\n".
+    ' <td colspan=2 rowspan=2 class="##class## lh" style="border-left: ##border##; border-bottom: ##border##;##lc####bg##">##label##</td>'."\n".
+    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+
+    '',
+
+    ' <td colspan=4 class="##class## eb">&nbsp;</td>',
+
+   ],
+
+  EDGE_LOOP_WEST() - EDGE_LABEL_CELL() => [
+    ' <td rowspan=4 class="##class## eb">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## lh" style="border-bottom: ##border##;##lc####bg##">##label##</td>'."\n".
+    ' <td rowspan=2 class="##class## eb">&nbsp;</td>',
+
+    '',
+
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##; border-bottom: ##border##">&nbsp;</td>' . "\n".
+    ' <td rowspan=2 class="##class## va"##edgecolor##>&gt;</td>',
+    
+    ' <td colspan=2 class="##class## eb">&nbsp;</td>',
+   ],
+
+  EDGE_LOOP_EAST() - EDGE_LABEL_CELL() => [
+
+    ' <td rowspan=2 class="##class## eb ">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## lh" style="border-bottom: ##border##;##lc####bg##">##label##</td>' ."\n".
+    ' <td rowspan=2 class="##class## eb">&nbsp;</td>',
+
+    '',
+
+    ' <td rowspan=2 class="##class## va"##edgecolor##>&lt;</td>' ."\n".
+    ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##">&nbsp;</td>'."\n".
+    ' <td class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+    
+    ' <td colspan=3 class="##class## eb">&nbsp;</td>',
+   ],
 
   };
 
@@ -677,8 +747,8 @@ sub _html_edge_cross
   # as [], with code for each table row.
   my ($self, $N, $S, $E, $W) = @_;
 
-  my $s_flags = $self->{type} & EDGE_START_MASK;
-  my $e_flags = $self->{type} & EDGE_END_MASK;
+#  my $s_flags = $self->{type} & EDGE_START_MASK;
+#  my $e_flags = $self->{type} & EDGE_END_MASK;
 
   my $rc = [
     ' <td colspan=2 rowspan=2 class="##class## eb el" style="border-bottom: ##border##">&nbsp;</td>' . "\n" .
@@ -761,7 +831,7 @@ sub as_html
 
   if (($self->{type} & EDGE_TYPE_MASK) == EDGE_CROSS)
    {
-   $border_v = Graph::Easy::_border_attribute_as_html( $self->{style}, $bow, $self->{color_ver});
+   $border_v = Graph::Easy::_border_attribute_as_html( $self->{style_ver}, $bow, $self->{color_ver});
    }
 
   ###########################################################################
@@ -794,7 +864,7 @@ sub as_html
     $c =~ s/##edgecolor##/ style="$edge_color"/g;
     $c =~ s/##ec##/$edge_color/g;
     $c =~ s/##bg##/$bg/g;
-    $c =~ s/style=""//g;		# remove empty styles
+    $c =~ s/ style=""//g;		# remove empty styles
     $c .= "\n" unless $c =~ /\n\z/;
     push @rc, " " . $c;
     }

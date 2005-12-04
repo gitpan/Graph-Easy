@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 #############################################################################
 #############################################################################
@@ -66,7 +66,7 @@ my $start_points = {
 
 sub _end_points
   {
-  # modify last field of path to be the correct endpoint and first field
+  # modify last field of path to be the correct endpoint; and the first field
   # to be the correct startpoint:
   my ($self, $edge, $coords, $dx, $dy) = @_;
   
@@ -111,7 +111,7 @@ sub _find_path
   # If one of the two nodes is bigger than 1 cell, use _find_path_astar(),
   # because it automatically handles all the possibilities:
   return $self->_find_path_astar($src, $dst, $edge)
-    if ($src->is_multicelled() || $dst->is_multicelled());
+    if ($src->is_multicelled() || $dst->is_multicelled() || $edge->has_ports());
   
   my ($x0, $y0) = ($src->{x}, $src->{y});
   my ($x1, $y1) = ($dst->{x}, $dst->{y});
@@ -308,9 +308,9 @@ sub _find_path_loop
 
   my @places = $src->_near_places( 
     $self->{cells}, 1, [
-      EDGE_LOOP_WEST,
-      EDGE_LOOP_SOUTH,
       EDGE_LOOP_EAST,
+      EDGE_LOOP_SOUTH,
+      EDGE_LOOP_WEST,
       EDGE_LOOP_NORTH,
     ]);
 
@@ -319,8 +319,8 @@ sub _find_path_loop
   my @tries = (
     EDGE_LOOP_NORTH,
     EDGE_LOOP_SOUTH,
-    EDGE_LOOP_EAST,
     EDGE_LOOP_WEST,
+    EDGE_LOOP_EAST,
    );
 
   for my $this_try (@tries)
@@ -399,10 +399,13 @@ sub _astar_modifier
 
   my $add = 1;
 
-  my $xy = "$x1,$y1";
-  # add a harsh penalty for crossing an edge, meaning we can travel many
-  # fields to go around.
-  $add += 20 if ref($cells->{$xy}) && $cells->{$xy}->isa('Graph::Easy::Edge');
+  if (defined $x1)
+    {
+    my $xy = "$x1,$y1";
+    # add a harsh penalty for crossing an edge, meaning we can travel many
+    # fields to go around.
+    $add += 30 if ref($cells->{$xy}) && $cells->{$xy}->isa('Graph::Easy::Edge');
+    }
  
   if (defined $px)
     {
@@ -411,11 +414,9 @@ sub _astar_modifier
     # get a penalty
     my $dx1 = ($px-$x) <=> 0;
     my $dy1 = ($py-$y) <=> 0;
-    #print STDERR "# dx1 $dx1 dy1 $dy1 ";
     my $dx2 = ($x-$x1) <=> 0;
     my $dy2 = ($y-$y1) <=> 0;
-    #print STDERR " dx2 $dx2 dy2 $dy2 ";
-    $add += 1 unless $dx1 == $dx2 || $dy1 == $dy2;
+    $add += 6 unless $dx1 == $dx2 || $dy1 == $dy2;
     }
   $add;
   }
@@ -475,7 +476,7 @@ sub _astar_edge_type
 sub _astar_near_nodes
   {
   # return possible next nodes from $x,$y
-  my ($nx, $ny, $cells, $open, $closed) = @_;
+  my ($nx, $ny, $cells, $open, $closed, $min_x, $min_y, $max_x, $max_y) = @_;
 
   my @places = ();
 
@@ -490,7 +491,18 @@ sub _astar_near_nodes
   while ($i < @tries)
     {
     my ($x,$y) = ($tries[$i], $tries[$i+1]);
+
+    # drop cells outside our working space:
+    next if $x < $min_x || $x > $max_x || $y < $min_y || $y > $max_y;
+
     my $p = "$x,$y";
+    next if exists $closed->{$p};
+
+    # XXX TODO:
+    # If it is in open, but we reached it with a lower g(), then lower
+    # the existing value.
+    # already open?
+    next if exists $open->{$p};
 
     if (exists $cells->{$p} && ref($cells->{$p}) && $cells->{$p}->isa('Graph::Easy::Edge'))
       {
@@ -502,16 +514,37 @@ sub _astar_near_nodes
       }
     next if exists $cells->{$p};	# uncrossable cell
 
-    # XXX TODO:
-    # If it is in open, but we reached it with a lower g(), then lower
-    # the existing value.
-    next if exists $closed->{$p};
-    next if exists $open->{$p};
     push @places, $x, $y;
 
     } continue { $i += 2; }
  
   @places;
+  }
+
+sub _astar_boundaries
+  {
+  # Calculate boundaries for area that A* should not leave.
+  my $self = shift;
+
+  my ($min_x, $min_y, $max_x, $max_y);
+
+  my $cells = $self->{cells};
+
+  for my $c (keys %$cells)
+    {
+    my ($x,$y) = split /,/, $c;
+    $min_x = $x if !defined $min_x || $x < $min_x;
+    $min_y = $y if !defined $min_y || $y < $min_y;
+    $max_x = $x if !defined $max_x || $x > $max_x;
+    $max_y = $y if !defined $max_y || $y > $max_y;
+    }
+
+  # make the area one bigger in each direction
+  $min_x --; $min_y --; $max_x ++; $max_y ++;
+
+  print STDERR "# A* working space boundaries: $min_x, $min_y, $max_x, $max_y\n" if $self->{debug};
+
+  ($min_x, $min_y, $max_x, $max_y);
   }
 
 sub _find_path_astar
@@ -550,8 +583,21 @@ sub _find_path_astar
 
   # potential stop positions
   my @stop = $dst->_near_places($cells, 1, $end_flags, 1);	# distance = 1: slots
-  my $stop = scalar @stop;
 
+  my ($s_p,@ss_p) = split (/,/, $edge->attribute('start') || '');
+  my ($e_p,@ee_p) = split (/,/, $edge->attribute('end') || '');
+
+  # the edge has a port description, limiting the start places
+  @start = $src->_allowed_places( \@start, $src->_allow( $s_p, @ss_p ), 3)
+    if defined $s_p;
+
+  return unless @stop > 0;			# no free slots on start node?
+
+  # the edge has a port description, limiting the start places
+  @stop = $dst->_allowed_places( \@stop, $dst->_allow( $e_p, @ee_p ), 3)
+    if defined $e_p;
+
+  my $stop = scalar @stop;
   return unless $stop > 0;			# no free slots on target node?
 
   my $i = 0; my $bias = 0;
@@ -578,36 +624,72 @@ sub _find_path_astar
       $lowest = $dist if $dist < $lowest;
       }
 
-    $open->add( Graph::Easy::Astar::Node->new( $lowest, $sx, $sy, undef, undef, $type ));
-
     # add a penalty for crossings
     my $malus = 0; $malus = 30 if $t != 0;
+
+    # compute the field inside the node from where $sx,$sy is reached:
+    my $px = $sx; my $py = $sy;
+    if ($sy < $src->{y} || $sy >= $src->{y} + $src->{cy})
+      {
+      $py = $sy + 1 if $sy < $src->{y};		# above
+      $py = $sy - 1 if $sy > $src->{y};		# below
+      }
+    else
+      {
+      $px = $sx + 1 if $sx < $src->{x};		# right
+      $px = $sx - 1 if $sx > $src->{x};		# left
+      }
+
+    $malus += _astar_modifier($px,$py, $sx, $sy, $sx, $sy);
+
+    $open->add( Graph::Easy::Astar::Node->new( $lowest, $sx, $sy, $px, $py, $type, 1 ));
+
+    my $o = $malus + $bias + $lowest;
+    print STDERR "# adding open pos $sx,$sy ($o)\n" if $self->{debug};
 
     # The cost to reach the starting node is obviously 0. That means that there is
     # a tie between going down/up if both possibilities are equal likely. We insert
     # a small bias here that makes the prefered order east/south/west/north. Instead
     # the algorithmn exploring both way and terminating arbitrarily on the one that
     # first hits the target, it will explore only one.
-    $open_by_pos->{"$sx,$sy"} = $malus + $bias; $bias += $self->{_astar_bias} || 0;
+    $open_by_pos->{"$sx,$sy"} = $o;
+
+    $bias += $self->{_astar_bias} || 0;
     }
  
   my $elem;
-  # max. 10000 steps to prevent endless searching in case no path can be found
-  my $tries = 0; my $max_tries = 10000;
+
+  # The boundaries of objects in $cell, e.g. the area that the algorithm shall
+  # never leave.
+  my ($min_x, $min_y, $max_x, $max_y) = $self->_astar_boundaries();
+
+  # Max. steps to prevent endless searching in case of bugs like endless loops.
+  my $tries = 0; my $max_tries = 50000;
+
+  # count how many times we did A*
+  $self->{stats}->{astar}++;
+
+  ###########################################################################
+  ###########################################################################
+  # main A* loop
+
+  my $stats = $self->{stats};
+
   STEP:
   while( defined( $elem = $open->extract_top ) )
     {
-    last STEP if $tries++ > $max_tries;
-    #sleep(1);
+    $stats->{astar_steps}++ if $self->{debug};
+
+    # hard limit on number of steps todo
+    return if $tries++ > $max_tries;
 
     print STDERR "# Smallest elem is weight ", $elem->val, " at ", join(",", $elem->pos()),"\n" if $self->{debug};
-
-    my (undef, $val, $x,$y, $px,$py, $type) = @$elem;
+    my (undef, $val, $x,$y, $px,$py, $type, $do_stop) = @$elem;
 
     my $key = "$x,$y";
     # move node into CLOSE and remove from OPEN
     my $g = $open_by_pos->{$key} || 0;
-    $closed->{$key} = [ $px, $py, $val - $g, $g, $type ];
+    $closed->{$key} = [ $px, $py, $val - $g, $g, $type, $do_stop ];
     delete $open_by_pos->{$key};
 
     # we are done when we hit one of the potential stop positions
@@ -628,7 +710,7 @@ sub _find_path_astar
       Carp::confess("On of '$x,$y' is not defined");
       }
     # get list of potential positions we need to explore from the current one
-    my @p = _astar_near_nodes($x,$y, $cells, $open_by_pos, $closed);
+    my @p = _astar_near_nodes($x,$y, $cells, $open_by_pos, $closed, $min_x, $min_y, $max_x, $max_y);
     my $n = 0;
     while ($n < scalar @p)
       {
@@ -639,7 +721,8 @@ sub _find_path_astar
         require Carp;
         Carp::confess("On of '$nx,$ny' is not defined");
         }
-      my $lg = $g + _astar_modifier($nx,$ny,$x,$y,$px,$py,$cells);
+      my $lg = $g;
+      $lg += _astar_modifier($px,$py,$x,$y,$nx,$ny,$cells) if defined $px && defined $py;
 
       # calculate distance to each possible stop position, and
       # use the lowest one
@@ -650,6 +733,8 @@ sub _find_path_astar
         $lowest_distance = $d if $d < $lowest_distance; 
         }
 
+    print STDERR "# opening pos $x,$y ($lowest_distance + $lg)\n" if $self->{debug};
+
       # open new position into OPEN
       $open->add( Graph::Easy::Astar::Node->new(
         $lowest_distance + $lg,
@@ -657,6 +742,9 @@ sub _find_path_astar
       $open_by_pos->{"$nx,$ny"} = $lg;
       }
     }
+
+  # count how many steps we did in A*
+  $self->{stats}->{astar_steps} += $tries;
 
   # no more nodes to follow, so we couldn't find a path
   return [] unless defined $elem;
@@ -681,52 +769,53 @@ sub _find_path_astar
     if ($edge_type == 0)
       {
       my $edge_flags = ($type||0) & EDGE_FLAG_MASK;
+
       # either a start or a stop cell
       if (!defined $px)
-        {
-        # We can figure out from the flag of the position of cx,cy
-        #         ................
-        #         : EDGE_START_S :
-        # .......................................
-        # START_E :    px,py     : EDGE_START_W :
-        # .......................................
-        #         : EDGE_START_N :
-        #         ................
-        ($px,$py) = ($cx, $cy);		# start with same cell
-        $py ++ if ($edge_flags & EDGE_START_S) != 0; 
-        $py -- if ($edge_flags & EDGE_START_N) != 0; 
+	{
+	# We can figure it out from the flag of the position of cx,cy
+	#        ................
+	#         : EDGE_START_S :
+	# .......................................
+	# START_E :    px,py     : EDGE_START_W :
+	# .......................................
+	#         : EDGE_START_N :
+	#         ................
+	($px,$py) = ($cx, $cy);		# start with same cell
+	$py ++ if ($edge_flags & EDGE_START_S) != 0; 
+	$py -- if ($edge_flags & EDGE_START_N) != 0; 
 
-        $px ++ if ($edge_flags & EDGE_START_E) != 0; 
-        $px -- if ($edge_flags & EDGE_START_W) != 0; 
+	$px ++ if ($edge_flags & EDGE_START_E) != 0; 
+	$px -- if ($edge_flags & EDGE_START_W) != 0; 
 
-        if ($edge->bidirectional())
+	if ($edge->bidirectional())
 	  {
-          my $start = $type & EDGE_START_MASK;
-          $type &= ~EDGE_START_MASK;
-          $type += EDGE_END_W if $start == EDGE_START_W;
-          $type += EDGE_END_E if $start == EDGE_START_E;
-          $type += EDGE_END_N if $start == EDGE_START_N;
-          $type += EDGE_END_S if $start == EDGE_START_S;
+	  my $start = $type & EDGE_START_MASK;
+	  $type &= ~EDGE_START_MASK;
+	  $type += EDGE_END_W if $start == EDGE_START_W;
+	  $type += EDGE_END_E if $start == EDGE_START_E;
+	  $type += EDGE_END_N if $start == EDGE_START_N;
+	  $type += EDGE_END_S if $start == EDGE_START_S;
 	  }
-        }
+	}
       if (!defined $lx)
-        {
-        # We can figure out from the flag of the position of cx,cy
-        #       ..............
-        #       : EDGE_END_S :
-        # .................................
-        # END_E :    lx,ly   : EDGE_END_W :
-        # .................................
-        #       : EDGE_END_N :
-        #       ..............
-        ($lx,$ly) = ($cx, $cy);		# start with same cell
+	{
+	# We can figure out from the flag of the position of cx,cy
+	#       ..............
+	#       : EDGE_END_S :
+	# .................................
+	# END_E :    lx,ly   : EDGE_END_W :
+	# .................................
+	#       : EDGE_END_N :
+	#       ..............
+	($lx,$ly) = ($cx, $cy);		# start with same cell
 
-        $ly ++ if ($edge_flags & EDGE_END_S) != 0; 
-        $ly -- if ($edge_flags & EDGE_END_N) != 0; 
+	$ly ++ if ($edge_flags & EDGE_END_S) != 0; 
+	$ly -- if ($edge_flags & EDGE_END_N) != 0; 
 
-        $lx ++ if ($edge_flags & EDGE_END_E) != 0; 
-        $lx -- if ($edge_flags & EDGE_END_W) != 0; 
-        }
+	$lx ++ if ($edge_flags & EDGE_END_E) != 0; 
+	$lx -- if ($edge_flags & EDGE_END_W) != 0; 
+	}
       # now figure out correct type for this cell from positions of
       # parent/following cell
       $type += _astar_edge_type($px, $py, $cx, $cy, $lx,$ly);
@@ -754,6 +843,9 @@ sub _find_path_astar
       }
 
     unshift @$path, $cx, $cy, $type;		# unshift to reverse the path
+
+    last if $closed->{"$cx,$cy"}->[ 5 ];	# stop here?
+
     ($lx,$ly) = ($cx,$cy);
     ($cx,$cy) = @{ $closed->{"$cx,$cy"} };	# get X,Y of parent cell
     }

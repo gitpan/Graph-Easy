@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 103;
+   plan tests => 106;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -227,33 +227,46 @@ like ($grviz, qr/arrowhead=none/, 'arrow-style none');
 
 
 #############################################################################
-# bidirectional edges
+#############################################################################
+# undirected edges
 
 my $e = $graph->add_edge('A','B');
 
-$e->bidirectional(1);
+$e->undirected(1); $e->bidirectional(0);
 
 $grviz = $graph->as_graphviz();
-like ($grviz, qr/A -> B.*dir=both/, 'bidirectional edge');
+like ($grviz, qr/A -> B.*arrowhead=none/, 'arrowhead on undirected edge');
+like ($grviz, qr/A -> B.*arrowtail=none/, 'arrowtail on undirected edge');
+
+#############################################################################
+# bidirectional edges
+
+$e->undirected(0); $e->bidirectional(1);
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/A -> B.*arrowhead=open/, 'arrowhead on bidirectional edge');
+like ($grviz, qr/A -> B.*arrowtail=open/, 'arrowtail on bidirectional edge');
 
 
 #############################################################################
 #############################################################################
 # label-color vs. color
 
+$e->bidirectional(0);
+
 $e->set_attribute('color','red');
 $e->set_attribute('label-color','blue');
 $e->set_attribute('label','A to B');
 
 $grviz = $graph->as_graphviz();
-like ($grviz, qr/A -> B \[ color="#ff0000", dir=both, fontcolor="#0000ff", label/, 'label-color');
+like ($grviz, qr/A -> B \[ color="#ff0000", fontcolor="#0000ff", label/, 'label-color');
 
 #############################################################################
 # missing label-color (fall back to color)
 
 $e->del_attribute('label-color');
 $grviz = $graph->as_graphviz();
-like ($grviz, qr/A -> B \[ color="#ff0000", dir=both, fontcolor="#ff0000", label/, 'label-color');
+like ($grviz, qr/A -> B \[ color="#ff0000", fontcolor="#ff0000", label/, 'label-color');
 
 $e->del_attribute('label','A to B');
 
@@ -262,7 +275,7 @@ $e->del_attribute('label','A to B');
 
 $e->del_attribute('label');
 $grviz = $graph->as_graphviz();
-like ($grviz, qr/A -> B \[ color="#ff0000", dir=both \]/, 'label-color');
+like ($grviz, qr/A -> B \[ color="#ff0000" \]/, 'label-color');
 
 #############################################################################
 # link vs. autolink and linkbase

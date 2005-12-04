@@ -45,7 +45,7 @@ is (&$dis( 3,0, 3,5 ), 0 + 5 + 0, '3,0 => 3,5: 5 (no corner)');
 is (&$dis( 0,0, 3,5 ), 3 + 5 + 1, '0,0 => 3,5: 3+5+1 (one corner)');
 
 is (&$mod( 0,0 ), 1, 'modifier(0,0) is 1');
-is (&$mod( 0,0, 1,0, 0,1 ), 2, 'going round a bend is 2');
+is (&$mod( 0,0, 1,0, 0,1 ), 7, 'going round a bend is 7');
 is (&$mod( 0,0, 1,0, -1,0 ), 1, 'going straight is 1');
 
 is (&$typ( 0,0, 1,0, 2,0 ), EDGE_HOR, 'EDGE_HOR');
@@ -164,6 +164,6 @@ sub place
       $cells->{"$cx,$cy"} = $node;
       }
     }
-  print STDERR "# Placing $node->{name} at $node->{x},$node->{y}\n";
+  diag ("Placing $node->{name} at $node->{x},$node->{y}\n");
   }
 

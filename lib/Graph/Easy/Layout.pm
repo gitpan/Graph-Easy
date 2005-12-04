@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 #############################################################################
 #############################################################################
@@ -31,10 +31,12 @@ use Graph::Easy::Edge::Cell qw/
 
 sub ACTION_NODE  () { 0; }	# place node somewhere
 sub ACTION_TRACE () { 1; }	# trace path from src to dest
-sub ACTION_CHAIN () { 2; }	# place node in chain (e.g. DIRECTION of parent)
+sub ACTION_CHAIN () { 2; }	# place node in chain (with parent)
+sub ACTION_EDGES () { 3; }	# trace all edges (shortes connect. first)
 
-use Graph::Easy::Layout::Scout;	# pathfinding
-use Graph::Easy::Layout::Path;	# path management
+use Graph::Easy::Layout::Chain;		# chain management
+use Graph::Easy::Layout::Scout;		# pathfinding
+use Graph::Easy::Layout::Path;		# path management
 
 #############################################################################
 
@@ -97,125 +99,175 @@ sub _assign_ranks
 
 sub _follow_chain
   {
-  my ($n) = shift;
+  # follow the chain from the node
+  my ($node) = @_;
+
+  my $self = $node->{graph};
 
   no warnings 'recursion';
 
-  # prevent loops be defining _chain
-  $n->{_chain} = 0;
- 
-  my @suc = $n->successors();
-  for my $s (@suc)
+  my $indent = ' ' x ($node->{_chain}->{id} + 1);
+  print STDERR "#$indent Tracking chain from $node->{name}\n" if $self->{debug};
+
+  # create a new chain and point it to the start node
+  my $chain = Graph::Easy::Layout::Chain->new( start => $node, graph => $self );
+  $self->{chains}->{ $chain->{id} } = $chain;
+
+  my $done = 1;				# how many nodes did we process?
+ NODE:
+  while (3 < 5)
     {
-    return if $s->{_chain} > 0;				# do not process?
+    # Count "unique" successsors, ignoring selfloops, multiedges and nodes
+    # in the same chain.
 
-    my $chain = $n->{_chain}; $n->{_chain} = 1;		# mark "no processing"
-    _follow_chain($s) unless defined $s->{_chain};
-    $n->{_chain} = $chain;				# restore
+    my $c = $node->{_chain};
 
-#    print STDERR "# got ", $s->{_chain} ||'undef'," for $s->{name}\n";
-    if ($s->{_chain} <= $n->{_chain})
+    local $node->{_c} = 1;		# stop back-ward loops
+
+    my %suc;
+
+    for my $e (values %{$node->{edges}})
       {
-#      print STDERR "# replacing $n->{_chain} with ", $s->{_chain} - 1," for $n->{name}\n";
-      $n->{_chain} = $s->{_chain} - 1;
-      $n->{_next} = $s;
+      my $to = $e->{to};
+
+      # ignore self-loops
+      next if $e->{from} == $e->{to};
+
+#      print STDERR "# bidi $e->{from}->{name} to $e->{to}->{name}\n" if $e->{bidirectional} && $to == $node;
+
+      # if it is bidirectional, and points the "wrong" way, turn it around
+      $to = $e->{from} if $e->{bidirectional} && $to == $node;
+
+      next if exists $to->{_c};		# backloop into current branch?
+
+      next if defined $to->{_chain} &&	# ignore if it points to the same
+		$to->{chain} == $c; 	# chain (backloop)
+
+					# ignore multi-edges by dropping
+      $suc{$to->{name}} = $to;		# duplicates
       }
+
+    last if keys %suc == 0;		# the chain stopped here
+
+    if (scalar keys %suc == 1)		# have only one unique successor?
+      {
+      my $s = $suc{ each %suc };
+
+      if (!defined $s->{_chain})	# chain already done?
+        {
+        $c->add_node( $s );
+
+        $node = $s;			# next node
+
+        print STDERR "#$indent Skipping ahead to $node->{name}\n" if $self->{debug};
+
+        $done++;			# one more
+        next NODE;			# skip recursion
+        }
+      }
+
+    # Select the longest chain from the list of successors
+    # and join it with the current one:
+
+    my $max = -1;
+    my $next;				# successor
+    my $next_chain = undef;
+
+    print STDERR "#$indent $node->{name} successors: \n" if $self->{debug};
+
+    my @rc;
+
+    for my $s (values %suc)		# for all successors
+      {
+
+      print STDERR "# suc $s->{name} chain $s->{_chain}\n" if $self->{debug};
+
+      $done += _follow_chain($s) 	# track chain
+       if !defined $s->{_chain};	# if not already done
+
+      next if $s->{_chain} == $c;	# skip backlinks
+
+      my $ch = $s->{_chain};
+
+      push @rc, [ $ch, $s ];
+      # point node to new next node
+      ($next_chain, $max, $next) = 
+	($ch, $ch->{len}, $s) if $ch->{len} > $max;
+      }
+
+    if (defined $next_chain && $self->{debug})
+      {
+      print STDERR "#   results of tracking successors:\n";
+      for my $ch (@rc)
+        {
+        my ($c,$s) = @$ch;
+        my $len = $c->length($s);
+        print STDERR "#    chain $c->{id} starting at $c->{start}->{name} (len $c->{len}) ".
+                     " pointing to node $s->{name} (len from there: $len)\n";
+        }
+      print STDERR "# Max chain length is $max (chain id $next_chain->{id})\n";
+      }
+
+    if (defined $next_chain)
+      {
+      print STDERR "#$indent $node->{name} next: " . $next_chain->start()->{name} . "\n" if $self->{debug};
+
+      if ($self->{debug})
+	{
+	print STDERR "# merging chains\n";
+	$c->dump(); $next_chain->dump();
+	}
+
+      $c->merge($next_chain, $next);		# merge the two chains
+
+      delete $self->{chains}->{$next_chain->{id}} if $next_chain->{len} == 0;
+      }
+
+    last;
     }
+
+  print STDERR "#$indent Chain $node->{_chain} ended at $node->{name}\n" if $self->{debug};
+
+  $done;				# return nr of done nodes
   }
 
 sub _find_chains
   {
-  # assign a "longest chain" ptr to each node
+  # Track all node chains (A->B->C etc), trying to find the longest possible
+  # node chain.
   my $self = shift;
 
-  # go through all nodes, and remember all leaf nodes: O(N)
-  my $leaf;
-  my $nodes = $self->{nodes};
-  for my $n (values %$nodes)
-    {
-    $n->{_next} = undef;
-    $n->{_chain} = undef;
-    if ($n->successors() == 0)
-      {
-      $leaf->{$n->{id}} = $n;
-      }
-    }
+  print STDERR "# Tracking chains\n" if $self->{debug};
 
-#  print STDERR "# Tracking chains\n" if $self->{debug};
- 
-  # For each leaf, go backwards until we hit more than one predecessor,
-  # or one with _chain already set
-  my $id = 1;				# get a new unique ID to recognize loops
-  for my $n (keys %$leaf)
-    {
-    my $cur = $leaf->{$n};
+  # drop all old chain info
+  $self->{_chains} = { };
+  $self->{_chain} = 0;					# new chain ID
 
-    my $cid = $id++;			# get a new unique ID to recognize loops
+  # For all not-done-yet nodes, track the chain starting with that node.
 
-    print STDERR "# starting chain at $cur->{name} ", $cur->{_chain}||'undef',"\n" if $self->{debug};
-    my $step = 0; my $last;
-    while ((!defined $cur->{_chain}) || ($cur->{_chain} > $step) && ($cur->{_cid}||0) != $cid)
-      {
-      # stop backward loops from ruining our day
-      $cur->{_cid} = $cid;
-
-      $cur->{_chain} = $step; $step--;
-      $cur->{_next} = $last;
-
-      print STDERR "# at chain len $step, $cur->{name}\n" if $self->{debug};
-
-      my @pr = $cur->predecessors();
-      last if @pr != 1; 		# stop at the end of a chain,
-					# or at multiple branches
-      $last = $cur;
-      $cur = $pr[0];			# continue with next node
-      }
-    }
-
-  # make a copy
-  my $todo;
-  for my $n (values %$nodes)
-    {
-    $todo->{$n->{name}} = $n unless defined $n->{_chain};
-    }
-
-  while (keys %$todo > 0)
-    {
-    for my $n (values %$todo)
-      {
-      delete $n->{_cid};		# remove left-over data by backtracking
-
-      _follow_chain($n) unless defined $n->{_chain};
-      delete $todo->{$n->{name}} if defined $n->{_chain};
-      }
-    }
-
-   if ($self->{debug})
-     {
-     print STDERR "# Generated the following chain info:\n";
-     for my $n (values %$nodes)
-       {
-       my $c = $n->{_chain}; $c = 'undef' if !defined $c;
-       my $nt = $n->{_next}; $nt = $nt->{name} if ref($nt); $nt = 'undef' if !defined $nt;
-       print STDERR "#  $n->{name} $c -> $nt\n";
-       }
-    }
-
-  $self;
-  }
-
-#############################################################################
-# grow nodes
-
-sub _grow_nodes
-  {
-  # grow nodes so that their connections do fit on their sides
-  my $self = shift;
-
+  # compute predecessors for all nodes: O(1)
+  my $p;
   for my $n (values %{$self->{nodes}})
     {
-    $n->grow();
+    $n->{_chain} = undef;				# reset chain info
+    $p->{$n->{name}} = $n->predecessors();
     }
+
+  my $done = 0; my $todo = scalar keys %{$self->{nodes}};
+
+  # Start at nodes with no predecessors (starting points) and then do the rest:
+  for my $name (sort { $p->{$a} <=> $p->{$b} || $a cmp $b } keys %$p)
+    {
+    my $n = $self->{nodes}->{$name};
+
+    last if $done == $todo;			# already processed all nodes?
+
+    # track the chain unless already done and count number of nodes done
+    $done += _follow_chain($n) unless defined $n->{_chain};
+    }
+
+  print STDERR "# Done all $todo nodes\n" if $done == $todo && $self->{debug};
+
   $self;
   }
 
@@ -226,7 +278,7 @@ sub _dump_stack
   {
   my ($self, @todo) = @_;
 
-  print STDERR "# Action stack contains:\n";
+  print STDERR "# Action stack contains ", scalar @todo, " steps:\n";
   for my $action (@todo)
     {
     my $action_type = $action->[0];
@@ -243,9 +295,16 @@ sub _dump_stack
       }
     elsif ($action_type == ACTION_TRACE)
       {
-      my ($at,$src,$dst,$edge) = @$action;
+      my ($at,$edge) = @$action;
+      my ($src,$dst) = ($edge->{from}, $edge->{to});
       print STDERR
        "#  trace '$src->{name}' to '$dst->{name}' via edge $edge->{id}\n";
+      }
+    elsif ($action_type == ACTION_EDGES)
+      {
+      my ($at,$src) = @$action;
+      print STDERR
+       "#  trace all edges from '$src->{name}', shortest first\n";
       }
     }
   }
@@ -272,101 +331,81 @@ sub layout
   ###########################################################################
   # do some assorted stuff beforehand
 
-  $self->_grow_nodes();
+  local $_; $_->grow() for (values %{$self->{nodes}});
+
   $self->_assign_ranks();
+
+  foreach my $n (values %{$self->{nodes}})
+    {
+    $n->{x} = undef;			# mark every node as not placed yet
+    $n->{y} = undef;
+    $n->{w} = undef;			# force size recalculation
+    $n->{_todo} = undef;		# mark as todo
+    }
+
+  # find (longest possible) chains of nodes to "straighten" graph
   $self->_find_chains();
 
   ###########################################################################
   # prepare our stack of things we need to do before we are finished
 
-  my @V = $self->sorted_nodes('_chain', 'rank');
+  my @todo;				# action stack
+
+  if ($self->{debug})
+    {
+    print STDERR "#  Generated the following chains:\n";
+
+  for my $chain (sort { $a->{len} <=> $b->{len} } values %{$self->{chains}})
+      {
+      $chain->dump('  ');
+      }
+    }
 
   # mark all edges as unprocessed, so that we do not process them twice
   for my $edge (values %{$self->{edges}})
     { 
     $edge->clear_cells();
-    $edge->{_done} = undef;
+    $edge->{_todo} = undef;		# mark as todo
     }
 
-  # Starting with the highest chain rank, we follow it until the end. then
-  # we add whatever is still left.
-  # [0]->[1]->[2]->[3]->[4] [1]->[8] would get 0..4 in the first run through,
-  # then 1..8 in the second one and so on until all nodes are done.
- 
-  my (@todo,$done);			# actions still to do
-  foreach my $n (@V)
+  # XXX TODO:
+  # put all chains on heap (based on their len)
+  # take longest chain, resolve it and all "connected" chains, repeat until
+  # heap is empty
+
+  for my $chain (sort { $b->{len} <=> $a->{len} || $a->{start}->{name} cmp $b->{start}->{name} } 
+     values %{$self->{chains}})
     {
-    $n->{x} = undef;			# mark every node as not placed yet
-    $n->{y} = undef;
+    print STDERR "# laying out chain $chain->{id} (len $chain->{len})\n" if $self->{debug};
 
-    $n->{w} = undef;			# force size recalculation
+    # layout the chain nodes, then resolve inter-chain links, then traverse
+    # chains recursively
+    push @todo, @{ $chain->layout() } unless $chain->{_done};
+    }
 
-    # node needs to be placed
-    push @todo, [ ACTION_NODE, $n, 0 ] unless exists $done->{$n};
-    $done->{$n} = undef;
-
-    print STDERR "# following $n->{name}\n" if $self->{debug};
- 
-    # follow the chain
-    my $c = $n;
-    while (defined $c->{_next})
+  # After laying out all chained nodes and their links, we need to resolve
+  # left-over edges and links. We do this for each node, and then for each of
+  # its edges, but do the edges shortest-first.
+  
+  for my $n (values %{$self->{nodes}})
+    {
+    # gather to-do edges
+    my @edges = ();
+    for my $e (values %{$n->{edges}})
       {
-      my $l = $c; $c = $c->{_next};
-      print STDERR "# followed to $c->{name}\n" if $self->{debug};
-      
-      # node needs to be placed and path to target need to be found
-      push @todo, [ ACTION_CHAIN, $c, 0, $l ] unless exists $done->{$c};
-      $done->{$c} = undef;
+      # edge already done?
+      next unless exists $e->{_todo};
 
-      # in case there is more than one edge going from N to O
-      my @edges = $l->edges_to($c);
-      foreach my $edge (@edges)
-        {
-        if (!defined $edge)
-          {
-          require Carp;
-          Carp::confess("Couldn't find edge from $l->{name} to $c->{name}");
-          }
-        print STDERR "# trace $l->{name} -> $c->{name} via edge $edge->{id}\n" if $self->{debug};
-        # path to target need to be found
-        push @todo, [ ACTION_TRACE, $l, $c, $edge ] unless defined $edge->{_done};
-        $edge->{_done} = 1;
-        }
-      last if $l == $c;			# self-loop?
+      push @edges, $e;
+      delete $e->{_todo};
       }
+    # sort them on their shortest distances
+    @edges = sort { $b->_distance() <=> $a->_distance() } @edges;
 
-    # After following the chain, make sure all successors are handled, too.
-    # Sort successors by their chain target values, higher chain values first
-    # the idea is to create short forward edges first.
-    my @suc = sort { 
-      $a->{_chain} <=> $b->{_chain} 
-      || $a->{name} cmp $b->{name}  
-      } $n->successors();
-
-    print STDERR "# successors of $n->{name}\n" if $self->{debug};
-
-    for my $s (@suc)
-      {    
-      print STDERR "# place $s->{name}\n" if $self->{debug};
-      # node needs to be placed
-      push @todo, [ ACTION_NODE, $s, 0 ] unless exists $done->{$s};
-      $done->{$s} = undef;
-
-      # in case there is more than one edge going from N to O
-      my @edges = $n->edges_to($s);
-      @edges = sort { $a->{id} <=> $b->{id} } @edges;
-      foreach my $edge (@edges)
-        {
-        if (!defined $edge)
-          {
-          require Carp;
-          Carp::confess("Couldn't find edge from $n->{name} to $s->{name}");
-          }
-        print STDERR "# trace $n->{name} -> $s->{name} via edge $edge->{id}\n" if $self->{debug};
-        # path to target need to be found
-        push @todo, [ ACTION_TRACE, $n, $s, $edge ] unless defined $edge->{_done};
-        $edge->{_done} = 1;
-        }
+    # put them on the action stack in that order
+    for my $e (@edges)
+      {
+      push @todo, [ ACTION_TRACE, $e ];
       }
     }
 
@@ -421,8 +460,9 @@ sub layout
     elsif ($action_type == ACTION_TRACE)
       {
       # find a path to the target node
+      ($action_type,$edge) = @$action;
 
-      ($action_type,$src,$dst,$edge) = @$action;
+      $src = $edge->{from}; $dst = $edge->{to};
 
       print STDERR "# step $step: action trace '$src->{name}' => '$dst->{name}'\n" if $self->{debug};
 
@@ -499,32 +539,49 @@ sub layout
 
     $self->{score} = $score;			# overall score
 
-    if ($tries == 0)
-      {
+#  if ($tries == 0)
+     {
       # count placed nodes
       my $nodes = 0;
-      for my $n (@V)
+      my $i = 1;
+      for my $n (sort values %{$self->{nodes}})
         {
         $nodes++ if defined $n->{x};
         }
       my $edges = 0;
+      $i = 1;
       for my $e (values %{$self->{edges}})
         {
-        $edges++ if keys %{$e->{cells}} > 0;
+        $edges++ if scalar @{$e->{cells}} > 0 && !exists $e->{_todo};
         }
-      $self->error( "Layouter could only place $nodes/$edges nodes/edges out of " 
-                   . scalar @V . "/" . (scalar keys %{$self->{edges}}) . " - giving up");
+      my $e_nodes = scalar keys %{$self->{nodes}};
+      my $e_edges = scalar keys %{$self->{edges}};
+      if  ( ($nodes != $e_nodes) ||
+            ($edges != $e_edges) )
+        {
+        $self->error( "Layouter could only place $nodes nodes/$edges edges out of $e_nodes/$e_edges - giving up");
+        }
       }
 
     # all things on the stack were done, or we encountered an error
 
     # fill in group info and return
-    $self->_fill_group_cells($cells) if $tries != 0;
+    $self->_fill_group_cells($cells) unless $self->{error};
 
-    };
+    };					# end of timeout protected code
 
-  die $@ if $@;		# propagate errors
-  alarm(0);		# disable alarm
+  alarm(0);				# disable alarm
+
+  # cleanup
+  $self->{chains} = undef;		# drop chain info
+  foreach my $n (values %{$self->{nodes}})
+    {
+    # drop old chain info
+    $n->{_next} = undef;
+    delete $n->{_chain};
+    delete $n->{_c};
+    }
+  die $@ if $@;				# propagate errors
 
   }
 

@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 #############################################################################
 #############################################################################
@@ -295,11 +295,9 @@ sub _as_graphviz
 
   $txt .= "\n" if $txt ne '';		# insert newline
 
-  my @nodes = $self->sorted_nodes();
-
   my $count = 0;
   # output nodes with attributes first, sorted by their name
-  foreach my $n (sort { $a->{name} cmp $b->{name} } @nodes)
+  foreach my $n (sort { $a->{name} cmp $b->{name} } values %{$self->{nodes}})
     {
     $n->{_p} = undef;			# mark as not yet processed
     my $att = $n->attributes_as_graphviz();
@@ -312,6 +310,8 @@ sub _as_graphviz
     }
  
   $txt .= "\n" if $count > 0;		# insert a newline
+
+  my @nodes = $self->sorted_nodes();
 
   foreach my $n (@nodes)
     {
@@ -378,10 +378,20 @@ sub attributes_as_graphviz
     }
   $a = $g->_remap_attributes( $self, $a, $remap, 'noquote');
 
-  # bidirectional edges
+  # bidirectional and undirected edges
   if ($self->{bidirectional})
     {
-    $a->{dir} = 'both';
+    delete $a->{dir};
+    my ($n,$s) = Graph::Easy::_graphviz_remap_arrow_style(
+	$self,'', $self->attribute('arrow-style') || 'open');
+    $a->{arrowhead} = $s; 
+    $a->{arrowtail} = $s; 
+    }
+  if ($self->{undirected})
+    {
+    delete $a->{dir};
+    $a->{arrowhead} = 'none'; 
+    $a->{arrowtail} = 'none'; 
     }
 
   # border-style: double:

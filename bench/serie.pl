@@ -25,11 +25,14 @@ for my $count (@counts)
 
   if ($Graph::Easy::VERSION < 0.25 && ($count > 500))
     {
-    push @$rc, 0;
+    print "Skipping as_foo() tests.\n";
+    push @$rc, 0, 0;
     }
   else
     {
-    push @$rc, time_it ( \&as_txt );
+    push @$rc, 
+	time_it ( \&as_txt ),
+        time_it ( \&as_ascii);
     }
 
   push @$rc, $size;
@@ -47,15 +50,16 @@ for my $r (@results)
 print " <tr>\n  <th>Graph::Easy v$Graph::Easy::VERSION</th>\n  <th>" 
  . join ("</th>\n  <th>", @counts) . "</th>\n </tr>\n";
 
-my $text = [ 'Creation', 'as_txt', 'Memory' ];
-for my $i (0..2)
+my $i = 0;
+for my $t ( qw/Creation as_txt as_ascii Memory/ )
   {
-  print " <tr>\n  <td>$text->[$i]</td>\n";
+  print " <tr>\n  <td>$t</td>\n";
   for my $r (@results)
     {
     print "  <td>$r->[$i]</td>\n";
     }
   print " </tr>\n";
+  $i++;
   }
 
 1;
@@ -79,6 +83,11 @@ sub time_it
 sub as_txt
   {
   my $t = $g->as_txt();
+  }
+
+sub as_ascii
+  {
+  my $t = $g->as_ascii();
   }
 
 sub create
@@ -106,5 +115,6 @@ sub create
 
   $size = total_size($g);
   print "Graph objects takes $size bytes.\n";
+  $g->{timeout} = 120;
   }
 
