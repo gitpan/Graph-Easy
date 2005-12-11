@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 #############################################################################
 #############################################################################
@@ -35,6 +35,7 @@ use Graph::Easy::Edge::Cell qw/
 
   EDGE_LABEL_CELL
   EDGE_TYPE_MASK
+  EDGE_ARROW_MASK
   EDGE_FLAG_MASK
   EDGE_START_MASK
   EDGE_END_MASK
@@ -110,7 +111,7 @@ sub _find_path
 
   # If one of the two nodes is bigger than 1 cell, use _find_path_astar(),
   # because it automatically handles all the possibilities:
-  return $self->_find_path_astar($src, $dst, $edge)
+  return $self->_find_path_astar($edge)
     if ($src->is_multicelled() || $dst->is_multicelled() || $edge->has_ports());
   
   my ($x0, $y0) = ($src->{x}, $src->{y});
@@ -292,7 +293,7 @@ sub _find_path
 
     } # end path with $dx and $dy
 
-  $self->_find_path_astar($src, $dst, $edge);		# try generic approach as last hope
+  $self->_find_path_astar($edge);		# try generic approach as last hope
   }
 
 sub _find_path_loop
@@ -547,19 +548,26 @@ sub _astar_boundaries
   ($min_x, $min_y, $max_x, $max_y);
   }
 
+# on edge pieces, select start fields (left/right of a VER, above/below of a HOR etc)
+my $next_fields =
+  {
+  EDGE_VER() => [ -1,0, +1,0 ],
+  EDGE_HOR() => [ 0,-1, 0,+1 ],
+  EDGE_N_E() => [ 0,+1, -1,0 ],		# |_
+  EDGE_N_W() => [ 0,+1, +1,0 ],		# _|
+  EDGE_S_E() => [ 0,-1, -1,0 ],
+  EDGE_S_W() => [ 0,-1, +1,0 ],
+  };
+
 sub _find_path_astar
   {
-  my ($self,$src,$dst,$edge) = @_;
+  my ($self,$edge) = @_;
 
   my $cells = $self->{cells};
+  my $src = $edge->{from};
+  my $dst = $edge->{to};
 
-  my $open = Heap::Binary->new();	# to find smallest elem fast
-  my $open_by_pos = {};			# to find node by pos
-  my $closed = {};			# a hash, indexed by "$x,$y" to find nodes by pos
-
-  my $dx = $dst->{x}; my $dy = $dst->{y};
-  
-  print STDERR "# A* from $src->{x},$src->{y} to $dx,$dy\n" if $self->{debug};
+  print STDERR "# A* from $src->{x},$src->{y} to $dst->{x},$dst->{y}\n" if $self->{debug};
 
   my $start_flags = [
     EDGE_START_W,
@@ -579,34 +587,162 @@ sub _find_path_astar
   # distance = 1: slots, generate starting types, the direction is shifted
   # by 90° counter-clockwise
 
-  my @start = $src->_near_places($cells, 1, $start_flags, 1, $src->_shift(-90) );
-
-  # potential stop positions
-  my @stop = $dst->_near_places($cells, 1, $end_flags, 1);	# distance = 1: slots
-
   my ($s_p,@ss_p) = split (/,/, $edge->attribute('start') || '');
   my ($e_p,@ee_p) = split (/,/, $edge->attribute('end') || '');
 
-  # the edge has a port description, limiting the start places
-  @start = $src->_allowed_places( \@start, $src->_allow( $s_p, @ss_p ), 3)
-    if defined $s_p;
+  my (@A, @B);
 
-  return unless @stop > 0;			# no free slots on start node?
+  my @shared_start;
+
+  # has a starting point restriction
+  @shared_start = $edge->{from}->edges_at_port('start', $s_p, $ss_p[0]) if @ss_p == 1;
+
+  my @shared;
+  # filter out all non-placed edges (this will also filter out $edge)
+  for my $s (@shared_start)
+    {
+    push @shared, $s if @{$s->{cells}} > 0;
+    }
+
+  my $start_shared = 0;
+
+  my $start_cells = {};
+  if (@shared > 0)
+    {
+    $start_shared = 1;
+    print STDERR "# edge from $edge->{from} to $edge->{to} shares port with ",
+	scalar @shared, " edges\n" if $self->{debug};
+
+    # take each cell from all edges shared, already placed edges as start-point
+    for my $e (@shared)
+      {
+      for my $c (@{$e->{cells}})
+	{
+	my $type = $c->{type} & EDGE_TYPE_MASK;
+
+        next unless exists $next_fields->{ $type };
+
+	# don't consider end cells
+	next if $c->{type} & EDGE_END_MASK;
+
+        my $fields = $next_fields->{$type};
+
+        my ($px,$py) = ($c->{x},$c->{y});
+        my $i = 0;
+        while ($i < @$fields)
+	  {
+	  my ($sx,$sy) = ($fields->[$i], $fields->[$i+1]);
+          $sx += $px; $sy += $py; $i += 2;
+
+	  # dont add the field twice
+	  next if exists $start_cells->{"$sx,$sy"};
+          $start_cells->{"$sx,$sy"} = [ $sx, $sy, undef, $px, $py ];
+          } 
+	}
+      } 
+    # convert hash to array
+    for my $s (values %{$start_cells})
+      {
+      push @A, @$s;
+      }
+    }
+  else
+    {
+    # from SRC to DST
+
+    my @start = $src->_near_places($cells, 1, $start_flags, 1, $src->_shift(-90) );
+
+    # the edge has a port description, limiting the start places
+    @start = $src->_allowed_places( \@start, $src->_allow( $s_p, @ss_p ), 3)
+      if defined $s_p;
+
+    return unless @start > 0;			# no free slots on start node?
+
+
+    my $i = 0;
+    while ($i < scalar @start)
+      {
+      my $sx = $start[$i]; my $sy = $start[$i+1]; my $type = $start[$i+2]; $i += 3;
+
+      # compute the field inside the node from where $sx,$sy is reached:
+      my $px = $sx; my $py = $sy;
+      if ($sy < $src->{y} || $sy >= $src->{y} + $src->{cy})
+        {
+        $py = $sy + 1 if $sy < $src->{y};		# above
+        $py = $sy - 1 if $sy > $src->{y};		# below
+        }
+      else
+        {
+        $px = $sx + 1 if $sx < $src->{x};		# right
+        $px = $sx - 1 if $sx > $src->{x};		# left
+        }
+
+      push @A, ($sx, $sy, $type, $px, $py);
+      }
+    }
+
+  # potential stop positions
+  @B = $dst->_near_places($cells, 1, $end_flags, 1);	# distance = 1: slots
 
   # the edge has a port description, limiting the start places
-  @stop = $dst->_allowed_places( \@stop, $dst->_allow( $e_p, @ee_p ), 3)
+  @B = $dst->_allowed_places( \@B, $dst->_allow( $e_p, @ee_p ), 3)
     if defined $e_p;
 
+  return unless scalar @B > 0;			# no free slots on target node?
+
+  my $path = $self->_astar(\@A,\@B,$edge);
+
+  if ($start_shared != 0)
+    {
+    # convert the edge piece of the starting edge-cell to a join
+    my ($x, $y) = ($path->[0],$path->[1]);
+    my $xy = "$x,$y";
+    my ($sx,$sy,$t,$px,$py) = @{$start_cells->{$xy}};
+
+#    print STDERR "# found start cell $sx,$sy, converting $px,$py to a joint.\n";
+    }
+
+  $path;
+  }
+
+sub _astar
+  {
+  my ($self, $A, $B, $edge) = @_;
+
+  my @start = @$A;
+  my @stop = @$B;
   my $stop = scalar @stop;
-  return unless $stop > 0;			# no free slots on target node?
+ 
+  my $src = $edge->{from};
+  my $dst = $edge->{to};
+  my $cells = $self->{cells};
+
+  my $open = Heap::Binary->new();	# to find smallest elem fast
+  my $open_by_pos = {};			# to find node by pos
+  my $closed = {};			# a hash, indexed by "$x,$y" to find nodes by pos
+
+  my $elem;
+
+  # The boundaries of objects in $cell, e.g. the area that the algorithm shall
+  # never leave.
+  my ($min_x, $min_y, $max_x, $max_y) = $self->_astar_boundaries();
+
+  # Max. steps to prevent endless searching in case of bugs like endless loops.
+  my $tries = 0; my $max_tries = 50000;
+
+  # count how many times we did A*
+  $self->{stats}->{astar}++;
+
+  ###########################################################################
+  ###########################################################################
+  # put the start positions into OPEN
 
   my $i = 0; my $bias = 0;
   while ($i < scalar @start)
     {
-    my $sx = $start[$i]; my $sy = $start[$i+1]; my $type = $start[$i+2]; $i += 3;
-
-    # We got all fields, including the blocked ones. So weed out fields that are
-    # not HOR or VER edge pieces.
+    my ($sx,$sy,$type,$px,$py) = 
+     ($start[$i],$start[$i+1],$start[$i+2],$start[$i+3],$start[$i+4]);
+    $i += 5;
 
     my $cell = $cells->{"$sx,$sy"}; my $rcell = ref($cell);
     next if $rcell && $rcell !~ /::Edge/;
@@ -626,22 +762,7 @@ sub _find_path_astar
 
     # add a penalty for crossings
     my $malus = 0; $malus = 30 if $t != 0;
-
-    # compute the field inside the node from where $sx,$sy is reached:
-    my $px = $sx; my $py = $sy;
-    if ($sy < $src->{y} || $sy >= $src->{y} + $src->{cy})
-      {
-      $py = $sy + 1 if $sy < $src->{y};		# above
-      $py = $sy - 1 if $sy > $src->{y};		# below
-      }
-    else
-      {
-      $px = $sx + 1 if $sx < $src->{x};		# right
-      $px = $sx - 1 if $sx > $src->{x};		# left
-      }
-
     $malus += _astar_modifier($px,$py, $sx, $sy, $sx, $sy);
-
     $open->add( Graph::Easy::Astar::Node->new( $lowest, $sx, $sy, $px, $py, $type, 1 ));
 
     my $o = $malus + $bias + $lowest;
@@ -655,19 +776,7 @@ sub _find_path_astar
     $open_by_pos->{"$sx,$sy"} = $o;
 
     $bias += $self->{_astar_bias} || 0;
-    }
- 
-  my $elem;
-
-  # The boundaries of objects in $cell, e.g. the area that the algorithm shall
-  # never leave.
-  my ($min_x, $min_y, $max_x, $max_y) = $self->_astar_boundaries();
-
-  # Max. steps to prevent endless searching in case of bugs like endless loops.
-  my $tries = 0; my $max_tries = 50000;
-
-  # count how many times we did A*
-  $self->{stats}->{astar}++;
+    } 
 
   ###########################################################################
   ###########################################################################

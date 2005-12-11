@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 28;
+   plan tests => 32;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -46,11 +46,23 @@ like ($html, qr/Berlin/, 'contains Berlin');
 $bonn->set_attribute( 'autotitle' => 'name' );
 
 $html = $graph->as_html();
-
 like ($html, qr/title="Bonn"/, 'contains title="Bonn"');
 unlike ($html, qr/title="Berlin"/, "doesn't contain title Berlin");
 
-#print $graph->as_svg(),"\n";
+#############################################################################
+# edges do not have a name, will fallback to the label
+
+$edge->set_attribute( 'autotitle' => 'name' );
+
+$html = $graph->as_html();
+like ($html, qr/title="Bonn"/, 'contains title="Bonn"');
+unlike ($html, qr/title="Berlin"/, "doesn't contain title Berlin");
+unlike ($html, qr/title=""/, "no empty title");
+
+$edge->set_attribute( 'label' => 'my edge' );
+
+$html = $graph->as_html();
+like ($html, qr/title="my edge"/, 'contains title="my edge"');
 
 #############################################################################
 # check that "shape:" does not appear in CSS or HTML

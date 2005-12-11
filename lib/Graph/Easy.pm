@@ -18,7 +18,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -132,6 +132,7 @@ sub _init
     'border-style' => 'dashed',
     'border-width' => '1',
     'border-color' => 'black',
+    'font-size' => '0.8em',
     background => '#a0d0ff',
     padding => '0.2em',
     },
@@ -1440,11 +1441,12 @@ sub add_group
   # add a group object
   my ($self,$group) = @_;
 
-  # group with that name already exists?  
+  # group with that name already exists?
+  my $name = $group; 
   $group = $self->{groups}->{ $group } unless ref $group;
 
   # group with that name doesn't exist, so create new one
-  $group = Graph::Easy::Group->new( name => $group ) unless ref $group;
+  $group = Graph::Easy::Group->new( name => $name ) unless ref $group;
 
   # index under the group name for easier lookup
   $self->{groups}->{ $group->{name} } = $group;
@@ -2376,7 +2378,11 @@ Exports nothing.
 
 =head1 SEE ALSO
 
-L<Graph::Easy::As_svg>, L<Graph::Layout::Aesthetic>, L<Graph> and L<Graph::Easy::Parser>.
+L<Graph::Easy::As_svg>, L<Graph::Easy::Manual> and L<Graph::Easy::Parser>.
+
+=head2 Related Projects
+
+L<Graph::Layout::Aesthetic>, L<Graph> and L<Text::Flowchart>.
 
 There is also an very old, unrelated project from ca. 1995, which does something similiar.
 See L<http://rw4.cs.uni-sb.de/users/sander/html/gsvcg1.html>.
@@ -2387,7 +2393,7 @@ L<http://bloodgate.com/perl/graph/>.
 
 =head1 LIMITATIONS
 
-This module is a proof-of-concept and has currently some limitations.
+This module is now quite complete, but there are still some limitations.
 Hopefully further development will lift these.
 
 =head2 Scoring
@@ -2421,32 +2427,12 @@ works, the second and third do not:
 
 =over 2
 
-=item Too bendy paths
-
-The A* algorithm sometimes creates unnecessary bends in a path. A tweak which
-will prevent would be decreasing the value of an already open node, but
-this has not yet been implemented.
-
-=item No joints
-
-Currently it is not possible that an edge joins another edge like this:
-
-	+------+     +--------+     +-----------+
-	| Bonn | --> | Berlin | --> | Magdeburg |
-	+------+     +--------+     +-----------+
-	  |            |	      |
-	  |            |	      |
-	  |            |	      v
-	  |            v	    +---------+
-	  +-----------------------> | Potsdam |
-	             		    +---------+
-
 =item No optimizations
 
-Non-optimal layouts like this one might appear from time to time:
+In complex graphs, non-optimal layout part like this one might appear:
 
 	+------+     +--------+
-	| Bonn | --> | Berlin |
+	| Bonn | --> | Berlin | --> ...
 	+------+     +--------+
 	               ^
 	               |

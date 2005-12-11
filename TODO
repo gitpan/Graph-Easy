@@ -7,11 +7,16 @@ In addition:
 
 Important short-term TODO:
 
-* grow nodes based on the used start/end port numbers
+* "label-color: blue" colors the hor edge line blue
+* as_svg: cross section bold/normal
+* implement rendering of joints
+
 * bidirectional self-loops are rendered with only one arrow: [A] <--> [A]
 * undirected self-loops are rendered with one arrow: [A] -- [A]
 * layout() will grow nodes base on layout contraints, an as_txt() afterwards
   will produce these sizes, even when the input did not specify a node size.
+* layouter should grow nodes that have only "rows: X" or "columns: Y" only
+  in the unspecified direction
 * grow nodes based on edge start/end ports (if port "south,7" is specified, the
   node must be at least 8 cells wide)
 * "[A],[B],[C] -> [ very wide node ] { size: 7,1; }" results in A being very
@@ -19,7 +24,6 @@ Important short-term TODO:
   (for multicelled nodes: find smallest row/column, increase, until all
    columns/rows are equal size, the distribute remaining nec. min. size
    to all columns/rows)
-* fix border on groups without subclass
 * as_txt(): the following are wrong as txt:
   + 4_autosplit_offset.txt
   + 3_autosplit_hangt.txt
@@ -48,9 +52,6 @@ Important short-term TODO:
   to avoid the dilemma that we need them from both Node and Graph.
   Likewise, some routines used by objects (e.g. graph, node etc) should
   be in a super-package and inherited)
-* as_html(): attributes "fill" and "border-XXX" on a group are not put on
-             the individual group cells, making these only work when defined
-	     as part of a group-class
 * as_txt: output of autosplit nodes is broken when no label gets set
   "[A|B]" results in "[ A|B ] { label: A; }"
 * use "shape: record" and label="{ { 00 | 01 | 02 } | { 10 | 112 | 12 } }" to
@@ -100,7 +101,6 @@ Output:
 * support egde "style: invisible"
 * as_txt(): output of node clusters is not optimal
 * as_txt(): output of node chains is not optimal
-* output group labels
 * better support for different shapes (circle, box, rounded, polygon etc)
   in ASCII
 * as_graphviz(): support "border-style: double" together with fill colors
@@ -141,7 +141,6 @@ Layout:
   ("main page" gets 2x1, while "a \nb \nc \nd \ne \n" gets 1x2 cells)
   This currently causes problems and wierd layouts.
 * Use the seed to generate randomized layouts
-* the A* algorithm needs fine-tuning to generate less bendy paths
 
 Rendering/Layout:
 
@@ -155,20 +154,21 @@ Optimizer:
 * less memory: store border and edge styles as ints instead of "solid" etc
 * use AUTOLOAD for accessors in Node.pm: most are never used by normal code
 
-* write our own Heap::Binary, which doesn't need objects (from todos/big.txt):
+* write our own Heap (which doesn't need objects) or use Heap::Simple:
+  timing from todos/big.txt:
  Total Elapsed Time = 2.845439 Seconds
    User+System Time = 2.845439 Seconds
  Exclusive Times
  %Time ExclSec CumulS #Calls sec/call Csec/c  Name
-  27.4   0.782  3.392     62   0.0126 0.0547  Graph::Easy::_find_path_astar
-  15.1   0.430  0.430 179301   0.0000 0.0000  Graph::Easy::Astar::Node::cmp
-  14.8   0.423  1.042  15380   0.0000 0.0001  Heap::Binary::heapdown
+  27.4   0.782  3.392     62   0.0126 0.0547  Graph::Easy::_find_path_astar  
+  15.1   0.430  0.430 179301   0.0000 0.0000  Graph::Easy::Astar::Node::cmp  *
+  14.8   0.423  1.042  15380   0.0000 0.0001  Heap::Binary::heapdown         *
   14.2   0.406  0.411  15327   0.0000 0.0000  Graph::Easy::_astar_near_nodes
-  11.1   0.317  0.486 122985   0.0000 0.0000  Heap::Binary::moveto
+  11.1   0.317  0.486 122985   0.0000 0.0000  Heap::Binary::moveto           *
   7.91   0.225  0.225  89840   0.0000 0.0000  Graph::Easy::_astar_distance
-  7.77   0.221  0.221 138373   0.0000 0.0000  Graph::Easy::Astar::Node::heap
-  4.92   0.140  0.436  17788   0.0000 0.0000  Heap::Binary::heapup
-  4.25   0.121  0.121  17788   0.0000 0.0000  Graph::Easy::Astar::Node::new
+  7.77   0.221  0.221 138373   0.0000 0.0000  Graph::Easy::Astar::Node::heap *
+  4.92   0.140  0.436  17788   0.0000 0.0000  Heap::Binary::heapup           *
+  4.25   0.121  0.121  17788   0.0000 0.0000  Graph::Easy::Astar::Node::new  *
   4.22   0.120  0.120     62   0.0019 0.0019  Graph::Easy::_astar_boundaries
   2.78   0.079  0.384      1   0.0792 0.3837  Graph::Easy::_as_ascii
   2.53   0.072  0.072  15957   0.0000 0.0000  Graph::Easy::get_attribute

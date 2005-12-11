@@ -46,9 +46,8 @@ is (ref($graph), 'Graph::Easy');
 
 is ($graph->error(), '', 'no error yet');
 
-my $src = Graph::Easy::Node->new( name => 'Bonn' );
-my $dst = Graph::Easy::Node->new( 'Berlin' );
-my $edge = Graph::Easy::Edge->new( style => 'solid' );
+my ($src, $dst, $edge) = $graph->add_edge('Bonn','Berlin');
+
 my $e = 3;				# elements per path cell (x,y,type)
 
 #############################################################################

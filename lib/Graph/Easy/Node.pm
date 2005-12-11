@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.18';
+$VERSION = '0.19';
 
 use Graph::Easy::Attributes;
 use Graph::Easy::Base;
@@ -44,7 +44,6 @@ sub _init
   $self->{cy} = 1;
  
   # These are undef (to save memory) until needed: 
-  # $self->{groups} = {};
   # $self->{children} = {};
   # $self->{dx} = 0;		# relative to no other node
   # $self->{dy} = 0;
@@ -410,6 +409,14 @@ sub as_html
    
   my $name = $self->label(); 
 
+  if ($shape eq 'point')
+    {
+    require Graph::Easy::As_ascii;		# for _u8 and point-style
+
+    local $self->{graph}->{_ascii_style} = 1;	# use utf-8
+    $name = $self->_point_style( $self->attribute('point-style') || 'star' );
+    }
+
   if (!$noquote)
     {
     $name =~ s/&/&amp;/g;			# quote &
@@ -422,34 +429,63 @@ sub as_html
     $name =~ s/<br>/<br \/>/g;			# correct <br>
     }
 
-  my $style = '';
+  my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $node_remap, 'noquote', 'encode');
 
-  $style .= "-moz-border-radius: 10%; border-radius: 10%; " if $shape eq 'rounded';
-  $style .= "-moz-border-radius: 100%; border-radius: 100%; " if $shape eq 'ellipse';
+  if ($shape eq 'rounded')
+    {
+    $out->{'-moz-border-radius'} = '15px';
+    $out->{'border-radius'} = '15px';
+    }
+  if ($shape eq 'ellipse')
+    {
+    $out->{'-moz-border-radius'} = '100%';
+    $out->{'border-radius'} = '100%';
+    }
   if ($shape eq 'circle')
     {
     my ($w, $h) = $self->dimensions();
     my $r = $w; $r = $h if $h > $w;
     my $size = ($r * 0.7) . 'em';
-    $style .= "-moz-border-radius: 100%; border-radius: 100%; height: $size; width: $size; ";
+    $out->{'-moz-border-radius'} = '100%';
+    $out->{'border-radius'} = '100%';
+    $out->{width} = $size;
+    $out->{height} = $size;
     }
-
-  my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $node_remap, 'noquote', 'encode');
 
   if (!$self->isa('Graph::Easy::Edge'))
     {
-    $out->{border} = Graph::Easy::_border_attribute_as_html( 
-	$self->attribute('border-style'),
-	$self->attribute('border-width'),
-	$self->attribute('border-color'));
-    my $c = $class; $c =~ s/\..*//;
+    my $bc = $self->attribute('border-color');
+    my $bw = $self->attribute('border-width');
+    my $bs = $self->attribute('border-style');
+
+    $out->{border} = Graph::Easy::_border_attribute_as_html( $bs, $bw, $bc );
+    my $c = $class;
+    $c =~ s/\s+.*//;	# "group gt" => "group"
     my $DEF = $g->border_attribute ($c);
-    delete $out->{border} if $out->{border} =~ /^\s*\z/ || $out->{border} eq $DEF; #$g->{att}->{node}->{border};
+
+    $c =~ s/\..*//;	# remove subclasses
+    $DEF = $g->border_attribute ($c) if !defined $DEF || $DEF eq '';
+    $DEF = 'none' unless defined $DEF;
+
+    delete $out->{border} if $out->{border} =~ /^\s*\z/ || $out->{border} eq $DEF;
     delete $out->{border} if $class eq 'node.anon' && $out->{border} eq 'none';
     }
 
-  # shape: none; means no border, and background instead fill color
-  if ($shape eq 'none')
+  if ($class =~ /^group/)
+      {
+      delete $out->{border};
+      my $group_class = $class; $group_class =~ s/\s.*//;	# "group gt" => "group"
+      for my $b (qw/border-color border-width fill/)
+        {
+        my $def = $g->attribute($group_class,$b) || '';
+        my $v = $self->attribute($b) || '';
+        my $n = $b; $n = 'background' if $b eq 'fill';
+	$out->{$n} = $v unless $v eq '' || $v eq $def;
+        }
+      }
+
+  # "shape: none;" or point means no border, and background instead fill color
+  if ($shape =~ /^(point|none)\z/)
     {
     my $bg = $self->attribute('background') || 'inherit'; 
     $out->{background} = $bg;
@@ -458,17 +494,19 @@ sub as_html
 
   my $link = $self->link();
 
+  my $style = '';
   for my $atr (sort keys %$out)
     {
     if ($link ne '')
       {
-      # put certain styles not on the link
-      next if $atr =~ /^(background|border)\z/;
+      # put certain styles not on the link, but on the TD
+      next if $atr =~ /^(background|border|border-radius|width|height|-moz-border-radius)\z/;
       }
     $style .= "$atr: $out->{$atr}; ";
     }
 
-  $style .= $self->text_styles_as_css();	# bold, italic, underline etc.
+  # bold, italic, underline etc. (but not for empty cells)
+  $style .= $self->text_styles_as_css() if $name ne '';
 
   $style =~ s/;\s$//;				# remove '; ' at end
   $style =~ s/\s+/ /g;				# '  ' => ' '
@@ -489,8 +527,10 @@ sub as_html
     # put certain styles like border and background on the table cell,
     # but the other styles on the link
     my $td_style = '';
-    $td_style .= "background: $out->{background};" if exists $out->{background};
-    $td_style .= "border: $out->{border};" if exists $out->{border};
+    for my $s (qw/background border border-radius height width -moz-border-radius/)
+      {
+      $td_style .= "$s: $out->{$s};" if exists $out->{$s};
+      }
     $td_style =~ s/;\z//;				# remove last ;
     $td_style = " style=\"$td_style\"" if $td_style;
 
@@ -500,6 +540,7 @@ sub as_html
   $html .= " style=\"$style\"" if $style;
   $html .= ">$name";
   $html .= "$end_tag";
+
   $html;
   }
 
@@ -593,6 +634,9 @@ sub grow
   # one port, we can just count the edges here:
   my $connections = scalar keys %{$self->{edges}};
 
+  # XXX TODO: if specified "rows", or "columns" (and not "size"), then
+  # grow the node only in the unspecified direction.
+
   # grow the node based on the general flow first VER, then HOR
   my $flow = $self->attribute('flow') || 90;
 
@@ -634,36 +678,72 @@ sub title
     my $autotitle = $self->attribute('autotitle');
     if (defined $autotitle)
       {
-      $title = $self->{name};		# default
-      # defined to avoid overriding "name" with the non-existant label attribute
-      $title = $self->{att}->{label} if $autotitle eq 'label' && defined $self->{att}->{label};
+      $title = '';					# default is none
 
-      warn ("'$autotitle' not allowed for attribute 'autotitle' on node $self->{name}")
-        if $autotitle !~ /^(name|label|none)\z/;
+      if ($autotitle eq 'name')				# use name
+	{
+        $title = $self->{name};
+	# edges do not have a name and fall back on their label
+        $title = $self->{att}->{label} unless defined $title;
+	}
+
+      if ($autotitle eq 'label')
+        {
+        $title = $self->{name};				# fallback to name
+        # defined to avoid overriding "name" with the non-existant label attribute
+	# do not use label() here, but the "raw" label of the edge:
+        my $label = $self->label(); $title = $label if defined $label;
+        }
+
+      $title = $self->link() if $autotitle eq 'link';
       }
+    $title = '' unless defined $title;
     }
-  $title = '' unless defined $title;
   $title;
   }
 
 sub background
   {
+  # get the background for this group/edge cell, honouring group membership
   my $self = shift;
 
-  my $bg = $self->attribute('background') || '';
+  my $bg = $self->attribute('fill') || 'inherit';
+
   if ($bg eq 'inherit')
     {
-    $bg = $self->{group}->attribute('background') if ref($self->{group});
+    $bg = ($self->{edge}->{group}->attribute('fill')||'inherit') if ref $self->{edge}->{group};
     $bg = '' if $bg eq 'inherit';
     }
+
   $bg;
   }
 
-sub x
+sub label
   {
   my $self = shift;
 
-  $self->{x};
+  my $label = $self->attribute('label');
+  $label = $self->{name} unless defined $label;
+
+  return '' unless defined $label;
+
+  if ($label ne '')
+    {
+    my $autolabel = $self->attribute('autolabel');
+    if (defined $autolabel)
+      {
+      # restrict label length?
+      my ($what, $len) = split /\s*,\s*/, $autolabel;
+      # restrict to sane values
+      $len = abs($len || 0); $len = 9999 if $len > 9999;
+      if (length($label) > $len)
+        {
+        $len = int($len / 2) - 3; $len = 0 if $len < 0;
+        $label = substr($label, 0, $len) . ' ... ' . substr($label, -$len, $len);
+        }
+      }
+    }
+  $label;
   }
 
 sub name
@@ -673,13 +753,11 @@ sub name
   $self->{name};
   }
 
-sub label
+sub x
   {
   my $self = shift;
 
-  my $label = $self->{att}->{label}; $label = $self->{name} unless defined $label;
-  $label = '' unless defined $label;
-  $label;
+  $self->{x};
   }
 
 sub y
@@ -748,12 +826,11 @@ sub shape
 
 sub dimensions
   {
-  # Returns the dimensions of the node/cell derived from the label (or name) in characters.
+  # Returns the dimensions of the node/cell derived from the label (or name)
+  # in characters.
   my $self = shift;
 
-  my $label = $self->{att}->{label}; $label = $self->{name} unless defined $label;
-  $label = '' unless defined $label;
-
+  my $label = $self->label();
   $label =~ s/\\n/\n/g;
 
   my @lines = split /\n/, $label;
@@ -782,6 +859,28 @@ sub edges_to
     {
     push @edges, $edge if $edge->{from} == $self && $edge->{to} == $other;
     }
+  @edges;
+  }
+
+sub edges_at_port
+  {
+  # return all edges that share the same given port
+  my ($self, $attr, $side, $port) = @_;
+
+  # Must be "start" or "end"
+  return () unless $attr =~ /^(start|end)\z/;
+
+  my @edges;
+  for my $e (values %{$self->{edges}})
+    {
+    my ($s_p,@ss_p) = split (/,/, $e->attribute($attr) || '');
+    next unless defined $s_p;
+
+    # same side and same port number?
+    push @edges, $e 
+      if $s_p eq $side && @ss_p == 1 && $ss_p[0] eq $port;
+    }
+
   @edges;
   }
 
@@ -1024,14 +1123,6 @@ sub attribute
 
   my $class = $self->{class};
 
-  # See if we can inherit it from our groups:
-  # XXX TODO: what about the order we search the groups in? undefined?
-  for my $group (keys %{$self->{groups}})
-    {
-    my $att = $g->attribute ('group.' . $group, $atr);
-    return $att if defined $att;
-    }
-  
   # try "node.class" first:
   my $att = $g->attribute ($class, $atr);
 
@@ -1046,7 +1137,7 @@ sub attribute
   # inherit it from "graph" as a last resort:
 
   $att = $g->attribute ('graph', $atr) if !defined $att && 
-    $atr =~ /^(flow|linkbase|autolink|autotitle)\z/;
+    $atr =~ /^(flow|linkbase|autolink|autotitle|autolabel)\z/;
 
   $att;
   }
@@ -1189,8 +1280,6 @@ sub set_attributes
 
     next if !defined $val;
 
-#    print STDERR "# $val ($n) index $index\n";
-
     $n eq 'class' ? $self->sub_class($val) : $self->set_attribute($n, $val);
     }
   $self;
@@ -1233,17 +1322,13 @@ sub add_to_group
 
 sub parent
   {
-  # return parent object, either a group the node belongs to, or the graph
+  # return parent object, either the group the node belongs to, or the graph
   my $self = shift;
 
   my $p = $self->{graph};
 
-  if (keys (%{$self->{groups}}) > 0)
-    {
-    my $key;
-    ($key,$p) = each %{$self->{groups}};
-    }
-  
+  $p = $self->{group} if ref($self->{group});
+
   $p;
   }
 
@@ -1556,6 +1641,15 @@ Return successors of the node sorted by their chain value
 	my @edges = $node->edges_to($other_node);
 
 Returns all the edge objects that start at C<< $node >> and go to C<< $other_node >>.
+
+=head2 edges_at_port()
+
+	my @edges = $node->edges_to('start', 'south', '0');
+
+Returns all the edge objects that share the same C<start> or C<end>
+port at the specified side and port number. The side must be
+one of C<south>, C<north>, C<west> or C<east>. The port number
+must be positive.
 
 =head2 incoming()
 

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 46;
+   plan tests => 60;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -42,7 +42,9 @@ foreach (<DATA>)
   $parser->reset();
   $parser->{graph} = Graph::Easy->new();		# for _color_as_hex
 
-  my $att = $parser->_parse_attributes($txt);		# reuse parser object
+  my $class = 'node'; $class = 'edge' if $txt =~ /^(start|end)/;
+
+  my $att = $parser->_parse_attributes($txt, $class);	# reuse parser object
 
   if (!defined $att)
     {
@@ -110,3 +112,17 @@ point-style: qiggle;|error=Error in attribute: 'qiggle' is not a valid point-sty
 toint-shape: qiggle;|error=Error in attribute: 'toint-shape' is not a valid attribute name for a node
 autolink: qiggle;|error=Error in attribute: 'qiggle' is not a valid autolink for a node
 size: 1, 2;|size=1, 2;
+start: south, 1;|start=south, 1;
+start: south , 1;|start=south , 1;
+start: right , -1;|start=right , -1;
+end: south, 1;|end=south, 1;
+end: south , 1;|end=south , 1;
+end: right , -1;|end=right , -1;
+end: right,12345;|error=Error in attribute: 'right,12345' is not a valid end for a edge
+start: right,12345;|error=Error in attribute: 'right,12345' is not a valid start for a edge
+autolabel: name;|autolabel=name;
+autolabel: name,1;|error=Error in attribute: 'name,1' is not a valid autolabel for a node
+autolabel: name,10;|autolabel=name,10;
+autolabel: name, 10;|autolabel=name, 10;
+autolabel: name ,10;|autolabel=name ,10;
+autolabel: name , 10;|autolabel=name , 10;

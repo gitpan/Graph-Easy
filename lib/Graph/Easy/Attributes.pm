@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 package Graph::Easy;
 
@@ -190,7 +190,7 @@ sub color_as_hex
   {
   # Turn "red" or rgb(255,0,0) or "#f00" into "#ff0000". Return undef for
   # invalid colors.
-  my ($self, $color) = @_;
+  my ($self,$color) = @_;
 
   # XXX TODO:
   # handle things like rgb(100%,50%,0.5)
@@ -211,6 +211,18 @@ sub color_as_hex
   return undef unless $color =~ /^#[a-f0-9]{6}\z/;
 
   $color;
+  }
+
+sub _color_remap
+  {
+  # turn "1px solid #ff0000" into "1px solid red"
+  my ($self,$val) = @_;
+
+  for my $n (keys %$color_names)
+    {
+    $val =~ s/\b$n\b/$color_names->{$n}/;
+    }
+  $val;
   }
 
 sub angle
@@ -417,11 +429,11 @@ sub _border_width_in_pixels
     {
     $bw = ($1 / 100) * $em;
     }
-#  # this is discouraged:
-#  elsif ($fs =~ /^([\d.]+)px\z/)
-#    {
-#    $fs = $1;
-#    }
+  # this is discouraged:
+  elsif ($bw =~ /^([\d.]+)px\z/)
+    {
+    $bw = $1;
+    }
   else
     {
     require Carp;
@@ -490,17 +502,26 @@ sub ATTR_TYPE_SLOT	() { 4; }
 my $attributes = {
   all => {
     autolink => [
-     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<link>. This attribute is inherited by nodes, edges and groups.",
-     [ qw/ label title name none / ],
+     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<link>, unless L<link> is already set. This attribute is inherited by nodes, edges and groups. See the section about labels, titles, names and links for reference.",
+     [ qw/label title name none/ ],
      'none',
      'title',
      ],
 
     autotitle => [
-     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<title>. This attribute is inherited by nodes, edges and groups.",
-     [ qw/ label name none / ],
+     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<title>, unless L<title> is already set. This attribute is inherited by nodes, edges and groups. See the section about labels, titles, names and links for reference.",
+     [ qw/label name none link/ ],
      'none',
      'label',
+     ],
+
+    autolabel => [
+     "Will automatically generate the L<label>, unless L<label> is already set. The label will be restricted to N characters length, where N should be greater than 12. This attribute is inherited by nodes, edges and groups.  See the section about labels, titles, names and links for reference.",
+     qr/^name(\s*,\s*[\d]{2,4})?\z/,
+     '',
+     'name,20',
+     undef,
+     "graph { autolabel: name,20; autotitle: name; }\n\n[ Bonn ] -- Acme Travels Incorporated --> [ Frankfurt (Main) / Flughafen ]",
      ],
 
     background => [
@@ -571,10 +592,10 @@ my $attributes = {
     'font-size' => [
      "The size of the label text, best expressed in I<em> (1.0em, 0.5em etc) or percent (100%, 50% etc)",
      qr/^\d+(\.\d+)?(em|px|%)?\z/,
-     '"1.0" for the graph and nodes, "0.75" for edges',
+     '"1.0em" for the graph and nodes, "0.8em" for edge and group labels',
      '50%',
      undef,
-     "graph { font-size: 200%; label: Sample; }\n  [ Crimson ] { font-size: 1.5em; fill: darkred; }\n  -- Aqua Marine -->\n { font-size: 0.2em; }\n  [ Two ]",
+     "graph { font-size: 200%; label: Sample; }\n\n ( Nodes:\n [ Crimson ] { font-size: 1.5em; color: white; fill: darkred; }\n  -- Aqua Marine -->\n { font-size: 0.2em; }\n  [ Two ] )",
      ],
 
     label => [
@@ -644,7 +665,7 @@ edge {
   }
 
 [ Meersburg ] { font-size: 2em; }
- -- Fähre --> { font-size: 1.2em; color: red; }
+ -- F\x{e4}hre --> { font-size: 1.2em; color: red; }
  [ Konstanz ]
 EOF
      ],
@@ -697,6 +718,8 @@ EOF
              point triangle trapezium septagon rect rounded none/ ],
       'rect',
       'circle',
+      undef,
+      "[ Bonn ] -> \n [ Berlin ] { shape: circle; }\n -> [ Regensburg ] { shape: rounded; }\n -> [ Ulm ] { shape: point; }\n -> [ Wasserburg ] { shape: invisible; }\n -> [ Augsburg ] { shape: triangle; }",
      ],
 
     rotate => [
@@ -765,6 +788,8 @@ EOF
       [ qw/solid dotted dashed dot-dash dot-dot-dash bold bold-dash double-dash double wave broad wide/], # broad-dash wide-dash/ ],
       'solid',
       'dotted',
+      undef,
+      "[ A ] -- solid --> [ B ]\n .. dotted ..> [ C ]\n -  dashed - > [ D ]\n -- bold --> { style: bold; } [ E ]\n -- broad --> { style: broad; } [ F ]\n -- wide --> { style: wide; } [ G ]",
      ],
 
     "arrow-style" => [
@@ -785,18 +810,18 @@ EOF
      "[ Bonn ] -- ICE --> { label-color: blue; }\n [ Berlin ]",
      ],
 
-    "start" => [
+    start => [
      'The starting port of this edge. See the section about node ports for reference.',
-     qr/^(south|north|east|west)(,\s*-?[\d{1,4}])?\z/,
+     qr/^(south|north|east|west|left|right|front|back)(\s*,\s*-?\d{1,4})?\z/,
      '',
      'south',
      ATTR_PORT,
      "[ Bonn ] -- NORTH --> { start: north; end: north; } [ Berlin ]",
      ],
 
-    "end" => [
+    end => [
      'The ending port of this edge. See the section about node ports for reference.',
-     qr/^(south|north|east|west)(,\s*-?[\d{1,4}])?\z/,
+     qr/^(south|north|east|west|right|left|front|back)(\s*,\s*-?\d{1,4})?\z/,
      '',
      'west',
      ATTR_PORT,
@@ -959,6 +984,8 @@ sub _remap_attributes
       # if yes, convert to name
       $val = $self->color_name($val)
         if ($entry->[ ATTR_TYPE_SLOT ]||ATTR_STRING) == ATTR_COLOR;
+#      # turn "1px solid #ff0000" into "1px solid red"
+#      $val = $self->_color_remap($val) if $atr eq 'border';
       }
 
     # if given a code ref, call it to remap name and/or value

@@ -8,8 +8,7 @@ package Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 use strict;
 
@@ -111,8 +110,6 @@ sub _init
     $self->{group}->add_cell ($self);
     $self->{class} = $self->{group}->{class};
     $self->{class} = 'group' unless defined $self->{class};
-    # to make "group($name)" work
-    $self->{groups}->{ $self->{group}->{name} } = $self->{group};
     }
  
   $self;
@@ -160,6 +157,22 @@ sub _set_type
   $self;
   }
 
+sub _set_label
+  {
+  my $self = shift;
+
+  $self->{has_label} = 1;
+ 
+  $self->{name} = $self->{group}->label();
+  }
+
+sub attribute
+  {
+  my $self = shift;
+
+  $self->{group}->attribute(@_);
+  }
+
 #############################################################################
 # conversion to ASCII or HTML
 
@@ -178,26 +191,35 @@ sub as_ascii
   $border_style = 'broad' if $border_width > $EM * 0.2 && $border_width < $EM * 0.75;
   $border_style = 'wide' if $border_width >= $EM * 0.75;
 
-  return '' if $border_style eq 'none';
-
-  #########################################################################
-  # draw our border into the framebuffer
-
-  my $c = $self->{cell_class};
-
-  my $b_top = $border_style;
-  my $b_left = $border_style;
-  my $b_right = $border_style; 
-  my $b_bottom = $border_style;
-  if ($c !~ 'ga')
+  if ($border_style ne 'none')
     {
-    $b_top = 'none' unless $c =~ /gt/;
-    $b_left = 'none' unless $c =~ /gl/;
-    $b_right = 'none' unless $c =~ /gr/;
-    $b_bottom = 'none' unless $c =~ /gb/;
+
+    #########################################################################
+    # draw our border into the framebuffer
+
+    my $c = $self->{cell_class};
+
+    my $b_top = $border_style;
+    my $b_left = $border_style;
+    my $b_right = $border_style; 
+    my $b_bottom = $border_style;
+    if ($c !~ 'ga')
+      {
+      $b_top = 'none' unless $c =~ /gt/;
+      $b_left = 'none' unless $c =~ /gl/;
+      $b_right = 'none' unless $c =~ /gr/;
+      $b_bottom = 'none' unless $c =~ /gb/;
+      }
+
+    $self->_draw_border($fb, $b_right, $b_bottom, $b_left, $b_top, $x, $y);
     }
 
-  $self->_draw_border($fb, $b_right, $b_bottom, $b_left, $b_top, $x, $y);
+  if (exists $self->{has_label})
+    {
+    # include our label
+    my @pieces = $self->_formatted_label();
+    $self->_printfb ($fb, 0, $self->{h} - @pieces - 1, @pieces) if @pieces > 0;
+    }
 
   join ("\n", @$fb);
   }
@@ -224,11 +246,19 @@ sub _correct_size
     my $border = $self->{group}->attribute('border-style') || 'dashed';
     $self->{w} = 0;
     $self->{h} = 0;
+    # label needs space
+    $self->{h} = 1 if $self->{has_label};
     if ($border ne 'none')
       {
       $self->{w} = 2;
       $self->{h} = 2;
       }
+    }
+  if (exists $self->{has_label})
+    {
+    my ($w,$h) = $self->dimensions();
+    $self->{h} += $h;
+    $self->{w} += $w;
     }
   }
 

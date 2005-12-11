@@ -21,7 +21,7 @@ sub _u8
   # in case of input like "ca", turn it into "25ca"
   $utf16 = '25' . $utf16 if length($utf16) == 2;
 
-  # UTF-16BE must be in uppercase to make older some Encode versions happy
+  # UTF-16BE must be in uppercase to make some older Encode versions happy
   Encode::decode('UTF-16BE', pack("H" . length($utf16), $utf16));
   }
 

@@ -5,13 +5,13 @@
 
 package Graph::Easy::Group;
 
-use strict;
-use vars qw/$VERSION @ISA/;
 use Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.07';
+$VERSION = '0.08';
+
+use strict;
 
 #############################################################################
 
@@ -21,7 +21,6 @@ sub _init
   my ($self,$args) = @_;
   
   $self->{name} = 'Group #'. $self->{id};
-  $self->{label} = '';
   $self->{class} = 'group';
   $self->{cells} = {};
 
@@ -40,37 +39,8 @@ sub _init
   $self;
   }
 
-sub as_txt
-  {
-  my $self = shift;
-
-  require Graph::Easy::As_txt;
-
-  my $n = $self->{name};
-  # quote special chars in name
-  $n =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
-
-  my $txt = "( $n\n";
-  
-  $n = $self->{nodes};
-    
-  for my $name ( sort keys %$n )
-    {
-    $n->{$name}->{_p} = 1;				# mark as processed
-    $txt .= '  ' . $n->{$name}->as_pure_txt() . "\n";
-    }
-  $txt .= ")" . $self->attributes_as_txt() . "\n\n";
-  }
-
 #############################################################################
 # accessor methods
-
-sub name
-  {
-  my $self = shift;
-
-  $self->{name};
-  }
 
 sub nodes
   {
@@ -145,7 +115,8 @@ sub add_member
   $class =~ s/s\z/class/;
 
   # if defined attribute "nodeclass", put our nodes into that class
-  $n->sub_class($self->{att}->{$class}) if exists $self->{att}->{$class};
+  my $cl = $self->attribute($class) || '';
+  $n->sub_class($cl) if $cl ne '';
 
   # register ourselves with the member
   $n->{group} = $self;
@@ -209,7 +180,7 @@ sub add_nodes
 
   foreach my $n (@_)
     {
-    if (!ref($n) || ref($n) =~ /Graph::Easy::Group/)
+    if (!ref($n) || $n->isa('Graph::Easy::Group'))
       {
       require Carp;
       Carp::confess("Cannot add non-object or group $n as node to group '$self->{name}'");
@@ -243,6 +214,31 @@ sub add_cell
   my ($self,$cell) = @_;
 
   $self->{cells}->{"$cell->{x},$cell->{y}"} = $cell;
+  }
+
+sub find_label_cell
+  {
+  # go through all cells of this group and find one where to attach the label
+  my $self = shift;
+
+  my $g = $self->{graph};
+
+  my $lc;
+  for my $c (values %{$self->{cells}})
+    {
+    # find a cell at the top-left corner
+    if ($c->{cell_class} =~ /^\s*gt\s*\z/)
+      {
+      if (defined $lc)
+        {
+        next if $lc->{x} < $c->{x} || $lc->{y} < $c->{y};
+        }
+      $lc = $c;
+      }
+    }
+
+  print STDERR "# setting group label for group '$self->{name}' at $lc->{x},$lc->{y}\n" if $self->{debug};
+  $lc->_set_label() if ref($lc);   
   }
 
 1;
@@ -401,6 +397,13 @@ Clears the cells associated with this group.
 	my $txt = $group->as_txt();
 
 Returns the group as Graph::Easy textual description.
+
+=head2 find_label_cell()
+
+	$group->find_label_cell();
+
+Called by the layouter once for each group. Goes through all cells of this group and
+finds one where to attach the label to.
 
 =head1 EXPORT
 

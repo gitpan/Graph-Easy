@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 20;
+   plan tests => 21;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Group") or die($@);
@@ -53,6 +53,7 @@ $group->{graph} = $graph;
 is ($group->as_txt(), "( Group \\#0\n)\n\n", 'as_txt (empty group)');
 is (scalar $group->nodes(), 0, 'no nodes in group');
 is (scalar $group->edges(), 0, 'no edges in group');
+is ($group->name(), 'Group #0', 'name()');
 
 my $first = Graph::Easy::Node->new( name => 'first' );
 my $second = Graph::Easy::Node->new( name => 'second' );

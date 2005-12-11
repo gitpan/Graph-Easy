@@ -8,7 +8,7 @@ package Graph::Easy::As_txt;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 #############################################################################
 #############################################################################
@@ -127,6 +127,34 @@ sub _as_txt
     }
 
   $txt;
+  }
+
+#############################################################################
+
+package Graph::Easy::Group;
+
+use strict;
+
+sub as_txt
+  {
+  my $self = shift;
+
+  require Graph::Easy::As_txt;
+
+  my $n = $self->{name};
+  # quote special chars in name
+  $n =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
+
+  my $txt = "( $n\n";
+
+  $n = $self->{nodes};
+
+  for my $name ( sort keys %$n )
+    {
+    $n->{$name}->{_p} = 1;                              # mark as processed
+    $txt .= '  ' . $n->{$name}->as_pure_txt() . "\n";
+    }
+  $txt .= ")" . $self->attributes_as_txt() . "\n\n";
   }
 
 #############################################################################

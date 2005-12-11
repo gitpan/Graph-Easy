@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 151;
+   plan tests => 157;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -44,6 +44,7 @@ can_ok ("Graph::Easy::Node", qw/
   y
   class
   title
+  link
   place
   shape
   del_attribute
@@ -339,16 +340,28 @@ $node->set_attribute('title', "foo title");
 is ($node->title(), 'foo title', 'foo title');
 
 $node->del_attribute('title');
-$node->set_attribute('autotitle', 'name');
 
+$node->set_attribute('autotitle', 'none');
+is ($node->title(), '', 'no title if autotitle: none');
+
+$node->set_attribute('autotitle', 'name');
 is ($node->title(), $node->name(), 'title equals name');
 
 $node->set_attribute('autotitle', 'label');
-
 is ($node->title(), $node->name(), 'title equals name');
 
 $node->set_attribute('label', 'label');
 is ($node->title(), 'label', 'title equals label');
+
+$node->set_attribute('link', '');
+$node->set_attribute('autotitle', 'link');
+is ($node->title(), '', 'title "" if no link');
+
+$node->set_attribute('link', 'http://bloodgate.com/');
+is ($node->title(), $node->link(), 'title eq link');
+
+$node->set_attribute('title','my title');
+is ($node->title(), 'my title', 'title will override autotitle');
 
 #############################################################################
 # invisible nodes, and nodes with shape none
@@ -512,8 +525,17 @@ is_deeply ($allow, [ 4,3 ], 'east,2');
 $allow = $A->_allow('east','-1');
 is_deeply ($allow, [ 4,3 ], 'east,-1');
 
+#############################################################################
+# parent()
 
+$graph = Graph::Easy->new();
 
+($A,$B, $edge) = $graph->add_edge('A','B');
 
+is ($A->parent(), $graph, 'parent is graph');
 
+$group = $graph->add_group('Test');
+$group->add_node($A);
+
+is ($A->parent(), $group, 'parent is group');
 

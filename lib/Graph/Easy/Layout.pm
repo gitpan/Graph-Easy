@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 #############################################################################
 #############################################################################
@@ -581,6 +581,7 @@ sub layout
     delete $n->{_chain};
     delete $n->{_c};
     }
+
   die $@ if $@;				# propagate errors
 
   }
@@ -631,8 +632,6 @@ sub _fill_group_cells
     $cell->{y} = $y;
     $cells->{"$x,$y"} = $cell; 
 
-#    print STDERR "# inserting for $x, $y, ", $cell->{name} || '', "\n";
-
     # find the primary node/edge for node/edge cells
     $cell = $cell->{node} if $cell->isa('Graph::Node::Cell');
     $cell = $cell->{edge} if $cell->isa('Graph::Edge::Cell');
@@ -663,16 +662,72 @@ sub _fill_group_cells
 
   $self->{cells} = $cells;		# override with new cell layout
 
+  # splicing the rows/columns to add filler cells might have torn holes into
+  # edges, so we splice these together again
+
+  # go over the old layout, because the new cells were inserted into odd
+  # rows/columns and we do not care for these:
+  for my $cell (sort { $a->{x} <=> $b->{x} || $a->{y} <=> $b->{y} } values %$cells)
+    {
+    next unless $cell->isa('Graph::Easy::Edge::Cell');
+
+    # check for "[ --- ] [ empty  ] [ ---> ]"
+
+    my $x = $cell->{x} + 2; my $y = $cell->{y}; 
+
+    if (exists $cells->{"$x,$y"})
+      {
+      my $right = $cells->{"$x,$y"};
+
+      # check that both cells belong to the same edge
+      if ($right->isa('Graph::Easy::Edge::Cell') && $cell->{edge} == $right->{edge})
+	{
+        $x = $cell->{x} + 1;
+  
+        my $filler = 
+	  Graph::Easy::Edge::Cell->new( 
+	    type => EDGE_HOR(), 
+	    edge => $cell->{edge}, x => $x, y => $y, after => $cell );
+	$cells->{"$x,$y"} = $filler;
+	}
+      }
+    
+    # check for [ | ]
+    #		[ empty ]
+    #		[ | ]
+    $x = $cell->{x}; $y = $cell->{y}+2; 
+
+    next unless exists $cells->{"$x,$y"};
+
+    my $below = $cells->{"$x,$y"};
+    # check that both cells belong to the same edge
+    next unless $below->isa('Graph::Easy::Edge::Cell') && $cell->{edge} == $below->{edge};
+
+    $y = $cell->{y} + 1;
+
+    my $filler = 
+      Graph::Easy::Edge::Cell->new( 
+	type => EDGE_VER(), 
+	edge => $cell->{edge}, x => $x, y => $y, after => $cell );
+    $cells->{"$x,$y"} = $filler;
+    }
+
   # XXX TODO
   # we should "grow" the group area to close holes
 
   # for all group cells, set their right type (for border) depending on
   # neighbour cells
-  for my $key (keys %$cells)
+  for my $cell (sort { $a->{x} <=> $b->{x} || $a->{y} <=> $b->{y} } values %$cells)
     {
-    my $cell = $cells->{$key};
-    $cell->_set_type($cells) if ref($cell) =~ /Group::Cell/;
+    $cell->_set_type($cells) if $cell->isa('Graph::Easy::Group::Cell');
     }
+
+  # for all groups, set the cell carrying the label (top-left-most cell)
+  for my $group (values %{$self->{groups}})
+    {
+    $group->find_label_cell();
+    }
+
   $self;
   }
 

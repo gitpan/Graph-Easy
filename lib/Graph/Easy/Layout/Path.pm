@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 #############################################################################
 #############################################################################
@@ -228,6 +228,22 @@ sub _allow
   # "south,0,1,-1" - first, second and last place south  
 
   my ($self, $dir, @pos) = @_;
+
+  if ($dir =~ /^(front|back|left|right)\z/)
+    {
+    # get the flow at the node
+    my $flow = $self->attribute('flow')||'east';
+
+    my $new = {
+      90 => { front => 'east', 'back' => 'west', left => 'north', right => 'south' },
+      270 => { front => 'west', 'back' => 'east', left => 'south', right => 'north' },
+      180 => { front => 'south', 'back' => 'north', left => 'east', right => 'west' },
+      0 => { front => 'north', 'back' => 'south', left => 'west', right => 'east' },
+      };
+ 
+    #      east => back => west
+    $dir = $new->{$flow}->{$dir};
+    }
 
   my $place = {
     'south' => [  0,0, 0,1, 'cx', 1,0 ],

@@ -230,13 +230,14 @@ sub _init
   # XXX TODO check arguments
   foreach my $k (keys %$args)
     {
+    next unless $k =~ /^(graph|edge|x|y|type)\z/;
     $self->{$k} = $args->{$k};
     }
 
   if (defined $self->{edge})
     {
     # register ourselves at this edge
-    $self->{edge}->add_cell ($self);
+    $self->{edge}->add_cell ($self, $args->{after});
     # take over settings from edge
     $self->{style} = $self->{edge}->style();
     $self->{class} = $self->{edge}->{class};
@@ -580,59 +581,59 @@ my $edge_html = {
   # self loops
 
   EDGE_LOOP_NORTH() - EDGE_LABEL_CELL() => [
-    ' <td rowspan=2 class="##class## eb">&nbsp;</td>' . "\n".
+    '<td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' . "\n".
     ' <td colspan=2 rowspan=2 class="##class## lh" style="border-bottom: ##border##;##lc####bg##">##label##</td>' . "\n" .
-    ' <td rowspan=2 class="##class## eb">&nbsp;</td>',
+    ' <td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
     '',
-    ' <td class="##class## eb">&nbsp;</td>' . "\n".
-    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>'."\n".
-    ' <td colspan=1 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+    '<td class="##class## eb" style="##bg##">&nbsp;</td>' . "\n".
+    ' <td colspan=2 class="##class## eb" style="border-left: ##border##;##bg##">&nbsp;</td>'."\n".
+    ' <td colspan=1 class="##class## eb" style="border-left: ##border##;##bg##">&nbsp;</td>',
 
-    ' <td colspan=2 class="##class## v"##edgecolor##>&nbsp;v</td>' . "\n" .
-    ' <td colspan=2 class="##class## eb">&nbsp;</td>',
+    '<td colspan=2 class="##class## v" style="##bg##"##edgecolor##>&nbsp;v</td>' . "\n" .
+    ' <td colspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
 
    ],
 
   EDGE_LOOP_SOUTH() - EDGE_LABEL_CELL() => [
-    ' <td colspan=2 class="##class## v"##edgecolor##>&nbsp;^</td>' . "\n" . 
-    ' <td colspan=2 class="##class## eb">&nbsp;</td>',
+    '<td colspan=2 class="##class## v" style="##bg##"##edgecolor##>&nbsp;^</td>' . "\n" . 
+    ' <td colspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
 
-    ' <td rowspan=2 class="##class## eb">&nbsp;</td>' . "\n".
+    '<td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' . "\n".
     ' <td colspan=2 rowspan=2 class="##class## lh" style="border-left: ##border##; border-bottom: ##border##;##lc####bg##">##label##</td>'."\n".
-    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;##bg##">&nbsp;</td>',
 
     '',
 
-    ' <td colspan=4 class="##class## eb">&nbsp;</td>',
+    '<td colspan=4 class="##class## eb" style="##bg##">&nbsp;</td>',
 
    ],
 
   EDGE_LOOP_WEST() - EDGE_LABEL_CELL() => [
-    ' <td rowspan=4 class="##class## eb">&nbsp;</td>' . "\n" .
+    '<td rowspan=4 class="##class## eb" style="##bg##">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## lh" style="border-bottom: ##border##;##lc####bg##">##label##</td>'."\n".
-    ' <td rowspan=2 class="##class## eb">&nbsp;</td>',
+    ' <td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
 
     '',
 
-    ' <td colspan=2 class="##class## eb" style="border-left: ##border##; border-bottom: ##border##">&nbsp;</td>' . "\n".
-    ' <td rowspan=2 class="##class## va"##edgecolor##>&gt;</td>',
+    '<td colspan=2 class="##class## eb" style="border-left: ##border##; border-bottom: ##border##;##bg##">&nbsp;</td>' . "\n".
+    ' <td rowspan=2 class="##class## va" style="##bg##"##edgecolor##>&gt;</td>',
     
-    ' <td colspan=2 class="##class## eb">&nbsp;</td>',
+    '<td colspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
    ],
 
   EDGE_LOOP_EAST() - EDGE_LABEL_CELL() => [
 
-    ' <td rowspan=2 class="##class## eb ">&nbsp;</td>' . "\n" .
+    '<td rowspan=2 class="##class## eb " style="##bg##">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## lh" style="border-bottom: ##border##;##lc####bg##">##label##</td>' ."\n".
-    ' <td rowspan=2 class="##class## eb">&nbsp;</td>',
+    ' <td rowspan=2 class="##class## eb" style="##bg##>&nbsp;</td>',
 
     '',
 
-    ' <td rowspan=2 class="##class## va"##edgecolor##>&lt;</td>' ."\n".
-    ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##">&nbsp;</td>'."\n".
-    ' <td class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
+    '<td rowspan=2 class="##class## va" style="##bg##"##edgecolor##>&lt;</td>' ."\n".
+    ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>'."\n".
+    ' <td class="##class## eb" style="border-left: ##border##;##bg##">&nbsp;</td>',
     
-    ' <td colspan=3 class="##class## eb">&nbsp;</td>',
+    '<td colspan=3 class="##class## eb" style="##bg##">&nbsp;</td>',
    ],
 
   };
@@ -699,8 +700,8 @@ sub _html_edge_ver
 
   # normal vertical edge with no start/end flags
   my $rc = [
-    '<td colspan=2 rowspan=##mod## class="##class## el">&nbsp;</td>' . "\n " . 
-    '<td colspan=2 rowspan=##mod## class="##class## lv" style="border-left: ##border##;##lc##">##label##</td>' . "\n",
+    '<td colspan=2 rowspan=##mod## class="##class## el" style="##bg##">&nbsp;</td>' . "\n " . 
+    '<td colspan=2 rowspan=##mod## class="##class## lv" style="border-left: ##border##;##lc####bg##">##label##</td>' . "\n",
     '',
     '',
     '',
@@ -710,7 +711,7 @@ sub _html_edge_ver
   if ($s_flags & EDGE_START_N)
     {
     $mod--;
-    unshift @$rc, '<td colspan=4 class="##class## he"></td>' . "\n";
+    unshift @$rc, '<td colspan=4 class="##class## he" style="##bg##"></td>' . "\n";
     delete $rc->[-1];
     }
   elsif ($e_flags & EDGE_END_N)
@@ -724,7 +725,7 @@ sub _html_edge_ver
   if ($s_flags & EDGE_START_S)
     {
     $mod--;
-    $rc->[3] = '<td colspan=4 class="##class## he"></td>' . "\n"
+    $rc->[3] = '<td colspan=4 class="##class## he" style="##bg##"></td>' . "\n"
     }
 
   if ($e_flags & EDGE_END_S)
@@ -795,7 +796,7 @@ sub as_html
   # only include the label if we are the label cell
   if ($self->{type} & EDGE_LABEL_CELL)
     {
-    $label = $self->{att}->{label}; $label = '' if !defined $label; $label =~ s/\\n/<br \/>/g;
+    $label = $self->label(); $label =~ s/\\n/<br \/>/g;
 
     my $label_color = $self->attribute('label-color') || $color;
     $label_color = '' if $label_color eq 'black';

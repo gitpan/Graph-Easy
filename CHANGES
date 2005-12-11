@@ -1,5 +1,33 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-12-10 v0.35 Tels 1483 tests
+  * Node: fix parent()
+  * allow "$graph->add_group('Name');"
+  * render group labels
+  * close edge gaps created by inserting group filler cells
+  * group label font-size defaults to 0.8
+  * fix doc about default font-size (0.8 for edge/group labels, not 0.75)
+  * as_html: fix borders of groups without a special class/border
+  * as_html: fix content and background of nodes with "shape: point;"
+  * as_html: fix group backgrounds (especially with edges and class/non-class
+	     attributes)
+  * as_html: don't need to put text/font attributes on empty (group) cells
+  * as_html: fix shapes like "circle" on nodes with a link
+  * remove relicts of old group handling code in Nodes/Group Cells
+  * use more isa() instead of ref() checks for class names 
+  * "class { label: ...; }" was ignored and did not change the label
+  * allow: "start: south , 1;" (space before ",")
+  * add directions "left", "right", "front" and "back for "start"/"end"
+    (these are flow-dependend, unlike "south" etc)
+  * add attribute 'autotitle: link;'
+  * add attribute 'autolabel: name;' and "autolabel: name, N;"
+  * make "autotitle: none;" work
+  * document and test that "autotitle: name" on edges will fall back to
+    the edge label
+  * document and test that a present title will override "autotitle"
+  * implement edge-joints:
+    + A* will use edges for start cells if they share the same port
+
 2005-12-04 v0.34 Tels 1437 tests
   * as_html: align arrow heads better with the edge line
 	     (still breaks sometimes, espc. with edge labels)
