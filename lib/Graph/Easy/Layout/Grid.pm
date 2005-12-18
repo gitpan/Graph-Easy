@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Grid;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 #############################################################################
 #############################################################################
@@ -38,7 +38,6 @@ sub _prepare_layout
   my $cells = $self->{cells};
   my $rows = {};
   my $cols = {};
-  my @V;
 
   # the last column/row
   my $mx = -100000; my $my = -100000;
@@ -48,10 +47,6 @@ sub _prepare_layout
     {
     my ($x,$y) = split/,/, $k;
     my $cell = $cells->{$k};
-
-    # Get all possible nodes from $cell (instead of nodes) because
-    # this also includes edge/group cells, too.
-    push @V, $cell;
 
     # Set the minimum cell size:
     {
@@ -97,7 +92,7 @@ sub _prepare_layout
   # find out max. dimensions for framebuffer
   my $max_y = 0; my $max_x = 0;
 
-  foreach my $v (@V)
+  for my $v (values %$cells)
     {
     next if ($v->{cx}||1) + ($v->{cy}||1) != 2;
 
@@ -162,8 +157,7 @@ sub _prepare_layout
     }
 
   # return what we found out:
-
-  ($rows,$cols,$max_x,$max_y, \@V);
+  ($rows,$cols,$max_x,$max_y);
   }
 
 1;

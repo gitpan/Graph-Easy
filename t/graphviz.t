@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 106;
+   plan tests => 107;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -366,5 +366,21 @@ $bonn->set_attribute( 'label' => '2"' );
 $grviz = $graph->as_graphviz();
 
 like ($graph->as_graphviz(), qr/Bonn.*label="2\\""/, 'contains label 2"');
+
+
+#############################################################################
+# groups as clusters
+
+$graph = Graph::Easy->new();
+
+($bonn, $berlin, $edge) = $graph->add_edge ('Bonn', 'Berlin');
+my $group = $graph->add_group ('Test:');
+
+$group->add_node($bonn);
+$group->add_node($berlin);
+
+$grviz = $graph->as_graphviz();
+
+like ($graph->as_graphviz(), qr/subgraph "cluster\d+"\s+\{/, 'contains cluster');
 
 

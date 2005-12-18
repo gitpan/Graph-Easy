@@ -227,10 +227,9 @@ sub _init
   $self->{w} = undef;
   $self->{h} = 3;
 
-  # XXX TODO check arguments
   foreach my $k (keys %$args)
     {
-    next unless $k =~ /^(graph|edge|x|y|type)\z/;
+    next unless $k =~ /^(graph|edge|x|y|type)\z/;	# ignore "after"
     $self->{$k} = $args->{$k};
     }
 
@@ -275,28 +274,43 @@ sub _make_cross
   
   my $type = $self->{type} & EDGE_TYPE_MASK;
     
-#  print STDERR "# edge ($edge->{id}: $edge->{from}->{name} to $edge->{to}->{name}) will cross\n";
-#  my $e = $self->{edge};
-#  print STDERR "# ($e->{id}: $e->{from}->{name} to $e->{to}->{name})\n";
-
   return undef if (($type != EDGE_HOR) && ($type != EDGE_VER));
 
   $self->{color} = $self->attribute('color');
   $self->{style_ver} = $edge->style();
   $self->{color_ver} = $edge->attribute('color');
-  $self->{cross} = $edge;
 
   # if we are the VER piece, switch styles around
-
   if ($type == EDGE_VER)
     {
     ($self->{style_ver}, $self->{style}) = ($self->{style},$self->{style_ver});
     ($self->{color_ver}, $self->{color}) = ($self->{color},$self->{color});
     }
 
-  $edge->add_cell($self);
-
   $self->{type} = EDGE_CROSS + ($flags || 0);
+
+  $self;
+  }
+
+sub _make_joint
+  {
+  # Upgrade us to a joint
+  my ($self, $edge, $new_type) = @_;
+  
+  my $type = $self->{type} & EDGE_TYPE_MASK;
+    
+  $self->{color} = $self->attribute('color');
+  $self->{style_ver} = $edge->style();
+  $self->{color_ver} = $edge->attribute('color');
+
+  # if we are the VER piece, switch styles around
+  if ($type == EDGE_VER)
+    {
+    ($self->{style_ver}, $self->{style}) = ($self->{style},$self->{style_ver});
+    ($self->{color_ver}, $self->{color}) = ($self->{color},$self->{color});
+    }
+
+  $self->{type} = $new_type;
 
   $self;
   }
@@ -625,15 +639,68 @@ my $edge_html = {
 
     '<td rowspan=2 class="##class## eb " style="##bg##">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## lh" style="border-bottom: ##border##;##lc####bg##">##label##</td>' ."\n".
-    ' <td rowspan=2 class="##class## eb" style="##bg##>&nbsp;</td>',
+    ' <td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
 
     '',
 
     '<td rowspan=2 class="##class## va" style="##bg##"##edgecolor##>&lt;</td>' ."\n".
     ' <td colspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>'."\n".
     ' <td class="##class## eb" style="border-left: ##border##;##bg##">&nbsp;</td>',
-    
+   
     '<td colspan=3 class="##class## eb" style="##bg##">&nbsp;</td>',
+   ],
+
+  ###########################################################################
+  ###########################################################################
+  # joints
+
+  EDGE_E_N_S() => [
+
+    '<td colspan=2 rowspan=2 class="##class## eb " style="##bg##">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##borderv##; border-bottom: ##border##;##bg##">&nbsp;</td>',
+
+    '',
+
+    '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' ."\n".
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
+   
+    '',
+   ],
+
+  EDGE_W_N_S() => [
+
+    '<td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>',
+    '<td colspan=2 rowspan=4 class="##class## eb " style="##bg##">&nbsp;</td>',
+
+    '',
+
+    '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
+   
+    '',
+   ],
+
+  EDGE_S_E_W() => [
+
+    '<td colspan=4 rowspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>',
+
+    '',
+
+    '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' ."\n".
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
+   
+    '',
+   ],
+
+  EDGE_N_E_W() => [
+
+    ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##borderv##;##bg##">&nbsp;</td>' ."\n".
+    '<td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##borderv##; border-bottom: ##border##;##bg##">&nbsp;</td>',
+
+    '',
+
+    '<td colspan=4 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
+   
+    '',
    ],
 
   };
@@ -789,7 +856,8 @@ sub as_html
 
   my $id = $self->{graph}->{id};
 
-  my $color = $self->attribute('color') || '';
+  # || 'black' to set a black border if "label-color" is set
+  my $color = $self->attribute('color') || 'black';
   my $label = '';
   my $label_style = '';
 
@@ -859,6 +927,8 @@ sub as_html
     my $cl = $self->class(); $cl =~ s/\./-/g;	# group.cities => group-cities
     $c =~ s/##class##/$cl/g;
     # replace borderv with the border for the vertical edge on CROSS sections
+    $border =~ s/\s+/ /g;			# collapse multiple spaces
+    $border_v =~ s/\s+/ /g;
     $c =~ s/##border##/$border/g;
     $c =~ s/##borderv##/$border_v/g;
     $c =~ s/##lc##/$label_style/g;
@@ -866,6 +936,8 @@ sub as_html
     $c =~ s/##ec##/$edge_color/g;
     $c =~ s/##bg##/$bg/g;
     $c =~ s/ style=""//g;		# remove empty styles
+    # remove arrows if edge is undirected
+    $c =~ s/(v|\^|&lt;|&gt;)//g if $self->{edge}->{undirected};
     $c .= "\n" unless $c =~ /\n\z/;
     push @rc, " " . $c;
     }

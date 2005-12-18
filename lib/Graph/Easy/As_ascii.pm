@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 sub _u8
   {
@@ -29,6 +29,8 @@ sub _u8
 #############################################################################
 
 package Graph::Easy::Edge::Cell;
+
+use strict;
 
 BEGIN
   {
@@ -113,6 +115,17 @@ sub _edge_style
     },
   ];
 
+sub _arrow_style
+  {
+  my $self = shift;
+
+  my $edge = $self->{edge};
+
+  my $as = $edge->attribute('arrow-style') || 'open';
+  $as = 'none' if $edge->{undirected};
+  $as;
+  }
+
 sub _cross_style
   {
   my ($self, $st) = @_;
@@ -155,7 +168,7 @@ sub _draw_hor
     {
     chop($line);			# '--- '
     }
-  my $as = $self->attribute('arrow-style') || 'open';
+  my $as = $self->_arrow_style();
   if (($flags & EDGE_END_E) != 0)
     {
     # '--> '
@@ -198,8 +211,7 @@ sub _draw_ver
   # we get away with not handling them because in VER edges
   # starting points are currently invisible.
 
-  my $as = $self->attribute('arrow-style') || 'open';
-
+  my $as = $self->_arrow_style();
   if ($as ne 'none')
     {
     substr($line,0,1) = $self->_arrow($as,ARROW_UP)
@@ -207,7 +219,6 @@ sub _draw_ver
     substr($line,-1,1) = $self->_arrow($as,ARROW_DOWN)
       if (($flags & EDGE_END_S) != 0);
     }
-
   $self->_printfb_ver ($fb, 2, 0, $line);
 
   if ($self->{type} & EDGE_LABEL_CELL)
@@ -220,7 +231,7 @@ sub _draw_ver
 
 sub _draw_cross
   {
-  # draw a CROSS sections
+  # draw a CROSS sections, or a joint (which are a 3/4 cross)
   my ($self, $fb) = @_;
   
   # vertical piece
@@ -236,7 +247,7 @@ sub _draw_cross
 
   $line = substr($line, 0, $h) if length($line) > $h;
   
-  my $as = $self->attribute('arrow-style') || 'open';
+  my $as = $self->_arrow_style();
 
   if ($as ne 'none')
     {
@@ -244,6 +255,16 @@ sub _draw_cross
       if (($flags & EDGE_END_N) != 0);
     substr($line,-1,1) = $self->_arrow($as,ARROW_DOWN) 
       if (($flags & EDGE_END_S) != 0);
+    }
+
+  my $type = $self->{type} & EDGE_TYPE_MASK;
+
+  my $y = $self->{h} - 2;
+
+  if ($type == EDGE_S_E_W || $type == EDGE_N_E_W)
+    {
+    substr($line,0,$y) = ' ' x $y if $type == EDGE_S_E_W;
+    substr($line,$y,2) = '  ' if $type == EDGE_N_E_W;
     }
 
   $self->_printfb_ver ($fb, 2, 0, $line);
@@ -286,7 +307,11 @@ sub _draw_cross
      if $as ne 'none';
     }
 
-  my $y = $self->{h} - 2;
+  if ($type == EDGE_E_N_S || $type == EDGE_W_N_S)
+    {
+    substr($line,0,2) = '  ' if $type == EDGE_E_N_S;
+    substr($line,2,$self->{w}-2) = ' ' x ($self->{w}-2) if $type == EDGE_W_N_S;
+    }
 
   $self->_printfb_line ($fb, $x, $y, $line);
 
@@ -333,7 +358,7 @@ sub _draw_corner
   my $line = $style->[1] x (1 + $h / length($style->[1])); 
   $line = substr($line, 0, $h) if length($line) > $h;
 
-  my $as = $self->attribute('arrow-style') || 'open';
+  my $as = $self->_arrow_style();
   if ($as ne 'none')
     {
     substr($line,0,1) = $self->_arrow($as, ARROW_UP)
@@ -423,7 +448,7 @@ sub _draw_loop_hor
 
   $self->_printfb_ver ($fb, $self->{w}-3, $y, $line);
 
-  my $as = $self->attribute('arrow-style') || 'open';
+  my $as = $self->_arrow_style();
   if ($as ne 'none')
     {
     substr($line,0,1)  = $self->_arrow($as, ARROW_UP) if (($flags & EDGE_END_N) != 0);
@@ -529,7 +554,7 @@ sub _draw_loop_ver
  
   $self->_printfb_line ($fb, $x, $y, $line);
 
-  my $as = $self->attribute('arrow-style') || 'open';
+  my $as = $self->_arrow_style();
   if ($as ne 'none')
     {
     substr($line,0,1)  = $self->_arrow($as, ARROW_LEFT) if (($flags & EDGE_END_W) != 0);
@@ -558,6 +583,30 @@ sub _draw_loop_ver
   # done
   }
 
+# which method to call for which edge type
+my $draw_dispatch =
+  {
+  EDGE_HOR() => '_draw_hor',
+  EDGE_VER() => '_draw_ver',
+
+  EDGE_S_E() => '_draw_corner', 
+  EDGE_S_W() => '_draw_corner',
+  EDGE_N_E() => '_draw_corner',
+  EDGE_N_W() => '_draw_corner',
+
+  EDGE_CROSS() => '_draw_cross',
+  EDGE_W_N_S() => '_draw_cross',
+  EDGE_E_N_S() => '_draw_cross',
+  EDGE_N_E_W() => '_draw_cross',
+  EDGE_S_E_W() => '_draw_cross',
+
+  EDGE_N_W_S() => '_draw_loop_hor',
+  EDGE_S_W_N() => '_draw_loop_hor',
+
+  EDGE_E_S_W() => '_draw_loop_ver',
+  EDGE_W_S_E() => '_draw_loop_ver',
+  };
+
 sub _draw_label
   {
   # This routine is cunningly named _draw_label, because it actually
@@ -567,24 +616,16 @@ sub _draw_label
 
   my $type = $self->{type} & EDGE_TYPE_MASK;
 
+  my $m = $draw_dispatch->{$type};
+  if (!defined $m)
+    {
+    require Carp; Carp::croak("Unknown edge type $type");
+    }
+
   # store the coordinates of our upper-left corner (for seamless rendering)
   $self->{rx} = $x || 0; $self->{ry} = $y || 0;
-
-  $self->_draw_hor($fb) if $type == EDGE_HOR;
-  $self->_draw_ver($fb) if $type == EDGE_VER;
-  $self->_draw_cross($fb) if $type == EDGE_CROSS;
-  $self->_draw_corner($fb) if 
-     $type == EDGE_S_E || 
-     $type == EDGE_S_W ||
-     $type == EDGE_N_E ||
-     $type == EDGE_N_W;
-  $self->_draw_loop_hor($fb) if $type == EDGE_N_W_S || $type == EDGE_S_W_N;
-  $self->_draw_loop_ver($fb) if $type == EDGE_E_S_W || $type == EDGE_W_S_E;
-
+  $self->$m($fb);
   delete $self->{rx}; delete $self->{ry};	# no longer needed
-
-  # XXX TODO: joints (E to N/S etc)
-  # $self->_printfb ($fb, 0,0, 'unsupported edge type ' . $type);
   }
 
 #############################################################################
@@ -933,8 +974,6 @@ sub _draw_border
         # inverted T
         $piece = 11 if $self->{rightbelow_count} < 2 && !$self->{have_below};
         $piece = 10 if $self->{rightbelow_count} < 2 && !$self->{have_right};
-
-#        print STDERR "# for $self->{label}: $piece ($self->{rightbelow_count} $self->{have_below} $self->{have_right})\n";
         substr($bottom,-1,1) = $style->[$piece];
         }
       }
@@ -1023,9 +1062,6 @@ sub as_ascii
     my $border_style = $self->attribute('border-style') || 'solid';
     my $EM = 14;
     my $border_width = Graph::Easy::_border_width_in_pixels($self,$EM);
-
-    # XXX TODO: borders for groups in ASCII output
-    $border_style = 'none' if ref($self) =~ /Group/;
 
     # convert overly broad borders to the correct style
     $border_style = 'bold' if $border_width > 2;

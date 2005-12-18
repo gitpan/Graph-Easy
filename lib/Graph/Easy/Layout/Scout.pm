@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 #############################################################################
 #############################################################################
@@ -32,6 +32,8 @@ use Graph::Easy::Edge::Cell qw/
   EDGE_LOOP_NORTH EDGE_LOOP_SOUTH EDGE_LOOP_WEST EDGE_LOOP_EAST
 
   EDGE_HOR EDGE_VER
+
+  EDGE_S_E_W EDGE_N_E_W EDGE_E_N_S EDGE_W_N_S
 
   EDGE_LABEL_CELL
   EDGE_TYPE_MASK
@@ -314,17 +316,17 @@ sub _find_path_loop
       EDGE_LOOP_WEST,
       EDGE_LOOP_NORTH,
     ]);
-
-  # XXX TODO: shuffle them depending on $dir
-  # try first North, then South, then East, then West
+  
   my @tries = (
     EDGE_LOOP_NORTH,
     EDGE_LOOP_SOUTH,
     EDGE_LOOP_WEST,
     EDGE_LOOP_EAST,
    );
+  my $dir = $src->attribute('flow');
+  my $index = $src->_shuffle_dir( \@tries, $dir);
 
-  for my $this_try (@tries)
+  for my $this_try (@$index)
     {
     my $idx = 0;
     while ($idx < @places)
@@ -476,7 +478,7 @@ sub _astar_edge_type
 
 sub _astar_near_nodes
   {
-  # return possible next nodes from $x,$y
+  # return possible next nodes from $nx,$ny
   my ($nx, $ny, $cells, $open, $closed, $min_x, $min_y, $max_x, $max_y) = @_;
 
   my @places = ();
@@ -487,6 +489,25 @@ sub _astar_near_nodes
     $nx - 1, $ny,	# left
     $nx, $ny - 1,	# up
     );
+
+  # on crossings, only allow one direction (NS or EW)
+  my $type = EDGE_CROSS;
+  # including flags, because only flagless edges may be crossed
+  $type = $cells->{"$nx,$ny"}->{type} if exists $cells->{"$nx,$ny"};
+  if ($type == EDGE_HOR)
+    {
+    @tries  = (
+      $nx, $ny + 1,	# down
+      $nx, $ny - 1,	# up
+    );
+    }
+  elsif ($type == EDGE_VER)
+    {
+    @tries  = (
+      $nx + 1, $ny, 	# right
+      $nx - 1, $ny,	# left
+    );
+    }
 
   my $i = 0;
   while ($i < @tries)
@@ -549,14 +570,15 @@ sub _astar_boundaries
   }
 
 # on edge pieces, select start fields (left/right of a VER, above/below of a HOR etc)
+# contains also for each starting position the join-type
 my $next_fields =
   {
-  EDGE_VER() => [ -1,0, +1,0 ],
-  EDGE_HOR() => [ 0,-1, 0,+1 ],
-  EDGE_N_E() => [ 0,+1, -1,0 ],		# |_
-  EDGE_N_W() => [ 0,+1, +1,0 ],		# _|
-  EDGE_S_E() => [ 0,-1, -1,0 ],
-  EDGE_S_W() => [ 0,-1, +1,0 ],
+  EDGE_VER() => [ -1,0, EDGE_W_N_S, +1,0, EDGE_E_N_S ],
+  EDGE_HOR() => [ 0,-1, EDGE_N_E_W, 0,+1, EDGE_S_E_W ],
+  EDGE_N_E() => [ 0,+1, EDGE_E_N_S, -1,0, EDGE_N_E_W ],		# |_
+  EDGE_N_W() => [ 0,+1, EDGE_W_N_S, +1,0, EDGE_N_E_W ],		# _|
+  EDGE_S_E() => [ 0,-1, EDGE_E_N_S, -1,0, EDGE_S_E_W ],
+  EDGE_S_W() => [ 0,-1, EDGE_W_N_S, +1,0, EDGE_S_E_W ],
   };
 
 sub _find_path_astar
@@ -604,9 +626,11 @@ sub _find_path_astar
     push @shared, $s if @{$s->{cells}} > 0;
     }
 
-  my $start_shared = 0;
+  my $joint_type;
 
+  my $start_shared = 0;
   my $start_cells = {};
+
   if (@shared > 0)
     {
     $start_shared = 1;
@@ -631,12 +655,13 @@ sub _find_path_astar
         my $i = 0;
         while ($i < @$fields)
 	  {
-	  my ($sx,$sy) = ($fields->[$i], $fields->[$i+1]);
-          $sx += $px; $sy += $py; $i += 2;
+	  my ($sx,$sy, $jt) = ($fields->[$i], $fields->[$i+1], $fields->[$i+2]);
+          $sx += $px; $sy += $py; $i += 3;
 
-	  # dont add the field twice
+	  # don't add the field twice
 	  next if exists $start_cells->{"$sx,$sy"};
           $start_cells->{"$sx,$sy"} = [ $sx, $sy, undef, $px, $py ];
+	  $joint_type->{"$sx,$sy"} = $jt;
           } 
 	}
       } 
@@ -699,7 +724,8 @@ sub _find_path_astar
     my $xy = "$x,$y";
     my ($sx,$sy,$t,$px,$py) = @{$start_cells->{$xy}};
 
-#    print STDERR "# found start cell $sx,$sy, converting $px,$py to a joint.\n";
+    my $jt = $joint_type->{"$sx,$sy"};
+    $cells->{"$px,$py"}->_make_joint($edge,$jt);
     }
 
   $path;

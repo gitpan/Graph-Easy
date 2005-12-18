@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 32;
+   plan tests => 33;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -96,7 +96,6 @@ $css = $graph->css();
 $html = $graph->as_html();
 
 like ($html, qr/border-bottom:.*;\s*color: #ff0000/, 'some edge got color red');
-
 
 #############################################################################
 # edge color vs. label colors
@@ -189,7 +188,7 @@ EDGE_2
 is ($edge->as_html(), $edge_html, 'edge->as_html()');
 
 $edge_html = <<EDGE_CELL
-<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double;">&nbsp;</td>
+<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double black;">&nbsp;</td>
 EDGE_CELL
 ;
 
@@ -200,7 +199,21 @@ like ($html, qr/$like/, 'edge->as_html()');
 $edge->set_attribute('style', 'double-dash');
 
 $edge_html = <<EDGE_CELL
-<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double;">&nbsp;</td>
+<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double black;">&nbsp;</td>
+EDGE_CELL
+;
+
+$like = quotemeta($edge_html); 
+$html = $graph->as_html();
+like ($html, qr/$like/, 'edge->as_html()');
+
+#############################################################################
+# edge color and label-color
+
+$edge->set_attribute('label-color', 'blue');
+
+$edge_html = <<EDGE_CELL
+<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double black;color: #0000ff;">&nbsp;</td>
 EDGE_CELL
 ;
 

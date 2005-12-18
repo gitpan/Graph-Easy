@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 package Graph::Easy;
 
@@ -16,6 +16,7 @@ use strict;
 # color handling
 
 my $color_names = {
+  inherit		=> 'inherit',
   aliceblue             => '#f0f8ff',
   antiquewhite          => '#faebd7',
   aquamarine            => '#7fffd4',

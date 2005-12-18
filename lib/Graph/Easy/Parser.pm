@@ -9,7 +9,7 @@ package Graph::Easy::Parser;
 use Graph::Easy;
 use Graph::Easy::Base;
 
-$VERSION = '0.17';
+$VERSION = '0.18';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -116,6 +116,9 @@ sub from_text
   my @group_stack = ();	# all the (nested) groups we are currently in
   my $backbuffer = '';	# left over fragments to be combined with next line
 
+  my @left_stack = ();	# stack for the left side for "[]->[],[],..."
+  my $left_edge = undef;
+
   ###########################################################################
   # main parsing loop
 
@@ -159,8 +162,10 @@ sub from_text
 
       $graph->set_attributes ( "$type$class", $att);
 
-      # forget stack
+      # forget stacks
       @stack = ();
+      $left_edge = undef;
+      @left_stack = ();
 
       # purge parsed part from line
       $line =~ s/^(node|graph|edge|group)(\.\w+)?$qr_attr//;
@@ -216,10 +221,8 @@ sub from_text
         return undef;
         }
 
-      for my $n (@stack)
-        {
-        $n->set_attributes($a);
-        }
+      $stack[-1]->set_attributes($a);
+
       # remove parsed part
       $line =~ s/^$qr_attr//;
       }
@@ -231,6 +234,10 @@ sub from_text
 
       @stack = $self->_new_node ($graph, $n1, \@group_stack, $a1);
 
+      # forget left stack
+      $left_edge = undef;
+      @left_stack = ();
+
       $line =~ s/^$qr_node$qr_oatr//;
       }
     # , [ Berlin ] { color: red; }
@@ -241,6 +248,21 @@ sub from_text
       return undef if $self->{error};
 
       push @stack, $self->_new_node ($graph, $n1, \@group_stack, $a1);
+
+      if (defined $left_edge)
+	{
+	my ($style, $edge_label, $edge_atr, $edge_bd, $edge_un) = @$left_edge;
+
+	foreach my $node (@left_stack)
+          {
+	  my $edge = $e->new( { style => $style, name => $edge_label } );
+	  $edge->set_attributes($edge_atr);
+	  # "<--->": bidirectional
+	  $edge->bidirectional(1) if $edge_bd;
+	  $edge->undirected(1) if $edge_un;
+	  $graph->add_edge ( $node, $stack[-1], $edge );
+          }
+	}
 
       $line =~ s/^$qr_comma$qr_node$qr_oatr//;
       }
@@ -297,6 +319,11 @@ sub from_text
           $graph->add_edge ( $node, $node_b, $edge );
           }
         }
+
+      # remember the left side
+      $left_edge = [ $style, $edge_label, $edge_atr, $edge_bd, $edge_un ];
+      @left_stack = @stack;
+
       # remember the right side
       @stack = @nodes_b;
 

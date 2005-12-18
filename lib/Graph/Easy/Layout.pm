@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 #############################################################################
 #############################################################################
@@ -142,6 +142,9 @@ sub _follow_chain
 
       next if defined $to->{_chain} &&	# ignore if it points to the same
 		$to->{chain} == $c; 	# chain (backloop)
+
+      # if the next node's grandparent is the same as ours, it depends on us
+      next if $to->find_grandparent() == $node->find_grandparent();
 
 					# ignore multi-edges by dropping
       $suc{$to->{name}} = $to;		# duplicates
@@ -588,6 +591,22 @@ sub layout
 
 #############################################################################
 
+sub _edges_into_groups
+  {
+  my $self = shift;
+
+  # Put all edges between two nodes with the same group in the group as well
+  for my $edge (values %{$self->{edges}})
+    {
+    my $gf = $edge->{from}->group();
+    my $gt = $edge->{to}->group();
+
+    $edge->add_to_group($gf) if defined $gf && defined $gt && $gf == $gt;
+    }
+
+  $self;
+  }
+
 sub _fill_group_cells
   {
   # after doing a layout(), we need to add the group to each cell based on
@@ -603,16 +622,9 @@ sub _fill_group_cells
   # take a shortcut if we do not have groups
   return $self if $self->groups == 0;
 
+  $self->_edges_into_groups();
+
   $self->{padding_cells} = 1;		# set to true
-
-  # Put all edges between two nodes with the same group in the group as well
-  for my $edge (values %{$self->{edges}})
-    {
-    my $gf = $edge->{from}->group();
-    my $gt = $edge->{to}->group();
-
-    $edge->add_to_group($gf) if defined $gf && defined $gt && $gf == $gt;
-    }
 
   # We need to insert "filler" cells around each node/edge/cell.
 

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 37;
+   plan tests => 38;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -171,5 +171,12 @@ $graph->set_attribute('graph', 'output', 'ascii');
 
 is ($graph->output_format(), 'ascii', 'output format changed to ascii');
 unlike ($graph->output(), qr/<table>/, 'ascii output worked');
+
+#############################################################################
+# add_group()
+
+my $group = $graph->add_group('G');
+
+is (ref($group), 'Graph::Easy::Group', 'add_group()');
 
 

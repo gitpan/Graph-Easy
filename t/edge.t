@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 33;
+   plan tests => 37;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok qw/Graph::Easy::Edge/;
@@ -27,6 +27,7 @@ can_ok ("Graph::Easy::Edge", qw/
   set_attribute
   set_attributes
   group add_to_group
+  background
   /);
   
 use Graph::Easy::Edge::Cell qw/EDGE_SHORT_E/;
@@ -143,4 +144,28 @@ is ($edge->has_ports(), 1, 'has port restrictions');
 
 $edge->del_attribute('end');
 is ($edge->has_ports(), 0, 'has no port restrictions');
+
+#############################################################################
+# background()
+
+is ($edge->background(), '', 'background()');
+
+$graph = Graph::Easy->new();
+my ($A,$B); ($A,$B,$edge) = $graph->add_edge('A','B');
+
+my $group = $graph->add_group('G');
+$group->add_member($edge);
+
+my $cell = Graph::Easy::Edge::Cell->new( edge => $edge, graph => $graph );
+
+# default group background
+is ($cell->background(), '#a0d0ff', 'background() for group member');
+
+$group->set_attribute('background', 'red');
+is ($cell->background(), '#a0d0ff', 'background() for group member');
+
+# now has the fill of the group as background
+$group->set_attribute('fill', 'green');
+is ($cell->background(), '#008000', 'background() for group member');
+
 

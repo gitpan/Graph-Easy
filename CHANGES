@@ -1,5 +1,35 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-12-18 v0.36 Tels 1516 tests
+  * Parser: add support for node lists on the right-hand side:
+    [ Bonn ], [ Berlin ] -> [ Potsdam ], [ Halle ]
+  * allow "inherit" for colors
+  * Node: fix edges_at_port() to skip edges not starting/ending here
+  * Group: fix add_member() and del_member() for edges
+  * Group: fix add_node()
+  * Node: fix background()
+  * Graph: fix default fill for groups in HTML
+  * Graph: add_group(): return $group, not $self
+  * Layouter:
+     + stop chain-tracker at nodes that are grandchildren of the current node
+     + grow nodes based on used/free ports (fixes shared ports)
+     + grow nodes only in one direction if they have 'rows' or 'columns'
+     + shuffle self-loop directions according to graph/node flow
+     + A*: no longer cross edges along their flow line (leading to corrupted
+	   layouts with multiple crossings in a row)
+     + convert edge joiners to joints for shared edges
+  * render joints in as_ascii, as_boxart and as_html
+  * as_ascii: render no arrows on undirected edges (esp. for selfloops, corners
+	      and cross sections)
+  * as_html: fix edge color if only "label-color" is set
+  * as_html: fix self-loop on east side
+  * as_html: render no arrows for undirected edges
+  * as_graphviz: output headport/tailport for edges with "start" or "end"
+		 (this doesn't seem to work in "dot" at all, sadly :-(
+  * as_graphviz: output groups as clusters (subgraphs)
+  * do multiple edges from A to B,C,D etc in the order of "B,C,D" instead
+    of pseudo-random order
+
 2005-12-10 v0.35 Tels 1483 tests
   * Node: fix parent()
   * allow "$graph->add_group('Name');"

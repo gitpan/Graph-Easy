@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.19';
+$VERSION = '0.20';
 
 use Graph::Easy::Attributes;
 use Graph::Easy::Base;
@@ -578,11 +578,11 @@ sub grow
   my $max = { north => 0, south => 0, east => 0, west => 0 };
 
   my @idx = ( [ 'start', 'from' ], [ 'end', 'to' ] );
+  # number of slots we need to edges without port restrictions
+  my $unspecified = 0;
 
-  # first for north/south
   for my $e (values %{$self->{edges}})
     {
-
     # do always both ends, because self-loops can start AND end at this node:
     for my $end (0..1)
       {
@@ -606,7 +606,7 @@ sub grow
 	    # limit to four digits
 	    $nr = 9999 if abs($nr) > 9999; 
 
-	    # if slot was used yet, count it
+	    # if slot was not used yet, count it
 	    $portnr->{$side} ++ if vec($vec->{$side}, $nr, 1) == 0x0;
 
 	    # calculate max number of ports
@@ -619,36 +619,95 @@ sub grow
 	    $max->{$side} = $nr if $nr > $max->{$side};
 	    }
           }
+        else
+          {
+          $unspecified ++;
+          }
         } # end if port is constrained
       } # end for start/end port
     } # end for all edges
 
-  # XXX TODO:
-  # now grow the node based on what port restrictions we found out
+  for my $e (values %{$self->{edges}})
+    {
+    # the loop above will count all self-loops twice when they are
+    # unrestricted. So subtract these again. Restricted self-loops
+    # might start at one port and end at another, and this case is
+    # covered correctly by the code above.
+    $unspecified -- if $e->{to} == $e->{from};
+    }
+
 #  use Data::Dumper; 
 #  print STDERR "# port contraints for $self->{name}:\n";
 #  print STDERR "# count: ", Dumper($cnt), "# max: ", Dumper($max),"\n";
 #  print STDERR "# ports: ", Dumper($portnr),"\n";
+ 
+  my $need = {};
+  my $free = {};
+  for my $side (qw/north south east west/)
+    {
+    # maximum number of ports we need to reserve, minus edges constrained
+    # to unique ports: free ports on that side
+    $free->{$side} = $max->{$side} - $portnr->{$side};
+    $need->{$side} = $max->{$side};
+    if ($free->{$side} < 2 * $cnt->{$side})
+      {
+      $need->{$side} += 2 * $cnt->{$side} - $free->{$side};
+      } 
+    }
+  # now $need contains for each side the absolut min. number of ports we need
 
-  # since selfloops count twice in connections(), but actually block only
-  # one port, we can just count the edges here:
-  my $connections = scalar keys %{$self->{edges}};
+  # calculate min. size in X and Y direction
+  my $min_x = $need->{north}; $min_x = $need->{south} if $need->{south} > $min_x;
+  my $min_y = $need->{west}; $min_y = $need->{east} if $need->{east} > $min_y;
 
-  # XXX TODO: if specified "rows", or "columns" (and not "size"), then
-  # grow the node only in the unspecified direction.
+  # save the original size
+  $self->{_cx} = $self->{cx};
+  $self->{_cy} = $self->{cy};
+
+  $self->{cx} = $min_x if $min_x > $self->{cx};
+  $self->{cy} = $min_y if $min_y > $self->{cy};
+
+  # if specified "rows", or "columns" (and not "size"), then grow the node
+  # only in the unspecified direction. Default is grow i both.
+  my $grow_sides = { cx => 1, cy => 1 };
+
+  my $size = $self->attribute('size');
+  if (!defined $size)
+    {
+    my $rows = $self->attribute('rows');
+    my $cols = $self->attribute('columns');
+    delete $grow_sides->{cy} if defined $rows && !defined $cols;
+    delete $grow_sides->{cx} if defined $cols && !defined $rows;
+    }
 
   # grow the node based on the general flow first VER, then HOR
   my $flow = $self->attribute('flow') || 90;
 
-  my $first = "cy"; my $second = "cx";
-  ($first,$second) = ($second,$first) if $flow == 0 || $flow == 180;
-  while ( (2 + $self->{cx} + $self->{cy}) < $connections)
+  my $grow = 0;
+  my @grow_what = sort keys %$grow_sides;	# 'cx', 'cy' or 'cx' or 'cy'
+
+  if (keys %$grow_sides > 1)
     {
-    # find the minimum
-    # XXX TODO: use "flow" attribute to choose Y or X preference
-    my $grow = $first;		# first in Y direction
-    $grow = $second if $self->{$second} < $self->{$first};
-    $self->{$grow} += 2;
+    @grow_what = ( 'cy', 'cx' ) if $flow == 90 || $flow == 270;
+    }
+
+  while ( 3 < 5 )
+    {
+    # calculate whether we already found a space for all edges
+    my $free_ports = 0;
+    for my $side (qw/north south/)
+      {
+      $free_ports += 1 + int(($self->{cx} - $cnt->{$side} - $portnr->{$side}) / 2);
+      }     
+    for my $side (qw/east west/)
+      {
+      $free_ports += 1 + int(($self->{cy} - $cnt->{$side} - $portnr->{$side}) / 2);
+      }
+    last if $free_ports >= $unspecified;
+
+    $self->{ $grow_what[$grow] } += 2;
+
+    $grow ++; $grow = 0 if $grow >= @grow_what;
     }
 
   $self;
@@ -707,10 +766,11 @@ sub background
   # get the background for this group/edge cell, honouring group membership
   my $self = shift;
 
-  my $bg = $self->attribute('fill') || 'inherit';
+  my $bg = $self->attribute('background') || 'inherit';
 
   if ($bg eq 'inherit')
     {
+    # if part of a group, the groups fill is the members background.
     $bg = ($self->{edge}->{group}->attribute('fill')||'inherit') if ref $self->{edge}->{group};
     $bg = '' if $bg eq 'inherit';
     }
@@ -873,6 +933,11 @@ sub edges_at_port
   my @edges;
   for my $e (values %{$self->{edges}})
     {
+    # skip edges ending here if we look at start
+    next if $e->{to} eq $self && $attr eq 'start';
+    # skip edges starting here if we look at end
+    next if $e->{from} eq $self && $attr eq 'end';
+
     my ($s_p,@ss_p) = split (/,/, $e->attribute($attr) || '');
     next unless defined $s_p;
 
@@ -1077,17 +1142,25 @@ sub find_grandparent
   # which origin() prevents from happening.
   my $cur = shift;
 
-  my $ox = 0;
-  my $oy = 0;
+  if (wantarray)
+    {
+    my $ox = 0;
+    my $oy = 0;
+    while (defined($cur->{origin}))
+      {
+      $ox -= $cur->{dx};
+      $oy -= $cur->{dy};
+      $cur = $cur->{origin};
+      }
+    return ($cur,$ox,$oy);
+    }
 
   while (defined($cur->{origin}))
     {
-    $ox -= $cur->{dx};
-    $oy -= $cur->{dy};
     $cur = $cur->{origin};
     }
-
-  wantarray ? ($cur,$ox,$oy) : $cur;
+  
+  $cur;
   }
 
 #############################################################################

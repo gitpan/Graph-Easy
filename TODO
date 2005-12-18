@@ -7,18 +7,9 @@ In addition:
 
 Important short-term TODO:
 
-* "label-color: blue" colors the hor edge line blue
-* as_svg: cross section bold/normal
-* implement rendering of joints
-
 * bidirectional self-loops are rendered with only one arrow: [A] <--> [A]
-* undirected self-loops are rendered with one arrow: [A] -- [A]
 * layout() will grow nodes base on layout contraints, an as_txt() afterwards
   will produce these sizes, even when the input did not specify a node size.
-* layouter should grow nodes that have only "rows: X" or "columns: Y" only
-  in the unspecified direction
-* grow nodes based on edge start/end ports (if port "south,7" is specified, the
-  node must be at least 8 cells wide)
 * "[A],[B],[C] -> [ very wide node ] { size: 7,1; }" results in A being very
   broad, and B and C being very small. They should be roughly the same size.
   (for multicelled nodes: find smallest row/column, increase, until all
@@ -30,21 +21,9 @@ Important short-term TODO:
 * It would be good if we could remove Node::Empty (it blocks a cell
   just to draw the right/bottom border pieces)
   (we might put these "invisible" nodes into a different "cells" field,
-   which will be rendered, but not queryied for path finding etc)
-* A* will "cross" edges multiple times along their line e.g.:
- 
-      A 
-      |
-      |
-  C---|-----|-----|-----D
-                  |
-                  |
-		  B
-
-   Where A->B and C->D.
-
+   which will be rendered, but not queried for path finding etc)
 * implement HTML nodes as triangles, house, etc. using slanted edges
-* define missing HTML edge pieces: CROSS sections w/ end/start points
+* define missing HTML edge pieces: CROSS/JOINT sections w/ end/start points
 * as_html(): output of node-clusters is slightly wrong
 * as_html(): there is no space between two nodes placed next (with filler
 	     cell) to each other. Make filler cells output a &nbsp;
@@ -57,11 +36,20 @@ Important short-term TODO:
 * use "shape: record" and label="{ { 00 | 01 | 02 } | { 10 | 112 | 12 } }" to
   implement auto-split nodes in graphviz (including <port>'s and rerouting
   edges to the ports)
+* joints in as_boxart() have problems with the joint character:
+	┌───┐
+	│ A │
+	└───┘
+	  │       ┌────┐
+	  ┼─────> │ A1 │
+	  │       └────┘
+	  │       ┌────┐
+	  └─────> │ A2 │
+                  └────┘
 
 Parser:
 
 * edge parsing " -- test \>-->" => "test >" as edge label
-* deal with " -> [ node ], [node2], [node3]"
 * parse nested graphs
 * support for node splitting ala:
 
@@ -103,9 +91,9 @@ Output:
 * as_txt(): output of node chains is not optimal
 * better support for different shapes (circle, box, rounded, polygon etc)
   in ASCII
-* as_graphviz(): support "border-style: double" together with fill colors
-  (Needs postscript code in the style argument, and I have not yet an
-   idea how to write this)
+* as_graphviz(): for nodes/groups/graph: support "border-style: double" etc
+  together with fill colors (Needs postscript code in the style argument,
+  and I have not yet an idea how to write this)
 * need better support for different edge styles in Graphviz
 * as_ascii() and others: grow cells around point-shaped nodes to intrude:
 

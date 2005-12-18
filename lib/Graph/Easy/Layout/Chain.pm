@@ -7,7 +7,7 @@
 package Graph::Easy::Layout::Chain;
 
 use Graph::Easy::Base;
-$VERSION = '0.01';
+$VERSION = '0.02';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -270,7 +270,7 @@ sub layout
     {
 
     # all chains that start at this node
-    for my $e (values %{$n->{edges}})
+    for my $e (sort { $a->{to}->{name} cmp $b->{to}->{name} } values %{$n->{edges}})
       {
       my $to = $e->{to};
 

@@ -9,7 +9,7 @@ use Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 use strict;
 
@@ -94,6 +94,9 @@ sub add_node
   # if defined attribute "nodeclass", put our nodes into that class
   $n->sub_class($self->{att}->{nodeclass}) if exists $self->{att}->{nodeclass};
 
+  # register ourselves with the member
+  $n->{group} = $self;
+
   $self;
   }
 
@@ -108,8 +111,12 @@ sub add_member
     Carp::confess("Cannot add non node-object $n to group '$self->{name}'");
     }
 
-  my $class = 'nodes'; $class = 'edges' if $n->isa('Graph::Easy::Edge');
-  $self->{$class}->{ $n->{name} } = $n;
+  my $class = 'nodes'; my $key = 'name';
+  if ($n->isa('Graph::Easy::Edge'))
+    {
+    $class = 'edges'; $key = 'id';
+    }
+  $self->{$class}->{ $n->{$key} } = $n;
 
   # nodes => nodeclass, edges => edgeclass
   $class =~ s/s\z/class/;
@@ -129,9 +136,12 @@ sub del_member
   # delete an edge or node from this group
   my ($self,$n) = @_;
 
-  my $class = 'nodes'; $class = 'edges' if $n->isa('Graph::Easy::Edge');
-
-  delete $self->{$class}->{ $n->{name} };
+  my $class = 'nodes'; my $key = 'name';
+  if ($n->isa('Graph::Easy::Edge'))
+    {
+    $class = 'edges'; $key = 'id';
+    }
+  delete $self->{$class}->{ $n->{$key} };
 
   $self;
   }

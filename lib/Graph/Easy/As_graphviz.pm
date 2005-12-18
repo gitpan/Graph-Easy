@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 #############################################################################
 #############################################################################
@@ -37,6 +37,8 @@ my $remap = {
     'style' => \&_graphviz_remap_edge_style,
     'arrow-style' => \&_graphviz_remap_arrow_style,
     'label-color' => \&_graphviz_remap_label_color,
+    'start' => \&_graphviz_remap_port,
+    'end' => \&_graphviz_remap_port,
     },
   'graph' => {
     'fill' => 'bgcolor',
@@ -86,8 +88,7 @@ sub _graphviz_remap_edge_style
   $style = 'bold' if $style eq 'double';	# double
 
   # XXX TODO: These should be (3, 0.5em, 1em) instead of 3,7,14
-
- $style = 'setlinewidth(3)' if $style =~ /^bold-dash/;
+  $style = 'setlinewidth(3)' if $style =~ /^bold-dash/;
   $style = 'setlinewidth(7)' if $style =~ /^broad/;
   $style = 'setlinewidth(14)' if $style =~ /^wide/;
   
@@ -107,6 +108,20 @@ sub _graphviz_remap_node_rotate
   $angle = 360 - $angle;
 
   ('orientation', $angle);
+  }
+
+sub _graphviz_remap_port
+  {
+  my ($graph, $name, $port, $self) = @_;
+
+  # do this only for objects, not classes 
+  return (undef,undef) unless ref($self) && defined $port;
+
+  $port = substr($port,0,1);	# "south,0" => "s"
+
+  my $n = 'tailport'; $n = 'headport' if $name eq 'start';
+
+  ($n, $port);
   }
 
 sub _graphviz_remap_fontsize
@@ -295,15 +310,70 @@ sub _as_graphviz
 
   $txt .= "\n" if $txt ne '';		# insert newline
 
+  ###########################################################################
+  # output groups as subgraphs
+
+  # insert the edges into the proper group
+  $self->_edges_into_groups() if $self->groups() > 0;
+
+  my $indent = '    ';
+  for my $group (sort { $a->{name} cmp $b->{name} } values %{$self->{groups}})
+    {
+    # quote special chars in group name
+    my $name = $group->{name}; $name =~ s/([\[\]\(\)\{\}\#"])/\\$1/g;
+
+    # output group attributes first
+    $txt .= "  subgraph \"cluster$group->{id}\" {\n${indent}label=\"$name\";\n";
+    $txt .= $indent. "labeljust=l; style=filled;\n";
+    my $bg = $group->attribute('fill') || '#a0d0ff';
+    $txt .= $indent. "fillcolor=\"$bg\";\n";
+    my $fg = $group->attribute('border-color') || 'black';
+    $txt .= $indent. "color=\"$fg\";\n";
+
+    my ($f,$fs) = $self->_graphviz_remap_fontsize('font-size',$group->attribute('font-size'));
+    $fs *= 1.2; $txt .= $indent. "$f=\"$fs\";\n";
+
+    # XXX TODO:
+    # writing both bgcolor and color makes dot ignore the background :(
+#    my $b = $group->attribute('border-color') || 'black';
+#    $txt .= $indent. "color=\"$b\";\n";
+
+    # output node attributes first
+    for my $n (values %{$group->{nodes}})
+      {
+      my $att = $n->attributes_as_graphviz();
+      if ($att ne '')
+	{
+	$n->{_p} = undef;			# mark as processed
+	$txt .= $indent . $n->as_graphviz_txt() . $att . "\n";
+	}
+#      print STDERR "# in group $name: $n->{name}\n";
+      }
+
+    # output node connections in this group
+    for my $e (values %{$group->{edges}})
+      {
+#      print STDERR "# at edge $e->id}\n";
+      my $edge_att = $e->attributes_as_graphviz();
+      my $other = $e->{to}->as_graphviz_txt();
+      my $first = $e->{from}->as_graphviz_txt();
+      ($other,$first) = ($first,$other) if $self->{_flip_edges};
+      $txt .= "$indent$first -> $other$edge_att\n";
+      $e->{_p} = undef;				# mark as processed
+      }
+
+    $txt .= "  }\n";
+    }
+
   my $count = 0;
   # output nodes with attributes first, sorted by their name
-  foreach my $n (sort { $a->{name} cmp $b->{name} } values %{$self->{nodes}})
+  for my $n (sort { $a->{name} cmp $b->{name} } values %{$self->{nodes}})
     {
-    $n->{_p} = undef;			# mark as not yet processed
+    next if exists $n->{_p};
     my $att = $n->attributes_as_graphviz();
     if ($att ne '')
       {
-      $n->{_p} = 1;			# mark as processed
+      $n->{_p} = undef;			# mark as processed
       $count++;
       $txt .= "  " . $n->as_graphviz_txt() . $att . "\n"; 
       }
@@ -320,16 +390,17 @@ sub _as_graphviz
     if ((@out == 0) && ( (scalar $n->predecessors() || 0) == 0))
       {
       # single node without any connections (unless already output)
-      $txt .= "  " . $first . "\n" unless defined $n->{_p};
+      $txt .= "  " . $first . "\n" unless exists $n->{_p};
       }
     # for all outgoing connections
     foreach my $other (reverse @out)
       {
       # in case there is more than one edge going from N to O
       my @edges = $n->edges_to($other);
-      foreach my $edge (@edges)
+      foreach my $e (@edges)
         {
-        my $edge_att = $edge->attributes_as_graphviz();
+        next if exists $e->{_p};
+        my $edge_att = $e->attributes_as_graphviz();
         if ($self->{_flip_edges})
           {
           $txt .= "  " . $other->as_graphviz_txt() . " -> $first$edge_att\n";
@@ -340,6 +411,11 @@ sub _as_graphviz
           }
         }
       }
+    }
+
+  for my $n ( values %{$self->{nodes}}, values %{$self->{edges}})
+    {
+    delete $n->{_p};
     }
 
   $txt .  "\n}\n";	# close the graph again

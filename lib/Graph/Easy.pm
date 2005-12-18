@@ -18,7 +18,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.35';
+$VERSION = '0.36';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -133,7 +133,7 @@ sub _init
     'border-width' => '1',
     'border-color' => 'black',
     'font-size' => '0.8em',
-    background => '#a0d0ff',
+    fill => '#a0d0ff',
     padding => '0.2em',
     },
   };
@@ -341,7 +341,7 @@ sub sorted_nodes
   # sorting order due to hashing
   $f2 = 'name' if !defined $f2 && $f1 !~ /^(name|id)$/;
 
-  my $sort = sub { $a->{id} <=> $b->{id} };
+  my $sort;
   $sort = sub { $a->{$f1} <=> $b->{$f1} } if $f1;
   $sort = sub { $a->{$f1} cmp $b->{$f1} } if $f1 && $f1 =~ /^(name|title|label)$/;
   $sort = sub { $a->{$f1} <=> $b->{$f1} || $a->{$f2} <=> $b->{$f2} } if $f2;
@@ -1099,7 +1099,8 @@ sub _as_ascii
 
   # generate for each cell the width/height etc
 
-  my ($rows,$cols,$max_x,$max_y,$cells) = $self->_prepare_layout('ascii');
+  my ($rows,$cols,$max_x,$max_y) = $self->_prepare_layout('ascii');
+  my $cells = $self->{cells};
 
   my $y_start = 0;
 
@@ -1135,13 +1136,14 @@ sub _as_ascii
     }
 
   # draw all cells into framebuffer
-  foreach my $v (@$cells)
+  foreach my $v (values %$cells)
     {
     next if ref($v) =~ /::Node::Cell/;		# skip empty cells
 
     # get as ASCII box
     my $x = $cols->{ $v->{x} };
     my $y = $rows->{ $v->{y} } + $y_start;
+ 
     my @lines = split /\n/, $v->as_ascii($x,$y);
     # get position from cell
     for my $i (0 .. scalar @lines-1)
@@ -1163,7 +1165,7 @@ sub _as_ascii
   $out =~ s/\n+\z/\n/;		# remove trailing empty lines
 
   # restore height/width of cells from minw/minh
-  foreach my $v (@$cells)
+  foreach my $v (values %$cells)
     {
     $v->{h} = $v->{minh};
     $v->{w} = $v->{minw};
@@ -1459,7 +1461,7 @@ sub add_group
   } 
   $self->{score} = undef;			# invalidate last layout
 
-  $self;
+  $group;
   }
 
 sub del_group
@@ -2410,16 +2412,17 @@ are limitations in the parser, which cannot yet handle the following features:
 
 =item nesting (graph-in-a-graph)
 
-=item node lists
+Nested graphs are not yet possible. However, the grouping feature can simulate
+a single nesting layer like so:
 
-Node lists only work on the left side of an expression. E.g. the first line
-works, the second and third do not:
+	( German cities:
 
-	[ Bonn ], [ Hof ] -> [ Berlin ]
-	[ Frankfurt ] -> [ Hamburg ], [ Dresden ]
-	[ Cottbus ], [ Kamenz ] -> [ Plauen ], [ Bamberg ]
+	  [ Bonn ] -> [ Berlin ]
+	)
 
 =item scopes
+
+Scopes are not yet implemented.
 
 =back
 
