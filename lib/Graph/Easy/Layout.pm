@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 
 #############################################################################
 #############################################################################
@@ -27,6 +27,7 @@ use Graph::Easy::Edge::Cell qw/
   EDGE_N_E EDGE_N_W EDGE_S_E EDGE_S_W
 
   EDGE_HOR EDGE_VER EDGE_CROSS
+  EDGE_SHORT_CELL
  /;
 
 sub ACTION_NODE  () { 0; }	# place node somewhere
@@ -51,7 +52,7 @@ sub _assign_ranks
 
   # Put all nodes into rank 0 as default and gather all nodes that have
   # outgoing connections, but no incoming ones
-  for my $n (@N)
+  for my $n (@N, $self->groups())
     {
     $n->{rank} = 0;			# default is 0
     push @todo, $n
@@ -292,9 +293,10 @@ sub _dump_stack
       }
     elsif ($action_type == ACTION_CHAIN)
       {
-      my ($at, $node, $try, $parent) = @$action;
+      my ($at, $node, $try, $parent, $edge) = @$action;
+      my $id = 'unknown'; $id = $edge->{id} if ref($edge);
       print STDERR
-       "#  chain '$node->{name}' from parent '$parent->{name} with try $try'\n";
+       "#  chain '$node->{name}' from parent '$parent->{name} with try $try (for edge id $id)'\n";
       }
     elsif ($action_type == ACTION_TRACE)
       {
@@ -409,6 +411,8 @@ sub layout
     for my $e (@edges)
       {
       push @todo, [ ACTION_TRACE, $e ];
+#      print STDERR "do $n->{name} to $e->{to}->{name} ($e->{id}\n";
+#      push @todo, [ ACTION_CHAIN, $e->{to}, 0, $n, $e ];
       }
     }
 
@@ -454,11 +458,11 @@ sub layout
       }
     elsif ($action_type == ACTION_CHAIN)
       {
-      my (undef, $node,$try,$parent) = @$action;
+      my (undef, $node,$try,$parent, $edge) = @$action;
       print STDERR "# step $step: action chain '$node->{name}' to '$parent->{name}'\n" if $self->{debug};
 
       $mod = 0 if defined $node->{x};
-      $mod = $self->_find_node_place( $cells, $node, $try, $parent ) if (!defined $node->{x});
+      $mod = $self->_find_node_place( $cells, $node, $try, $parent, $edge ) if (!defined $node->{x});
       }
     elsif ($action_type == ACTION_TRACE)
       {
@@ -471,18 +475,19 @@ sub layout
 
       if (!defined $dst->{x})
         {
-        warn ("Target node not yet placed");
+        $mod = $self->_find_node_place( $cells, $dst, 0, undef, $edge );
 
-        # put current action back
-        unshift @todo, $action;
-
-	# if near-placement fails, place generic. So insert action to place
-	# target beforehand:
-        unshift @todo, [ ACTION_NODE, $dst ];
-
-	$tries--;
-	last TRY if $tries == 0;
-        next TRY;
+#       # warn ("Target node not yet placed");
+#        ## put current action back
+#        #unshift @todo, $action;
+#
+#	# if near-placement fails, place generic. So insert action to place
+#	# target beforehand:
+#        unshift @todo, [ ACTION_NODE, $dst ];
+#
+#	$tries--;
+#	last TRY if $tries == 0;
+#        next TRY;
 	}        
 
       # find path (mod is score modifier, or undef if no path exists)
@@ -590,6 +595,8 @@ sub layout
   }
 
 #############################################################################
+#############################################################################
+# for layouts with groups:
 
 sub _edges_into_groups
   {
@@ -605,6 +612,237 @@ sub _edges_into_groups
     }
 
   $self;
+  }
+
+sub _splice_nodes
+  {
+  # Splicing the rows/columns to add filler cells will have torn holes into
+  # multi-edges nodesedges, so we insert additional filler cells.
+  my ($self) = @_;
+  my $cells = $self->{cells};
+
+  #for my $cell (sort { $a->{x} <=> $b->{x} || $a->{y} <=> $b->{y} } values %$cells)
+  for my $cell (values %$cells)
+    {
+    next unless $cell->isa('Graph::Easy::Node::Cell');
+
+    # we have "[ empty  ] [ filler ]" (unless cell is on the same column as node)
+    if ($cell->{x} > $cell->{node}->{x})
+      {
+      my $x = $cell->{x} - 1; my $y = $cell->{y}; 
+
+      my $filler = Graph::Easy::Node::Cell->new( 
+	    node => $cell->{node}, x => $x, y => $y );
+      $cells->{"$x,$y"} = $filler;
+      }
+
+    # we have " [ empty ]  "
+    #         " [ filler ] " (unless cell is on the same row as node)
+    if ($cell->{y} > $cell->{node}->{y})
+      {
+      my $x = $cell->{x}; my $y = $cell->{y} - 1;
+
+      my $filler = Graph::Easy::Node::Cell->new( 
+	    node => $cell->{node}, x => $x, y => $y );
+      $cells->{"$x,$y"} = $filler;
+      }
+    }
+  }
+
+sub _splice_edges
+  {
+  # Splicing the rows/columns to add filler cells might have torn holes into
+  # edges, so we splice these together again.
+  my ($self) = @_;
+
+  my $cells = $self->{cells};
+
+  # go over the old layout, because the new cells were inserted into odd
+  # rows/columns and we do not care for these:
+  for my $cell (sort { $a->{x} <=> $b->{x} || $a->{y} <=> $b->{y} } values %$cells)
+    {
+    next unless $cell->isa('Graph::Easy::Edge::Cell');
+
+    #########################################################################
+    # check for "[ --- ] [ empty  ] [ ---> ]"
+
+    my $x = $cell->{x} + 2; my $y = $cell->{y}; 
+
+    if (exists $cells->{"$x,$y"})
+      {
+      my $right = $cells->{"$x,$y"};
+
+      # check that both cells belong to the same edge
+      if ($right->isa('Graph::Easy::Edge::Cell') && $cell->{edge} == $right->{edge})
+	{
+        $x = $cell->{x} + 1;
+  
+        my $filler = 
+	  Graph::Easy::Edge::Cell->new( 
+	    type => EDGE_HOR(), 
+	    edge => $cell->{edge}, x => $x, y => $y, after => $cell );
+	$cells->{"$x,$y"} = $filler;
+	}
+      }
+    
+    
+    #########################################################################
+    # check for [ | ]
+    #		[ empty ]
+    #		[ | ]
+    $x = $cell->{x}; $y = $cell->{y}+2; 
+
+    next unless exists $cells->{"$x,$y"};
+
+    my $below = $cells->{"$x,$y"};
+    # check that both cells belong to the same edge
+    next unless $below->isa('Graph::Easy::Edge::Cell') && $cell->{edge} == $below->{edge};
+
+    $y = $cell->{y} + 1;
+
+    my $filler = 
+      Graph::Easy::Edge::Cell->new( 
+	type => EDGE_VER(), 
+	edge => $cell->{edge}, x => $x, y => $y, after => $cell );
+    $cells->{"$x,$y"} = $filler;
+    }
+
+  }
+
+sub _repair_edges
+  {
+  # fix edge end/start pieces to be closer to the nodes
+  my ($self, $rows, $cols) = @_;
+
+  my $cells = $self->{cells};
+
+  for my $cell (sort { $a->{x} <=> $b->{x} || $a->{y} <=> $b->{y} } values %$cells)
+    {
+    next unless $cell->isa('Graph::Easy::Edge::Cell');
+
+    #########################################################################
+    # check for " [ empty ] [ |---> ]"
+    my $x = $cell->{x} - 1; my $y = $cell->{y};
+
+    my $group = $cell->group();
+
+    next unless $group;			# edge not inside a group?
+
+    # go over all cells in the "empty" col and check whether there are group
+    # fillers in it that are not "gt" or "gb"
+    my $doit = 0;
+    for my $r (values %{$cols->{$x}})
+      {
+      $doit = 1, last if exists $r->{cell_class} && $r->{cell_class} =~ /g. g/;	# "gt gr" etc
+      }
+
+    # has start flag and is hor edge piece
+    if ( $doit &&
+	(($cell->{type} & EDGE_TYPE_MASK) == EDGE_HOR) &&
+	(($cell->{type} & EDGE_START_MASK) == EDGE_START_W))
+      {
+      # delete the start flag on the edge pice
+      $cell->{type} &= ~ EDGE_START_MASK;
+
+      # create a new edge cell
+      my $e_cell = 
+	Graph::Easy::Edge::Cell->new( 
+	  type => EDGE_HOR() + EDGE_START_W() + EDGE_SHORT_CELL(), 
+	  edge => $cell->{edge}, x => $x, y => $y, after => 0);
+      $group->del_cell($e_cell);
+      $cells->{"$x,$y"} = $e_cell;
+      }
+
+    #########################################################################
+    # check for " [ --> ] [ empty ]"
+    $x = $cell->{x} + 1;
+
+    # go over all cells in the "empty" col and check whether there are group
+    # fillers in it that are not "gt" or "gb"
+    $doit = 0;
+    for my $r (values %{$cols->{$x}})
+      {
+      $doit = 1, last if exists $r->{cell_class} && $r->{cell_class} =~ /g. g/;	# "gt gr" etc
+      }
+
+    # has end flag and is hor edge piece
+    if ( $doit &&
+	(($cell->{type} & EDGE_TYPE_MASK) == EDGE_HOR) &&
+	(($cell->{type} & EDGE_END_MASK) == EDGE_END_E))
+      {
+      # delete the end flag on the edge pice
+      $cell->{type} &= ~ EDGE_END_MASK;
+
+      # create a new edge cell
+      my $e_cell = 
+	Graph::Easy::Edge::Cell->new( 
+	  type => EDGE_HOR() + EDGE_END_E() + EDGE_SHORT_CELL(), 
+	  edge => $cell->{edge}, x => $x, y => $y, after => -1);
+      $group->del_cell($e_cell);
+      $cells->{"$x,$y"} = $e_cell;
+      }
+
+    #########################################################################
+    # check for [empty] 
+    #           [ |\n|\nv ]
+    $x = $cell->{x}; $y = $cell->{y} - 1;
+
+    # go over all cells in the "empty" row and check whether there are group
+    # fillers in it that are not "gt" or "gb"
+    $doit = 0;
+    for my $r (values %{$rows->{$y}})
+      {
+      $doit = 1, last if exists $r->{cell_class} && $r->{cell_class} =~ /g. g/;	# "gt gr" etc
+      }
+
+    # has end flag and is hor edge piece
+    if ( $doit &&
+	(($cell->{type} & EDGE_TYPE_MASK) == EDGE_VER) &&
+	(($cell->{type} & EDGE_START_MASK) == EDGE_START_N))
+      {
+      # delete the start flag on the edge pice
+      $cell->{type} &= ~ EDGE_START_MASK;
+
+      # create a new edge cell
+      my $e_cell = 
+	Graph::Easy::Edge::Cell->new( 
+	  type => EDGE_VER() + EDGE_START_N() + EDGE_SHORT_CELL(), 
+	  edge => $cell->{edge}, x => $x, y => $y, after => 0);
+      $group->del_cell($e_cell);
+      $cells->{"$x,$y"} = $e_cell;
+      }
+
+    #########################################################################
+    # check for [ ^\n|\n| ]
+    #           [empty] 
+    $x = $cell->{x}; $y = $cell->{y} + 1;
+
+    # go over all cells in the "empty" row and check whether there are group
+    # fillers in it that are not "gt" or "gb"
+    $doit = 0;
+    for my $r (values %{$rows->{$y}})
+      {
+      $doit = 1, last if exists $r->{cell_class} && $r->{cell_class} =~ /g. g/;	# "gt gr" etc
+      }
+
+    # has end flag and is hor edge piece
+    if ( $doit &&
+	(($cell->{type} & EDGE_TYPE_MASK) == EDGE_VER) &&
+	(($cell->{type} & EDGE_END_MASK) == EDGE_END_S))
+      {
+      # delete the start flag on the edge pice
+      $cell->{type} &= ~ EDGE_END_MASK;
+
+      # create a new edge cell
+      my $e_cell = 
+	Graph::Easy::Edge::Cell->new( 
+	  type => EDGE_VER() + EDGE_END_S() + EDGE_SHORT_CELL(), 
+	  edge => $cell->{edge}, x => $x, y => $y, after => -1);
+      $group->del_cell($e_cell);
+      $cells->{"$x,$y"} = $e_cell;
+      }
+
+    } # end for all cells
   }
 
 sub _fill_group_cells
@@ -631,8 +869,6 @@ sub _fill_group_cells
   # To "insert" the filler cells, we simple multiply each X and Y by 2, this
   # is O(N) where N is the number of actually existing cells. Otherwise we
   # would have to create the full table-layout, and then insert rows/columns.
-
-  my $c = 'Graph::Easy::Group::Cell';
   my $cells = {};
   for my $key (keys %$cells_layout)
     {
@@ -643,17 +879,26 @@ sub _fill_group_cells
     $cell->{x} = $x;
     $cell->{y} = $y;
     $cells->{"$x,$y"} = $cell; 
+    }
 
-    # find the primary node/edge for node/edge cells
-    $cell = $cell->{node} if $cell->isa('Graph::Node::Cell');
-    $cell = $cell->{edge} if $cell->isa('Graph::Edge::Cell');
+  $self->{cells} = $cells;		# override with new cell layout
 
+  $self->_splice_edges();		# repair edges
+  $self->_splice_nodes();		# repair multi-celled nodes
+
+  my $c = 'Graph::Easy::Group::Cell';
+  for my $cell (values %{$self->{cells}})
+    {
+    my ($x,$y) = ($cell->{x},$cell->{y});
+
+    # find the primary node for node cells, for group check
+    $cell = $cell->{node} if $cell->isa('Graph::Easy::Node::Cell');
     my $group = $cell->group();
 
     # not part of group, so no group-cells nec.
     next unless $group;
 
-    # now insert filler cells around this cell
+    # now insert up to 8 filler cells around this cell
     my $ofs = [ -1, 0,
 		0, -1,
 		+1, 0,
@@ -672,56 +917,42 @@ sub _fill_group_cells
       }
     }
 
-  $self->{cells} = $cells;		# override with new cell layout
-
-  # splicing the rows/columns to add filler cells might have torn holes into
-  # edges, so we splice these together again
-
-  # go over the old layout, because the new cells were inserted into odd
-  # rows/columns and we do not care for these:
-  for my $cell (sort { $a->{x} <=> $b->{x} || $a->{y} <=> $b->{y} } values %$cells)
+  # Nodes positioned two cols/rows apart (f.i. y == 0 and y == 2) will be
+  # three cells apart (y == 0 and y == 4) after the splicing, the step above
+  # will not be able to close that hole - it will create fillers at y == 1 and
+  # y == 3. So we close these holes now with an extra step.
+  for my $cell (values %{$self->{cells}})
     {
-    next unless $cell->isa('Graph::Easy::Edge::Cell');
+    # only for filler cells
+    next unless $cell->isa('Graph::Easy::Group::Cell');
 
-    # check for "[ --- ] [ empty  ] [ ---> ]"
+    my ($sx,$sy) = ($cell->{x},$cell->{y});
+    my $group = $cell->{group};
 
-    my $x = $cell->{x} + 2; my $y = $cell->{y}; 
-
-    if (exists $cells->{"$x,$y"})
+    my $x = $sx; my $y2 = $sy + 2; my $y = $sy + 1;
+    # look for:
+    # [ group ]
+    # [ empty ]
+    # [ group ]
+    if (exists $cells->{"$x,$y2"} && !exists $cells->{"$x,$y"})
       {
-      my $right = $cells->{"$x,$y"};
-
-      # check that both cells belong to the same edge
-      if ($right->isa('Graph::Easy::Edge::Cell') && $cell->{edge} == $right->{edge})
-	{
-        $x = $cell->{x} + 1;
-  
-        my $filler = 
-	  Graph::Easy::Edge::Cell->new( 
-	    type => EDGE_HOR(), 
-	    edge => $cell->{edge}, x => $x, y => $y, after => $cell );
-	$cells->{"$x,$y"} = $filler;
-	}
+      my $down = $cells->{"$x,$y2"};
+      if ($down->isa('Graph::Easy::Group::Cell') && $down->{group} == $group)
+        {
+	$cells->{"$x,$y"} = $c->new ( graph => $self, group => $group, x => $x, y => $y );
+        }
       }
-    
-    # check for [ | ]
-    #		[ empty ]
-    #		[ | ]
-    $x = $cell->{x}; $y = $cell->{y}+2; 
-
-    next unless exists $cells->{"$x,$y"};
-
-    my $below = $cells->{"$x,$y"};
-    # check that both cells belong to the same edge
-    next unless $below->isa('Graph::Easy::Edge::Cell') && $cell->{edge} == $below->{edge};
-
-    $y = $cell->{y} + 1;
-
-    my $filler = 
-      Graph::Easy::Edge::Cell->new( 
-	type => EDGE_VER(), 
-	edge => $cell->{edge}, x => $x, y => $y, after => $cell );
-    $cells->{"$x,$y"} = $filler;
+    $x = $sx+1; my $x2 = $sx + 2; $y = $sy;
+    # look for:
+    # [ group ]  [ empty ]  [ group ]
+    if (exists $cells->{"$x2,$y"} && !exists $cells->{"$x,$y"})
+      {
+      my $right = $cells->{"$x2,$y"};
+      if ($right->isa('Graph::Easy::Group::Cell') && $right->{group} == $group)
+        {
+	$cells->{"$x,$y"} = $c->new ( graph => $self, group => $group, x => $x, y => $y );
+        }
+      }
     }
 
   # XXX TODO
@@ -729,16 +960,42 @@ sub _fill_group_cells
 
   # for all group cells, set their right type (for border) depending on
   # neighbour cells
-  for my $cell (sort { $a->{x} <=> $b->{x} || $a->{y} <=> $b->{y} } values %$cells)
+  for my $cell (values %$cells)
     {
     $cell->_set_type($cells) if $cell->isa('Graph::Easy::Group::Cell');
     }
+
+  # create a mapping for each row/column so that we can repair edge starts/ends
+  my $rows = {};
+  my $cols = {};
+  for my $cell (values %$cells)
+    {
+    $rows->{$cell->{y}}->{$cell->{x}} = $cell;
+    $cols->{$cell->{x}}->{$cell->{y}} = $cell;
+    }
+  $self->_repair_edges($rows,$cols);	# insert short edge cells on group
+					# border rows/columns
 
   # for all groups, set the cell carrying the label (top-left-most cell)
   for my $group (values %{$self->{groups}})
     {
     $group->find_label_cell();
     }
+
+# DEBUG:
+# for my $cell (values %$cells)
+#   { 
+#   $cell->_correct_size();
+#   }
+#
+# my $y = 0;
+# for my $cell (sort { $a->{y} <=> $b->{y} || $a->{x} <=> $b->{x} } values %$cells)
+#   {
+#  print STDERR "\n" if $y != $cell->{y};
+#  print STDERR "$cell->{x},$cell->{y}, $cell->{w},$cell->{h}, ", $cell->{group}->{name} || 'none', "\t";
+#   $y = $cell->{y};
+#  }
+# print STDERR "\n";
 
   $self;
   }

@@ -155,6 +155,7 @@ t/in/2_group_no_border.txt
 t/in/2_zeros.txt
 t/in/2_autosplit_empty.txt
 t/in/3_autosplit_hang.txt
+t/in/3_empty_group.txt
 t/in/3nodes.txt
 t/in/3_nodes_5_edges.txt
 t/in/3_cluster.txt
@@ -243,6 +244,7 @@ t/out/2_zeros.txt
 t/out/2_autosplit_empty.txt
 t/out/3_autosplit_hang.txt
 t/out/3_bend_bug.txt
+t/out/3_empty_group.txt
 t/out/3nodes.txt
 t/out/3_cluster.txt
 t/out/3_selfloop.txt
@@ -314,6 +316,7 @@ t/txt/2_label.txt
 t/txt/3_invisible_both.txt
 t/txt/3_invisible.txt
 t/txt/3_cluster.txt
+t/txt/3_empty_group.txt
 t/txt/3_nodes_5_edges.txt
 t/txt/3_selfloop.txt
 t/txt/3_selfloop_flip.txt

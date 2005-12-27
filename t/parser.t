@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 107;
+   plan tests => 111;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -236,9 +236,15 @@ graph { background: red; } [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ]\n { color: red; } --> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ] { color:\n red; } --> [ Berlin ]|2,Berlin,Bonn
 ( Group [ Bonn ] ) { color: red; }|1,Bonn,Group
+([Bonn]){color:red;}|1,Bonn,
+(0[Bonn]){color:red;}|1,Bonn,0
 [ $sys$Node ]|1,$sys$Node
 # lists on the right side
 [ Bonn ] -- test --> [ Berlin], [ Chemnitz ]|3+2,Berlin,Bonn,Chemnitz,test,test
+# empty group
+()|0
+# group w/o name
+([Bonn])|1,Bonn,
 # XXX TODO: error testing
 # mismatching left/right side
 #[ Bonn ] - Auto--> [ Berlin ]|2+1,Auto--,Berlin,Bonn

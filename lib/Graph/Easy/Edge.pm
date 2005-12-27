@@ -7,7 +7,7 @@ package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
-$VERSION = '0.17';
+$VERSION = '0.18';
 
 use strict;
 
@@ -238,6 +238,8 @@ sub add_cell
   {
   # add a cell to the list of cells this edge covers. If $after is a ref
   # to a cell, then the new cell will be inserted right after this cell.
+  # if after is defined, but not a ref, the new cell will be inserted
+  # at the specified position.
   my ($self, $cell, $after) = @_;
  
   $self->{cells} = [] unless defined $self->{cells};
@@ -247,11 +249,16 @@ sub add_cell
     {
     # insert the new cell right after $after
     my $ofs = 0;
-    for my $cell (@$cells)
+    # $after == 0 => ofs is 0 (insert at front)
+    if (ref($after))
       {
-      last if $cell == $after;
-      $ofs++; 
+      for my $cell (@$cells)
+        {
+        last if $cell == $after;
+        $ofs++; 
+        }
       }
+    else { $ofs = $after; }
     splice (@$cells, $ofs, 0, $cell);
     } 
   else
@@ -372,16 +379,20 @@ as objects.
 
 =head2 add_cell()
 
-	$edge->add_cell( $cell );
+	$edge->add_cell( $cell, $after );
 
-Add a new cell to the edge. C<$cell> should be an
-L<Graph::Easy::Path|Graph::Easy::Path> object.
+Add a new cell to the edge. C<$cell> must be an
+C<Graph::Easy::Edge::Cell> object.
+
+If the optional argument C<$after> is a ref to a cell, then the new cell will
+be inserted right after this cell. If it is defined, but not a ref, the new cell
+will be inserted at the specified position.
 
 =head2 clear_cells()
 
 	$edge->clear_cells();
 
-Removes all belonging cells.
+Removes all cells belonging to this edge.
 
 =head2 cells()
 

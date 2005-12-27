@@ -7,7 +7,7 @@
 package Graph::Easy::Layout::Chain;
 
 use Graph::Easy::Base;
-$VERSION = '0.02';
+$VERSION = '0.03';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -117,7 +117,7 @@ sub layout
   # Return an action stack containing the nec. actions to
   # lay out the nodes in the chain, plus any connections between
   # them.
-  my ($self) = @_;
+  my ($self, $edge) = @_;
 
   # prevent doing it twice 
   return [] if $self->{_done}; $self->{_done} = 1;
@@ -126,13 +126,24 @@ sub layout
 
   my $g = $self->{graph};
 
-  # first, layout all the nodes in the chain
+  # first, layout all the nodes in the chain:
 
-  # first node
+  # start with first node
   my $pre = $self->{start}; my $n = $pre->{_next};
 
-  push @TODO, [ _ACTION_NODE, $pre, 0 ] if exists $pre->{_todo};
-  delete $pre->{_todo};
+  if (exists $pre->{_todo})
+    {
+    # edges with a flow attribute must be handled differently
+    if ($edge && $edge->attribute('flow'))
+      {
+      push @TODO, [ _ACTION_CHAIN, $pre, 0, $edge->{from}, $edge ];
+      }
+    else
+      {
+      push @TODO, [ _ACTION_NODE, $pre, 0 ];
+      }
+    delete $pre->{_todo};
+    }
 
   print STDERR "# Stack after first:\n" if $g->{debug};
   $g->_dump_stack(@TODO) if $g->{debug};
@@ -141,9 +152,14 @@ sub layout
     {
     if (exists $n->{_todo})
       {
-      # CHAIN means if $n isn't placed yet, it will be done so with
+      # CHAIN means if $n isn't placed yet, it will be done with
       # $pre as parent:
-      push @TODO, [ _ACTION_CHAIN, $n, 0, $pre ];
+
+      # in case there are multiple edges to the target node, use the first
+      # one to determine the flow:
+      my @edges = $g->edge($pre,$n);
+
+      push @TODO, [ _ACTION_CHAIN, $n, 0, $pre, $edges[0] ];
       delete $n->{_todo};
       }
     $pre = $n;
@@ -276,16 +292,17 @@ sub layout
 
       next unless exists $to->{_chain};
       my $chain = $to->{_chain};
-
       next if $chain->{_done};
 
 #      print STDERR "# chain-tracking to: $to->{name}\n";
 
-      push @TODO, @{ $chain->layout() } unless $chain->{_done};
+      # pass the edge along, in case it has a flow
+      push @TODO, @{ $chain->layout($e) } unless $chain->{_done};
 
       # link the edges to $to
       next unless exists $e->{_todo};	# was already done above?
-      push @TODO, [ _ACTION_TRACE, $e ]; delete $e->{_todo};
+      push @TODO, [ _ACTION_TRACE, $e ];
+      delete $e->{_todo};
       }
     $n = $n->{_next};
     }

@@ -1,5 +1,22 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2005-12-27 v0.37 Tels 1533 tests - Sing, sing, sing the birthday song...
+  * correctly handle '\\n' in labels/titles
+  * Node::Cell: allow 'x' and 'y' as arguments
+  * Layout: repair split multi-celled nodes after inserting group fillers
+  * Layout: insert short filler edge pieces on spliced edge for
+	    group layouts (fixes "holes" at the start and end of edges
+	    in ascii layouts with groups)
+  * Layout: set smaller minimum-size for group cells at non-corners
+  * Layout: grow group fillers to close gaps between nodes in things like:
+	    "( Group: [ A ] [ B ] )"
+  * Parser: handle "([A]->[B])" (allow empty group name)
+  * Parser: don't set group name of '0' to ''
+  * Parser: handle "] -> ( ..." (edge from node to group)
+  * Parser: handle ") -> ( ..." (edge from group to group)
+  * Parser: "...) -> [ A ]" is a group-to-node edge, not node to node
+  * add attribute "flow" for edges (per-edge flow)
+
 2005-12-18 v0.36 Tels 1516 tests
   * Parser: add support for node lists on the right-hand side:
     [ Bonn ], [ Berlin ] -> [ Potsdam ], [ Halle ]

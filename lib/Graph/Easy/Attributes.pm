@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 package Graph::Easy;
 
@@ -707,7 +707,7 @@ EOF
      ],
 
     flow => [
-     "The general direction in which edges will leave this node first. One of 0, up, north, 90, east, right, 180, south, down, 270, west, left.",
+     "The general direction in which edges will leave this node first. See the section about flow control for reference.",
      'direction_as_number',
      'right',
      'south',
@@ -753,7 +753,7 @@ EOF
   graph => {
 
     flow => [
-      "The graph's general flow direction. One of 0, up north, 90, east, right, 180, south, down, 270, west, left.",
+      "The graph's general flow direction. See the section about flow control for reference.",
       'direction_as_number',
       'right',
       'south',
@@ -800,6 +800,13 @@ EOF
       'closed',
       undef,
       "[ A ] -- open --> [ B ]\n -- closed --> { arrow-style: closed; } [ C ]\n -- filled --> { arrow-style: filled; } [ D ]\n -- filled --> { arrow-style: filled; fill: lime; } [ E ]\n -- none --> { arrow-style: none; } [ F ]",
+     ],
+
+    flow => [
+     "The flow direction for this edge. See the section about flow control for reference.",
+     'direction_as_number',
+     'right',
+     'south',
      ],
 
     "label-color" => [

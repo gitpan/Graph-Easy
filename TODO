@@ -7,6 +7,12 @@ In addition:
 
 Important short-term TODO:
 
+* flow-invariant via "right, left, front, back" needs fixing
+* edges between groups (ala "( 1 [A ]) -> ( 2 [B] )") or between a node
+  and a group are not handled correctly by the layouter yet
+  (needs a change of render order, first groups, then inter-group links,
+   as well as a change to A* to get different start/end cells from the
+   group(s))
 * bidirectional self-loops are rendered with only one arrow: [A] <--> [A]
 * layout() will grow nodes base on layout contraints, an as_txt() afterwards
   will produce these sizes, even when the input did not specify a node size.
@@ -36,6 +42,7 @@ Important short-term TODO:
 * use "shape: record" and label="{ { 00 | 01 | 02 } | { 10 | 112 | 12 } }" to
   implement auto-split nodes in graphviz (including <port>'s and rerouting
   edges to the ports)
+* use "dotted filled" for graphviz to render node borders correctly
 * joints in as_boxart() have problems with the joint character:
 	┌───┐
 	│ A │
@@ -50,7 +57,7 @@ Important short-term TODO:
 Parser:
 
 * edge parsing " -- test \>-->" => "test >" as edge label
-* parse nested graphs
+* parse nested graphs/groups/nodes
 * support for node splitting ala:
 
     "[ A ] | [ B | C ] || [ D | E ]"

@@ -23,6 +23,8 @@ sub _init
   $self->{name} = 'Group #'. $self->{id};
   $self->{class} = 'group';
   $self->{cells} = {};
+  $self->{cx} = 1;
+  $self->{cy} = 1;
 
   foreach my $k (keys %$args)
     {
@@ -226,6 +228,17 @@ sub add_cell
   $self->{cells}->{"$cell->{x},$cell->{y}"} = $cell;
   }
 
+sub del_cell
+  {
+  # delete a cell from the list of cells this group covers
+  my ($self,$cell) = @_;
+
+  delete $self->{cells}->{"$cell->{x},$cell->{y}"};
+  delete $cell->{group};
+
+  $self;
+  }
+
 sub find_label_cell
   {
   # go through all cells of this group and find one where to attach the label
@@ -377,6 +390,12 @@ Add all the specified nodes to this group.
 	$group->add_cell($cell);
 
 Add a cell to the list of cells this group covers.
+
+=head2 del_cell()
+
+	$group->del_cell($cell);
+
+Delete a cell from the list of cells this group covers.
 
 =head2 cells()
 

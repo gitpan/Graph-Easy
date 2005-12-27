@@ -232,9 +232,8 @@ sub _place
         # We might even get away with creating only one filler cell
         # although then its "x" and "y" values would be "wrong".
 
-        my $filler = Graph::Easy::Node::Cell->new ( node => $self );
-        $filler->{x} = $sx;
-        $filler->{y} = $sy;
+        my $filler = 
+	  Graph::Easy::Node::Cell->new ( node => $self, x => $sx, y => $sy );
         $cells->{"$sx,$sy"} = $filler;
         }
       }
@@ -326,7 +325,8 @@ sub _formatted_label
   my $self = shift;
 
   my $name = $self->label();
-  $name =~ s/\\n/\n/g;			# insert newlines
+  $name =~ s/([^\\])\\n/$1\n/g;			# insert real newlines
+  $name =~ s/\\\\/\\/g;				# '\\' to '\'
 
   # split into lines, remove extranous spacing
   my @lines = split /\n/, $name;
@@ -423,7 +423,8 @@ sub as_html
     $name =~ s/>/&gt;/g;			# quote >
     $name =~ s/</&lt;/g;			# quote <
 
-    $name =~ s/([^\\])\\n/$1\n/g;		# "\\n" to "\n" (but not "\\\n")
+    $name =~ s/([^\\])\\n/$1\n/g;		# "\n" to "n" (but not "\\n")
+    $name =~ s/\\\\/\\/g;			# "\\" to "\"
     $name =~ s/\n/<br>/g;			# |\n|\nv => |<br>|<br>v
     $name =~ s/^\s*<br>//;			# remove empty leading line
     $name =~ s/<br>/<br \/>/g;			# correct <br>
@@ -891,7 +892,8 @@ sub dimensions
   my $self = shift;
 
   my $label = $self->label();
-  $label =~ s/\\n/\n/g;
+  $label =~ s/([^\\])\\n/$1\n/g;		# unless double escaped
+  $label =~ s/\\\\/\\/g;			# '\\' to '\'
 
   my @lines = split /\n/, $label;
   my $w = 0; my $h = scalar @lines;
@@ -1238,6 +1240,7 @@ sub set_attribute
 
   my $val = $v;
   $val =~ s/^["'](.*)["']\z/$1/; 	# remove quotation marks
+  #$val =~ s/([^\\])\\#/$1#/;		# reverse backslashed \#
   $val =~ s/\\#/#/;			# reverse backslashed \#
 
   # decode %XX entities

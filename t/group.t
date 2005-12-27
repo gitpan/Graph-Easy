@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 21;
+   plan tests => 28;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Group") or die($@);
@@ -23,6 +23,8 @@ can_ok ("Graph::Easy::Group", qw/
 
   nodes
   edges
+
+  add_cell del_cell
 
   del_node
   del_edge
@@ -88,9 +90,9 @@ is ($first->class(),'node.city', 'class is now "node.city"');
 #############################################################################
 # Group::Cells
 
-my $cell = Graph::Easy::Group::Cell->new( group => $group );
+my $cell = Graph::Easy::Group::Cell->new( group => $group, x => 0, y => 0, );
+is (scalar keys %{$group->{cells}}, 1, 'one cell');
 
-$cell->{x} = 0; $cell->{y} = 0;
 my $cells = { '0,0' => $cell };
 
 $cell->_set_type( $cells );
@@ -99,20 +101,31 @@ is ($cell->class(), 'group ga', 'group ga');
 
 is ($cell->group( $group->{name} ), $group, "group()");
 
-my $cell2 = Graph::Easy::Group::Cell->new( group => $group );
-$cell2->{x} = 1; $cell2->{y} = 0;
+my $cell2 = Graph::Easy::Group::Cell->new( group => $group, x => 1, y => 0 );
+is (scalar keys %{$group->{cells}}, 2, 'one more cell');
 $cells->{'1,0'} = $cell2;
 
-my $cell3 = Graph::Easy::Group::Cell->new( group => $group );
-$cell3->{x} = 0; $cell3->{y} = -1;
+my $cell3 = Graph::Easy::Group::Cell->new( group => $group, x => 0, y => -1 );
+is (scalar keys %{$group->{cells}}, 3, 'one more cell');
 $cells->{'0,-1'} = $cell3;
 
-my $cell4 = Graph::Easy::Group::Cell->new( group => $group );
-$cell4->{x} = 0; $cell4->{y} = +1;
+my $cell4 = Graph::Easy::Group::Cell->new( group => $group, x => 0, y => 1 );
+is (scalar keys %{$group->{cells}}, 4, 'one more cell');
 $cells->{'0,1'} = $cell4;
 
 is ($cell2->group( $group->{name} ), $group, "group()");
 
 $cell->_set_type( $cells );
 is ($cell->class(), 'group gl', 'group gl');
+
+#############################################################################
+# del_cell();
+
+print join (" ", keys %{$group->{cells}}),"\n";
+
+is (scalar keys %{$group->{cells}}, 4, 'one less');
+$group->del_cell($cell);
+
+is (scalar keys %{$group->{cells}}, 3, 'one less');
+is ($cell->group(), undef, "no group() on deleted cell");
 

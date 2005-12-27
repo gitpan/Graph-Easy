@@ -9,7 +9,7 @@ package Graph::Easy::Parser;
 use Graph::Easy;
 use Graph::Easy::Base;
 
-$VERSION = '0.18';
+$VERSION = '0.19';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -148,7 +148,7 @@ sub from_text
     $line =~ s/^\s+//;
     $line =~ s/\s+\z//;
 
-    #print STDERR "# at line '$line' stack: ", join(",", @stack),"\n";
+#    print STDERR "# at line '$line' stack: ", join(",", @stack),"\n";
 
     # node { color: red; } or 
     # node.graph { color: red; }
@@ -173,7 +173,7 @@ sub from_text
     # ( group start [
     elsif ($line =~ /^$qr_group_start/)
       {
-      my $gn = $1 || '';			# group name
+      my $gn = $1; $gn = '' unless defined $gn;		# group name
 
       # unquote special chars
       $gn =~ s/\\([\[\(\{\}\]\)#\|])/$1/g;
@@ -192,17 +192,17 @@ sub from_text
     elsif ($line =~ /^$qr_group_end$qr_oatr/)
       {
 
-      if (@group_stack == 0)
-        {
-        $self->parse_error(0);
-        return undef;
-        }
+      $self->parse_error(0) and return undef if @group_stack == 0;
+
       my $group = pop @group_stack;
 
       my $a1 = $self->_parse_attributes($1||'', 'group', NO_MULTIPLES);	# group attributes
       return undef if $self->{error};
       
       $group->set_attributes($a1);
+
+      # the new left side is the group itself
+      @stack = ($group);
 
       $line =~ s/^$qr_group_end$qr_oatr//;
       }
@@ -291,43 +291,70 @@ sub from_text
       return undef if $self->{error};
 
       # strip trailing spaces
-      $edge_label =~ s/\s*\z//;
+      $edge_label =~ s/\s+\z//;
 
-      # the right side nodes
+      # the right side node(s) (multiple in case of autosplit)
       my @nodes_b = $self->_new_node ($graph, $n, \@group_stack, $a1);
 
-      my $style = undef;			# default is "inherit from class"
-      $style = 'double-dash' if $ed =~ /^(= )+\z/; 
-      $style = 'double' if $ed =~ /^=+\z/; 
-      $style = 'dotted' if $ed =~ /^\.+\z/; 
-      $style = 'dashed' if $ed =~ /^(- )+\z/; 
-      $style = 'dot-dot-dash' if $ed =~ /^(..-)+\z/; 
-      $style = 'dot-dash' if $ed =~ /^(\.-)+\z/; 
-      $style = 'wave' if $ed =~ /^\~+\z/; 
-      $style = 'bold' if $ed =~ /^#+\z/; 
-
-      # add edges for all nodes in the left list
-      foreach my $node (@stack)
-        {
-        foreach my $node_b (@nodes_b)
-          {
-          my $edge = $e->new( { style => $style, name => $edge_label } );
-          $edge->set_attributes($edge_atr);
-	  # "<--->": bidirectional
-          $edge->bidirectional(1) if $edge_bd;
-          $edge->undirected(1) if $edge_un;
-          $graph->add_edge ( $node, $node_b, $edge );
-          }
-        }
+      my $style = $self->_link_lists( \@stack, \@nodes_b,
+	$ed, $edge_label, $edge_atr, $edge_bd, $edge_un);
 
       # remember the left side
       $left_edge = [ $style, $edge_label, $edge_atr, $edge_bd, $edge_un ];
       @left_stack = @stack;
 
-      # remember the right side
+      # forget stack and remember the right side instead
       @stack = @nodes_b;
 
       $line =~ s/^$qr_edge$qr_oatr$qr_node$qr_oatr//;
+      }
+    # Things like ")" will be consumed before, so we do not need a case
+    # for ") -> ( [ B ]":
+    # edge to a group like "-> { ... } ( Group ["
+    elsif (@stack != 0 && $line =~ /^$qr_edge$qr_oatr$qr_group_start/)
+      {
+      my $eg = $1;					# entire edge ("-- label -->" etc)
+
+      my $edge_bd = $2 || $4;				# bidirectional edge ('<') ?
+      my $edge_un = 0;					# undirected edge?
+      $edge_un = 1 if !defined $2 && !defined $5;
+
+      # optional edge label
+      my $edge_label = $7; $edge_label = '' unless defined $edge_label;
+      my $ed = $3 || $5 || $1;				# edge pattern/style ("--")
+
+      my $edge_atr = $11 || '';				# save edge attributes
+
+      my $gn = $12; $gn = '' unless defined $gn;	# group name
+
+      $edge_atr = $self->_parse_attributes($edge_atr, 'edge');
+      return undef if $self->{error};
+
+      # unquote special chars in group name
+      $gn =~ s/\\([\[\(\{\}\]\)#\|])/$1/g;
+
+      my $group = $graph->group ($gn);
+      if (!defined $group)
+        {
+        $group = $g->new( { name => $gn } );
+        $graph->add_group ($group);
+        }
+      @group_stack = ($group);
+
+      # strip trailing spaces
+      $edge_label =~ s/\s+\z//;
+
+      my $style = $self->_link_lists( \@stack, \@group_stack,
+	$ed, $edge_label, $edge_atr, $edge_bd, $edge_un);
+
+      # remember the left side
+      $left_edge = [ $style, $edge_label, $edge_atr, $edge_bd, $edge_un ];
+      @left_stack = @stack;
+
+      # forget stack and remember the right side instead
+      @stack = ();
+
+      $line =~ s/^$qr_edge$qr_oatr$qr_group_start/\[/;
       }
     else
       {
@@ -357,6 +384,41 @@ sub from_text
 #############################################################################
 # internal routines
 
+sub _link_lists
+  {
+  # Given two node lists and an edge style, links each node from list
+  # one to list two.
+  my ($self, $left, $right, $ed, $label, $edge_atr, $edge_bd, $edge_un) = @_;
+
+  my $graph = $self->{graph};
+ 
+  my $style = undef;			# default is "inherit from class"
+  $style = 'double-dash' if $ed =~ /^(= )+\z/; 
+  $style = 'double' if $ed =~ /^=+\z/; 
+  $style = 'dotted' if $ed =~ /^\.+\z/; 
+  $style = 'dashed' if $ed =~ /^(- )+\z/; 
+  $style = 'dot-dot-dash' if $ed =~ /^(..-)+\z/; 
+  $style = 'dot-dash' if $ed =~ /^(\.-)+\z/; 
+  $style = 'wave' if $ed =~ /^\~+\z/; 
+  $style = 'bold' if $ed =~ /^#+\z/; 
+
+  # add edges for all nodes in the left list
+  for my $node (@$left)
+    {
+    for my $node_b (@$right)
+      {
+      my $edge = Graph::Easy::Edge->new( { style => $style, name => $label } );
+      $edge->set_attributes($edge_atr);
+      # "<--->": bidirectional
+      $edge->bidirectional(1) if $edge_bd;
+      $edge->undirected(1) if $edge_un;
+      $graph->add_edge ( $node, $node_b, $edge );
+      }
+    }
+
+  $style;
+  }
+
 sub _new_node
   {
   # Create a new node unless it doesn't already exist. If the group stack
@@ -368,7 +430,7 @@ sub _new_node
   print STDERR "# Parser: new node '$name'\n" if $graph->{debug};
 
   # strip trailing spaces
-  $name =~ s/\s*\z//; 
+  $name =~ s/\s+\z//; 
 
   # unquote special chars
   $name =~ s/\\([\[\(\{\}\]\)#])/$1/g;
@@ -561,7 +623,7 @@ sub _match_group_start
   {
   # return a regexp that matches something like " ( group [" and returns
   # the text between "(" and "["
-  qr/\s*\(\s*([^\[]+?)\s*\[/;
+  qr/\s*\(\s*([^\[]*?)\s*\[/;
   }
 
 sub _match_group_end

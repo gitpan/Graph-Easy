@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.05';
+$VERSION = '0.08';
 
 sub _u8
   {
@@ -679,7 +679,7 @@ sub _printfb_line
   {
   # Print one textline into a framebuffer
   # Caller MUST ensure proper size of FB, for speed reasons,
-  # we do not check wether text fits!
+  # we do not check whether text fits!
   my ($self, $fb, $x, $y, $l) = @_;
 
   # [0] = '0123456789...'
@@ -691,7 +691,7 @@ sub _printfb
   {
   # Print (potential a multiline) text into a framebuffer
   # Caller MUST ensure proper size of FB, for speed reasons,
-  # we do not check wether the text fits!
+  # we do not check whether the text fits!
   my ($self, $fb, $x, $y, @lines) = @_;
 
   # [0] = '0123456789...'
@@ -714,7 +714,7 @@ sub _printfb_ver
   {
   # Print a string vertical into a framebuffer.
   # Caller MUST ensure proper size of FB, for speed reasons,
-  # we do not check wether text fits!
+  # we do not check whether text fits!
   my ($self, $fb, $x, $y, $line) = @_;
 
   # this more than twice as fast as:
@@ -1051,8 +1051,8 @@ sub as_ascii
 
   my $shape = $self->attribute('shape') || 'rect';
 
-  # invisible nodes
-  return '' if $shape eq 'invisible';
+  # invisible nodes, or very small ones
+  return '' if $shape eq 'invisible' || $self->{w} == 0 || $self->{h} == 0;
 
   my $fb = $self->_framebuffer($self->{w}, $self->{h});
 

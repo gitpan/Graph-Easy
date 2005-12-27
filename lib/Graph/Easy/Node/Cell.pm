@@ -8,7 +8,7 @@ package Graph::Easy::Node::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 use strict;
 
@@ -30,7 +30,7 @@ sub _init
 
   foreach my $k (keys %$args)
     {
-    if ($k !~ /^(node|graph)\z/)
+    if ($k !~ /^(node|graph|x|y)\z/)
       {
       require Carp;
       Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Node::Cell->new()");
@@ -78,30 +78,18 @@ Graph::Easy::Node::Cell - An empty filler cell
 
 =head1 SYNOPSIS
 
-        use Graph::Easy::Path;
+        use Graph::Easy;
         use Graph::Easy::Edge;
 
-	my $ssl = Graph::Easy::Edge->new(
-		label => 'encrypted connection',
-		style => '-->',
-		color => 'red',
-	);
-	my $path = Graph::Easy::Path->new(
-		type => EDGE_SHORT_E,
-	);
-	$ssl->add_cell ($path);
+	my $graph = Graph::Easy->new();
 
-	my $src = Graph::Easy::Node->new(
-		name => 'source',
+	my $node = $graph->add_node('A');
+
+	my $path = Graph::Easy::Node::Cell->new(
+	  graph => $graph, node => $node,
 	);
 
-	my $dst = Graph::Easy::Node->new(
-		name => 'destination',
-	);
-
-	$graph = Graph::Easy->new();
-
-	$graph->add_edge($src, $dst, $ssl);
+	...
 
 	print $graph->as_ascii();
 

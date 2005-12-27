@@ -12,7 +12,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 use Scalar::Util qw/weaken/;
 
@@ -55,6 +55,7 @@ sub EDGE_END_E		() { 0x0040; }		# end points to East
 sub EDGE_END_S		() { 0x0080; }		# end points to South
 
 sub EDGE_LABEL_CELL	() { 0x1000; }		# this cell carries the label
+sub EDGE_SHORT_CELL	() { 0x2000; }		# a short edge pice (for filling)
 
 sub EDGE_ARROW_MASK	() { 0x0FF0; }		# mask out the end/start type
 sub EDGE_START_MASK	() { 0x0F00; }		# mask out the start type
@@ -145,6 +146,8 @@ sub ARROW_DOWN () { 3; };
   EDGE_MISC_MASK
 
   EDGE_LABEL_CELL
+  EDGE_SHORT_CELL
+
   EDGE_NO_M_MASK
 
   ARROW_RIGHT
@@ -997,10 +1000,14 @@ sub _correct_size
 
   return if defined $self->{w};
 
-  my $border = $self->{edge}->attribute('border-style') || 'none';
-
   # min-size is this 
   $self->{w} = 5; $self->{h} = 3;
+  # make short cell pieces very small
+  if (($self->{type} & EDGE_SHORT_CELL) != 0)
+    {
+    $self->{w} = 1; $self->{h} = 1;
+    return;
+    }
     
   my $arrows = ($self->{type} & EDGE_ARROW_MASK);
   my $type = ($self->{type} & EDGE_TYPE_MASK);
@@ -1042,6 +1049,8 @@ sub _correct_size
     }
   elsif ($self->{type} & EDGE_LABEL_CELL)
     {
+    my $border = $self->{edge}->attribute('border-style') || 'none';
+
     my @lines = $self->_formatted_label();
 
     # find longest line

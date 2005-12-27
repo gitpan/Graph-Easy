@@ -8,7 +8,7 @@ package Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 use strict;
 
@@ -250,8 +250,21 @@ sub _correct_size
     $self->{h} = 1 if $self->{has_label};
     if ($border ne 'none')
       {
-      $self->{w} = 2;
-      $self->{h} = 2;
+      # class "gt", "gb", "gr" or "gr" will be compressed away
+      # (e.g. only edge cells will be existant)
+      if (exists $self->{has_label} || ($self->{cell_class} =~ /g[rltb] /))
+	{
+	$self->{w} = 2;
+	$self->{h} = 2;
+	}
+      elsif ($self->{cell_class} =~ /^ g[rl]\z/)
+	{
+	$self->{w} = 2;
+	}
+      elsif ($self->{cell_class} =~ /^ g[bt]\z/)
+	{
+	$self->{h} = 2;
+	}
       }
     }
   if (exists $self->{has_label})
@@ -271,8 +284,7 @@ Graph::Easy::Group::Cell - A cell in a group
 
 =head1 SYNOPSIS
 
-        use Graph::Easy::Path;
-        use Graph::Easy::Edge;
+        use Graph::Easy;
 
 	my $ssl = Graph::Easy::Edge->new( );
 

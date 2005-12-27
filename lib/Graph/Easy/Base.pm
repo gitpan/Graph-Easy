@@ -6,7 +6,7 @@
 
 package Graph::Easy::Base;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 use strict;
 
@@ -30,7 +30,7 @@ sub new
   my $args = $_[0];
   $args = { name => $_[0] } if ref($args) ne 'HASH' && @_ == 1;
   $args = { @_ } if ref($args) ne 'HASH' && @_ > 1;
-  
+ 
   my $self = bless {}, $class;
 
   $self->{id} = _new_id();
@@ -65,7 +65,7 @@ Graph::Easy::Base - Baseclass for Graph::Easy objects like nodes, edges etc
 
 =head1 SYNOPSIS
 
-        # Used automatically by Graph::Easy - should not used directly
+        # Used automatically by Graph::Easy - should not be used directly
 
 =head1 DESCRIPTION
 
@@ -75,14 +75,16 @@ Used automatically by Graph::Easy - should not used directly.
 
 =head2 new()
 
+	my $object = Graph::Easy::Base->new();
+
 Create a new object, and call C<_init()> on it.
 
 =head2 error()
 
-	$last_error = $node->error();
+	$last_error = $object->error();
 
-	$node->error($error);			# set new messags
-	$node->error('');			# clear error
+	$object->error($error);			# set new messags
+	$object->error('');			# clear the error
 
 Returns the last error message, or '' for no error.
 
@@ -99,5 +101,10 @@ L<Graph::Easy>.
 Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
+
+X<tels>
+X<bloodgate>
+X<license>
+X<gpl>
 
 =cut

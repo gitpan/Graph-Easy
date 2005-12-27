@@ -68,7 +68,7 @@ sub _near_places
   # If defined, $type contains four flags for each direction. If undef,
   # two entries (x,y) will be returned for each pos, instead of (x,y,type).
 
-  # If $loose is true, no checkingg wether the returned fields are free
+  # If $loose is true, no checking whether the returned fields are free
   # is done.
 
   my ($n, $cells, $d, $type, $loose, $dir) = @_;
@@ -372,7 +372,7 @@ sub _clear_tries
 sub _find_node_place
   {
   # Try to place a node (or node cluster). Return score (usually 0).
-  my ($self, $cells, $node, $try, $parent) = @_;
+  my ($self, $cells, $node, $try, $parent, $edge) = @_;
 
   $try ||= 0;
 
@@ -382,16 +382,18 @@ sub _find_node_place
   my @tries;
   if (ref($parent) && defined $parent->{x})
     {
-    @tries = $parent->_near_places($cells); 
+    my $dir = undef; $dir = $edge->attribute('flow') if ref($edge); 
+    print STDERR " from $parent->{name} to $node->{name}: edge $edge dir $dir\n" if $self->{debug};
+
+    @tries = $parent->_near_places($cells, 2,  undef, 0, $dir); 
   
     print STDERR "# Trying chained placement of $node->{name}\n" if $self->{debug};
 
     # weed out positions that are unsuitable
     @tries = $self->_clear_tries($node, $cells, \@tries);
 
-    print STDERR "# Left with " . scalar @tries . " for node $node->{name}\n" if $self->{debug};
-
     splice (@tries,0,$try) if $try > 0;	# remove the first N tries
+    print STDERR "# Left with " . scalar @tries . " tries for node $node->{name}\n" if $self->{debug};
 
     while (@tries > 0)
       {

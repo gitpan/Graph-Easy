@@ -18,7 +18,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.36';
+$VERSION = '0.37';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -1242,6 +1242,7 @@ sub add_edge
     Carp::confess("Adding an edge object twice is not possible");
     }
   my $nodes = $self->{nodes};
+  my $groups = $self->{groups};
 
   my $xn = $x; my $yn = $y;
   $xn = $x->{name} if ref($x);
@@ -1273,13 +1274,15 @@ sub add_edge
   $edge->{from} = $x;
   $edge->{to} = $y;
  
-  # store the edge at the nodes, too
+  # store the edge at the nodes/groups, too
   $x->{edges}->{$edge->{id}} = $edge;
   $y->{edges}->{$edge->{id}} = $edge;
 
   # index nodes by their name so that we can find $x from $x->{name} fast
-  $nodes->{$x->{name}} = $x;
-  $nodes->{$y->{name}} = $y;
+  my $store = $nodes; $store = $groups if $x->isa('Graph::Easy::Group');
+  $store->{$x->{name}} = $x;
+  $store = $nodes; $store = $groups if $y->isa('Graph::Easy::Group');
+  $store->{$y->{name}} = $y;
 
   # index edges by "id1,id2,edgeid" so we can find them fast
   $self->{edges}->{$edge->{id}} = $edge;
@@ -2425,6 +2428,11 @@ a single nesting layer like so:
 Scopes are not yet implemented.
 
 =back
+
+=head2 Layouter
+
+The layouter can not yet handle links between groups (or between
+a group and a node, or vice versa).
 
 =head2 Paths
 

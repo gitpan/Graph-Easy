@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Grid;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 #############################################################################
 #############################################################################
@@ -43,10 +43,9 @@ sub _prepare_layout
   my $mx = -100000; my $my = -100000;
 
   # find all x and y occurances to sort them by row/columns
-  for my $k (keys %$cells)
+  for my $cell (values %$cells)
     {
-    my ($x,$y) = split/,/, $k;
-    my $cell = $cells->{$k};
+    my ($x,$y) = ($cell->{x}, $cell->{y});
 
     # Set the minimum cell size:
     {
