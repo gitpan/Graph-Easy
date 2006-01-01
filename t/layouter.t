@@ -10,7 +10,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 28;
+   plan tests => 34;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -38,12 +38,14 @@ foreach my $f (sort @files)
 
   my $txt = readfile("layouter/$f");
 
-  for my $flow (qw/right down left up/)
+  for my $flow (qw/down up right west left/)
     {
 
     my $t = "graph { flow: $flow; }\n" . $txt;
 
     my $graph = $parser->from_text($t);		# reuse parser object
+
+#    $graph->debug(1);
 
     if (!defined $graph)
       {

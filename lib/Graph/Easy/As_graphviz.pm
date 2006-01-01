@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 #############################################################################
 #############################################################################
@@ -52,8 +52,11 @@ my $remap = {
     'border-width' => undef,
     },
   'group' => {
-    'border-color' => undef,
-    'border-style' => undef,
+    'border-color' => 'color',
+    'border-style' => \&_graphviz_remap_border_style,
+    'fill' => 'fillcolor',
+    'title' => 'tooltip',
+    'color' => 'fontcolor',
     'border-width' => undef,
     'background' => undef,
     },
@@ -68,7 +71,7 @@ my $remap = {
     },
   'always' => {
     'link' => 1,
-    'label_pos' => 1,
+    'label-pos' => 1,
     'label-color' => 1,
     'rotate' => 1,
     },
@@ -83,12 +86,12 @@ sub _graphviz_remap_edge_style
   $style = 'solid' unless defined $style;
 
   $style = 'dotted' if $style =~ /^dot-/;	# dot-dash, dot-dot-dash
-  $style = 'dashed' if $style =~ /^double-/;	# double-dash
   $style = 'dotted' if $style =~ /^wave/;	# wave
   $style = 'bold' if $style eq 'double';	# double
 
   # XXX TODO: These should be (3, 0.5em, 1em) instead of 3,7,14
-  $style = 'setlinewidth(3)' if $style =~ /^bold-dash/;
+  $style = 'setlinewidth(3), dashed' if $style =~ /^bold-dash/;
+  $style = 'setlinewidth(3), dashed' if $style =~ /^double-dash/;
   $style = 'setlinewidth(7)' if $style =~ /^broad/;
   $style = 'setlinewidth(14)' if $style =~ /^wide/;
   
@@ -129,8 +132,8 @@ sub _graphviz_remap_fontsize
   # make sure the fontsize is in pixel or percent
   my ($self, $name, $style) = @_;
 
-  # XXX TODO: This be 1 em
-  my $fs = 11;
+  # XXX TODO: This should be 1 em
+  my $fs = '11px';
 
   if ($style =~ /^([\d.]+)em\z/)
     {
@@ -140,15 +143,14 @@ sub _graphviz_remap_fontsize
     {
     $fs = ($1 / 100) * 11;
     }
-#  # this is discouraged:
-#  elsif ($style =~ /^([\d.]+)px\z/)
-#    {
-#    $fs = $1;
-#    }
+  # this is discouraged:
+  elsif ($style =~ /^([\d.]+)px\z/)
+    {
+    $fs = $1;
+    }
   else
     {
-    require Carp;
-    Carp::confess ("Illegal font-size '$fs'");
+    $self->_croak("Illegal font-size '$fs'");
     }
 
   # font-size => fontsize
@@ -157,7 +159,11 @@ sub _graphviz_remap_fontsize
 
 sub _graphviz_remap_border_style
   {
-  my ($self, $name, $style) = @_;
+  my ($self, $name, $style, $node) = @_;
+
+  # shape "none" or plaintext don't need a border
+  return (undef,undef) if 
+    (ref($node) && ($node->attribute('shape') ||'') =~ /^(none|invisible)\z/);
 
   # valid styles are: solid dashed dotted bold invis
 
@@ -172,9 +178,13 @@ sub _graphviz_remap_border_style
   $style = 'setlinewidth(3)' if $style =~ /^bold/;
   $style = 'setlinewidth(7)' if $style =~ /^broad/;
   $style = 'setlinewidth(14)' if $style =~ /^wide/;
+  $style = 'setlinewidth(0)' if $style eq 'none';
   
   # default style can be suppressed
-  return (undef, undef) if $style =~ /^(solid|none)\z/;
+  return (undef, undef) if $style eq 'solid';
+
+  # for graphviz v2.4 and up
+  $style = 'filled, ' . $style;
 
   ('style', $style);
   }
@@ -234,6 +244,35 @@ sub _graphviz_remap_arrow_style
   ($n, $s);
   }
 
+sub _att_as_graphviz
+  {
+  my ($self, $out) = @_;
+ 
+  my $att = '';
+  for my $atr (keys %$out)
+    {
+    my $v = $out->{$atr};
+    $v = '"' . $v . '"' if $v !~ /^[a-z0-9A-Z]+\z/;	# quote if nec.
+    $att .= "  $atr=$v,\n";
+    }
+
+  $att =~ s/,\n\z/ /;			# remove last ","
+  if ($att ne '')
+    {
+    # the following makes short, single definitions to fit on one line
+    if ($att !~ /\n.*\n/ && length($att) < 40)
+      {
+      $att =~ s/\n/ /; $att =~ s/( )+/ /g;
+      }
+    else
+      {
+      $att =~ s/\n/\n  /g;
+      $att = "\n  $att";
+      }
+    }
+  $att;
+  }
+
 sub _as_graphviz
   {
   my ($self) = @_;
@@ -249,7 +288,10 @@ sub _as_graphviz
 	    " at " . scalar localtime() . "\n\n";
 
 
-  my $flow = $self->attribute('graph','flow'); $flow = 90 unless defined $flow;
+  my $flow = $self->attribute('graph','flow');
+  $flow = 'east' unless defined $flow;
+
+  $flow = Graph::Easy->_direction_as_number($flow);
 
   # for LR, BT layouts
   $self->{_flip_edges} = 0;
@@ -283,29 +325,8 @@ sub _as_graphviz
       $out->{$name} = $style;
       }
 
-    my $att = '';
-    for my $atr (keys %$out)
-      {
-      my $v = $out->{$atr};
-      $v = '"' . $v . '"' if $v !~ /^[a-z0-9A-Z]+\z/;	# quote if nec.
-      $att .= "  $atr=$v,\n";
-      }
-
-    $att =~ s/,\n\z/ /;			# remove last ","
-    if ($att ne '')
-      {
-      # the following makes short, single definitions to fit on one line
-      if ($att !~ /\n.*\n/ && length($att) < 40)
-        {
-        $att =~ s/\n/ /; $att =~ s/( )+/ /g;
-        }
-      else
-        {
-        $att =~ s/\n/\n  /g;
-        $att = "\n  $att";
-        }
-      $txt .= "  $class [$att];\n";
-      }
+    my $att = $self->_att_as_graphviz($out);
+    $txt .= "  $class [$att];\n" if $att ne '';
     }
 
   $txt .= "\n" if $txt ne '';		# insert newline
@@ -324,36 +345,49 @@ sub _as_graphviz
 
     # output group attributes first
     $txt .= "  subgraph \"cluster$group->{id}\" {\n${indent}label=\"$name\";\n";
-    $txt .= $indent. "labeljust=l; style=filled;\n";
-    my $bg = $group->attribute('fill') || '#a0d0ff';
-    $txt .= $indent. "fillcolor=\"$bg\";\n";
-    my $fg = $group->attribute('border-color') || 'black';
-    $txt .= $indent. "color=\"$fg\";\n";
+   
+#    print STDERR " class: ", $group->class(), " att: ", $group->{att}, "\n";
 
-    my ($f,$fs) = $self->_graphviz_remap_fontsize('font-size',$group->attribute('font-size'));
-    $fs *= 1.2; $txt .= $indent. "$f=\"$fs\";\n";
+    # make a copy of the attributes
+    my $copy = {};
+    for my $a (keys %{$group->{att}})
+      {
+      $copy->{$a} = $group->{att}->{$a};
+      print "$a\n";
+      }
+    # set some defaults
+    $copy->{'border-style'} = 'solid' unless defined $copy->{'border-style'};
 
-    # XXX TODO:
-    # writing both bgcolor and color makes dot ignore the background :(
-#    my $b = $group->attribute('border-color') || 'black';
-#    $txt .= $indent. "color=\"$b\";\n";
+    my $out = $self->_remap_attributes( $group->class(), $copy, $remap, 'noquote');
 
-    # output node attributes first
+    # set some defaults
+    $out->{fillcolor} = '#a0d0ff' unless defined $copy->{fillcolor};
+    $out->{color} = 'black' unless defined $copy->{color};
+    $out->{style} = 'filled' unless defined $copy->{style};
+
+    $out->{labeljust} = 'l';
+
+    my $att = '';
+    # we need to output style first ("filled" and "color" need come later)
+    for my $atr (reverse sort keys %$out)
+      {
+      my $v = $out->{$atr};
+      $v = '"' . $v . '"' if $v !~ /^[a-z0-9A-Z]+\z/;	# quote if nec.
+      $att .= "    $atr=$v;\n";
+      }
+    $txt .= $att . "\n" if $att ne '';
+ 
+    # output nodes (w/ or w/o attributes) in that group
     for my $n (values %{$group->{nodes}})
       {
       my $att = $n->attributes_as_graphviz();
-      if ($att ne '')
-	{
-	$n->{_p} = undef;			# mark as processed
-	$txt .= $indent . $n->as_graphviz_txt() . $att . "\n";
-	}
-#      print STDERR "# in group $name: $n->{name}\n";
+      $n->{_p} = undef;			# mark as processed
+      $txt .= $indent . $n->as_graphviz_txt() . $att . "\n";
       }
 
     # output node connections in this group
     for my $e (values %{$group->{edges}})
       {
-#      print STDERR "# at edge $e->id}\n";
       my $edge_att = $e->attributes_as_graphviz();
       my $other = $e->{to}->as_graphviz_txt();
       my $first = $e->{from}->as_graphviz_txt();

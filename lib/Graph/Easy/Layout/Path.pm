@@ -50,7 +50,7 @@ sub _shift
   # get a direction shifted by X° to $dir
   my ($self, $turn) = @_;
 
-  my $dir = $self->attribute('flow') || 90;
+  my $dir = $self->flow();
 
   $dir += $turn;
   $dir += 360 if $dir < 0;
@@ -89,7 +89,7 @@ sub _near_places
       EDGE_END_S,
      ];
     }
-  $dir = $n->attribute('flow') unless defined $dir;
+  $dir = $n->flow() unless defined $dir;
 
   my $index = $n->_shuffle_dir( [ 0,3,6,9], $dir);
 
@@ -194,7 +194,10 @@ sub _allowed_places
   # return the valid ones (e.g. that are in both lists)
   my ($self, $places, $allowed, $step) = @_;
 
-  print STDERR "# calculating allowed places for $self->{name}\n" if $self->{graph}->{debug};
+  print STDERR 
+   "# calculating allowed places for $self->{name} from " . @$places . 
+   " positions and " . scalar @$allowed . " allowed ones:\n"
+    if $self->{graph}->{debug};
 
   $step ||= 2;				# default: "x,y"
 
@@ -214,6 +217,7 @@ sub _allowed_places
     push @good, $places->[$i + $_ -1] for (1..$step);
     } continue { $i += $step; }
 
+  print STDERR "#  left with " . scalar @good . " positions\n" if $self->{graph}->{debug};
   @good;
   }
 
@@ -229,20 +233,11 @@ sub _allow
 
   my ($self, $dir, @pos) = @_;
 
-  if ($dir =~ /^(front|back|left|right)\z/)
+  # for relative direction, get the absolute flow from the node
+  if ($dir =~ /^(front|forward|back|left|right)\z/)
     {
     # get the flow at the node
-    my $flow = $self->attribute('flow')||'east';
-
-    my $new = {
-      90 => { front => 'east', 'back' => 'west', left => 'north', right => 'south' },
-      270 => { front => 'west', 'back' => 'east', left => 'south', right => 'north' },
-      180 => { front => 'south', 'back' => 'north', left => 'east', right => 'west' },
-      0 => { front => 'north', 'back' => 'south', left => 'west', right => 'east' },
-      };
- 
-    #      east => back => west
-    $dir = $new->{$flow}->{$dir};
+    $dir = $self->flow();
     }
 
   my $place = {
@@ -250,6 +245,10 @@ sub _allow
     'north' => [ 0,-1, 0,0, 'cx', 1,0 ],
     'east' =>  [  0,0, 1,0, 'cy', 0,1 ],
     'west' =>  [ -1,0, 0,0, 'cy', 0,1 ] ,
+    180 => [  0,0, 0,1, 'cx', 1,0 ],
+    0 => [ 0,-1, 0,0, 'cx', 1,0 ],
+    90 =>  [  0,0, 1,0, 'cy', 0,1 ],
+    270 =>  [ -1,0, 0,0, 'cy', 0,1 ] ,
     };
 
   my $p = $place->{$dir};
@@ -382,7 +381,8 @@ sub _find_node_place
   my @tries;
   if (ref($parent) && defined $parent->{x})
     {
-    my $dir = undef; $dir = $edge->attribute('flow') if ref($edge); 
+    my $dir = undef; $dir = $edge->flow() if ref($edge);
+
     print STDERR " from $parent->{name} to $node->{name}: edge $edge dir $dir\n" if $self->{debug};
 
     @tries = $parent->_near_places($cells, 2,  undef, 0, $dir); 

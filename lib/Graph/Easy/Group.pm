@@ -9,7 +9,7 @@ use Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 use strict;
 
@@ -293,10 +293,8 @@ Graph::Easy::Group - Represents a group of nodes in a simple graph
 
 =head1 DESCRIPTION
 
-A C<Graph::Easy::Node> represents a node in a simple graph. Each
-node has contents (a text, an image or another graph), and dimension plus
-an origin. The origin is typically determined by a graph layouter module
-like L<Graph::Easy>.
+A C<Graph::Easy::Group> represents a group of nodes in an C<Graph::Easy>
+object. These nodes are grouped together on output.
 
 =head1 METHODS
 

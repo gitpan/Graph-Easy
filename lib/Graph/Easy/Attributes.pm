@@ -1,12 +1,12 @@
 #############################################################################
 # define and check attributes for a Graph::Easy textual description.
 #
-# (c) by Tels 2004-2005.
+# (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 package Graph::Easy;
 
@@ -226,25 +226,6 @@ sub _color_remap
   $val;
   }
 
-sub angle
-  {
-  # check an angle for being valid, and turn "down" into "180" etc
-  my ($self, $angle) = @_;
-
-  $angle = 180 if $angle eq 'down';
-  $angle = 0 if $angle eq 'up';
-  $angle = 90 if $angle eq 'right';
-  $angle = -90 if $angle eq 'left';
-
-  return undef if $angle =~ /[^\d\.+-]/;
-
-  $angle += 0;
-
-  $angle %= 360 if abs($angle) > 360;
-
-  $angle;
-  }
-
 sub text_style
   {
   # check whether the given list of text-style attributes is valid
@@ -335,16 +316,119 @@ sub _font_size_in_pixels
   $fs;
   }
 
-sub direction_as_number
+# direction modifier in degrees
+my $modifier = {
+  forward => 0, front => 0, left => -90, right => +90, back => +180,
+  };
+
+# map absolute direction to degrees
+my $dirs = {
+  up => 0, north => 0, down => 180, south => 180, west => 270, east => 90,
+  0 => 0, 180 => 180, 90 => 90, 270 => 270,
+  };
+
+# map absolute direction to side (south etc)
+my $sides = {
+  north => 'north', 
+  south => 'south', 
+  east => 'east', 
+  west => 'west', 
+  up => 'north', 
+  down => 'south',
+  0 => 'north',
+  180 => 'south',
+  90 => 'east',
+  270 => 'west',
+  };
+
+sub _direction_as_number
   {
+  my ($self,$dir) = @_;
+
+  my $d = $dirs->{$dir};
+  $self->_croak("$dir is not an absolut direction") unless defined $d;
+
+  $d;
+  }
+
+sub _direction_as_side
+  {
+  my ($self,$dir) = @_;
+
+  return unless exists $sides->{$dir};
+  $sides->{$dir};
+  }
+
+sub _flow_as_direction
+  {
+  # Take a flow direction (0,90,180,270 etc), and a new direction (left|south etc)
+  # and return the new flow. south et al will stay, while left|right etc depend
+  # on the incoming flow.
+  my ($self, $inflow, $dir) = @_;
+
+  # in=south and dir=forward => south
+  # in=south and dir=back => north etc
+  # in=south and dir=east => east 
+
+#  return 90 unless defined $dir;
+
+  if ($dir =~ /^(south|north|west|east|up|down|0|90|180|270)\z/)
+    {
+    # new direction is absolut, so inflow doesn't play a role
+    # return 0,90,180 or 270
+    return $dirs->{$dir};
+    }
+
+  my $in = $dirs->{$inflow};
+  my $modifier = $modifier->{$dir};
+
+  $self->_croak("$inflow,$dir results in undefined inflow") unless defined $in;
+  $self->_croak("$inflow,$dir results in undefined modifier") unless defined $modifier;
+
+  my $out = $in + $modifier;
+  $out -= 360 if $out >= 360;	# normalize to 0..359
+  
+  $out;
+  }
+
+sub _flow_as_side
+  {
+  # Take a flow direction (0,90,180,270 etc), and a new direction (left|south etc)
+  # and return the new flow. south et al will stay, while left|right etc depend
+  # on the incoming flow.
+  my ($self, $inflow, $dir) = @_;
+
+  # in=south and dir=forward => south
+  # in=south and dir=back => north etc
+  # in=south and dir=east => east 
+
+#  return 90 unless defined $dir;
+
+  if ($dir =~ /^(south|north|west|east|up|down|0|90|180|270)\z/)
+    {
+    # new direction is absolut, so inflow doesn't play a role
+    # return east, west etc
+    return $sides->{$dir};
+    }
+
+  my $in = $dirs->{$inflow};
+  my $modifier = $modifier->{$dir};
+
+  $self->_croak("$inflow,$dir results in undefined inflow") unless defined $in;
+  $self->_croak("$inflow,$dir results in undefined modifier") unless defined $modifier;
+
+  my $out = $in + $modifier;
+  $out -= 360 if $out >= 360;	# normalize to 0..359
+  
+  $sides->{$out};
+  }
+
+sub _direction
+  {
+  # check that a direction (south etc) is valid
   my ($self, $dir) = @_;
 
-  $dir =~ s/^(east|right)\z/90/;
-  $dir =~ s/^(south|down)\z/180/;
-  $dir =~ s/^(west|left)\z/270/;
-  $dir =~ s/^(north|up)\z/0/;
-
-  $dir =~ /^(0|90|180|270)\z/ ? $dir : undef;
+  $dir =~ /^(south|east|west|north|down|up|0|90|180|270|front|forward|back|left|right)\z/ ? $dir : undef;
   }
 
 sub _border_attribute_as_html
@@ -443,6 +527,16 @@ sub _border_width_in_pixels
   $bw;
   }
 
+sub _angle
+  {
+  # check an angle for being valid
+  my ($self, $angle) = @_;
+
+  return undef unless $angle =~ /^([+-]?\d{1,3}|south|west|east|north|up|down|left|right|front|back|forward)\z/;
+
+  $angle;
+  }
+
 sub split_border_attributes
   {
   # split "1px solid black" or "red dotted" into style, width and color
@@ -481,16 +575,16 @@ sub split_border_attributes
 # attribute checking
 
 # different types of attributes with pre-defined handling
-sub ATTR_STRING		() { 0; }
-sub ATTR_COLOR		() { 1; }
-sub ATTR_ANGLE		() { 2; }
-sub ATTR_PORT		() { 3; }
+use constant ATTR_STRING	=> 0;
+use constant ATTR_COLOR		=> 1;
+use constant ATTR_ANGLE		=> 2;
+use constant ATTR_PORT		=> 3;
 
-sub ATTR_DESC_SLOT	() { 0; }
-sub ATTR_MATCH_SLOT	() { 1; }
-sub ATTR_DEFAULT_SLOT	() { 2; }
-sub ATTR_EXAMPLE_SLOT	() { 3; }
-sub ATTR_TYPE_SLOT	() { 4; }
+use constant ATTR_DESC_SLOT	=> 0;
+use constant ATTR_MATCH_SLOT	=> 1;
+use constant ATTR_DEFAULT_SLOT	=> 2;
+use constant ATTR_EXAMPLE_SLOT	=> 3;
+use constant ATTR_TYPE_SLOT	=> 4;
      
 # Lists the attribute names along with
 #   * a short description, 
@@ -708,8 +802,8 @@ EOF
 
     flow => [
      "The general direction in which edges will leave this node first. See the section about flow control for reference.",
-     'direction_as_number',
-     'right',
+     '_direction',
+     'east',
      'south',
      ],
 
@@ -724,12 +818,12 @@ EOF
      ],
 
     rotate => [
-     "The rotation of the node shape, clockwise from 0..359 degrees.",
+     "The rotation of the node shape, either an absolute value (like C<south>, C<up>, C<down> or C<123>), or a relative value (like C<+12>, C<-90>, C<left>, C<right>). For relative angles, the rotation will be based on the node's L<flow>. Rotation is clockwise.",
        undef,
        '0',
        '180',
        ATTR_ANGLE,
-     "[ Bonn ] { rotate: 45; } -- ICE --> \n [ Berlin ] { shape: triangle; rotate: 90; }",
+     "[ Bonn ] { rotate: 45; } -- ICE --> \n [ Berlin ] { shape: triangle; rotate: -90; }",
      ],
 
     "point-style" => [
@@ -754,8 +848,8 @@ EOF
 
     flow => [
       "The graph's general flow direction. See the section about flow control for reference.",
-      'direction_as_number',
-      'right',
+      '_direction',
+      'east',
       'south',
      ],
 
@@ -804,8 +898,8 @@ EOF
 
     flow => [
      "The flow direction for this edge. See the section about flow control for reference.",
-     'direction_as_number',
-     'right',
+     '_direction',
+     'east',
      'south',
      ],
 
@@ -893,7 +987,7 @@ sub valid_attribute
   my $type = $entry->[4] || ATTR_STRING;
 
   $check = 'color_as_hex' if $type == ATTR_COLOR;
-  $check = 'angle' if $type == ATTR_ANGLE;
+  $check = '_angle' if $type == ATTR_ANGLE;
 
   my @values = ($value);
 
@@ -1056,7 +1150,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

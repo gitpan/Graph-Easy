@@ -1,3 +1,3 @@
 [ Berlin ] { border: dashed; }
-[ Bonn ] { border: dotted; }
+[ Bonn ] { border: dashed; }
 

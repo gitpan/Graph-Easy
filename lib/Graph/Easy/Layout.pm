@@ -30,10 +30,11 @@ use Graph::Easy::Edge::Cell qw/
   EDGE_SHORT_CELL
  /;
 
-sub ACTION_NODE  () { 0; }	# place node somewhere
-sub ACTION_TRACE () { 1; }	# trace path from src to dest
-sub ACTION_CHAIN () { 2; }	# place node in chain (with parent)
-sub ACTION_EDGES () { 3; }	# trace all edges (shortes connect. first)
+use constant ACTION_NODE	=> 0;	# place node somewhere
+use constant ACTION_TRACE	=> 1;	# trace path from src to dest
+use constant ACTION_CHAIN	=> 2;	# place node in chain (with parent)
+use constant ACTION_EDGES	=> 3;	# trace all edges (shortes connect. first)
+use constant ACTION_SPLICE	=> 4;	# splice in the group fillers
 
 use Graph::Easy::Layout::Chain;		# chain management
 use Graph::Easy::Layout::Scout;		# pathfinding
@@ -134,6 +135,10 @@ sub _follow_chain
       # ignore self-loops
       next if $e->{from} == $e->{to};
 
+      # skip links from/to groups
+      next if $e->{to}->isa('Graph::Easy::Group') ||
+              $e->{from}->isa('Graph::Easy::Group');
+
 #      print STDERR "# bidi $e->{from}->{name} to $e->{to}->{name}\n" if $e->{bidirectional} && $to == $node;
 
       # if it is bidirectional, and points the "wrong" way, turn it around
@@ -183,7 +188,6 @@ sub _follow_chain
 
     for my $s (values %suc)		# for all successors
       {
-
       print STDERR "# suc $s->{name} chain $s->{_chain}\n" if $self->{debug};
 
       $done += _follow_chain($s) 	# track chain
@@ -311,6 +315,12 @@ sub _dump_stack
       print STDERR
        "#  trace all edges from '$src->{name}', shortest first\n";
       }
+    elsif ($action_type == ACTION_SPLICE)
+      {
+      my ($at) = @$action;
+      print STDERR
+       "#  splicing in group filler cells\n";
+      }
     }
   }
 
@@ -401,18 +411,35 @@ sub layout
       # edge already done?
       next unless exists $e->{_todo};
 
+      # skip links from/to groups
+      next if $e->{to}->isa('Graph::Easy::Group') ||
+              $e->{from}->isa('Graph::Easy::Group');
+
       push @edges, $e;
       delete $e->{_todo};
       }
+    # XXX TODO: This does not work, since the nodes are not yet laid out
     # sort them on their shortest distances
-    @edges = sort { $b->_distance() <=> $a->_distance() } @edges;
+#    @edges = sort { $b->_distance() <=> $a->_distance() } @edges;
 
     # put them on the action stack in that order
     for my $e (@edges)
       {
       push @todo, [ ACTION_TRACE, $e ];
-#      print STDERR "do $n->{name} to $e->{to}->{name} ($e->{id}\n";
+#      print STDERR "do $e->{from}->{name} to $e->{to}->{name} ($e->{id} " . $e->_distance().")\n";
 #      push @todo, [ ACTION_CHAIN, $e->{to}, 0, $n, $e ];
+      }
+    }
+
+  # after laying out all inter-group nodes and their edges, we need to splice in the
+  # group cells
+  if (scalar $self->groups() > 0)
+    {
+    push @todo, [ ACTION_SPLICE ] if scalar $self->groups();
+
+    # now do all group-to-group and node-to-group and group-to-node links:
+    for my $n (values %{$self->{groups}})
+      {
       }
     }
 
@@ -493,6 +520,11 @@ sub layout
       # find path (mod is score modifier, or undef if no path exists)
       $mod = $self->_trace_path( $src, $dst, $edge );
       }
+    elsif ($action_type == ACTION_SPLICE)
+      {
+      # fill in group info and return
+      $self->_fill_group_cells($cells) unless $self->{error};
+      }
     else
       {
       require Carp;
@@ -572,9 +604,6 @@ sub layout
       }
 
     # all things on the stack were done, or we encountered an error
-
-    # fill in group info and return
-    $self->_fill_group_cells($cells) unless $self->{error};
 
     };					# end of timeout protected code
 
@@ -850,9 +879,6 @@ sub _fill_group_cells
   # after doing a layout(), we need to add the group to each cell based on
   # what group the nearest node is in.
   my ($self, $cells_layout) = @_;
-
-  # if layout not done yet, do so
-  $self->layout() unless defined $self->{score};
 
   print STDERR "\n# Padding with fill cells, have ", 
     scalar $self->groups(), " groups.\n" if $self->{debug};

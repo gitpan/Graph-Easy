@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 use Graph::Easy::Attributes;
 use Graph::Easy::Base;
@@ -545,6 +545,130 @@ sub as_html
   $html;
   }
 
+sub angle
+  {
+  # return the rotation of the node, dependend on the rotate attribute
+  # (and if relative, on the flow)
+  my $self = shift;
+
+  my $angle = $self->{att}->{rotate} || 0;
+
+  $angle = 180 if $angle =~ /^(south|down)\z/;
+  $angle = 0 if $angle =~ /^(north|up)\z/;
+  $angle = 270 if $angle eq 'west';
+  $angle = 90 if $angle eq 'east';
+
+  # convert relative angles
+  if ($angle =~ /^([+-]\d+|left|right|back|front|forward)\z/)
+    {
+    my $base_rot = $self->flow();
+    $angle = 0 if $angle =~ /^(front|forward)\z/;
+    $angle = 180 if $angle eq 'back';
+    $angle = -90 if $angle eq 'left';
+    $angle = 90 if $angle eq 'right';
+    $angle = $base_rot + $angle + 0;	# 0 points up, so front points right
+    $angle += 360 while $angle < 0;
+    }
+
+  $self->_croak("Illegal node angle $angle") if $angle !~ /^\d+\z/;
+
+  $angle %= 360 if $angle > 359;
+
+  $angle;
+  }
+
+sub flow
+  {
+  # calculate the outgoing flow from the incoming flow and the flow at this
+  # node (either from edge(s) or general flow).
+  # See the online manual about flow for a reference and details.
+  my $self = shift;
+
+  no warnings 'recursion';
+
+  return $self->{_cached_flow} if exists $self->{_cached_flow};
+
+  my $in;
+
+  if (exists $self->{_flow})
+    {
+    # detected cycle, so break it
+    my $f = $self->parent()->attribute('flow'); $f = 'east' unless defined $f;
+    return $f;
+    }
+
+  local $self->{_flow} = undef;		# endless loops really ruin our day
+
+  my $flow = $self->{att}->{flow};
+ 
+  if (!defined $flow)
+    {
+    return 'left' if ref($self) eq 'Graph::Easy';
+
+    my $parent = $self->parent();
+    $flow = $parent->attribute('flow');
+
+    # in case of relative flow at parent, convert to absolute (right: east, left: west etc) 
+    # sp that "graph { flow: left; }" results in a westward flow
+    if (defined $flow)
+      {
+      if ($flow =~ /^(back|left)\z/)
+        {
+        $flow = 270;
+        }
+      elsif ($flow =~ /^(right|front|forward)\z/)
+        {
+        $flow = 90;
+        }
+      }
+    }
+
+  # if flow is absolute, return it early
+  return $flow if defined $flow && $flow =~ /^(0|90|180|270)\z/;
+  return Graph::Easy->_direction_as_number($flow)
+    if defined $flow && $flow =~ /^(south|north|up|down|east|west|0|90|180|270)\z/;
+
+  # for relative flows, compute the incoming flow as base flow
+
+  # check all edges
+  for my $e (values %{$self->{edges}})
+    {
+    # only count incoming edges
+    next unless $e->{from} != $self && $e->{to} == $self;
+
+    # if incoming edge has flow, we take this
+    $in = $e->flow();
+    # take the first match
+    last if defined $in;
+    }
+
+  if (!defined $in)
+    {
+    # check all predecessors
+    for my $e (values %{$self->{edges}})
+      {
+      my $pre = $e->{from};
+      $pre = $e->{to} if $e->{bidirectional};
+      if ($pre != $self)
+        {
+        $in = $pre->flow();
+        # take the first match
+        last if defined $in;
+        }
+      }
+    }
+
+  if (!defined $in)
+    {
+    my $parent = $self->parent();
+    $in = $parent->attribute('flow'); $in = 'east' unless defined $in; 
+    }
+
+  $flow = Graph::Easy->_direction_as_number($in) unless defined $flow;
+
+  $self->{_cached_flow} = Graph::Easy->_flow_as_direction($in,$flow);
+  }
+
 #############################################################################
 # multi-celled nodes
 
@@ -553,6 +677,9 @@ sub grow
   # grows the node until it has sufficient cells for all incoming/outgoing
   # edges
   my $self = shift;
+
+  # grow() is called for every node before layout(), so uncache the flow
+  delete $self->{_cached_flow};
 
   # XXX TODO: grow the node based on its label dimensions
 #  my ($w,$h) = $self->dimensions();
@@ -588,14 +715,12 @@ sub grow
     for my $end (0..1)
       {
       # if the edge starts/ends here
-      if ($e->{$idx[$end]->[1]} == $self)
+      if ($e->{$idx[$end]->[1]} == $self)		# from/to
 	{
-	my $port = $e->attribute($idx[$end]->[0]);
+	my ($side, $nr) = $e->port($idx[$end]->[0]);	# start/end
 
-	if (defined $port)
+	if (defined $side)
 	  {
-	  my ($side, $nr) = split /\s*,\s*/, $port;
-	  $nr = '' unless defined $nr;
 	  if ($nr eq '')
 	    {
 	    # no port number specified, so just count
@@ -637,11 +762,6 @@ sub grow
     $unspecified -- if $e->{to} == $e->{from};
     }
 
-#  use Data::Dumper; 
-#  print STDERR "# port contraints for $self->{name}:\n";
-#  print STDERR "# count: ", Dumper($cnt), "# max: ", Dumper($max),"\n";
-#  print STDERR "# ports: ", Dumper($portnr),"\n";
- 
   my $need = {};
   my $free = {};
   for my $side (qw/north south east west/)
@@ -652,11 +772,18 @@ sub grow
     $need->{$side} = $max->{$side};
     if ($free->{$side} < 2 * $cnt->{$side})
       {
-      $need->{$side} += 2 * $cnt->{$side} - $free->{$side};
+      $need->{$side} += 2 * $cnt->{$side} - $free->{$side} - 1;
       } 
     }
   # now $need contains for each side the absolut min. number of ports we need
 
+#  use Data::Dumper; 
+#  print STDERR "# port contraints for $self->{name}:\n";
+#  print STDERR "# count: ", Dumper($cnt), "# max: ", Dumper($max),"\n";
+#  print STDERR "# ports: ", Dumper($portnr),"\n";
+#  print STDERR "# need : ", Dumper($need),"\n";
+#  print STDERR "# free : ", Dumper($free),"\n";
+ 
   # calculate min. size in X and Y direction
   my $min_x = $need->{north}; $min_x = $need->{south} if $need->{south} > $min_x;
   my $min_y = $need->{west}; $min_y = $need->{east} if $need->{east} > $min_y;
@@ -682,7 +809,7 @@ sub grow
     }
 
   # grow the node based on the general flow first VER, then HOR
-  my $flow = $self->attribute('flow') || 90;
+  my $flow = $self->flow();
 
   my $grow = 0;
   my @grow_what = sort keys %$grow_sides;	# 'cx', 'cy' or 'cx' or 'cy'
@@ -932,6 +1059,9 @@ sub edges_at_port
   # Must be "start" or "end"
   return () unless $attr =~ /^(start|end)\z/;
 
+  $self->_croak('side not defined') unless defined $side;
+  $self->_croak('port not defined') unless defined $port;
+
   my @edges;
   for my $e (values %{$self->{edges}})
     {
@@ -940,7 +1070,7 @@ sub edges_at_port
     # skip edges starting here if we look at end
     next if $e->{from} eq $self && $attr eq 'end';
 
-    my ($s_p,@ss_p) = split (/,/, $e->attribute($attr) || '');
+    my ($s_p,@ss_p) = $e->port($attr);
     next unless defined $s_p;
 
     # same side and same port number?
@@ -1064,31 +1194,6 @@ sub predecessors
     $pre{$edge->{from}->{id}} = $edge->{from};	# weed out doubles
     }
   values %pre;
-  }
-
-#############################################################################
-# class management
-
-sub class
-  {
-  # return our full class name like "node.subclass" or "node"
-  my $self = shift;
-
-  $self->{class};
-  }
-
-sub sub_class
-  {
-  # get/set the subclass
-  my $self = shift;
-
-  if (defined $_[0])
-    {
-    $self->{class} =~ s/\..*//;		# nix subclass
-    $self->{class} .= '.' . $_[0];	# append new one
-    }
-  $self->{class} =~ /\.(.*)/;
-  $1;
   }
 
 #############################################################################
@@ -1221,6 +1326,7 @@ sub del_attribute
   {
   my ($self, $atr) = @_;
 
+  delete $self->{_cached_flow};
   delete $self->{att}->{$atr};
   $self;
   }
@@ -1228,6 +1334,8 @@ sub del_attribute
 sub set_attribute
   {
   my ($self, $name, $v, $class) = @_;
+
+  delete $self->{_cached_flow};
 
   $name = 'undef' unless defined $name;
   $v = 'undef' unless defined $v;
@@ -1434,6 +1542,9 @@ like L<Graph::Easy>.
 
 =head1 METHODS
 
+Apart from the methods of the base class C<Graph::Easy::Base>, a
+C<Graph::Easy::Node> has the following methods:
+
 =head2 new()
 
         my $node = Graph::Easy::Node->new( name => 'node name' );
@@ -1558,18 +1669,6 @@ Return the name of the node.
 
 Return the label of the node. If no label was set, returns the C<name>
 of the node.
-
-=head2 class()
-
-	my $class = $node->class();
-
-Returns the full class name like C<node.cities>. See also C<sub_class>.
-
-=head2 sub_class()
-
-	my $sub_class = $node->sub_class();
-
-Returns the sub class name like C<cities>. See also C<class>.
 
 =head2 background()
 
@@ -1790,6 +1889,22 @@ Returns true if the operation succeeded, otherwise false.
 	my $shape = $node->shape();
 
 Returns the shape of the node as string, defaulting to 'rect'. 
+
+=head2 angle()
+
+	my $angle = $self->rotation();
+
+Return the node's rotation, based on the C<rotate> attribute, and
+in case this is relative, on the node's flow.
+
+=head2 flow()
+
+	my $flow = $node->flow();
+
+Returns the outgoing flow for this node as absolute direction in degrees.
+
+The value is computed from the incoming flow (or the general flow as
+default) and the flow attribute of this node.
 
 =head1 EXPORT
 

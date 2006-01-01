@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 #############################################################################
 #############################################################################
@@ -67,13 +67,20 @@ my $start_points = {
 		  0,		EDGE_END_W,   EDGE_END_S,   0,			],
   };
 
+my $start_to_end = {
+  EDGE_START_W() => EDGE_END_W(),
+  EDGE_START_E() => EDGE_END_E(),
+  EDGE_START_S() => EDGE_END_S(),
+  EDGE_START_N() => EDGE_END_N(),
+  };
+
 sub _end_points
   {
   # modify last field of path to be the correct endpoint; and the first field
   # to be the correct startpoint:
   my ($self, $edge, $coords, $dx, $dy) = @_;
   
-  return if $edge->undirected();
+  return $coords if $edge->undirected();
 
   # there are two cases (for each dx and dy)
   my $i = 0;					# index 0,1
@@ -89,12 +96,17 @@ sub _end_points
     $case = 0; $case = 1 if $d == -1;
 
     # modify first/last cell
-    $coords->[$co] += $start_points->{ $type }->[ $case + $i ];
+    my $t = $start_points->{ $type }->[ $case + $i ];
+    # on bidirectional edges, turn START_X into END_X
+    $t = $start_to_end->{$t} || $t if $edge->{bidirectional};
+
+    $coords->[$co] += $t;
 
     } continue {
     $i += 2; 					# index 2,3, 4,5 etc
     $co = -1 if $i == 4;			# modify now last cell
     }
+  $coords;
   }
 
 sub _find_path
@@ -187,9 +199,8 @@ sub _find_path
     if ($done == 0)
       {
       print STDERR "# success for ", scalar @coords / 3, " steps in path\n" if $self->{debug};
-      $self->_end_points($edge, \@coords, $dx, $dy);
-
-      return \@coords;					# return all fields of path
+      # return all fields of path
+      return $self->_end_points($edge, \@coords, $dx, $dy);
       }
 
     } # end else straight path try
@@ -286,9 +297,8 @@ sub _find_path
     if ($done == 0)
       {
       print STDERR "# success for ", scalar @coords / 3, " steps in path\n" if $self->{debug};
-      $self->_end_points($edge, \@coords, $dx, $dy);
-
-      return \@coords;			# return all fields of path
+      # return all fields of path
+      return $self->_end_points($edge, \@coords, $dx, $dy);
       }
 
     print STDERR "# no success\n" if $self->{debug};
@@ -323,8 +333,7 @@ sub _find_path_loop
     EDGE_LOOP_WEST,
     EDGE_LOOP_EAST,
    );
-  my $dir = $src->attribute('flow');
-  my $index = $src->_shuffle_dir( \@tries, $dir);
+  my $index = $src->_shuffle_dir( \@tries, $src->flow());
 
   for my $this_try (@$index)
     {
@@ -605,19 +614,15 @@ sub _find_path_astar
     EDGE_END_S,
   ]; 
 
-  # get all the starting positions and add them to OPEN:
-  # distance = 1: slots, generate starting types, the direction is shifted
-  # by 90° counter-clockwise
-
-  my ($s_p,@ss_p) = split (/,/, $edge->attribute('start') || '');
-  my ($e_p,@ee_p) = split (/,/, $edge->attribute('end') || '');
+  my ($s_p,@ss_p) = $edge->port('start');
+  my ($e_p,@ee_p) = $edge->port('end');
 
   my (@A, @B);
 
   my @shared_start;
 
   # has a starting point restriction
-  @shared_start = $edge->{from}->edges_at_port('start', $s_p, $ss_p[0]) if @ss_p == 1;
+  @shared_start = $edge->{from}->edges_at_port('start', $s_p, $ss_p[0]) if defined $s_p && @ss_p == 1;
 
   my @shared;
   # filter out all non-placed edges (this will also filter out $edge)
@@ -675,14 +680,18 @@ sub _find_path_astar
     {
     # from SRC to DST
 
-    my @start = $src->_near_places($cells, 1, $start_flags, 1, $src->_shift(-90) );
+    # get all the starting positions and add them to OPEN:
+    # distance = 1: slots, generate starting types, the direction is shifted
+    # by 90° counter-clockwise
+
+    my $s = $start_flags; $s = $end_flags if $edge->{bidirectional};
+    my @start = $src->_near_places($cells, 1, $s, 1, $src->_shift(-90) );
 
     # the edge has a port description, limiting the start places
     @start = $src->_allowed_places( \@start, $src->_allow( $s_p, @ss_p ), 3)
       if defined $s_p;
 
     return unless @start > 0;			# no free slots on start node?
-
 
     my $i = 0;
     while ($i < scalar @start)
@@ -717,7 +726,7 @@ sub _find_path_astar
 
   my $path = $self->_astar(\@A,\@B,$edge);
 
-  if ($start_shared != 0)
+  if (@$path > 0 && $start_shared != 0)
     {
     # convert the edge piece of the starting edge-cell to a join
     my ($x, $y) = ($path->[0],$path->[1]);
@@ -922,17 +931,8 @@ sub _astar
 
 	$px ++ if ($edge_flags & EDGE_START_E) != 0; 
 	$px -- if ($edge_flags & EDGE_START_W) != 0; 
-
-	if ($edge->bidirectional())
-	  {
-	  my $start = $type & EDGE_START_MASK;
-	  $type &= ~EDGE_START_MASK;
-	  $type += EDGE_END_W if $start == EDGE_START_W;
-	  $type += EDGE_END_E if $start == EDGE_START_E;
-	  $type += EDGE_END_N if $start == EDGE_START_N;
-	  $type += EDGE_END_S if $start == EDGE_START_S;
-	  }
 	}
+
       if (!defined $lx)
 	{
 	# We can figure out from the flag of the position of cx,cy

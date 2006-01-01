@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 37;
+   plan tests => 38;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok qw/Graph::Easy::Edge/;
@@ -28,6 +28,7 @@ can_ok ("Graph::Easy::Edge", qw/
   set_attributes
   group add_to_group
   background
+  flow port
   /);
   
 use Graph::Easy::Edge::Cell qw/EDGE_SHORT_E/;
@@ -144,6 +145,15 @@ is ($edge->has_ports(), 1, 'has port restrictions');
 
 $edge->del_attribute('end');
 is ($edge->has_ports(), 0, 'has no port restrictions');
+
+#############################################################################
+# port()
+
+$edge->set_attribute('start', 'south');
+is (join(":", $edge->port('start')), "south:", "port('start')");
+
+$edge->del_attribute('end');
+$edge->del_attribute('start');
 
 #############################################################################
 # background()

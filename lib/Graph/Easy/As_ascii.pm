@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 sub _u8
   {
@@ -169,12 +169,12 @@ sub _draw_hor
     chop($line);			# '--- '
     }
   my $as = $self->_arrow_style();
+
   if (($flags & EDGE_END_E) != 0)
     {
     # '--> '
     chop($line);
-    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT)
-     if $as ne 'none';
+    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT) if $as ne 'none';
     }
   if (($flags & EDGE_END_W) != 0)
     {
@@ -445,16 +445,21 @@ sub _draw_loop_hor
   # '|' => '|||||', '{}' => '{}{}{}'
   my $line = $style->[1] x (1 + $h / length($style->[1])); 
   $line = substr($line, 0, $h) if length($line) > $h;
+  
+  my $as = $self->_arrow_style();
 
+  if ($self->{edge}->{bidirectional} && $as ne 'none')
+    {
+    substr($line,0,1)  = $self->_arrow($as, ARROW_UP) if (($flags & EDGE_END_N) != 0);
+    substr($line,-1,1) = $self->_arrow($as, ARROW_DOWN) if (($flags & EDGE_END_S) != 0);
+    }
   $self->_printfb_ver ($fb, $self->{w}-3, $y, $line);
 
-  my $as = $self->_arrow_style();
   if ($as ne 'none')
     {
     substr($line,0,1)  = $self->_arrow($as, ARROW_UP) if (($flags & EDGE_END_N) != 0);
     substr($line,-1,1) = $self->_arrow($as, ARROW_DOWN) if (($flags & EDGE_END_S) != 0);
     }
-
   $self->_printfb_ver ($fb, 2, $y, $line);
 
   # horizontal piece
@@ -470,21 +475,11 @@ sub _draw_loop_hor
 
   $line = substr($line, 0, $w) if length($line) > $w;
   
-  if ((($flags & EDGE_END_E) != 0) && ($as ne 'none'))
-    {
-    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT);
-    }
-  if (($flags & EDGE_END_W) != 0)
-    {
-    substr($line,0,1) = ' ' if $as eq 'none';
-    substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT) if $as ne 'none';
-    }
-
   $self->_printfb_line ($fb, $x, $y, $line);
   
   my $corner_idx = 3; $corner_idx = 5 if $type == EDGE_S_W_N;
 
-  # insert the corner character
+  # insert the corner characters
   $self->_printfb ($fb, 2, $y, $style->[$corner_idx]);
   $self->_printfb ($fb, $self->{w}-3, $y, $style->[$corner_idx+1]);
 
@@ -551,10 +546,17 @@ sub _draw_loop_ver
   substr($line,0,$ofs) = '' if $ofs != 0;
 
   $line = substr($line, 0, $w) if length($line) > $w;
- 
-  $self->_printfb_line ($fb, $x, $y, $line);
 
   my $as = $self->_arrow_style();
+ 
+  if ($self->{edge}->{bidirectional} && $as ne 'none')
+    {
+    substr($line,0,1)  = $self->_arrow($as, ARROW_LEFT) if (($flags & EDGE_END_W) != 0);
+    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT) if (($flags & EDGE_END_E) != 0);
+    }
+
+  $self->_printfb_line ($fb, $x, $y, $line);
+
   if ($as ne 'none')
     {
     substr($line,0,1)  = $self->_arrow($as, ARROW_LEFT) if (($flags & EDGE_END_W) != 0);
@@ -567,7 +569,7 @@ sub _draw_loop_ver
 
   my $corner_idx = 3; $corner_idx = 4 if $type == EDGE_E_S_W;
 
-  # insert the corner character
+  # insert the corner characters
   $self->_printfb ($fb, $x, $y, $style->[$corner_idx]);
   $self->_printfb ($fb, $x, $self->{h}-2, $style->[$corner_idx+2]);
 
@@ -617,10 +619,7 @@ sub _draw_label
   my $type = $self->{type} & EDGE_TYPE_MASK;
 
   my $m = $draw_dispatch->{$type};
-  if (!defined $m)
-    {
-    require Carp; Carp::croak("Unknown edge type $type");
-    }
+  $self->_croak("Unknown edge type $type") unless defined $m;
 
   # store the coordinates of our upper-left corner (for seamless rendering)
   $self->{rx} = $x || 0; $self->{ry} = $y || 0;

@@ -1,6 +1,6 @@
 edge { arrow-style: none; }
 
-[ Hagnau ] { flow: 180; }
+[ Hagnau ] { flow: down; }
 [ Unteruhlingen ] { border: dotted; }
 
 [ Hagnau ] <--> [ Oberuhlingen ]

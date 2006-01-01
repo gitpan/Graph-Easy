@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 253;
+   plan tests => 265;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);

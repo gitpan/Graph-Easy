@@ -7,7 +7,7 @@ package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
-$VERSION = '0.18';
+$VERSION = '0.19';
 
 use strict;
 
@@ -125,9 +125,13 @@ sub has_ports
   my $self = shift;
 
   my $s_port = $self->{att}->{start} || $self->attribute('start');
+
+  return 1 if defined $s_port;
+
   my $e_port = $self->{att}->{end} || $self->attribute('end');
 
-  return 1 if defined $s_port || defined $e_port;
+  return 1 if defined $e_port;
+
   0;
   }
 
@@ -199,8 +203,8 @@ sub _distance
   # potential stop positions
   my @stop = $dst->_near_places($cells, 1);		# distance = 1: slots
 
-  my ($s_p,@ss_p) = split (/,/, $self->attribute('start') || '');
-  my ($e_p,@ee_p) = split (/,/, $self->attribute('end') || '');
+  my ($s_p,@ss_p) = $self->port('start');
+  my ($e_p,@ee_p) = $self->port('end');
 
   # the edge has a port description, limiting the start places
   @start = $src->_allowed_places( \@start, $src->_allow( $s_p, @ss_p ), 3)
@@ -283,6 +287,69 @@ sub to
 
   $self->{to};
   }
+
+sub flow
+  {
+  my ($self) = @_;
+
+# print STDERR "# flow from $self->{from}->{name} to $self->{to}->{name}\n";
+
+  # our flow comes from ourselves
+  my $flow = $self->{att}->{flow};
+
+  my $f = $self->parent()->attribute('flow') || '90';
+
+  # if the edge doesn't have a flwow, maybe the node has a default out flow
+  $flow = $self->{from}->{att}->{flow} if !defined $flow;
+
+  # if that didn't work out either, use the parents flows
+  $flow = $self->parent()->attribute('flow') if !defined $flow; 
+  # default "east", or finally the
+  $flow = 90 if !defined $flow;
+
+  # absolute flow does not depend on the inflow, so can return early
+  return $flow if $flow =~ /^(0|90|180|270)\z/;
+
+  # in_flow comes from our "from" node
+  my $in = $self->{from}->flow();
+
+#  print STDERR "in $in out $flow\n";
+
+  my $out = $self->{graph}->_flow_as_direction($in,$flow);
+  $out;
+  }
+
+sub port
+  {
+  my ($self, $which) = @_;
+
+  $self->_croak("'$which' must be one of 'start' or 'end' in port()") unless $which =~ /^(start|end)/;
+
+  # our flow comes from ourselves
+  my $sp = $self->attribute($which); 
+
+  return (undef,undef) unless defined $sp;
+
+  my ($side, $port) = split /\s*,\s*/, $sp;
+
+  $port = '' unless defined $port;
+
+  # if absolut direction, return as is
+  my $s = Graph::Easy->_direction_as_side($side);
+  return ($s, $port) if defined $s;
+
+  # in_flow comes from our "from" node
+  my $in = 90; $in = $self->{from}->flow() if ref($self->{from});
+
+  # turn left in "south" etc:
+  $s = Graph::Easy->_flow_as_side($in,$side);
+  ($s, $port);
+  }
+
+1;
+__END__
+
+=head1 NAME
 
 1;
 __END__
@@ -444,6 +511,30 @@ Returns the node that this edge starts at. See also C<to()>.
 	my $to = $edge->to();
 
 Returns the node that this edge leads to. See also C<from()>.
+
+=head2 flow()
+
+	my $flow = $edge->flow();
+	my $flow = $edge->flow('start');
+	my $flow = $edge->flow('end');
+
+Returns the flow for this edge, or undef if it has none.
+
+The optional parameter defines the attribute name to use as the
+base flow, and defaults to C<flow>. When it is set to C<start>,
+for example, the returned direction 
+
+=head2 port()
+
+	my ($side, $number) = $edge->port('start');
+	my ($side, $number) = $edge->port('end');
+
+Return the side and port number where this edge starts or ends.
+
+Returns undef for $side if the edge has no port restriction. The
+returned side will be one absolute direction of C<east>, C<west>,
+C<north> or C<south>, depending on the port restriction and
+flow at that edge.
 
 =head1 EXPORT
 

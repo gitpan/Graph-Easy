@@ -1,6 +1,6 @@
 [ Berlin ] { border: dashed; }
-[ Bonn ] { border: dotted; }
-[ Frankfurt ] { border: dot-dash; }
+[ Bonn ] { border: dashed; }
+[ Frankfurt ] { border: dot-dot-dash; }
 [ Frankfurt (Oder) ] { border: dot-dot-dash; }
 
 [ Berlin ] -- test --> [ Frankfurt ]

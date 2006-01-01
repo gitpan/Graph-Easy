@@ -7,13 +7,8 @@ In addition:
 
 Important short-term TODO:
 
-* flow-invariant via "right, left, front, back" needs fixing
 * edges between groups (ala "( 1 [A ]) -> ( 2 [B] )") or between a node
-  and a group are not handled correctly by the layouter yet
-  (needs a change of render order, first groups, then inter-group links,
-   as well as a change to A* to get different start/end cells from the
-   group(s))
-* bidirectional self-loops are rendered with only one arrow: [A] <--> [A]
+  and a group are missing.
 * layout() will grow nodes base on layout contraints, an as_txt() afterwards
   will produce these sizes, even when the input did not specify a node size.
 * "[A],[B],[C] -> [ very wide node ] { size: 7,1; }" results in A being very
@@ -21,9 +16,6 @@ Important short-term TODO:
   (for multicelled nodes: find smallest row/column, increase, until all
    columns/rows are equal size, the distribute remaining nec. min. size
    to all columns/rows)
-* as_txt(): the following are wrong as txt:
-  + 4_autosplit_offset.txt
-  + 3_autosplit_hangt.txt
 * It would be good if we could remove Node::Empty (it blocks a cell
   just to draw the right/bottom border pieces)
   (we might put these "invisible" nodes into a different "cells" field,
@@ -33,16 +25,19 @@ Important short-term TODO:
 * as_html(): output of node-clusters is slightly wrong
 * as_html(): there is no space between two nodes placed next (with filler
 	     cell) to each other. Make filler cells output a &nbsp;
+* as_html(): bidir. self-loops are rendered with only one arrow: [A] <--> [A]
 * put framebuffer related routines into own package (Graph::Easy::As_ascii)
   to avoid the dilemma that we need them from both Node and Graph.
   Likewise, some routines used by objects (e.g. graph, node etc) should
   be in a super-package and inherited)
+* as_txt(): the following are wrong as txt:
+  + 4_autosplit_offset.txt
+  + 3_autosplit_hangt.txt
 * as_txt: output of autosplit nodes is broken when no label gets set
   "[A|B]" results in "[ A|B ] { label: A; }"
 * use "shape: record" and label="{ { 00 | 01 | 02 } | { 10 | 112 | 12 } }" to
   implement auto-split nodes in graphviz (including <port>'s and rerouting
   edges to the ports)
-* use "dotted filled" for graphviz to render node borders correctly
 * joints in as_boxart() have problems with the joint character:
 	┌───┐
 	│ A │
@@ -62,7 +57,6 @@ Parser:
 
     "[ A ] | [ B | C ] || [ D | E ]"
 
-* use "{}" to nest blocks?
 * Nodes with both "|" and "\|" in their name are not parsed correctly
 * handle RGB colors with percentages or fractions like: rgb(100%,50%,0.5)
 * quoting of "[" and "{" inside edge labels ala:
@@ -98,10 +92,8 @@ Output:
 * as_txt(): output of node chains is not optimal
 * better support for different shapes (circle, box, rounded, polygon etc)
   in ASCII
-* as_graphviz(): for nodes/groups/graph: support "border-style: double" etc
-  together with fill colors (Needs postscript code in the style argument,
-  and I have not yet an idea how to write this)
-* need better support for different edge styles in Graphviz
+* as_graphviz(): implement border-styles: wave, dot-dot-dash and dot-dash
+* as_graphviz(): implement edge-styles: double, double-dash, wave, dot-dot-dash and dot-dash
 * as_ascii() and others: grow cells around point-shaped nodes to intrude:
 
 	...........................

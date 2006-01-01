@@ -1,21 +1,21 @@
 #############################################################################
 # One chain of nodes in a Graph::Easy - used internally for layouts.
 #
-# (c) by Tels 2004-2005. Part of Graph::Easy
+# (c) by Tels 2004-2006. Part of Graph::Easy
 #############################################################################
 
 package Graph::Easy::Layout::Chain;
 
 use Graph::Easy::Base;
-$VERSION = '0.03';
+$VERSION = '0.04';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
 
-sub _ACTION_NODE  () { 0; }	# place node somewhere
-sub _ACTION_TRACE () { 1; }	# trace path from src to dest
-sub _ACTION_CHAIN () { 2; }	# place node in chain (with parent)
-sub _ACTION_EDGES () { 3; }	# trace all edges (shortes connect. first)
+use constant _ACTION_NODE  => 0; # place node somewhere
+use constant _ACTION_TRACE => 1; # trace path from src to dest
+use constant _ACTION_CHAIN => 2; # place node in chain (with parent)
+use constant _ACTION_EDGES => 3; # trace all edges (shortes connect. first)
 
 #############################################################################
 
@@ -181,14 +181,21 @@ sub layout
 
       next unless exists $e->{_todo};
 
+      # skip links from/to groups
+      next if $e->{to}->isa('Graph::Easy::Group') ||
+              $e->{from}->isa('Graph::Easy::Group');
+
+#      # skip edges with a flow
+#      next if exists $e->{att}->{start} || exist $e->{att}->{end};
+
       push @TODO, [ _ACTION_TRACE, $e ];
       delete $e->{_todo};
       }
 
     } continue { $pre = $n; $n = $n->{_next}; }
 
-#  print STDERR "# Stack after chain-linking:\n" if $g->{debug};
-#  $g->_dump_stack(@TODO) if $g->{debug};
+  print STDERR "# Stack after chain-linking:\n" if $g->{debug};
+  $g->_dump_stack(@TODO) if $g->{debug};
 
   # Do all other links inside the chain (backwards, going forward more than
   # one node etc)
@@ -202,11 +209,16 @@ sub layout
 
     print STDERR "# inter-chain link from $n->{name}\n" if $g->{debug};
 
-    # gather all edges starting at $n
+    # gather all edges starting at $n, but do the ones with a flow first
     for my $e (values %{$n->{edges}})
       {
       # skip selfloops, these will be done later
       next if $e->{to} == $n;
+      next if $e->has_ports();
+
+      # skip links from/to groups
+      next if $e->{to}->isa('Graph::Easy::Group') ||
+              $e->{from}->isa('Graph::Easy::Group');
 
       print STDERR "# inter-chain link from $n->{name} to $e->{to}->{name}\n" if $g->{debug};
 
@@ -242,7 +254,7 @@ sub layout
       push @count, [ $count, $e->{from}->{name}, $e->{to}->{name} ];
       }
 
-#    use Data::Dumper; print STDERR Dumper(@count);
+#    use Data::Dumper; print STDERR "count\n", Dumper(@count);
 
     # do edges, shortest first 
     for my $e (sort { $a->[0] <=> $b->[0] } @edges)
@@ -260,7 +272,6 @@ sub layout
     {
     for my $e (values %{$n->{edges}})
       {
-
       next unless exists $e->{_todo};
 
 #      print STDERR "# $e->{from}->{name} to $e->{to}->{name} on $n->{name}\n";
@@ -290,6 +301,9 @@ sub layout
       {
       my $to = $e->{to};
 
+      # skip links to groups
+      next if $to->isa('Graph::Easy::Group');
+
       next unless exists $to->{_chain};
       my $chain = $to->{_chain};
       next if $chain->{_done};
@@ -301,6 +315,9 @@ sub layout
 
       # link the edges to $to
       next unless exists $e->{_todo};	# was already done above?
+
+      # next if $e->has_ports();
+
       push @TODO, [ _ACTION_TRACE, $e ];
       delete $e->{_todo};
       }
@@ -534,7 +551,7 @@ L<Graph::Easy>, L<Graph::Easy::Layout>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

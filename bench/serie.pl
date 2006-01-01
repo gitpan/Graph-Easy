@@ -19,6 +19,10 @@ for my $count (@counts)
   print "Creating graph with ", $count * 3, " nodes and edges...\n";
   my $rc = [ ];
   push @$rc, time_it ( \&create, $count);
+
+  $size = total_size($g);
+  print "Graph objects takes $size bytes.\n";
+
   print "Creating txt...\n";
 
   print $g->as_ascii() if $count == 5;
@@ -61,6 +65,8 @@ for my $t ( qw/Creation as_txt as_ascii Memory/ )
   print " </tr>\n";
   $i++;
   }
+  
+#print STDERR $g->as_graphviz();
 
 1;
 
@@ -113,8 +119,6 @@ sub create
   # slowing down this routine by about 10-20%.
   print "Have now ", scalar $g->nodes(), " nodes and ", scalar $g->edges()," edges.\n";
 
-  $size = total_size($g);
-  print "Graph objects takes $size bytes.\n";
   $g->{timeout} = 120;
   }
 

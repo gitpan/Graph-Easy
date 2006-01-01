@@ -1,5 +1,43 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-01-01 v0.38 Tels 1571 tests
+  * include the missing 4_flow.txt test files
+  * Group.pm: fix POD
+  * Parser: attributes on nodes in a node list apply to all nodes in the list
+	    up to this point. So:
+	[ Bonn ] { color: blue; }, [ Berlin ] { fill: black; }
+	    will fill both nodes black, but only color "Bonn" blue.
+  * remove unused arrow-code on hor-selfloops
+  * as_ascii: draw bidirectional self-loops with two arrows (Thanx Dan Horne!)
+  * Layout: fix bidirectional edges created by A* (multi-celled nodes) and
+	    the straigh-path shortcut (more than one cell distance)
+	    (Thanx to Dan Horne again)
+  * Layout: ignore links from/to groups, do them after splicing in group
+	    filler cells
+  * Attributes: remove direction() and add:
+    + _direction_as_number()
+    + _flow_as_number()    
+    + _flow_as_side()    
+    + _direction_as_side()    
+  * Graph: remove the unused and wrong angle() method
+  * Graph: allow add_edge('Node', 'Node2', 'edge label');
+  * Edge: add flow() and port()
+  * Node: add flow(), angle()
+  * check POD coverage of Graph::Easy::Attributes and As_ascii
+  * fix the flow model:
+      correctly handle absolut (south/180/east/90/down etc) and relative
+      (left/right/front/forward/back), as well as global and local flow
+      on a per node/edge basis
+  * as_txt(): output the original flow/start/end attribute instead of
+	      a converted value ('down' vs 180, 'left' vs XX)
+  * Base: add _croak() method
+  * Node: growing nodes with edge end/start point restrictions did make
+	  the node one to big on each restricted side
+  * use constant instead of home-grown "sub CONSTANT() { 1; }"
+  * as_graphviz(): output correctly nodes in a group w/o attributes and edges
+  * as_graphviz(): support correctly most node border and edge styles,
+		   even in combination with fillcolor. Thanx to Ryan Schmidt!
+
 2005-12-27 v0.37 Tels 1533 tests - Sing, sing, sing the birthday song...
   * correctly handle '\\n' in labels/titles
   * Node::Cell: allow 'x' and 'y' as arguments

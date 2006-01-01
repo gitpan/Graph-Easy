@@ -8,26 +8,26 @@ package Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 use strict;
 
 #############################################################################
 
 # The different types for a group-cell:
-sub GROUP_INNER	 	() { 0; }	# completely sourounded by group cells
-sub GROUP_RIGHT	 	() { 1; }	# right border only
-sub GROUP_LEFT	 	() { 2; }	# left border only
-sub GROUP_TOP	 	() { 3; }	# top border only
-sub GROUP_BOTTOM 	() { 4; }	# bottom border only
-sub GROUP_ALL	 	() { 5; }	# completely sourounded by non-group cells
+use constant GROUP_INNER	=> 0;	# completely sourounded by group cells
+use constant GROUP_RIGHT	=> 1;	# right border only
+use constant GROUP_LEFT		=> 2; 	# left border only
+use constant GROUP_TOP	 	=> 3;	# top border only
+use constant GROUP_BOTTOM 	=> 4; 	# bottom border only
+use constant GROUP_ALL	 	=> 5;	# completely sourounded by non-group cells
 
-sub GROUP_BOTTOM_RIGHT	() { 6; }	# bottom and right border
-sub GROUP_BOTTOM_LEFT	() { 7; }	# bottom and left border
-sub GROUP_TOP_RIGHT	() { 8; }	# top and right border
-sub GROUP_TOP_LEFT	() { 9; }	# top and left order
+use constant GROUP_BOTTOM_RIGHT	=> 6;	# bottom and right border
+use constant GROUP_BOTTOM_LEFT	=> 7;	# bottom and left border
+use constant GROUP_TOP_RIGHT	=> 8; 	# top and right border
+use constant GROUP_TOP_LEFT	=> 9;	# top and left order
 
-sub GROUP_MAX		() { 5; }	# max number
+use constant GROUP_MAX		=> 5; 	# max number
 
 my $border_styles = 
   {

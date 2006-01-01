@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 157;
+   plan tests => 178;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -35,6 +35,8 @@ can_ok ("Graph::Easy::Node", qw/
   columns
   rows
   size
+  flow
+  angle
 
   grow
   parent
@@ -315,7 +317,7 @@ $node->set_attribute('flow','right');
 $node->set_attribute('point-style','diamond');
 
   is ($node->as_txt(), 
-    '[ Node \#0 ] { color: #801010; flow: 90; link: test test&; point-style: diamond; class: bar; }', 'as_txt');
+    '[ Node \#0 ] { color: #801010; flow: right; link: test test&; point-style: diamond; class: bar; }', 'as_txt');
   is ($node->as_html(), 
     " <td $r class='node-bar'><a class='l' href='/wiki/index.php/test+test&' style=\"color: #801010\">Node #0</a></td>\n",
     'as_html');
@@ -538,4 +540,40 @@ $group = $graph->add_group('Test');
 $group->add_node($A);
 
 is ($A->parent(), $group, 'parent is group');
+
+#############################################################################
+# angle()
+
+my @angles = qw/south south front left -90 back -45 45 +45/;
+my @expect = qw/180 180 90 0 0 270 45 45 135/;
+
+is ($A->angle(), 0, 'default is 0 pointing up');
+$A->set_attribute('rotate', 'south');
+
+my $i = 0;
+for my $e (@expect)
+  {
+  my $an = $angles[$i++];
+  $A->set_attribute('rotate', $an);
+  is ($A->angle(), $e, "expect $e for $an");
+  }
+
+$A->del_attribute('flow', 'south');
+is ($A->{_cached_flow}, undef, 'flow uncached by set_attribute');
+
+$A->flow();				# cache again
+$A->set_attribute('flow', 'south');
+is ($A->{_cached_flow}, undef, 'flow uncached by set_attribute');
+
+@angles = qw/south south front left -90 back -45 45 +45/;
+@expect = qw/180 180 180 90 90 0 135 45 225/;
+
+$i = 0;
+for my $e (@expect)
+  {
+  my $an = $angles[$i++];
+  $A->set_attribute('rotate', $an);
+  is ($A->angle(), $e, "expect $e for $an");
+  }
+
 

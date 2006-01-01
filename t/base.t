@@ -14,6 +14,10 @@ BEGIN
 can_ok ("Graph::Easy::Base", qw/
   new error
   _init
+  self
+  class
+  sub_class
+  main_class
   /);
 
 #############################################################################

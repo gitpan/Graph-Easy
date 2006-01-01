@@ -7,7 +7,7 @@ my $tests;
 
 BEGIN
    {
-   $tests = 10;
+   $tests = 12;
    plan tests => $tests;
    chdir 't' if -d 't';
    use lib '../lib';
@@ -29,6 +29,8 @@ SKIP:
     Graph::Easy::As_graphviz
     Graph::Easy::Layout::Chain
     Graph::Easy::Layout::Grid
+    Graph::Easy::Attributes
+    Graph::Easy::As_ascii
    /)
     {
     pod_coverage_ok( $m, "$m is covered" );
@@ -40,6 +42,7 @@ SKIP:
 	ACTION_NODE|
 	ACTION_TRACE|
 	ACTION_EDGES|
+	ACTION_SPLICE|
 	ATTR_COLOR|
 	ATTR_DEFAULT_SLOT|
 	ATTR_DESC_SLOT|

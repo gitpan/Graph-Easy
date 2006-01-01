@@ -1,7 +1,7 @@
 #############################################################################
 # Layout directed graphs as 2D boxes on a flat plane
 #
-# (c) by Tels 2004-2005.
+# (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy;
@@ -18,7 +18,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.37';
+$VERSION = '0.38';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -1235,6 +1235,7 @@ sub add_edge
   my ($self,$x,$y,$edge) = @_;
   
   $edge = Graph::Easy::Edge->new() unless defined $edge;
+  $edge = Graph::Easy::Edge->new(label => $edge) unless ref($edge);
 
   if (exists ($self->{edges}->{$edge->{id}}))
     {
@@ -2082,6 +2083,15 @@ C<dot> etc.
 
 Is an alias for C<as_graphviz()>.
 
+=head2 angle()
+
+        my $degrees = Graph::Easy->angle( 'south' );
+        my $degrees = Graph::Easy->angle( 120 );
+
+Check an angle for being valid and return a value between -359 and 359
+degrees. The special values C<south>, C<north>, C<west>, C<east>, C<up>
+and C<down> are also valid and converted to degrees.
+
 =head2 nodes()
 
 	my $nodes = $graph->nodes();
@@ -2318,15 +2328,6 @@ This would print '#ff0000';
 It returns an array ref if the attribute name is invalid, and undef if the
 value is invalid.
 	
-=head2 angle()
-
-	my $degrees = Graph::Easy->angle( 'right' );
- 	my $degrees = Graph::Easy->angle( 120 );
-
-Check an angle for being valid and return a value between -359 and 359
-degrees. The special values C<right>, C<left>, C<up> and C<down> are
-also valid and converted to 90, -90, 0 and 180 degrees, respectively.
-
 =head2 color_as_hex()
 
 	my $hexred   = Graph::Easy->color_as_hex( 'red' );
@@ -2499,7 +2500,7 @@ Creating graphs should be easy even when the graphs are quite complex.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
 
 X<tels>
 

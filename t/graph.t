@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 38;
+   plan tests => 39;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -79,10 +79,14 @@ is ($en, 'solid.', 'edges() in list context');
 #############################################################################
 
 my $ffm = Graph::Easy::Node->new( name => 'Frankfurt a. M.' );
-$graph->add_edge ($ffm, $bonn);
+# test add_edge ($n1,$n2, $label)
+$graph->add_edge ($ffm, $bonn, 'train');
 
 is ($graph->nodes (), 3, '3 nodes');
 is ($graph->edges (), 2, '2 edges');
+
+my $e = $graph->edge ($ffm,$bonn);
+is ($e->label(), 'train', 'add_edge($n,$n2,"label") works');
 
 # print $graph->as_ascii();
 
@@ -90,7 +94,7 @@ is ($graph->edges (), 2, '2 edges');
 # as_txt() (simple nodes)
 
 is ( $graph->as_txt(), <<HERE
-[ Frankfurt a. M. ] --> [ Bonn ]
+[ Frankfurt a. M. ] -- train --> [ Bonn ]
 [ Bonn ] --> [ Berlin ]
 HERE
 , 'as_txt() for 3 nodes with 2 edges');
@@ -102,7 +106,7 @@ is ($graph->nodes (), 4, '4 nodes');
 is ($graph->edges (), 3, '3 edges');
 
 is ( $graph->as_txt(), <<HERE
-[ Frankfurt a. M. ] --> [ Bonn ]
+[ Frankfurt a. M. ] -- train --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]
 [ Bonn ] --> [ Berlin ]
 HERE
@@ -116,7 +120,7 @@ $bonn->set_attribute('class', 'cities');
 is ( $graph->as_txt(), <<HERE
 [ Bonn ] { class: cities; }
 
-[ Frankfurt a. M. ] --> [ Bonn ]
+[ Frankfurt a. M. ] -- train --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]
 [ Bonn ] --> [ Berlin ]
 HERE
@@ -132,7 +136,7 @@ is ( $graph->as_txt(), <<HERE
 [ Berlin ] { color: blue; }
 [ Bonn ] { color: red; border: none; class: cities; }
 
-[ Frankfurt a. M. ] --> [ Bonn ]
+[ Frankfurt a. M. ] -- train --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]
 [ Bonn ] --> [ Berlin ]
 HERE
@@ -151,7 +155,7 @@ node { border: solid 1px blue; }
 [ Berlin ] { color: blue; }
 [ Bonn ] { color: red; border: none; class: cities; }
 
-[ Frankfurt a. M. ] --> [ Bonn ]
+[ Frankfurt a. M. ] -- train --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]
 [ Bonn ] --> [ Berlin ]
 HERE

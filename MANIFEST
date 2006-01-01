@@ -32,6 +32,8 @@ todos/cluster.txt
 todos/chain.txt
 bench/bench.pl
 bench/serie.pl
+bench/test.dot
+bench/test.txt
 t/anon.t
 t/attributes.t
 t/ascii.t
@@ -137,7 +139,10 @@ t/in/1_selfloop.txt
 t/in/1_selfloop_label.txt
 t/in/1_selfloop_2.txt
 t/in/1_undirected_loop.txt
+t/in/1_bidi_loop.txt
 t/in/2_autolabel.txt
+t/in/2_bidi_astar.txt
+t/in/2_bidi_endpoint.txt
 t/in/2nodes.txt
 t/in/2_cluster.txt
 t/in/2_cluster_2.txt
@@ -180,6 +185,7 @@ t/in/3_list_attr.txt
 t/in/3_joining.txt
 t/in/4_list_attr.txt
 t/in/4_lists.txt
+t/in/4_flow.txt
 t/in/4groups.txt
 t/in/4groups_class.txt
 t/in/4_edge_labels.txt
@@ -210,6 +216,7 @@ t/in/8_chain.txt
 t/in/8_points.txt
 t/in/8_labels.txt
 t/in/8_endless_loop.txt
+t/in/8_flow.txt
 t/in/9_chain.txt
 t/in/9_cross.txt
 t/in/10borders.txt
@@ -220,8 +227,11 @@ t/out/1node.txt
 t/out/1_selfloop.txt
 t/out/1_selfloop_label.txt
 t/out/1_selfloop_2.txt
+t/out/1_bidi_loop.txt
 t/out/1_undirected_loop.txt
 t/out/2_autolabel.txt
+t/out/2_bidi_astar.txt
+t/out/2_bidi_endpoint.txt
 t/out/2nodes.txt
 t/out/2_flow.txt
 t/out/2_selfloop.txt
@@ -260,6 +270,7 @@ t/out/4_autosplit_offset.txt
 t/out/4_att.txt
 t/out/4_cross.txt
 t/out/4_comma.txt
+t/out/4_flow.txt
 t/out/4nodes.txt
 t/out/4_2x2nodes.txt
 t/out/4groups.txt
@@ -295,6 +306,7 @@ t/out/8_points.txt
 t/out/8_chain.txt
 t/out/8_labels.txt
 t/out/8_endless_loop.txt
+t/out/8_flow.txt
 t/out/9_chain.txt
 t/out/9_cross.txt
 t/out/18_multiples.txt
@@ -313,6 +325,7 @@ t/txt/2_group_no_border.txt
 t/txt/2_zeros.txt
 t/txt/2_dot_dot_dash.txt
 t/txt/2_label.txt
+t/txt/2_list_attr.txt
 t/txt/3_invisible_both.txt
 t/txt/3_invisible.txt
 t/txt/3_cluster.txt
@@ -322,6 +335,8 @@ t/txt/3_selfloop.txt
 t/txt/3_selfloop_flip.txt
 t/txt/3_nodes_5_edges.txt
 t/txt/3_autosplit_hang.txt
+t/txt/3_lists.txt
+t/txt/3_list_attr.txt
 t/txt/4_autosplit_offset.txt
 t/txt/4groups.txt
 t/txt/4groups_class.txt
@@ -335,9 +350,7 @@ t/txt/4_edge_cross.txt
 t/txt/4_cross.txt
 t/txt/4_endless_loop.txt
 t/txt/4_endless_loop_2.txt
-t/txt/2_list_attr.txt
-t/txt/3_lists.txt
-t/txt/3_list_attr.txt
+t/txt/4_flow.txt
 t/txt/4_list_attr.txt
 t/txt/4_lists.txt
 t/txt/5_arrow_styles.txt
@@ -356,6 +369,7 @@ t/txt/8_chain.txt
 t/txt/8_points.txt
 t/txt/8_labels.txt
 t/txt/8_endless_loop.txt
+t/txt/8_flow.txt
 t/txt/9_chain.txt
 t/txt/9_cross.txt
 t/txt/10borders.txt

@@ -9,7 +9,7 @@ package Graph::Easy::Parser;
 use Graph::Easy;
 use Graph::Easy::Base;
 
-$VERSION = '0.19';
+$VERSION = '0.20';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -93,7 +93,6 @@ sub from_text
 
   my @lines = split /\n/, $txt;
 
-  my $c = 'Graph::Easy::Node';
   my $e = 'Graph::Easy::Edge';
   my $g = 'Graph::Easy::Group';
 
@@ -196,9 +195,9 @@ sub from_text
 
       my $group = pop @group_stack;
 
-      my $a1 = $self->_parse_attributes($1||'', 'group', NO_MULTIPLES);	# group attributes
+      my $a1 = $self->_parse_attributes($1||'', 'group', NO_MULTIPLES);
       return undef if $self->{error};
-      
+
       $group->set_attributes($a1);
 
       # the new left side is the group itself
@@ -221,11 +220,13 @@ sub from_text
         return undef;
         }
 
-      $stack[-1]->set_attributes($a);
+      # set attributes on all nodes on stack
+      for my $n (@stack) { $n->set_attributes($a); }
 
       # remove parsed part
       $line =~ s/^$qr_attr//;
       }
+    # "[ A ] { ... }"
     elsif ($line =~ /^$qr_node$qr_oatr/)
       {
       my $n1 = $1;
@@ -247,7 +248,7 @@ sub from_text
       my $a1 = $self->_parse_attributes($2||'');
       return undef if $self->{error};
 
-      push @stack, $self->_new_node ($graph, $n1, \@group_stack, $a1);
+      push @stack, $self->_new_node ($graph, $n1, \@group_stack, $a1, \@stack);
 
       if (defined $left_edge)
 	{
@@ -309,7 +310,7 @@ sub from_text
       $line =~ s/^$qr_edge$qr_oatr$qr_node$qr_oatr//;
       }
     # Things like ")" will be consumed before, so we do not need a case
-    # for ") -> ( [ B ]":
+    # for ") -> { ... } ( Group [ B ]":
     # edge to a group like "-> { ... } ( Group ["
     elsif (@stack != 0 && $line =~ /^$qr_edge$qr_oatr$qr_group_start/)
       {
@@ -351,7 +352,7 @@ sub from_text
       $left_edge = [ $style, $edge_label, $edge_atr, $edge_bd, $edge_un ];
       @left_stack = @stack;
 
-      # forget stack and remember the right side instead
+      # forget stack
       @stack = ();
 
       $line =~ s/^$qr_edge$qr_oatr$qr_group_start/\[/;
@@ -425,7 +426,7 @@ sub _new_node
   # contains entries, the new node appears first in this/these group(s), so
   # add it to these groups. If the newly created node contains "|", we auto
   # split it up into several nodes and cluster these together.
-  my ($self, $graph, $name, $group_stack, $att) = @_;
+  my ($self, $graph, $name, $group_stack, $att, $stack) = @_;
 
   print STDERR "# Parser: new node '$name'\n" if $graph->{debug};
 
@@ -573,8 +574,17 @@ sub _new_node
   my $b = $att->{basename};
   delete $att->{basename};
 
+  # on a node list "[A],[B] { ... }" set attributes on all nodes
+  # encountered so far, too:
+  if (defined $stack)
+    {
+    for my $node (@$stack)
+      {
+      $node->set_attributes ($att, 0);
+      }
+    }
   my $index = 0;
-  foreach my $node (@rc)
+  for my $node (@rc)
     {
     $node->add_to_group($group_stack->[-1]) if @$group_stack != 0;
     

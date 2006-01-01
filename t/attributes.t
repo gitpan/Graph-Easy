@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 55;
+   plan tests => 48;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Attributes") or die($@);
@@ -39,19 +39,6 @@ is ($att->color_name('red'), 'red', 'red => red');
 is ($att->color_name('#ff0000'), 'red', '#ff0000 => red');
 is ($att->color_name('#ffffff'), 'white', '#ffffff => white');
 is ($att->color_name('#808080'), 'grey', '#808080 => grey');
-
-#############################################################################
-# angle:
-
-is ($att->angle( 'right' ), '90', 'angle: right');
-is ($att->angle( 'left' ), '-90', 'angle: left');
-is ($att->angle( 'up' ), '0', 'angle: up');
-is ($att->angle( 'down' ), '180', 'angle: down');
-
-is ($att->angle( 'ad' ), undef, 'angle: ad; is invalid');
-
-is ($att->angle( '0.0' ), '0', 'angle: 0.0');
-is ($att->angle( '-12.2' ), '-12.2', 'angle: -12.2');
 
 #############################################################################
 # valid_attribute:

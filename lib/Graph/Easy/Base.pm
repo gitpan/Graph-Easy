@@ -6,7 +6,7 @@
 
 package Graph::Easy::Base;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 use strict;
 
@@ -46,6 +46,13 @@ sub _init
   $self;
   }
 
+sub self
+  {
+  my $self = shift;
+  
+  $self;
+  }  
+
 #############################################################################
 
 sub error
@@ -56,6 +63,47 @@ sub error
   $self->{error} || '';
   }
 
+#############################################################################
+# class management
+
+sub sub_class
+  {
+  # get/set the subclass
+  my $self = shift;
+
+  if (defined $_[0])
+    {
+    $self->{class} =~ s/\..*//;		# nix subclass
+    $self->{class} .= '.' . $_[0];	# append new one
+    }
+  $self->{class} =~ /\.(.*)/;
+  $1;
+  }
+
+sub class
+  {
+  # return our full class name like "node.subclass" or "node"
+  my $self = shift;
+
+  $self->{class};
+  }
+
+sub main_class
+  {
+  my $self = shift;
+
+  $self->{class} =~ /^(.+)(\.|\z)/;	# extract first part
+
+  $1;
+  }
+
+sub _croak
+  {
+  require Carp;
+  $Carp::CarpLevel = 1;			# don't report Base itself
+  Carp::confess($_[1]);
+  }
+ 
 1;
 __END__
 
@@ -87,6 +135,30 @@ Create a new object, and call C<_init()> on it.
 	$object->error('');			# clear the error
 
 Returns the last error message, or '' for no error.
+
+=head2 self()
+
+	my $self = $object->self();
+
+Returns the object itself.
+
+=head2 class()
+
+	my $class = $object->class();
+
+Returns the full class name like C<node.cities>. See also C<sub_class>.
+
+=head2 sub_class()
+
+	my $sub_class = $object->sub_class();
+
+Returns the sub class name like C<cities>. See also C<class>.
+
+=head2 main_class()
+
+	my $main_class = $object->main_class();
+
+Returns the main class name like C<node>. See also C<sub_class>.
 
 =head1 EXPORT
 

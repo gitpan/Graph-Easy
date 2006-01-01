@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 107;
+   plan tests => 109;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -352,7 +352,8 @@ $bonn->set_attribute( 'border-style' => 'broad' );
 
 $grviz = $graph->as_graphviz();
 like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
-like ($graph->as_graphviz(), qr/Bonn.*style="setlinewidth\(7\)"/, '7 pixel for broad border');
+like ($graph->as_graphviz(), qr/Bonn.*style="filled, setlinewidth\(7\)"/, 
+ '7 pixel for broad border');
 
 #############################################################################
 # quoting of special characters
@@ -383,4 +384,32 @@ $grviz = $graph->as_graphviz();
 
 like ($graph->as_graphviz(), qr/subgraph "cluster\d+"\s+\{/, 'contains cluster');
 
+#############################################################################
+# nodes w/o links and attributes in a group
+
+$graph = Graph::Easy->new();
+
+$bonn = $graph->add_node ('Bonn');
+$berlin = $graph->add_node ('Berlin');
+
+$group = $graph->add_group ('Test:');
+
+$group->add_node($bonn);
+$group->add_node($berlin);
+
+$grviz = $graph->as_graphviz();
+
+like ($graph->as_graphviz(), qr/Berlin(.|\n)*Bonn(.|\n)*\}(.|\n)*\}/, 'contains nodes inside group');
+
+#############################################################################
+# node with border-style: none:
+
+$graph = Graph::Easy->new();
+
+$bonn = $graph->add_node ('Bonn');
+$bonn->set_attribute('border-style', 'none');
+
+$grviz = $graph->as_graphviz();
+
+like ($graph->as_graphviz(), qr/Bonn.*style="filled, setlinewidth\(0\)"/, 'contains setlinewidth(0)');
 
