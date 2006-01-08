@@ -1,5 +1,5 @@
 #############################################################################
-# (c) by Tels 2004 - 2005. Part of Graph::Easy
+# (c) by Tels 2004 - 2006. Part of Graph::Easy
 #
 #############################################################################
 
@@ -7,7 +7,7 @@ package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
-$VERSION = '0.19';
+$VERSION = '0.20';
 
 use strict;
 
@@ -133,6 +133,28 @@ sub has_ports
   return 1 if defined $e_port;
 
   0;
+  }
+
+sub start_port
+  {
+  # return the side and portnumber if the edge has a shared source port
+  # undef for none
+  my $self = shift;
+
+  my $s = $self->{att}->{start} || $self->attribute('start');
+  return undef if !defined $s || $s !~ /,/;	# "south, 0" => ok, "south" => no
+  $s;
+  }
+
+sub end_port
+  {
+  # return the side and portnumber if the edge has a shared source port
+  # undef for none
+  my $self = shift;
+
+  my $s = $self->{att}->{end} || $self->attribute('end');
+  return undef if !defined $s || $s !~ /,/;	# "south, 0" => ok, "south" => no
+  $s;
   }
 
 sub style
@@ -288,6 +310,32 @@ sub to
   $self->{to};
   }
 
+sub start_at
+  {
+  # move the edge's start point from the current node to the given node
+  my ($self, $node) = @_;
+
+  # if not a node yet, or not part of this graph, make into one proper node
+  $node = $self->{graph}->add_node($node);
+
+  $self->_croak("start_at() needs a node object, but got $node")
+    unless ref($node) && $node->isa('Graph::Easy::Node');
+
+  # A => A => nothing to do
+  return $node if $self->{from} == $node;
+
+  # delete self at A
+  delete $self->{from}->{edges}->{ $self->{id} };
+
+  # set from to B
+  $self->{from} = $node;
+
+  # add to B
+  $self->{from}->{edges}->{ $self->{id} } = $self;
+
+  $node;
+  }
+
 sub flow
   {
   my ($self) = @_;
@@ -345,11 +393,6 @@ sub port
   $s = Graph::Easy->_flow_as_side($in,$side);
   ($s, $port);
   }
-
-1;
-__END__
-
-=head1 NAME
 
 1;
 __END__
@@ -500,6 +543,20 @@ Return true if the edge has restriction on the starting or ending
 port, e.g. either the C<start> or C<end> attribute is set on
 this edge. 
 
+=head2 start_port()
+
+	my $port = $edge->start_port();
+
+Return undef if the edge does not have a fixed start port, otherwise
+returns the port as "side, number", for example "south, 0".
+
+=head2 end_port()
+
+	my $port = $edge->end_port();
+
+Return undef if the edge does not have a fixed end port, otherwise
+returns the port as "side, number", for example "south, 0".
+
 =head2 from()
 
 	my $from = $edge->from();
@@ -511,6 +568,16 @@ Returns the node that this edge starts at. See also C<to()>.
 	my $to = $edge->to();
 
 Returns the node that this edge leads to. See also C<from()>.
+
+=head2 start_at()
+
+	$edge->start_at($other);
+	my $other = $edge->start_at('some node');
+
+Set the edge's start point to the given node. If given a node name,
+will add that node to the graph first.
+
+Returns the new edge start point node.
 
 =head2 flow()
 
@@ -556,7 +623,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

@@ -15,19 +15,21 @@ use strict;
 #############################################################################
 
 # The different types for a group-cell:
-use constant GROUP_INNER	=> 0;	# completely sourounded by group cells
-use constant GROUP_RIGHT	=> 1;	# right border only
-use constant GROUP_LEFT		=> 2; 	# left border only
-use constant GROUP_TOP	 	=> 3;	# top border only
-use constant GROUP_BOTTOM 	=> 4; 	# bottom border only
-use constant GROUP_ALL	 	=> 5;	# completely sourounded by non-group cells
+use constant {
+  GROUP_INNER		=> 0,	# completely sourounded by group cells
+  GROUP_RIGHT		=> 1,	# right border only
+  GROUP_LEFT		=> 2, 	# left border only
+  GROUP_TOP	 	=> 3,	# top border only
+  GROUP_BOTTOM 		=> 4, 	# bottom border only
+  GROUP_ALL	 	=> 5,	# completely sourounded by non-group cells
 
-use constant GROUP_BOTTOM_RIGHT	=> 6;	# bottom and right border
-use constant GROUP_BOTTOM_LEFT	=> 7;	# bottom and left border
-use constant GROUP_TOP_RIGHT	=> 8; 	# top and right border
-use constant GROUP_TOP_LEFT	=> 9;	# top and left order
+  GROUP_BOTTOM_RIGHT	=> 6,	# bottom and right border
+  GROUP_BOTTOM_LEFT	=> 7,	# bottom and left border
+  GROUP_TOP_RIGHT	=> 8, 	# top and right border
+  GROUP_TOP_LEFT	=> 9,	# top and left order
 
-use constant GROUP_MAX		=> 5; 	# max number
+  GROUP_MAX		=> 5, 	# max number
+  };
 
 my $border_styles = 
   {

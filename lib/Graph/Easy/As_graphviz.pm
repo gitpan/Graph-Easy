@@ -1,12 +1,12 @@
 #############################################################################
 # output the graph in dot-format text
 #
-# (c) by Tels 2004-2005.
+# (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 #############################################################################
 #############################################################################
@@ -28,6 +28,7 @@ my $remap = {
     'shape' => \&_graphviz_remap_node_shape,
     'point-style' => undef,
     'rotate' => \&_graphviz_remap_node_rotate,
+    'label' => \&_graphviz_remap_label,
     },
   'edge' => {
     'title' => 'tooltip',
@@ -39,6 +40,7 @@ my $remap = {
     'label-color' => \&_graphviz_remap_label_color,
     'start' => \&_graphviz_remap_port,
     'end' => \&_graphviz_remap_port,
+    'flow' => undef,
     },
   'graph' => {
     'fill' => 'bgcolor',
@@ -120,6 +122,12 @@ sub _graphviz_remap_port
   # do this only for objects, not classes 
   return (undef,undef) unless ref($self) && defined $port;
 
+  # XXX TODO
+  # remap relative ports (front etc) to "south" etc
+
+  # has a specific port, aka shared a port with another edge
+  return (undef, undef) if $port =~ /,/;
+
   $port = substr($port,0,1);	# "south,0" => "s"
 
   my $n = 'tailport'; $n = 'headport' if $name eq 'start';
@@ -163,7 +171,7 @@ sub _graphviz_remap_border_style
 
   # shape "none" or plaintext don't need a border
   return (undef,undef) if 
-    (ref($node) && ($node->attribute('shape') ||'') =~ /^(none|invisible)\z/);
+    (ref($node) && ($node->attribute('shape') ||'') =~ /^(none|invisible|img)\z/);
 
   # valid styles are: solid dashed dotted bold invis
 
@@ -221,6 +229,8 @@ sub _graphviz_remap_node_shape
   {
   my ($self, $name, $style) = @_;
 
+  return (undef,undef) if $style eq 'img';
+
   # valid styles are: solid dashed dotted bold invis
 
   my $s = $style;
@@ -244,6 +254,25 @@ sub _graphviz_remap_arrow_style
   ($n, $s);
   }
 
+sub _graphviz_remap_label
+  {
+  my ($self, $name, $style, $node) = @_;
+
+  # only for nodes and when they have a "shape: img"
+  return ($name, $style) if !ref($node) || ($node->attribute('shape')||'') ne 'img';
+
+  my $s = '<<TABLE BORDER="0"><TR><TD><IMG SRC="##url##" /></TD></TR></TABLE>>';
+
+  my $url = $node->label();
+  $url =~ s/\s/\+/g;				# space
+  $url =~ s/'/%27/g;				# replace quotation marks
+  $s =~ s/##url##/$url/g;
+
+  ($name, $s);
+  }
+
+#############################################################################
+
 sub _att_as_graphviz
   {
   my ($self, $out) = @_;
@@ -252,6 +281,8 @@ sub _att_as_graphviz
   for my $atr (keys %$out)
     {
     my $v = $out->{$atr};
+    $v =~ s/\n/\\n/g;
+
     $v = '"' . $v . '"' if $v !~ /^[a-z0-9A-Z]+\z/;	# quote if nec.
     $att .= "  $atr=$v,\n";
     }
@@ -271,6 +302,134 @@ sub _att_as_graphviz
       }
     }
   $att;
+  }
+
+sub _generate_group_edge
+  {
+  # Given an edge (from/to at least one group), generate the graphviz code
+  my ($self, $e, $indent) = @_;
+
+  my $edge_att = $e->attributes_as_graphviz();
+
+  my $a = ''; my $b = '';
+  my $from = $e->{from};
+  my $to = $e->{to};
+
+  ($from,$to) = ($to,$from) if $self->{_flip_edges};
+  if ($from->isa('Graph::Easy::Group'))
+    {
+    # find an arbitray node inside the group
+    my ($n, $v) = each %{$from->{nodes}};
+    
+    $a = 'lhead="cluster' . $from->{id}.'"';	# lhead=cluster0
+    $from = $v;
+    }
+
+  if ($to->isa('Graph::Easy::Group'))
+    {
+    # find an arbitray node inside the group
+    my ($n, $v) = each %{$to->{nodes}};
+    
+    $b = 'ltail="cluster' . $to->{id}.'"';	# ltail=cluster0
+    $to = $v;
+    }
+
+  my $other = $to->as_graphviz_txt();
+  my $first = $from->as_graphviz_txt();
+
+  $e->{_p} = undef;				# mark as processed
+
+  my $att = $a; 
+  $att .= ', ' . $b if $b ne ''; $att =~ s/^,//;
+  if ($att ne '')
+    {
+    if ($edge_att eq '')
+      {
+      $edge_att = " [ $att ]";
+      }
+    else
+      {
+      $edge_att =~ s/ \]/, $att \]/;
+      }
+    }
+
+  "$indent$first -> $other$edge_att\n";		# return edge text
+  }
+
+sub _generate_edge
+  {
+  # Given an edge, generate the graphviz code for it
+  my ($self, $e, $indent) = @_;
+
+  # skip links from/to groups, these will be done later
+  return '' if 
+    $e->{from}->isa('Graph::Easy::Group') ||
+    $e->{to}->isa('Graph::Easy::Group');
+
+  my $invis = $self->{_graphviz_invis};
+
+  # attributes for invisible helper nodes
+  my $inv = ' [ label="", shape=none, style=filled, height=0, width=0 ]';
+
+  my $other = $e->{to}->as_graphviz_txt();
+  my $first = $e->{from}->as_graphviz_txt();
+
+  my $edge_att = $e->attributes_as_graphviz();
+  my $txt = '';
+
+  # if the edge has a shared start/end port
+  if ($e->has_ports())
+    {
+    # access the invisible node
+    my $sp = $e->start_port();
+    if (defined $sp)				# has strict port
+      {
+      my $key = "\"invis,$e->{from}->{name},$sp,0\"";
+      if (!exists $invis->{$key})
+	{
+	# create the invisible helper node
+	$txt .= $indent . "$key$inv\n";
+	if ($self->{_flip_edges})
+	  {
+	  $txt .= $indent . "$key -> $first$edge_att\n";
+	  }
+	else
+	  {
+	  $txt .= $indent . "$first -> $key$edge_att\n";
+	  }
+	$invis->{$key} = undef;			# mark as output
+	}
+      # "Bonn,south,0,0"
+      $first = $key;
+      }
+    my $ep = $e->end_port();
+    if (defined $ep)				# has strict port
+      {
+      my $key = "\"invis,$e->{to}->{name},$ep,0\"";
+      if (!exists $invis->{$key})
+	{
+	# create the invisible helper node
+	$txt .= $indent . "$key$inv\n";
+	if ($self->{_flip_edges})
+	  {
+	  $txt .= $indent . "$other -> $key$edge_att\n";
+	  }
+	else
+	  {
+	  $txt .= $indent . "$key -> $other$edge_att\n";
+	  }
+	$invis->{$key} = undef;			# mark as output
+	}
+      # "Bonn,south,0,0"
+      $other = $key;
+      }
+    }
+
+  ($other,$first) = ($first,$other) if $self->{_flip_edges};
+
+  $e->{_p} = undef;				# mark as processed
+
+  $txt . "$indent$first -> $other$edge_att\n";		# return edge text
   }
 
 sub _as_graphviz
@@ -296,6 +455,14 @@ sub _as_graphviz
   # for LR, BT layouts
   $self->{_flip_edges} = 0;
   $self->{_flip_edges} = 1 if $flow == 270 || $flow == 0;
+  
+  my $groups = $self->groups();
+
+  $txt .= "  compound=true; // allow edges between groups\n\n"
+    if $groups > 0;
+
+  # to keep track of invisible helper nodes
+  $self->{_graphviz_invis} = {};
 
   my $atts =  $self->{att};
   for my $class (sort keys %$atts)
@@ -335,7 +502,7 @@ sub _as_graphviz
   # output groups as subgraphs
 
   # insert the edges into the proper group
-  $self->_edges_into_groups() if $self->groups() > 0;
+  $self->_edges_into_groups() if $groups > 0;
 
   my $indent = '    ';
   for my $group (sort { $a->{name} cmp $b->{name} } values %{$self->{groups}})
@@ -388,12 +555,8 @@ sub _as_graphviz
     # output node connections in this group
     for my $e (values %{$group->{edges}})
       {
-      my $edge_att = $e->attributes_as_graphviz();
-      my $other = $e->{to}->as_graphviz_txt();
-      my $first = $e->{from}->as_graphviz_txt();
-      ($other,$first) = ($first,$other) if $self->{_flip_edges};
-      $txt .= "$indent$first -> $other$edge_att\n";
-      $e->{_p} = undef;				# mark as processed
+      next if exists $e->{_p};
+      $txt .= $self->_generate_edge($e, $indent);
       }
 
     $txt .= "  }\n";
@@ -434,23 +597,26 @@ sub _as_graphviz
       foreach my $e (@edges)
         {
         next if exists $e->{_p};
-        my $edge_att = $e->attributes_as_graphviz();
-        if ($self->{_flip_edges})
-          {
-          $txt .= "  " . $other->as_graphviz_txt() . " -> $first$edge_att\n";
-          }
-        else
-          {
-          $txt .= "  " . $first . " -> " . $other->as_graphviz_txt() . "$edge_att\n";
-          }
+        $txt .= $self->_generate_edge($e, '  ');
         }
       }
     }
 
+  # insert now edges between groups (clusters/subgraphs)
+
+  foreach my $e (values %{$self->{edges}})
+    {
+    $txt .= $self->_generate_group_edge($e, '  ') 
+     if $e->{from}->isa('Graph::Easy::Group') ||
+        $e->{to}->isa('Graph::Easy::Group');
+    }
+
+  # clean up
   for my $n ( values %{$self->{nodes}}, values %{$self->{edges}})
     {
     delete $n->{_p};
     }
+  delete $self->{_graphviz_invis};		# invisible helper nodes
 
   $txt .  "\n}\n";	# close the graph again
   }
@@ -465,7 +631,11 @@ sub attributes_as_graphviz
   my $att = '';
   my $class = $self->class();
 
-  my $g = $self->{graph} || 'Graph::Easy';
+  return '' unless ref $self->{graph};
+
+  $self->_croak("Object $self ($self->{name}) is not part of a graph") unless ref $self->{graph};
+
+  my $g = $self->{graph};
 
   # if we are in a subclass, also add attributes of that class
   my $a = $self->{att};
@@ -521,8 +691,17 @@ sub attributes_as_graphviz
     {
     my $v = $a->{$atr};
     $v =~ s/"/\\"/g;		# '2"' => '2\"'
+
+    # don't quote labels like "<<TABLE.."
+    if ($atr eq 'label' && $v =~ /^<<TABLE/)
+      {
+      my $va = $v; $va =~ s/\\"/"/g;		# unescape \"
+      $att .= "$atr=$va, ";
+      next;
+      }
+
     $v = '"' . $v . '"' if $v !~ /^[a-z0-9A-Z]+\z/
-	|| $atr eq 'URL';	# quote if nec.
+	  || $atr eq 'URL';	# quote if nec.
     $att .= "$atr=$v, ";
     }
   $att =~ s/,\s$//;             # remove last ","
@@ -595,7 +774,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

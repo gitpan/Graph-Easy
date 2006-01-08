@@ -1,7 +1,7 @@
 #############################################################################
 # Layout directed graphs on a flat plane. Part of Graph::Easy.
 #
-# (c) by Tels 2004-2005.
+# (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy::Layout;
@@ -292,8 +292,9 @@ sub _dump_stack
     my $action_type = $action->[0];
     if ($action_type == ACTION_NODE)
       {
-      my ($at,$node,$try) = @$action;
-      print STDERR "#  place '$node->{name}' with try $try\n";
+      my ($at,$node,$try,$edge) = @$action;
+      my $e = ''; $e = " on edge $edge->{id}" if defined $edge;
+      print STDERR "#  place '$node->{name}' with try $try$e\n";
       }
     elsif ($action_type == ACTION_CHAIN)
       {
@@ -398,6 +399,10 @@ sub layout
     push @todo, @{ $chain->layout() } unless $chain->{_done};
     }
 
+  print STDERR "# Done laying out all chains, doing left-overs:\n" if $self->{debug};
+
+  $self->_dump_stack(@todo) if $self->{debug};
+
   # After laying out all chained nodes and their links, we need to resolve
   # left-over edges and links. We do this for each node, and then for each of
   # its edges, but do the edges shortest-first.
@@ -430,6 +435,8 @@ sub layout
 #      push @todo, [ ACTION_CHAIN, $e->{to}, 0, $n, $e ];
       }
     }
+
+  print STDERR "# Done laying out left-overs.\n" if $self->{debug};
 
   # after laying out all inter-group nodes and their edges, we need to splice in the
   # group cells
@@ -476,17 +483,17 @@ sub layout
 
     if ($action_type == ACTION_NODE)
       {
-      my (undef, $node,$try) = @$action;
+      my (undef, $node,$try,$edge) = @$action;
       print STDERR "# step $step: action place '$node->{name}' (try $try)\n" if $self->{debug};
 
       $mod = 0 if defined $node->{x};
       # $action is node to be placed, generic placement at "random" location
-      $mod = $self->_find_node_place( $cells, $node, undef, $try ) if (!defined $node->{x});
+      $mod = $self->_find_node_place( $cells, $node, undef, $try, $edge->{from}, $edge ) if (!defined $node->{x});
       }
     elsif ($action_type == ACTION_CHAIN)
       {
       my (undef, $node,$try,$parent, $edge) = @$action;
-      print STDERR "# step $step: action chain '$node->{name}' to '$parent->{name}'\n" if $self->{debug};
+      print STDERR "# step $step: action chain '$node->{name}' from parent '$parent->{name}'\n" if $self->{debug};
 
       $mod = 0 if defined $node->{x};
       $mod = $self->_find_node_place( $cells, $node, $try, $parent, $edge ) if (!defined $node->{x});
@@ -502,9 +509,9 @@ sub layout
 
       if (!defined $dst->{x})
         {
+#	warn ("Target node $dst->{name} not yet placed");
         $mod = $self->_find_node_place( $cells, $dst, 0, undef, $edge );
 
-#       # warn ("Target node not yet placed");
 #        ## put current action back
 #        #unshift @todo, $action;
 #
@@ -1091,7 +1098,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

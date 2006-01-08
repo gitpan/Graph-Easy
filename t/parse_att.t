@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 60;
+   plan tests => 64;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -39,6 +39,9 @@ foreach (<DATA>)
   my $txt = $in;
   $txt =~ s/\\n/\n/g;					# insert real newlines
 
+  # ^ => to '|' since '|' is the sep.
+  $txt =~ s/[\^]/\|/g;
+
   $parser->reset();
   $parser->{graph} = Graph::Easy->new();		# for _color_as_hex
 
@@ -64,7 +67,14 @@ foreach (<DATA>)
   my $exp = '';
   foreach my $k (sort keys %$att)
     {
-    $exp .= "$k=$att->{$k};";    
+    if (ref($att->{$k}) eq 'ARRAY')
+      {
+      $exp .= "$k=" . join(",", @{$att->{$k}}) . ';';    
+      }
+    else
+      {
+      $exp .= "$k=$att->{$k};";
+      }
     }
 
   is ($exp, $result, $in);
@@ -126,3 +136,7 @@ autolabel: name,10;|autolabel=name,10;
 autolabel: name, 10;|autolabel=name, 10;
 autolabel: name ,10;|autolabel=name ,10;
 autolabel: name , 10;|autolabel=name , 10;
+fill: red^green^yellow;|fill=#ff0000,#008000,#ffff00;
+link: http://bloodgate.com/^index.html^/test;|link=http://bloodgate.com/,index.html,/test;
+link: http://bloodgate.com/ ^ index.html^/test;|link=http://bloodgate.com/,index.html,/test;
+shape: rect^img^rect;|shape=rect,img,rect;

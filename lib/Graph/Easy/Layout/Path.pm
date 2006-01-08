@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 #############################################################################
 #############################################################################
@@ -368,6 +368,13 @@ sub _clear_tries
   @new;
   }
 
+my $flow_shift = {
+  270 => [ 0, -1 ],
+   90 => [ 0,  1 ],
+    0 => [ 1,  0 ],
+  180 => [ -1, 0 ],
+  };
+
 sub _find_node_place
   {
   # Try to place a node (or node cluster). Return score (usually 0).
@@ -378,6 +385,8 @@ sub _find_node_place
   print STDERR "# Finding place for $node->{name}, try #$try\n" if $self->{debug};
   print STDERR "# Parent node is '$parent->{name}'\n" if $self->{debug} && ref $parent;
 
+#  local $self->{debug} = 1;
+
   my @tries;
   if (ref($parent) && defined $parent->{x})
     {
@@ -385,9 +394,66 @@ sub _find_node_place
 
     print STDERR " from $parent->{name} to $node->{name}: edge $edge dir $dir\n" if $self->{debug};
 
-    @tries = $parent->_near_places($cells, 2,  undef, 0, $dir); 
-  
-    print STDERR "# Trying chained placement of $node->{name}\n" if $self->{debug};
+    # if there are more than one edge to this node, and they share a start point,
+    # move the node at least 3 cells away to create space for the joints
+
+    my ($s_p, @ss_p);
+    ($s_p, @ss_p) = $edge->port('start') if ref($edge);
+
+    my $from = $edge->{from};
+    my @shared_nodes;
+    @shared_nodes = $from->nodes_sharing_start($s_p,@ss_p) if defined $s_p;
+
+    print STDERR "# $parent->{name} shares an edge start with ", scalar @shared_nodes, " other nodes\n"
+	if $self->{debug};
+
+    my $min_dist = 2;
+
+    if (@shared_nodes > 0)
+      {
+      # if we are the first shared node to be placed
+      my $placed;
+
+      for my $n (@shared_nodes)
+        {
+        $placed = [$n->{x}, $n->{y}] and last if defined $n->{x};
+        }
+
+      $min_dist = 3;
+      if (defined $placed)
+        {
+        # we are not the first, so skip the placement below
+	# instead place on the same column/row as already placed node(s)
+        my ($bx, $by) = @$placed;
+
+	my $flow = $node->flow();
+
+	print STDERR "# One of the shared nodes was already placed at ($bx,$by) with flow $flow\n"
+	  if $self->{debug};
+
+	my $ofs = 2;			# start with a distance of 2
+	my ($mx, $my) = @{ ($flow_shift->{$flow} || [ 0, 1 ]) };
+
+	while (1)
+	  {
+	  my $x = $bx + $mx * $ofs; my $y = $by + $my * $ofs;
+
+	  print STDERR "# Trying to place $node->{name} at ($x,$y)\n"
+	    if $self->{debug};
+
+	  next if $self->_clear_tries($node, $cells, [ $x,$y ]) == 0;
+	  last if $node->place($x,$y,$cells);
+	  }
+	continue {
+	    $ofs += 2;
+	  }
+        return 0;			# found place already
+        }
+      }
+ 
+    @tries = $parent->_near_places($cells, $min_dist, undef, 0, $dir);
+
+    print STDERR "# Trying chained placement of $node->{name} with min distance $min_dist\n" if $self->{debug};
 
     # weed out positions that are unsuitable
     @tries = $self->_clear_tries($node, $cells, \@tries);
@@ -534,7 +600,7 @@ sub _find_node_place
   $y += 1 if exists $cells->{"$col," . ($y-1)};		# leave one cell spacing
 
   # now try to place node (or node cluster)
-  while (3 < 5)
+  while (1)
     {
     next if $self->_clear_tries($node, $cells, [ $col,$y ]) == 0;
     last if $node->place($col,$y,$cells);

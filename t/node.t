@@ -24,6 +24,7 @@ can_ok ("Graph::Easy::Node", qw/
   sorted_successors
   successors
   predecessors
+  has_predecessors
   connections
   edges_to
   incoming

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 39;
+   plan tests => 53;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -183,4 +183,42 @@ my $group = $graph->add_group('G');
 
 is (ref($group), 'Graph::Easy::Group', 'add_group()');
 
+#############################################################################
+# merge_nodes() with node B in a group (fixed in v0.39)
+
+$graph = Graph::Easy->new();
+
+my ($A,$B) = $graph->add_edge('Bonn','Berlin','true');
+
+$group = $graph->add_group('Cities');
+
+is (scalar $group->nodes(), 0, 'no node in group');
+
+$group->add_node($A);
+is (scalar $group->nodes(), 1, 'one node in group');
+$group->add_node($B);
+is (scalar $group->nodes(), 2, 'one node in group');
+
+is (scalar $graph->nodes(), 2, 'two nodes in graph');
+is (scalar $graph->edges(), 1, 'one edge in graph');
+
+is (scalar $group->edges(), 0, 'no edge in group');
+
+$graph->layout();
+
+# the edge is only added in the layout stage
+is (scalar $group->edges(), 1, 'one edge in group');
+
+diag("merging $A->{name} and $B->{name}\n");
+
+$graph->merge_nodes($A,$B);
+
+is (scalar $graph->edges(), 0, 'no edges in graph');
+is (scalar $group->edges(), 0, 'no edges in group');
+is (scalar $group->nodes(), 1, 'one node in group');
+is (scalar $graph->nodes(), 1, 'one node in graph');
+
+is (keys %{$A->{edges}}, 0, 'no edges in A');
+is (keys %{$B->{edges}}, 0, 'no edges in B');
+is ($B->{group}, undef, "B's group status got revoked");
 

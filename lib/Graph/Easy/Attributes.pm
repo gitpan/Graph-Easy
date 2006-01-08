@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 package Graph::Easy;
 
@@ -579,6 +579,7 @@ use constant ATTR_STRING	=> 0;
 use constant ATTR_COLOR		=> 1;
 use constant ATTR_ANGLE		=> 2;
 use constant ATTR_PORT		=> 3;
+use constant ATTR_URL		=> 4;
 
 use constant ATTR_DESC_SLOT	=> 0;
 use constant ATTR_MATCH_SLOT	=> 1;
@@ -712,7 +713,7 @@ my $attributes = {
      undef,
      '',
      'Graph',
-     undef,
+     ATTR_URL,
      <<LINK_EOF
 node {
   autolink: name;
@@ -808,13 +809,13 @@ EOF
      ],
 
     shape => [
-     "The shape of the node. Nodes with shape 'point' (see L<point-style>) have a fixed size and do not display their label.",
+     "The shape of the node. Nodes with shape 'point' (see L<point-style>) have a fixed size and do not display their label. When set to the value 'img', the L<label> will be interpreted as an external image resource to display. In this case attributes like L<color>, L<font-size> etc. are ignored.",
        [ qw/ circle diamond ellipse hexagon house invisible invhouse invtrapezium invtriangle octagon parallelogram pentagon
-             point triangle trapezium septagon rect rounded none/ ],
+             point triangle trapezium septagon rect rounded none img/ ],
       'rect',
       'circle',
       undef,
-      "[ Bonn ] -> \n [ Berlin ] { shape: circle; }\n -> [ Regensburg ] { shape: rounded; }\n -> [ Ulm ] { shape: point; }\n -> [ Wasserburg ] { shape: invisible; }\n -> [ Augsburg ] { shape: triangle; }",
+      "[ Bonn ] -> \n [ Berlin ] { shape: circle; }\n -> [ Regensburg ] { shape: rounded; }\n -> [ Ulm ] { shape: point; }\n -> [ Wasserburg ] { shape: invisible; }\n -> [ Augsburg ] { shape: triangle; }\n -> [ House ] { shape: img; label: img/house.png;\n          border: none; title: My House; fill: inherit; }",
      ],
 
     rotate => [
@@ -991,7 +992,11 @@ sub valid_attribute
 
   my @values = ($value);
 
-  @values = split /\s*\|\s*/, $value if $value =~ /\|/;
+  # split on "|", but not on "\|"
+  # XXX TODO:
+  # This will not work in case of mixed " $i \|\| 0| $a = 1;"
+
+  @values = split /\s*\|\s*/, $value if $value =~ /[^\\]\|/;
 
   # check each part on it's own
   my @rc;
@@ -1011,11 +1016,11 @@ sub valid_attribute
         $entry->[1] = eval($list);
         $check = $entry->[1];
         }
-      return undef unless $value =~ $check;	# invalid
-      push @rc, $value;				# valid
+      return undef unless $v =~ $check;		# invalid
+      push @rc, $v;				# valid
       }
     # entry found, but no specific check => anything goes as value
-    else { push @rc, $value; }
+    else { push @rc, $v; }
     }
 
   # only one value ('green')

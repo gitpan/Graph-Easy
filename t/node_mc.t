@@ -62,7 +62,7 @@ is ($node->is_multicelled(), 1, 'is multicelled');
 # edges_to() tests
 
 # this will delete the old Graph::Easy object in graph, and clean out
-# the ptrs in the nodes/edges. Thus $node will have {edges}undef
+# the refs in the nodes/edges. Thus $node will have {edges} == undef.
 $graph = Graph::Easy->new();
 
 is ($node->{edges}, undef, 'cleanup worked');

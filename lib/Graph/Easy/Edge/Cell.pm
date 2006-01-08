@@ -12,58 +12,66 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 
 use Scalar::Util qw/weaken/;
 
 #############################################################################
 
 # The different cell types:
-use constant EDGE_CROSS	=> 1;		# +	crossing lines
-use constant EDGE_HOR	=> 2;	 	# --	horizontal line
-use constant EDGE_VER	=> 3;	 	# |	vertical line
+use constant {
+  EDGE_CROSS	=> 1,		# +	crossing lines
+  EDGE_HOR	=> 2,	 	# --	horizontal line
+  EDGE_VER	=> 3,	 	# |	vertical line
 
-use constant EDGE_N_E	=> 4;		# |_	corner (N to E)
-use constant EDGE_N_W	=> 5;		# _|	corner (N to W)
-use constant EDGE_S_E	=> 6;		# ,-	corner (S to E)
-use constant EDGE_S_W	=> 7;		# -,	corner (S to W)
+  EDGE_N_E	=> 4,		# |_	corner (N to E)
+  EDGE_N_W	=> 5,		# _|	corner (N to W)
+  EDGE_S_E	=> 6,		# ,-	corner (S to E)
+  EDGE_S_W	=> 7,		# -,	corner (S to W)
 
 # Joints:
-use constant EDGE_S_E_W	=> 8;		# -,-	three-sided corner (S to W/E)
-use constant EDGE_N_E_W	=> 9;		# -'-	three-sided corner (N to W/E)
-use constant EDGE_E_N_S	=> 10;		#  |-   three-sided corner (E to S/N)
-use constant EDGE_W_N_S	=> 11;		# -|	three-sided corner (W to S/N)
+  EDGE_S_E_W	=> 8,		# -,-	three-sided corner (S to W/E)
+  EDGE_N_E_W	=> 9,		# -'-	three-sided corner (N to W/E)
+  EDGE_E_N_S	=> 10,		#  |-   three-sided corner (E to S/N)
+  EDGE_W_N_S	=> 11,		# -|	three-sided corner (W to S/N)
 
 # these loop types must come last
-use constant EDGE_N_W_S	=> 12;		# v--+  loop, northwards
-use constant EDGE_S_W_N	=> 13;		# ^--+  loop, southwards
-use constant EDGE_E_S_W	=> 14;		# [_    loop, westwards
-use constant EDGE_W_S_E	=> 15;		# _]    loop, eastwards
+  EDGE_N_W_S	=> 12,		# v--+  loop, northwards
+  EDGE_S_W_N	=> 13,		# ^--+  loop, southwards
+  EDGE_E_S_W	=> 14,		# [_    loop, westwards
+  EDGE_W_S_E	=> 15,		# _]    loop, eastwards
 
-use constant EDGE_MAX_TYPE	=> 15; 	# last valid type
-use constant EDGE_LOOP_TYPE	=> 12; 	# first LOOP type
+  EDGE_MAX_TYPE		=> 15, 	# last valid type
+  EDGE_LOOP_TYPE	=> 12, 	# first LOOP type
 
 # Flags:
-use constant EDGE_START_E	=> 0x0100;	# start from East	(sorted ESWN)
-use constant EDGE_START_S	=> 0x0200;	# start from South
-use constant EDGE_START_W	=> 0x0400;	# start from West
-use constant EDGE_START_N	=> 0x0800;	# start from North
+  EDGE_START_E		=> 0x0100,	# start from East	(sorted ESWN)
+  EDGE_START_S		=> 0x0200,	# start from South
+  EDGE_START_W		=> 0x0400,	# start from West
+  EDGE_START_N		=> 0x0800,	# start from North
 
-use constant EDGE_END_W		=> 0x0010;	# end points to West	(sorted WNES)
-use constant EDGE_END_N		=> 0x0020;	# end points to North
-use constant EDGE_END_E		=> 0x0040;	# end points to East
-use constant EDGE_END_S		=> 0x0080;	# end points to South
+  EDGE_END_W		=> 0x0010,	# end points to West	(sorted WNES)
+  EDGE_END_N		=> 0x0020,	# end points to North
+  EDGE_END_E		=> 0x0040,	# end points to East
+  EDGE_END_S		=> 0x0080,	# end points to South
 
-use constant EDGE_LABEL_CELL	=> 0x1000;	# this cell carries the label
-use constant EDGE_SHORT_CELL	=> 0x2000;	# a short edge pice (for filling)
+  EDGE_LABEL_CELL	=> 0x1000,	# this cell carries the label
+  EDGE_SHORT_CELL	=> 0x2000,	# a short edge pice (for filling)
 
-use constant EDGE_ARROW_MASK	=> 0x0FF0;	# mask out the end/start type
-use constant EDGE_START_MASK	=> 0x0F00;	# mask out the start type
-use constant EDGE_END_MASK	=> 0x00F0;	# mask out the end type
-use constant EDGE_TYPE_MASK	=> 0x000F;	# mask out the basic cell type
-use constant EDGE_FLAG_MASK	=> 0xFFF0;	# mask out the flags
-use constant EDGE_MISC_MASK	=> 0xF000;	# mask out the misc. flags
-use constant EDGE_NO_M_MASK	=> 0x0FFF;	# anything except the misc. flags
+  EDGE_ARROW_MASK	=> 0x0FF0,	# mask out the end/start type
+  EDGE_START_MASK	=> 0x0F00,	# mask out the start type
+  EDGE_END_MASK		=> 0x00F0,	# mask out the end type
+  EDGE_TYPE_MASK	=> 0x000F,	# mask out the basic cell type
+  EDGE_FLAG_MASK	=> 0xFFF0,	# mask out the flags
+  EDGE_MISC_MASK	=> 0xF000,	# mask out the misc. flags
+  EDGE_NO_M_MASK	=> 0x0FFF,	# anything except the misc. flags
+
+  ARROW_RIGHT	=> 0,
+  ARROW_LEFT	=> 1,
+  ARROW_UP	=> 2,
+  ARROW_DOWN	=> 3,
+
+ };
 
 # shortcuts to not need to write EDGE_HOR + EDGE_START_W + EDGE_END_E
 use constant EDGE_SHORT_E => EDGE_HOR + EDGE_END_E + EDGE_START_W; # |-> start/end at this cell
@@ -83,11 +91,6 @@ use constant EDGE_LOOP_NORTH	=> EDGE_N_W_S + EDGE_END_S + EDGE_START_N + EDGE_LA
 use constant EDGE_LOOP_SOUTH	=> EDGE_S_W_N + EDGE_END_N + EDGE_START_S + EDGE_LABEL_CELL;
 use constant EDGE_LOOP_WEST	=> EDGE_W_S_E + EDGE_END_E + EDGE_START_W + EDGE_LABEL_CELL;
 use constant EDGE_LOOP_EAST	=> EDGE_E_S_W + EDGE_END_W + EDGE_START_E + EDGE_LABEL_CELL;
-
-use constant ARROW_RIGHT => 0;
-use constant ARROW_LEFT	 => 1;
-use constant ARROW_UP	 => 2;
-use constant ARROW_DOWN  => 3;
 
 #############################################################################
 

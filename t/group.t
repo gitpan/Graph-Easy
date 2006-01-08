@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 28;
+   plan tests => 36;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Group") or die($@);
@@ -121,11 +121,46 @@ is ($cell->class(), 'group gl', 'group gl');
 #############################################################################
 # del_cell();
 
-print join (" ", keys %{$group->{cells}}),"\n";
+#print join (" ", keys %{$group->{cells}}),"\n";
 
 is (scalar keys %{$group->{cells}}, 4, 'one less');
 $group->del_cell($cell);
 
 is (scalar keys %{$group->{cells}}, 3, 'one less');
 is ($cell->group(), undef, "no group() on deleted cell");
+
+#############################################################################
+# del_node() & del_edge(), when node/edge are in a group (bug until 0.39)
+
+$graph = Graph::Easy->new();
+
+$group = $graph->add_group('group');
+
+my ($A,$B,$E) = $graph->add_edge('A','B','E');
+
+for my $m ($A,$B,$E)
+  {
+  $group->add_member($m);
+  }
+
+is ($group->nodes(), 2, '2 nodes in group');
+is ($group->edges(), 1, '1 edge in group');
+
+$graph->del_node($A);
+
+is ($group->nodes(), 1, '1 node in group');
+is ($group->edges(), 0, '0 edge in group');
+
+($A,$B,$E) = $graph->add_edge('A','B','E');
+
+$group->add_member($A);
+$group->add_member($E);
+
+is ($group->nodes(), 2, '2 nodes in group');
+is ($group->edges(), 1, '1 edge in group');
+
+$graph->del_edge($E);
+
+is ($group->nodes(), 2, '2 nodes in group');
+is ($group->edges(), 0, '0 edge in group');
 

@@ -7,8 +7,13 @@ In addition:
 
 Important short-term TODO:
 
+* write tests for the new graphviz output (inter-group links and joins)
+* [ A|B|C ] { fill: red; } should only color A red, not B or C.
+* if a "shared start point" edge is leading past a node where another, also
+  shared edge leads, a joint should be created right-away next to the
+  target node (see "A23" in todo/tree2.txt)
 * edges between groups (ala "( 1 [A ]) -> ( 2 [B] )") or between a node
-  and a group are missing.
+  and a group are missing in HTML, ASCII and SVG.
 * layout() will grow nodes base on layout contraints, an as_txt() afterwards
   will produce these sizes, even when the input did not specify a node size.
 * "[A],[B],[C] -> [ very wide node ] { size: 7,1; }" results in A being very
@@ -133,7 +138,7 @@ Rendering/Layout:
 
 * allow user to specifiy "align: left, top;" or "align: center, middle" to
   specify alignment of labels. (left|right|center|middle|top|bottom)
-* add margin/padding attributes (especially usefull for HTML output)
+* add padding attributes (especially usefull for HTML output)
 
 Optimizer:
 

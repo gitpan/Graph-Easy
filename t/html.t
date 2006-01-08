@@ -46,8 +46,8 @@ like ($html, qr/Berlin/, 'contains Berlin');
 $bonn->set_attribute( 'autotitle' => 'name' );
 
 $html = $graph->as_html();
-like ($html, qr/title="Bonn"/, 'contains title="Bonn"');
-unlike ($html, qr/title="Berlin"/, "doesn't contain title Berlin");
+like ($html, qr/title='Bonn'/, 'contains title="Bonn"');
+unlike ($html, qr/title=['"]Berlin['"]/, "doesn't contain title Berlin");
 
 #############################################################################
 # edges do not have a name, will fallback to the label
@@ -55,9 +55,9 @@ unlike ($html, qr/title="Berlin"/, "doesn't contain title Berlin");
 $edge->set_attribute( 'autotitle' => 'name' );
 
 $html = $graph->as_html();
-like ($html, qr/title="Bonn"/, 'contains title="Bonn"');
-unlike ($html, qr/title="Berlin"/, "doesn't contain title Berlin");
-unlike ($html, qr/title=""/, "no empty title");
+like ($html, qr/title='Bonn'/, 'contains title="Bonn"');
+unlike ($html, qr/title=['"]Berlin['"]/, "doesn't contain title Berlin");
+unlike ($html, qr/title=['"]['"]/, "no empty title");
 
 $edge->set_attribute( 'label' => 'my edge' );
 
@@ -156,7 +156,7 @@ $edge->set_attribute('label', 'Schiff');
 # in these cases we would convert the single edge cells to HTML.
 
 my $edge_html = <<EDGE
- <td colspan=4 rowspan=4 class='edge' title="Vrooom!"><a class='l' href='http://bloodgate.com' style="color: #ffa500; text-decoration: none; font-size: 1.5em;">Schiff</a></td>
+ <td colspan=4 rowspan=4 class='edge' title='Vrooom!'><a class='l' href='http://bloodgate.com' style="color: #ffa500; text-decoration: none; font-size: 1.5em;">Schiff</a></td>
 EDGE
 ;
 is ($edge->as_html(), $edge_html, 'edge->as_html()');

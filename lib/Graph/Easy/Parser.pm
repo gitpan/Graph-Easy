@@ -1,7 +1,7 @@
 #############################################################################
 # Parse text definition into a Graph::Easy object
 #
-# (c) by Tels 2004 - 2005.
+# (c) by Tels 2004 - 2006.
 #############################################################################
 
 package Graph::Easy::Parser;
@@ -131,6 +131,9 @@ sub from_text
       $self->{line_nr}++;
       $curline = shift @lines;
       next if $curline =~ /^\s*(#|\z)/;		# comment or empty line?
+
+      # convert tabs to spaces (the regexps don't expect tabs)
+      $curline =~ s/\t/ /g;
       }
     
     chomp($curline);
@@ -211,7 +214,7 @@ sub from_text
       # This happens in the case of "[ Test ]\n { ... }", the node is consumed
       # first, and the attributes are left over:
 
-      my $a = $self->_parse_attributes($1||'');
+      my ($a, $max_idx) = $self->_parse_attributes($1||'');
 
       if (@stack == 0)
         {
@@ -220,8 +223,23 @@ sub from_text
         return undef;
         }
 
-      # set attributes on all nodes on stack
-      for my $n (@stack) { $n->set_attributes($a); }
+      return undef if $self->{error};
+
+      if ($max_idx != 1)
+	{
+#	print STDERR "max_idx = $max_idx, stack contains ", join (" , ", @stack),"\n";
+	my $i = 0;
+	# XXX TODO: what on "[A], [ B|C ] { fill: red|green; }" ?
+        for my $n (@stack)
+	  {
+	  $n->set_attributes($a, $i++);
+	  }
+	}
+      else
+	{
+        # set attributes on all nodes on stack
+        for my $n (@stack) { $n->set_attributes($a); }
+	}
 
       # remove parsed part
       $line =~ s/^$qr_attr//;
@@ -587,7 +605,7 @@ sub _new_node
   for my $node (@rc)
     {
     $node->add_to_group($group_stack->[-1]) if @$group_stack != 0;
-    
+
     $node->set_attributes ($att, $index);
     $index++;
     }
@@ -686,7 +704,9 @@ sub _match_edge
 sub _parse_attributes
   {
   # takes a text like "attribute: value;  attribute2 : value2;" and
-  # returns a hash with the attributes. $class defaults to 'node'.
+  # Returns a hash with the attributes. $class defaults to 'node'.
+  # In list context, also returns a flag that is maxlevel-1 when one
+  # of the attributes was a multiple one (aka 2 for "red|green", 1 for "red");
   my ($self, $text, $class, $no_multiples) = @_;
 
   $class ||= 'node';
@@ -696,6 +716,8 @@ sub _parse_attributes
   $text =~ s/\s*\}\s*\z//;	# remove left-over "}" and spaces
 
   my @atts = split /\s*;\s*/, $text;
+
+  my $multiples = 0;
 
   foreach my $a (@atts)
     {
@@ -707,10 +729,6 @@ sub _parse_attributes
 
     $val =~ s/\\#/#/g;					# unquote \#
 
-    $self->parse_error(4,$val,$name,$class), return
-      if $no_multiples && $val =~ /\|/;			# | and no multiples
-							# => error
-
     my $v = Graph::Easy->valid_attribute($name,$val,$class);
 
     my $rc = 2;			# invaid attribute value
@@ -719,12 +737,21 @@ sub _parse_attributes
       $rc = 1;			# invalid attribute name
       $v = undef;
       }
-    $self->parse_error($rc,$val,$name,$class), return
+    $multiples = scalar @$v if ref($v) eq 'ARRAY';
+
+    return $self->parse_error(4,$val,$name,$class), return
+      if $no_multiples && $multiples;			# | and no multiples
+							# => error
+
+    return $self->parse_error($rc,$val,$name,$class), return
       unless defined $v;				# stop on error
 
     $att->{$name} = $v;
     }
-  $att;
+
+  return $att unless wantarray;
+
+  ($att, $multiples || 1);
   }
 
 sub parse_error
@@ -753,14 +780,6 @@ sub parse_error
     }
 
   $self->error($msg . ' at line ' . $self->{line_nr});
-  }
-
-sub error
-  {
-  my $self = shift;
-
-  $self->{error} = $_[0] if defined $_[0];
-  $self->{error};
   }
 
 1;
@@ -977,12 +996,16 @@ templates like C<##param1##> with the passed parameters.
 =head2 _parse_attributes()
 
 	my $attributes = $parser->_parse_attributes( $txt, $class );
+	my ($att, $multiples) = $parser->_parse_attributes( $txt, $class );
   
 B<Internal usage only>. Takes a text like this:
 
 	attribute: value;  attribute2 : value2;
 
 and returns a hash with the attributes.
+
+In list context, also returns the max count of multiple attributes, e.g.
+3 when it encounters something like C<< red|green|blue >>. When
 
 =head1 EXPORT
 
@@ -994,7 +1017,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

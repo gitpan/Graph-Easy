@@ -1,12 +1,12 @@
 #############################################################################
 # Represents one node in a Graph::Easy
 #
-# (c) by Tels 2004-2005. Part of Graph::Easy
+# (c) by Tels 2004-2006. Part of Graph::Easy
 #############################################################################
 
 package Graph::Easy::Node;
 
-$VERSION = '0.21';
+$VERSION = '0.22';
 
 use Graph::Easy::Attributes;
 use Graph::Easy::Base;
@@ -326,6 +326,7 @@ sub _formatted_label
 
   my $name = $self->label();
   $name =~ s/([^\\])\\n/$1\n/g;			# insert real newlines
+  $name =~ s/\\\|/\|/g;				# \| => |
   $name =~ s/\\\\/\\/g;				# '\\' to '\'
 
   # split into lines, remove extranous spacing
@@ -408,6 +409,12 @@ sub as_html
   $html .= " class='$c'" if $c ne '';
    
   my $name = $self->label(); 
+  my $link = $self->link();
+
+  my $title = $self->title();
+  $title =~ s/'/&#27;/g;			# replace quotation marks
+
+  $html .= " title='$title'" if $title ne '' && $shape ne 'img';	# add mouse-over title
 
   if ($shape eq 'point')
     {
@@ -428,6 +435,16 @@ sub as_html
     $name =~ s/\n/<br>/g;			# |\n|\nv => |<br>|<br>v
     $name =~ s/^\s*<br>//;			# remove empty leading line
     $name =~ s/<br>/<br \/>/g;			# correct <br>
+    }
+
+  if ($shape eq 'img')
+    {
+    # take the label as the URL, but escape critical characters
+    $name =~ s/\s/\+/g;				# space
+    $name =~ s/'/%27/g;				# replace quotation marks
+    $name =~ s/\n//g;				# remove newlines
+    my $t = $title; $t = $name if $t eq ''; 
+    $name = "<img class='i' src='$name' alt='$t' title='$t' border='0' />";
     }
 
   my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $node_remap, 'noquote', 'encode');
@@ -493,8 +510,6 @@ sub as_html
     $out->{border} = 'none';
     }
 
-  my $link = $self->link();
-
   my $style = '';
   for my $atr (sort keys %$out)
     {
@@ -512,10 +527,6 @@ sub as_html
   $style =~ s/;\s$//;				# remove '; ' at end
   $style =~ s/\s+/ /g;				# '  ' => ' '
   $style =~ s/^\s+//;				# remove ' ' at front
-
-  my $title = $self->title();
-  $title =~ s/"/&#22;/g;			# replace quotation marks
-  $html .= " title=\"$title\"" if $title ne '';	# add mouse-over title
 
   my $end_tag = "</$tag>\n";
 
@@ -1020,6 +1031,7 @@ sub dimensions
 
   my $label = $self->label();
   $label =~ s/([^\\])\\n/$1\n/g;		# unless double escaped
+  $label =~ s/\\\|/\|/g;			# \| => |
   $label =~ s/\\\\/\\/g;			# '\\' to '\'
 
   my @lines = split /\n/, $label;
@@ -1079,6 +1091,43 @@ sub edges_at_port
     }
 
   @edges;
+  }
+
+sub shared_edges
+  {
+  # return all edges that share the same port
+  my ($self) = @_;
+
+  my @edges;
+  for my $e (values %{$self->{edges}})
+    {
+    my ($s_p,@ss_p) = $e->port('start');
+    push @edges, $e if defined $s_p;
+    my ($e_p,@ee_p) = $e->port('end');
+    push @edges, $e if defined $e_p;
+    }
+  @edges;
+  }
+
+sub nodes_sharing_start
+  {
+  # return all nodes that share an edge start with an
+  # edge from that node
+  my ($self, $side, @port) = @_;
+
+  my @edges = $self->edges_at_port('start',$side,@port);
+
+  my $nodes;
+  for my $e (@edges)
+    {
+    # ignore self-loops
+    my $to = $e->{to};
+    next if $to == $self;
+
+    $nodes->{ $to->{name} } = $to;
+    }
+
+  (values %$nodes);
   }
 
 sub incoming
@@ -1194,6 +1243,20 @@ sub predecessors
     $pre{$edge->{from}->{id}} = $edge->{from};	# weed out doubles
     }
   values %pre;
+  }
+
+sub has_predecessors
+  {
+  # return true if node has incoming edges (even from itself)
+  my $self = shift;
+
+  return undef unless defined $self->{graph};
+
+  for my $edge (values %{$self->{edges}})
+    {
+    return 1 if $edge->{to} == $self;		# found one
+    }
+  0;						# found none
   }
 
 #############################################################################
@@ -1798,6 +1861,16 @@ Returns the number of connections to (incoming) and from (outgoing) this node.
 
 Returns all nodes (as objects) that link to us.
 
+=head2 has_predecessors()
+
+	if ($node->has_predecessors())
+	  {
+	  ...
+	  }
+
+Returns true if the node has one or more predecessors. Will return true for
+nodes with selfloops.
+
 =head2 successors()
 
 	my @suc = $node->successors();
@@ -1816,6 +1889,20 @@ Return successors of the node sorted by their chain value
 	my @edges = $node->edges_to($other_node);
 
 Returns all the edge objects that start at C<< $node >> and go to C<< $other_node >>.
+
+=head2 shared_edges()
+
+	my @edges = $node->shared_edges();
+
+Return a list of all edges starting/ending at this node, that share a port
+with another edge.
+
+=head2 nodes_sharing_start()
+
+	my @nodes = $node->sharing_start();
+
+Return a list of unique nodes that share a start point with an edge
+from this node.
 
 =head2 edges_at_port()
 
@@ -1916,7 +2003,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

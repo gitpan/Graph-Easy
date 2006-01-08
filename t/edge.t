@@ -24,11 +24,17 @@ can_ok ("Graph::Easy::Edge", qw/
   undirected
   bidirectional
   has_ports
+
   set_attribute
   set_attributes
+
   group add_to_group
   background
   flow port
+
+  start_port end_port
+  from to start_at
+
   /);
   
 use Graph::Easy::Edge::Cell qw/EDGE_SHORT_E/;

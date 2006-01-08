@@ -18,7 +18,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.38';
+$VERSION = '0.39';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -60,21 +60,31 @@ sub DESTROY
     {
     if (ref($n))
       {
-      $n->{edges} = undef;
-      $n->{graph} = undef;
-      delete $n->{_chain};
-      delete $n->{_c};
-      delete $n->{_next};
+      delete $n->{graph};
+      delete $n->{edges};
+      delete $n->{group};
+#      delete $n->{_chain};
+#      delete $n->{_c};
+#      delete $n->{_next};
       }
     }
   for my $e (values %{$self->{edges}})
     {
     if (ref($e))
       {
-      $e->clear_cells();
-      $e->{to} = undef;
-      $e->{from} = undef;
-      $e->{graph} = undef;
+      delete $e->{cells};
+      delete $e->{to};
+      delete $e->{from};
+      delete $e->{graph};
+      }
+    }
+  for my $g (values %{$self->{groups}})
+    {
+    if (ref($g))
+      {
+      delete $g->{nodes};
+      delete $g->{graph};
+      delete $g->{edges};
       }
     }
   }
@@ -235,6 +245,34 @@ sub randomize
   $self->{seed} = rand(2 ** 31);
 
   $self->{seed};
+  }
+
+sub source_nodes
+  {
+  # return nodes with only outgoing edges
+  my $self = shift;
+
+  my @roots;
+  for my $node (values %{$self->{nodes}})
+    {
+    push @roots, $node 
+      if (keys %{$node->{edges}} != 0) && !$node->has_predecessors();
+    }
+  @roots;
+  }
+
+sub predecessorless_nodes
+  {
+  # return nodes with no incoming (but maybe outgoing) edges
+  my $self = shift;
+
+  my @roots;
+  for my $node (values %{$self->{nodes}})
+    {
+    push @roots, $node 
+      if (keys %{$node->{edges}} == 0) || !$node->has_predecessors();
+    }
+  @roots;
   }
 
 sub label
@@ -545,11 +583,10 @@ sub output
   no strict 'refs';
 
   my $method = 'as_' . $self->{output_format};
-  if (!$self->can($method))  
-    {
-    require Carp;
-    Carp::confess("Cannot find a method to generate '$self->{output_format}'");
-    }
+
+  $self->_croak("Cannot find a method to generate '$self->{output_format}'")
+    unless $self->can($method);
+
   $self->$method();
   }
 
@@ -712,6 +749,7 @@ CSS
 table.graph##id## td {
   padding: 2px;
   background: inherit;
+  white-space: pre;
   }
 CSS
 ;
@@ -1237,11 +1275,12 @@ sub add_edge
   $edge = Graph::Easy::Edge->new() unless defined $edge;
   $edge = Graph::Easy::Edge->new(label => $edge) unless ref($edge);
 
-  if (exists ($self->{edges}->{$edge->{id}}))
-    {
-    require Carp;
-    Carp::confess("Adding an edge object twice is not possible");
-    }
+  $self->_croak("Adding an edge object twice is not possible")
+    if (exists ($self->{edges}->{$edge->{id}}));
+
+  $self->_croak("Cannot add edge $edge ($edge->{id}), it already belongs to another graph")
+    if ref($edge->{graph}) && $edge->{graph} != $self;
+
   my $nodes = $self->{nodes};
   my $groups = $self->{groups};
 
@@ -1258,6 +1297,12 @@ sub add_edge
   $y = Graph::Easy::Node->new( $y ) unless ref $y;
 
   print STDERR "# add_edge '$x->{name}' ($x->{id}) -> '$y->{name}' ($y->{id}) (edge $edge->{id})\n" if $self->{debug};
+
+  for my $n ($x,$y)
+    {
+    $self->_croak("Cannot add node $n ($n->{name}), it already belongs to another graph")
+      if ref($n->{graph}) && $n->{graph} != $self;
+    }
 
   # register the nodes and the edge with our graph object
   $x->{graph} = $self;
@@ -1303,11 +1348,10 @@ sub add_node
     $n = $x->{name}; $n = '0' unless defined $n;
     }
 
-  if ($n eq '')
-    {
-    require Carp;
-    Carp::confess("Cannot add node with empty name to graph.");
-    }
+  $self->_croak("Cannot add node with empty name to graph.") if $n eq '';
+
+  $self->_croak("Cannot add node $x ($n), it already belongs to another graph")
+    if ref($x) && ref($x->{graph}) && $x->{graph} != $self;
 
   my $no = $self->{nodes};
   return $no->{$n} if exists $no->{$n};
@@ -1340,6 +1384,9 @@ sub merge_nodes
 
   $A = $self->node($A) unless ref($A);
   $B = $self->node($B) unless ref($B);
+
+  # if the node is part of a group, deregister it first from there
+  $B->{group}->del_node($B) if ref($B->{group});
 
   my @edges = values %{$A->{edges}};
 
@@ -1387,6 +1434,9 @@ sub del_node
   # doesn't exist, so we don't need to do anything
   return unless ref($node);
 
+  # if node is part of a group, delete it there, too
+  $node->{group}->del_node($node) if ref $node->{group};
+
   delete $self->{nodes}->{$node->{name}};
 
   # delete all edges from/to this node
@@ -1419,10 +1469,10 @@ sub del_edge
   {
   my ($self, $edge) = @_;
 
-  if (!ref($edge))
-    { 
-    require Carp; Carp::confess("del_edge() needs an object");
-    }
+  $self->_croak("del_edge() needs an object") unless ref $edge;
+
+  # if edge is part of a group, delete it there, too
+  $edge->{group}->del_edge($edge) if ref $edge->{group};
 
   my $to = $edge->{to}; my $from = $edge->{from};
 
@@ -1894,12 +1944,30 @@ border-(style|color|width) attributes.
 
 Split the border attribute (like "1px solid red") into the three different parts.
 
-=head2 direction_as_number()
+=head2 source_nodes()
 
-	my $graph = direction_as_number($dir);
-  
-Convert a given direction like "north" or "right" into in degrees (0, 90, 180
-or 270).
+	my @roots = $graph->source_nodes();
+
+Returns all nodes that have only outgoing edges, e.g. are the root of a tree,
+in no particular order.
+
+Isolated nodes (no edges at all) will B<not> be included, see
+C<predecessorless_nodes()> to get these, too.
+
+In scalar context, returns the number of source nodes.
+
+=head2 predecessorless_nodes()
+
+	my @roots = $graph->predecessorless_nodes();
+
+Returns all nodes that have no incoming edges, regardless of whether
+they have outgoing edges or not, in no particular order.
+
+Isolated nodes (no edges at all) B<will> be included in the list.
+
+See also C<source_nodes()>.
+
+In scalar context, returns the number of predecessorless nodes.
 
 =head2 timeout()
 

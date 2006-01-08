@@ -7,15 +7,17 @@
 package Graph::Easy::Layout::Chain;
 
 use Graph::Easy::Base;
-$VERSION = '0.04';
+$VERSION = '0.05';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
 
-use constant _ACTION_NODE  => 0; # place node somewhere
-use constant _ACTION_TRACE => 1; # trace path from src to dest
-use constant _ACTION_CHAIN => 2; # place node in chain (with parent)
-use constant _ACTION_EDGES => 3; # trace all edges (shortes connect. first)
+use constant {
+  _ACTION_NODE  => 0, # place node somewhere
+  _ACTION_TRACE => 1, # trace path from src to dest
+  _ACTION_CHAIN => 2, # place node in chain (with parent)
+  _ACTION_EDGES => 3, # trace all edges (shortes connect. first)
+  };
 
 #############################################################################
 
@@ -134,13 +136,13 @@ sub layout
   if (exists $pre->{_todo})
     {
     # edges with a flow attribute must be handled differently
-    if ($edge && $edge->attribute('flow'))
+    if ($edge && ($edge->attribute('flow') || $edge->has_ports()))
       {
       push @TODO, [ _ACTION_CHAIN, $pre, 0, $edge->{from}, $edge ];
       }
     else
       {
-      push @TODO, [ _ACTION_NODE, $pre, 0 ];
+      push @TODO, [ _ACTION_NODE, $pre, 0, $edge ];
       }
     delete $pre->{_todo};
     }

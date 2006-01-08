@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 #############################################################################
 #############################################################################
@@ -579,7 +579,7 @@ sub _astar_boundaries
   }
 
 # on edge pieces, select start fields (left/right of a VER, above/below of a HOR etc)
-# contains also for each starting position the join-type
+# contains also for each starting position the joint-type
 my $next_fields =
   {
   EDGE_VER() => [ -1,0, EDGE_W_N_S, +1,0, EDGE_E_N_S ],
@@ -589,6 +589,63 @@ my $next_fields =
   EDGE_S_E() => [ 0,-1, EDGE_E_N_S, -1,0, EDGE_S_E_W ],
   EDGE_S_W() => [ 0,-1, EDGE_W_N_S, +1,0, EDGE_S_E_W ],
   };
+
+# on edge pieces, select end fields (left/right of a VER, above/below of a HOR etc)
+# contains also for each end position the joint-type
+my $prev_fields =
+  {
+  EDGE_VER() => [ -1,0, EDGE_W_N_S, +1,0, EDGE_E_N_S ],
+  EDGE_HOR() => [ 0,-1, EDGE_N_E_W, 0,+1, EDGE_S_E_W ],
+  EDGE_N_E() => [ 0,+1, EDGE_E_N_S, -1,0, EDGE_N_E_W ],		# |_
+  EDGE_N_W() => [ 0,+1, EDGE_W_N_S, +1,0, EDGE_N_E_W ],		# _|
+  EDGE_S_E() => [ 0,-1, EDGE_E_N_S, -1,0, EDGE_S_E_W ],
+  EDGE_S_W() => [ 0,-1, EDGE_W_N_S, +1,0, EDGE_S_E_W ],
+  };
+
+sub _get_joints
+  { 
+  # from a list of shared, already placed edges, get possible start/end fields
+  my ($self, $shared, $mask, $types, $cells, $next_fields) = @_;
+
+ # my @R;				# resulting positions
+
+  # take each cell from all edges shared, already placed edges as start-point
+  for my $e (@$shared)
+    {
+    for my $c (@{$e->{cells}})
+      {
+      my $type = $c->{type} & EDGE_TYPE_MASK;
+
+      next unless exists $next_fields->{ $type };
+
+      # don't consider end/start (depending on $mask) cells
+      next if $c->{type} & $mask;
+
+      my $fields = $next_fields->{$type};
+
+      my ($px,$py) = ($c->{x},$c->{y});
+      my $i = 0;
+      while ($i < @$fields)
+        {
+        my ($sx,$sy, $jt) = ($fields->[$i], $fields->[$i+1], $fields->[$i+2]);
+        $sx += $px; $sy += $py; $i += 3;
+
+        # don't add the field twice
+        next if exists $cells->{"$sx,$sy"};
+        $cells->{"$sx,$sy"} = [ $sx, $sy, undef, $px, $py ];
+	$types->{"$sx,$sy"} = $jt;
+        } 
+      }
+    }
+ 
+  my @R;
+  # convert hash to array
+  for my $s (values %{$cells})
+    {
+    push @R, @$s;
+    }
+  @R;
+  }
 
 sub _find_path_astar
   {
@@ -616,9 +673,7 @@ sub _find_path_astar
 
   my ($s_p,@ss_p) = $edge->port('start');
   my ($e_p,@ee_p) = $edge->port('end');
-
   my (@A, @B);
-
   my @shared_start;
 
   # has a starting point restriction
@@ -631,50 +686,21 @@ sub _find_path_astar
     push @shared, $s if @{$s->{cells}} > 0;
     }
 
-  my $joint_type;
+  my $joint_type = {};
+  my $joint_type_end = {};
 
-  my $start_shared = 0;
   my $start_cells = {};
+  my $end_cells = {};
 
   if (@shared > 0)
     {
-    $start_shared = 1;
+    # more than one edge share the same start port, and one of the others was
+    # already placed
+
     print STDERR "# edge from $edge->{from} to $edge->{to} shares port with ",
-	scalar @shared, " edges\n" if $self->{debug};
+	scalar @shared, " other edge(s)\n" if $self->{debug};
 
-    # take each cell from all edges shared, already placed edges as start-point
-    for my $e (@shared)
-      {
-      for my $c (@{$e->{cells}})
-	{
-	my $type = $c->{type} & EDGE_TYPE_MASK;
-
-        next unless exists $next_fields->{ $type };
-
-	# don't consider end cells
-	next if $c->{type} & EDGE_END_MASK;
-
-        my $fields = $next_fields->{$type};
-
-        my ($px,$py) = ($c->{x},$c->{y});
-        my $i = 0;
-        while ($i < @$fields)
-	  {
-	  my ($sx,$sy, $jt) = ($fields->[$i], $fields->[$i+1], $fields->[$i+2]);
-          $sx += $px; $sy += $py; $i += 3;
-
-	  # don't add the field twice
-	  next if exists $start_cells->{"$sx,$sy"};
-          $start_cells->{"$sx,$sy"} = [ $sx, $sy, undef, $px, $py ];
-	  $joint_type->{"$sx,$sy"} = $jt;
-          } 
-	}
-      } 
-    # convert hash to array
-    for my $s (values %{$start_cells})
-      {
-      push @A, @$s;
-      }
+    @A = $self->_get_joints(\@shared, EDGE_END_MASK, $joint_type, $start_cells, $next_fields);
     }
   else
     {
@@ -715,18 +741,45 @@ sub _find_path_astar
       }
     }
 
-  # potential stop positions
-  @B = $dst->_near_places($cells, 1, $end_flags, 1);	# distance = 1: slots
+  my @shared_end;
 
-  # the edge has a port description, limiting the start places
-  @B = $dst->_allowed_places( \@B, $dst->_allow( $e_p, @ee_p ), 3)
-    if defined $e_p;
+  # has a end point restriction
+  @shared_end = $edge->{to}->edges_at_port('end', $e_p, $ee_p[0]) if defined $e_p && @ee_p == 1;
+
+  @shared = ();
+  # filter out all non-placed edges (this will also filter out $edge)
+  for my $s (@shared_end)
+    {
+    push @shared, $s if @{$s->{cells}} > 0;
+    }
+
+  if (@shared > 0)
+    {
+    # more than one edge share the same end port, and one of the others was
+    # already placed
+
+    print STDERR "# edge from $edge->{from} to $edge->{to} shares port with ",
+	scalar @shared, " other edge(s)\n" if $self->{debug};
+
+    @B = $self->_get_joints(\@shared, EDGE_START_MASK, $joint_type_end, $end_cells, $prev_fields);
+
+#  use Data::Dumper; print Dumper($end_cells, \@B, $joint_type_end);
+    }
+  else
+    {
+    # potential stop positions
+    @B = $dst->_near_places($cells, 1, $end_flags, 1);	# distance = 1: slots
+
+    # the edge has a port description, limiting the end places
+    @B = $dst->_allowed_places( \@B, $dst->_allow( $e_p, @ee_p ), 3)
+      if defined $e_p;
+    }
 
   return unless scalar @B > 0;			# no free slots on target node?
 
   my $path = $self->_astar(\@A,\@B,$edge);
 
-  if (@$path > 0 && $start_shared != 0)
+  if (@$path > 0 && keys %$start_cells > 0)
     {
     # convert the edge piece of the starting edge-cell to a join
     my ($x, $y) = ($path->[0],$path->[1]);
@@ -734,6 +787,17 @@ sub _find_path_astar
     my ($sx,$sy,$t,$px,$py) = @{$start_cells->{$xy}};
 
     my $jt = $joint_type->{"$sx,$sy"};
+    $cells->{"$px,$py"}->_make_joint($edge,$jt);
+    }
+
+  if (@$path > 0 && keys %$end_cells > 0)
+    {
+    # convert the edge piece of the starting edge-cell to a join
+    my ($x, $y) = ($path->[-2],$path->[-1]);
+    my $xy = "$x,$y";
+    my ($sx,$sy,$t,$px,$py) = @{$end_cells->{$xy}};
+
+    my $jt = $joint_type_end->{"$sx,$sy"};
     $cells->{"$px,$py"}->_make_joint($edge,$jt);
     }
 

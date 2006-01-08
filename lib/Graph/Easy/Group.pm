@@ -1,6 +1,5 @@
 #############################################################################
-# (c) by Tels 2004. A group of nodes. Part of Graph::Easy
-#
+# (c) by Tels 2004 - 2006. A group of nodes. Part of Graph::Easy.
 #############################################################################
 
 package Graph::Easy::Group;
@@ -9,7 +8,7 @@ use Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 use strict;
 
@@ -48,14 +47,14 @@ sub nodes
   {
   my $self = shift;
 
-  ( values %{$self->{nodes}} );
+  wantarray ? ( values %{$self->{nodes}} ) : scalar keys %{$self->{nodes}};
   }
 
 sub edges
   {
   my $self = shift;
 
-  ( values %{$self->{edges}} );
+  wantarray ? ( values %{$self->{edges}} ) : scalar keys %{$self->{edges}};
   }
 
 #############################################################################
@@ -85,7 +84,7 @@ sub add_node
   {
   # add a node to this group
   my ($self,$n) = @_;
- 
+
   if (!ref($n) || !$n->isa("Graph::Easy::Node"))
     {
     require Carp;
@@ -144,6 +143,17 @@ sub del_member
     $class = 'edges'; $key = 'id';
     }
   delete $self->{$class}->{ $n->{$key} };
+  delete $n->{group};			# unregister us
+
+  if ($n->isa('Graph::Easy::Node'))
+    {
+    # find all edges that mention this node and drop them from the group
+    my $edges = $self->{edges};
+    for my $e (values %$edges)
+      {
+      delete $edges->{ $e->{id} } if $e->{from} == $n || $e->{to} == $n;
+      }
+    }
 
   $self;
   }
@@ -154,6 +164,14 @@ sub del_node
   my ($self,$n) = @_;
 
   delete $self->{nodes}->{ $n->{name} };
+  delete $n->{group};			# unregister us
+
+  # find all edges that mention this node and drop them from the group
+  my $edges = $self->{edges};
+  for my $e (values %$edges)
+    {
+    delete $edges->{ $e->{id} } if $e->{from} == $n || $e->{to} == $n;
+    }
 
   $self;
   }
@@ -161,9 +179,10 @@ sub del_node
 sub del_edge
   {
   # delete an edge from this group
-  my ($self,$n) = @_;
+  my ($self,$e) = @_;
 
-  delete $self->{edges}->{ $n->{name} };
+  delete $self->{edges}->{ $e->{id} };
+  delete $e->{group};			# unregister us
 
   $self;
   }
@@ -442,7 +461,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for more details.
 

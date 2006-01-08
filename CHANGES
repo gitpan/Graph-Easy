@@ -1,5 +1,41 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-01-08 v0.39 Tels 1603 tests
+  * Graph: fix merge_nodes() to delete node B from group if part of one
+  * fix Group:
+    + del_edge(): delete edge on id, not non-existant name
+    + del_node() & del_member(): drop all edges mentioning the node
+    + optimize edges() and nodes() in scalar context
+  * Graph: improve handling of "|" in attributes (especially labels)
+  * Graph: del_node() and del_edge() also remove these from their group
+  * Edge: 
+    + add start_at(), start_port(), end_port()
+    + fix POD start
+  * Node: add nodes_sharing_start(), shared_edges(), has_predecessors()
+  * add source_nodes() and predecessorless_nodes() (Thanx to Florian Lindner
+     for the suggestion!)
+  * as_html(): add "white-space: pre" to the CSS to prevent wrapping of
+	       labels with spaces in them
+  * as_graphviz():
+    + implement edge joints (shared start/end port) via invisible joints
+    + handle attributes like labels with embedded newlines
+    + output edges from/to groups (subgraphs/clusters)
+  * Layouter:
+    + allow sharing of end ports (making edges join up on the way
+      to the target node)
+    + min distance between node is 3, not 2, when there are edges
+      that share an start/end point (to make room for the joints)
+    + Layouter: place nodes with a shared start point in the same column/row
+      than the others (to render tree-like layouts automatically)
+  * multiple attributes for autosplit nodes were broken, when:
+    + the attribute did not have a strict check (link, f.i.)
+    + there was a newline after the node ala "[A|B]\n { fill: red|green;}
+    + the attribute did have a fixed list of words (like "shape")
+    (Due to Ron Newmann's question I stumbled over these bugs - thanx!
+  * add support for "shape: img;" (Thanx to Ron Newmann for the suggestion!)
+    + as_html: use "<img...>" 
+    + as_graphviz: use "<<TABLE .. <IMG...>>" 
+
 2006-01-01 v0.38 Tels 1571 tests
   * include the missing 4_flow.txt test files
   * Group.pm: fix POD
