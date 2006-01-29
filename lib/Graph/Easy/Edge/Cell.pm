@@ -1,5 +1,5 @@
 #############################################################################
-# (c) by Tels 2004 - 2005. Part of Graph::Easy
+# (c) by Tels 2004 - 2006. Part of Graph::Easy
 #
 #############################################################################
 
@@ -12,7 +12,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.17';
+$VERSION = '0.18';
 
 use Scalar::Util qw/weaken/;
 
@@ -715,10 +715,15 @@ sub _html_edge_hor
   {
   # Return HTML code for a horizontal edge (with all start/end combinations)
   # as [], with code for each table row.
-  my ($self) = @_;
+  my ($self, $as) = @_;
 
   my $s_flags = $self->{type} & EDGE_START_MASK;
   my $e_flags = $self->{type} & EDGE_END_MASK;
+
+  if ($as eq 'none')
+    {
+    $e_flags = 0; $s_flags = 0;
+    }
 
   my $rc = [
     ' <td colspan=##mod## rowspan=2 class="##class## lh" style="border-bottom: ##border##;##lc####bg##">##label##</td>' . "\n",
@@ -731,30 +736,38 @@ sub _html_edge_hor
   # time.
 
   my $mod = 4;							# modifier
+#  my $mod2 = 4;
   if ($s_flags & EDGE_START_W)
     {
     $mod--;
+#    $mod2--;
     $rc->[0] = '<td rowspan=4 class="##class## ve" style="##bg##"></td>' . "\n" . $rc->[0];
     };
   if ($s_flags & EDGE_START_E)
     {
     $mod--;
+#    $mod2--;
     $rc->[0] .= "\n " . '<td rowspan=4 class="##class## ve" style="##bg##"></td>';
     };
   if ($e_flags & EDGE_END_W)
     {
     $mod--;
-    $rc->[0] = '<td rowspan=4 class="##class## va" style="##ec####bg##">&lt;</td>' . "\n" . $rc->[0];
+#    $rc->[0] = '<td rowspan=4 class="##class## va" style="##ec####bg##">&lt;</td>' . "\n" . $rc->[0];
+    $rc->[0] = '<td rowspan=2 class="##class##" style="##ec####bg##"><span class="sh">&lt;</span></td>' . "\n" . $rc->[0];
+    $rc->[2] = '<td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' . "\n" . $rc->[2];
     }
   if ($e_flags & EDGE_END_E)
     { 
     $mod--;
-    $rc->[0] .= "\n " . '<td rowspan=4 class="##class## va" style="##ec####bg##">&gt;</td>';
+#    $rc->[0] .= "\n " . '<td rowspan=4 class="##class## va" style="##ec####bg##">&gt;</td>';
+    $rc->[0] .= "\n " . '<td rowspan=2 class="##class##" style="##ec####bg##"><span class="sh">&gt;</span></td>';
+    $rc->[2] .= "\n " . '<td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>';
     };
 
   for my $e (@$rc)
     {
     $e =~ s/##mod##/$mod/g;
+#    $e =~ s/##mod2##/$mod2/g;
     }
 
   $rc;
@@ -764,10 +777,15 @@ sub _html_edge_ver
   {
   # Return HTML code for a vertical edge (with all start/end combinations)
   # as [], with code for each table row.
-  my ($self) = @_;
+  my ($self, $as) = @_;
 
   my $s_flags = $self->{type} & EDGE_START_MASK;
   my $e_flags = $self->{type} & EDGE_END_MASK;
+
+  if ($as eq 'none')
+    {
+    $e_flags = 0; $s_flags = 0;
+    }
 
   my $mod = 4; 							# modifier
 
@@ -790,7 +808,8 @@ sub _html_edge_ver
   elsif ($e_flags & EDGE_END_N)
     {
     $mod--;
-    unshift @$rc, '<td colspan=4 class="##class## hat" style="##bg####ec##">&nbsp;^</td>' . "\n";
+    #unshift @$rc, '<td colspan=4 class="##class## hat" style="##bg####ec##">&nbsp;^</td>' . "\n";
+    unshift @$rc, '<td colspan=2 class="##class## eb" style="##bg####ec##">&nbsp;</td>' . "\n" . '<td colspan=2 class="##class## hat" style="##bg####ec##"><span class="sv">^</span></td>' . "\n";
     delete $rc->[-1];
     }
 
@@ -804,7 +823,8 @@ sub _html_edge_ver
   if ($e_flags & EDGE_END_S)
     {
     $mod--;
-    $rc->[3] = '<td colspan=4 class="##class## v" style="##bg####ec##">&nbsp;v</td>' . "\n";
+    #$rc->[3] = '<td colspan=4 class="##class## v" style="##bg####ec##">&nbsp;v</td>' . "\n";
+    $rc->[3] = '<td colspan=2 class="##class## eb" style="##bg####ec##">&nbsp;</td>'."\n".'<td colspan=2 class="##class## v" style="##bg####ec##"><span class="sv">v</span></td>' . "\n";
     }
 
   for my $e (@$rc)
@@ -843,15 +863,18 @@ sub as_html
   my $type = $self->{type} & EDGE_NO_M_MASK;
   my $style = $self->{style};
 
+  my $as = $self->{edge}->attribute('arrow-style') || '';
+  $as = 'none' if $self->{edge}->{undirected};
+
   my $code = $edge_html->{$type};
 
   if (!defined $code)
     {
     my $t = $self->{type} & EDGE_TYPE_MASK;
 
-    $code = $self->_html_edge_hor() if $t == EDGE_HOR;
-    $code = $self->_html_edge_ver() if $t == EDGE_VER;
-    $code = $self->_html_edge_cross() if $t == EDGE_CROSS;
+    $code = $self->_html_edge_hor($as) if $t == EDGE_HOR;
+    $code = $self->_html_edge_ver($as) if $t == EDGE_VER;
+    $code = $self->_html_edge_cross($as) if $t == EDGE_CROSS;
 
     if (!defined $code)
       {
@@ -870,13 +893,15 @@ sub as_html
   # only include the label if we are the label cell
   if ($self->{type} & EDGE_LABEL_CELL)
     {
-    $label = $self->label(); $label =~ s/\\n/<br \/>/g;
+    $label = $self->label();
+    # replace linebreaks by <br>, but remove extra spaces 
+    $label =~ s/\s*\\n\s*/<br \/>/g;
 
     my $label_color = $self->attribute('label-color') || $color;
     $label_color = '' if $label_color eq 'black';
     $label_style = "color: $label_color;" if $label_color;
   
-    $label_style .= $self->text_styles_as_css() unless $label eq '';
+    $label_style .= $self->text_styles_as_css(1,1) unless $label eq '';
 
     $label_style =~ s/^\s*//;
 
@@ -942,8 +967,10 @@ sub as_html
     $c =~ s/##ec##/$edge_color/g;
     $c =~ s/##bg##/$bg/g;
     $c =~ s/ style=""//g;		# remove empty styles
+
     # remove arrows if edge is undirected
-    $c =~ s/(v|\^|&lt;|&gt;)//g if $self->{edge}->{undirected};
+    $c =~ s/(v|\^|&lt;|&gt;)//g if $as eq 'none';
+
     $c .= "\n" unless $c =~ /\n\z/;
     push @rc, " " . $c;
     }
@@ -1054,23 +1081,15 @@ sub _correct_size
     {
     my $border = $self->{edge}->attribute('border-style') || 'none';
 
-    my @lines = $self->_formatted_label();
+    my ($w,$h) = $self->dimensions(); $h-- unless $h == 0;
 
-    # find longest line
-    my $chars = 0;
-    foreach my $line (@lines)
-      {
-      $chars = length($line) if length($line) > $chars;
-      }
-    $chars += $self->{w};
-     
-    my $h = (scalar @lines - 1); $h = 0 if $h < 0;
     $h += $self->{h};
+    $w += $self->{w};
     if ($border ne 'none')
       {
-      $h += 2; $chars += 2;
+      $h += 2; $w += 2;
       }
-    $self->{w} = $chars;
+    $self->{w} = $w;
     $self->{h} = $h;
     }
   }
@@ -1242,7 +1261,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

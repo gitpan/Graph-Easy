@@ -7,8 +7,8 @@ In addition:
 
 Important short-term TODO:
 
-* write tests for the new graphviz output (inter-group links and joins)
-* [ A|B|C ] { fill: red; } should only color A red, not B or C.
+* inserting nbsp; for group-cells causes them no longer to be combined
+* complete edge-arrow alignment in HTML
 * if a "shared start point" edge is leading past a node where another, also
   shared edge leads, a joint should be created right-away next to the
   target node (see "A23" in todo/tree2.txt)
@@ -36,10 +36,8 @@ Important short-term TODO:
   Likewise, some routines used by objects (e.g. graph, node etc) should
   be in a super-package and inherited)
 * as_txt(): the following are wrong as txt:
-  + 4_autosplit_offset.txt
-  + 3_autosplit_hangt.txt
-* as_txt: output of autosplit nodes is broken when no label gets set
-  "[A|B]" results in "[ A|B ] { label: A; }"
+  + 3_autosplit_hang.txt
+  + 3_autosplit_class.txt
 * use "shape: record" and label="{ { 00 | 01 | 02 } | { 10 | 112 | 12 } }" to
   implement auto-split nodes in graphviz (including <port>'s and rerouting
   edges to the ports)
@@ -54,16 +52,22 @@ Important short-term TODO:
 	  └─────> │ A2 │
                   └────┘
 
+Tests:
+
+* write tests for the new graphviz output (inter-group links and joints)
+
 Parser:
 
 * edge parsing " -- test \>-->" => "test >" as edge label
-* parse nested graphs/groups/nodes
+* be truly recursive: parse nested graphs/groups/nodes
 * support for node splitting ala:
 
     "[ A ] | [ B | C ] || [ D | E ]"
 
 * Nodes with both "|" and "\|" in their name are not parsed correctly
 * handle RGB colors with percentages or fractions like: rgb(100%,50%,0.5)
+* handle RGBA colors (with an alpha channel component, making transparency
+  possible)
 * quoting of "[" and "{" inside edge labels ala:
 
   [ A ] -- label \[ 8 ] --> [ B ]
@@ -92,7 +96,6 @@ Output:
 
   ----->  |----->  o----->  +----->  *----->  >>---->
 
-* support egde "style: invisible"
 * as_txt(): output of node clusters is not optimal
 * as_txt(): output of node chains is not optimal
 * better support for different shapes (circle, box, rounded, polygon etc)
@@ -136,9 +139,21 @@ Layout:
 
 Rendering/Layout:
 
-* allow user to specifiy "align: left, top;" or "align: center, middle" to
-  specify alignment of labels. (left|right|center|middle|top|bottom)
+* allow "align: center, middle|top|bottom" for vertical alignment of labels.
 * add padding attributes (especially usefull for HTML output)
+* add "shape" for groups:
+  + rect
+  + compact (the default, what it is now)
+  + none (no background, no border, no label)
+
+General:
+
+* allow multiple subclasses ala CSS:
+
+	node.red { color: red; }
+	node.green { color: green; }
+
+	[ Red ] { class: red green; } -> [ Green ] { class: green red; }
 
 Optimizer:
 

@@ -1,5 +1,5 @@
 
-                           My sample graph
+                            My sample graph
 
                     +-------+          +-------+  Test          +------+
                     |  Two  |  label   |  One  |  label         | Four |

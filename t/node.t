@@ -48,8 +48,8 @@ can_ok ("Graph::Easy::Node", qw/
   class
   title
   link
-  place
   shape
+  default_attribute
   del_attribute
   set_attribute
   set_attributes
@@ -60,7 +60,10 @@ can_ok ("Graph::Easy::Node", qw/
 
   is_multicelled
 
-  _place _check_place _place_children find_grandparent
+  nodes_sharing_start
+  nodes_sharing_end
+
+  _place _do_place _check_place _place_children find_grandparent
   _near_places _allowed_places
   /);
 
@@ -400,12 +403,12 @@ $node = Graph::Easy::Node->new();
 
 my $cells = { };
 
-is ($node->place(1,1,$cells), 1, 'node can be placed');
+is ($node->_do_place(1,1,$cells), 1, 'node can be placed');
 
 is ($cells->{"1,1"}, $node, 'node was really placed');
 is (scalar keys %$cells, 1, 'one entry');
 
-is ($node->place(1,1,$cells), 0, 'node cannot be placed again');
+is ($node->_do_place(1,1,$cells), 0, 'node cannot be placed again');
 is ($cells->{"1,1"}, $node, 'node still there placed');
 is (scalar keys %$cells, 1, 'one entry');
 

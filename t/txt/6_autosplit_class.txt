@@ -1,0 +1,11 @@
+node.red {
+  color: red;
+  columns: 2;
+  label: D;
+}
+
+[ A|B|C ] { basename: A; class: red; }
+
+[ 1 ] --> [ A|B|C ]
+[ 2 ] --> [ 3 ]
+[ 2 ] --> [ A|B|C ]

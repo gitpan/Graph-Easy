@@ -11,7 +11,8 @@ sub MY::metafile {
     return $self->SUPER::metafile_target(@_);
   };
 
-  my $node = new YAML::Node {};
+  require YAML::Node;
+  my $node = YAML::Node->new({});
 
   $node->{name}                 = $self->{DISTNAME};
   $node->{version}              = $self->{VERSION};
@@ -41,7 +42,7 @@ if (!defined $ver)
   print "         SVG output is not possible until you install it afterwards.\n\n";
   }
 
-if (defined $ver && $ver <= 0.12)
+if (defined $ver && $ver <= 0.16)
   {
   print "\n************\n";
   print "Warning: Your Graph::Easy::As_svg version is outdated.\n";

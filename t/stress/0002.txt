@@ -5,6 +5,6 @@
  [ Henningsdorf ] -> [ Strausberg ]
  [ Strausberg ] -> [ Herzberg ]
  [ Strausberg ] -> [ Neuruppin ]
- [ Oranienburg ] -> [ Herzberg ]
+ [ Oranienburg ] -> [ Postdam ]
 
 

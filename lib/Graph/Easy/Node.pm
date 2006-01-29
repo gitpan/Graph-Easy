@@ -6,9 +6,8 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.22';
+$VERSION = '0.23';
 
-use Graph::Easy::Attributes;
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
 
@@ -38,10 +37,6 @@ sub _init
   
   $self->{x} = 0;
   $self->{y} = 0;
- 
-  # size of node in cells (are != 1 for multi-celled nodes)
-  $self->{cx} = 1;
-  $self->{cy} = 1;
  
   # These are undef (to save memory) until needed: 
   # $self->{children} = {};
@@ -158,6 +153,8 @@ sub _unplace
   $self->{x} = undef;
   $self->{y} = undef;
 
+  $self->_calc_size() unless defined $self->{cx};
+
   if ($self->{cx} + $self->{cy} > 2)	# one of them > 1!
     {
     for my $ax (1..$self->{cx})
@@ -219,6 +216,8 @@ sub _place
   # [ filler ] [ filler ]
   # [ filler ] [ filler ] etc.
 
+#  $self->_calc_size() unless defined $self->{cx};
+
   if ($self->{cx} + $self->{cy} > 2)    # one of them > 1!
     {
     for my $ax (1..$self->{cx})
@@ -250,6 +249,8 @@ sub _check_place
   # node cannot be placed here
   return 0 if exists $cells->{"$x,$y"};
 
+  $self->_calc_size() unless defined $self->{cx};
+
   if ($self->{cx} + $self->{cy} > 2)	# one of them > 1!
     {
     for my $ax (1..$self->{cx})
@@ -266,7 +267,7 @@ sub _check_place
   1;					# can place it here
   }
 
-sub place
+sub _do_place
   {
   # Tries to place the node at position ($x,$y) by checking that
   # $cells->{"$x,$y"} is still free. If the node belongs to a cluster,
@@ -279,6 +280,8 @@ sub place
 
   # node cannot be placed here
   return 0 if exists $cells->{"$x,$y"};
+
+  $self->_calc_size() unless defined $self->{cx};
 
   if ($self->{cx} + $self->{cy} > 2)	# one of them > 1!
     {
@@ -335,7 +338,7 @@ sub _formatted_label
   while ($i < scalar @lines)
     {
     $lines[$i] =~ s/^\s+//;			# remove spaces at front
-    $lines[$i] =~ s/^\s+$//;			# remove spaces at end
+    $lines[$i] =~ s/\s+\z//;			# remove spaces at end
     $i++;
     }
   @lines;
@@ -346,13 +349,14 @@ sub _formatted_label
 
 my $node_remap = {
   node => {
-    fill => 'background',
     background => undef,
+    basename => undef,
     'border' => undef,
     'border-style' => undef,
     'border-width' => undef,
     'border-color' => undef,
     columns => undef,
+    fill => 'background',
     flow => undef,
     origin => undef,
     offset => undef, 
@@ -366,6 +370,7 @@ my $node_remap = {
     'border' => undef,
     },
   all => {
+    align => 'text-align',
     autolink => undef,
     autotitle => undef,
     'font-size' => undef,
@@ -378,11 +383,20 @@ my $node_remap = {
     },
   };
 
+sub _extra_params
+  {
+  # return text with a leading " ", that will be appended to "td" when
+  # generating HTML
+  '';
+  }
+
 sub as_html
   {
   my ($self, $noquote) = @_;
 
-  my $tag = 'td';
+  my $extra = $self->_extra_params();
+  my $taga = "td$extra";
+  my $tagb = 'td';
 
   my $id = $self->{graph}->{id};
   my $a = $self->{att};
@@ -400,12 +414,12 @@ sub as_html
   # shape: invisible; must result in an empty cell
   if ($shape eq 'invisible' && $class ne 'node.anon')
     {
-    return " <$tag colspan=$cs rowspan=$rs style=\"border: none; background: inherit;\"></$tag>\n";
+    return " <$taga colspan=$cs rowspan=$rs style=\"border: none; background: inherit;\"></$tagb>\n";
     }
 
   my $c = $class; $c =~ s/\./-/g;	# node.city => node-city
 
-  my $html = " <$tag colspan=$cs rowspan=$rs";
+  my $html = " <$taga colspan=$cs rowspan=$rs";
   $html .= " class='$c'" if $c ne '';
    
   my $name = $self->label(); 
@@ -432,7 +446,7 @@ sub as_html
 
     $name =~ s/([^\\])\\n/$1\n/g;		# "\n" to "n" (but not "\\n")
     $name =~ s/\\\\/\\/g;			# "\\" to "\"
-    $name =~ s/\n/<br>/g;			# |\n|\nv => |<br>|<br>v
+    $name =~ s/\s*\n\s*/<br>/g;			# |\n|\nv => |<br>|<br>v
     $name =~ s/^\s*<br>//;			# remove empty leading line
     $name =~ s/<br>/<br \/>/g;			# correct <br>
     }
@@ -490,17 +504,22 @@ sub as_html
     }
 
   if ($class =~ /^group/)
+    {
+    delete $out->{border};
+    my $group_class = $class; $group_class =~ s/\s.*//;	# "group gt" => "group"
+    my @atr = qw/border-color border-width fill/;
+
+    # only need the color for the label cell
+    push @atr, 'color' if $self->{has_label};
+    for my $b (@atr)
       {
-      delete $out->{border};
-      my $group_class = $class; $group_class =~ s/\s.*//;	# "group gt" => "group"
-      for my $b (qw/border-color border-width fill/)
-        {
-        my $def = $g->attribute($group_class,$b) || '';
-        my $v = $self->attribute($b) || '';
-        my $n = $b; $n = 'background' if $b eq 'fill';
-	$out->{$n} = $v unless $v eq '' || $v eq $def;
-        }
+      my $def = $g->attribute($group_class,$b) || '';
+      my $v = $self->attribute($b) || '';
+      my $n = $b; $n = 'background' if $b eq 'fill';
+      $out->{$n} = $v unless $v eq '' || $v eq $def;
       }
+    $name = '&nbsp;' unless $name ne '';
+    }
 
   # "shape: none;" or point means no border, and background instead fill color
   if ($shape =~ /^(point|none)\z/)
@@ -522,13 +541,13 @@ sub as_html
     }
 
   # bold, italic, underline etc. (but not for empty cells)
-  $style .= $self->text_styles_as_css() if $name ne '';
+  $style .= $self->text_styles_as_css(2,2) if $name !~ /^(|&nbsp;)\z/;
 
   $style =~ s/;\s$//;				# remove '; ' at end
   $style =~ s/\s+/ /g;				# '  ' => ' '
   $style =~ s/^\s+//;				# remove ' ' at front
 
-  my $end_tag = "</$tag>\n";
+  my $end_tag = "</$tagb>\n";
 
   if ($link ne '')
     {
@@ -683,10 +702,45 @@ sub flow
 #############################################################################
 # multi-celled nodes
 
+sub _calc_size
+  {
+  # Calculate the base size in cells from the attributes (before grow())
+  # Will return a hash that denotes in which direction the node should grow.
+  my $self = shift;
+
+  # default is 1,1
+  my ($cx,$cy) = (1,1);
+
+  # if specified "rows", or "columns" (and not "size"), then grow the node
+  # only in the unspecified direction. Default is grow both.
+  my $grow_sides = { cx => 1, cy => 1 };
+
+  my $size = $self->attribute('size');
+  if (!defined $size)
+    {
+    my $rows = $self->attribute('rows');
+    my $cols = $self->attribute('columns');
+    delete $grow_sides->{cy} if defined $rows && !defined $cols;
+    delete $grow_sides->{cx} if defined $cols && !defined $rows;
+    $cx = $cols if defined $cols;    
+    $cy = $rows if defined $rows;    
+    }
+  else
+    {
+    ($cx,$cy) = split /\s*,\s*/, $size;
+    }
+
+  $self->{cx} = abs($cx || 1);
+  $self->{cy} = abs($cy || 1);
+
+  $grow_sides;
+  }
+
 sub grow
   {
-  # grows the node until it has sufficient cells for all incoming/outgoing
-  # edges
+  # Grows the node until it has sufficient cells for all incoming/outgoing
+  # edges. The initial size will be based upon the attributes 'size' (or
+  # 'rows' or 'columns', depending on which is set)
   my $self = shift;
 
   # grow() is called for every node before layout(), so uncache the flow
@@ -799,30 +853,16 @@ sub grow
   my $min_x = $need->{north}; $min_x = $need->{south} if $need->{south} > $min_x;
   my $min_y = $need->{west}; $min_y = $need->{east} if $need->{east} > $min_y;
 
-  # save the original size
-  $self->{_cx} = $self->{cx};
-  $self->{_cy} = $self->{cy};
+  my $grow_sides = $self->_calc_size();
 
+  # increase the size if the minimum required size is not met
   $self->{cx} = $min_x if $min_x > $self->{cx};
   $self->{cy} = $min_y if $min_y > $self->{cy};
 
-  # if specified "rows", or "columns" (and not "size"), then grow the node
-  # only in the unspecified direction. Default is grow i both.
-  my $grow_sides = { cx => 1, cy => 1 };
-
-  my $size = $self->attribute('size');
-  if (!defined $size)
-    {
-    my $rows = $self->attribute('rows');
-    my $cols = $self->attribute('columns');
-    delete $grow_sides->{cy} if defined $rows && !defined $cols;
-    delete $grow_sides->{cx} if defined $cols && !defined $rows;
-    }
-
-  # grow the node based on the general flow first VER, then HOR
+  # now grow the node based on the general flow first VER, then HOR
   my $flow = $self->flow();
 
-  my $grow = 0;
+  my $grow = 0;					# index into @grow_what
   my @grow_what = sort keys %$grow_sides;	# 'cx', 'cy' or 'cx' or 'cy'
 
   if (keys %$grow_sides > 1)
@@ -857,7 +897,15 @@ sub is_multicelled
   # return true if node consist of more than one cell
   my $self = shift;
 
+  $self->_calc_size() unless defined $self->{cx};
+
   $self->{cx} + $self->{cy} <=> 2;	# 1 + 1 == 2: no, cx + xy != 2: yes
+  }
+
+sub is_anon
+  {
+  # normal nodes are not anon nodes (but "::Anon" are)
+  0;
   }
 
 #############################################################################
@@ -922,6 +970,9 @@ sub label
   my $self = shift;
 
   my $label = $self->attribute('label');
+  # for autosplit nodes, use their auto-label first (unless already got 
+  # a label from the class):
+  $label = $self->{autosplit_label} unless defined $label;
   $label = $self->{name} unless defined $label;
 
   return '' unless defined $label;
@@ -998,6 +1049,8 @@ sub columns
   {
   my $self = shift;
 
+  $self->_calc_size() unless defined $self->{cx};
+
   $self->{cx};
   }
 
@@ -1005,12 +1058,16 @@ sub rows
   {
   my $self = shift;
 
+  $self->_calc_size() unless defined $self->{cy};
+
   $self->{cy};
   }
 
 sub size
   {
   my $self = shift;
+
+  $self->_calc_size() unless defined $self->{cx};
 
   ($self->{cx}, $self->{cy});
   }
@@ -1029,16 +1086,11 @@ sub dimensions
   # in characters.
   my $self = shift;
 
-  my $label = $self->label();
-  $label =~ s/([^\\])\\n/$1\n/g;		# unless double escaped
-  $label =~ s/\\\|/\|/g;			# \| => |
-  $label =~ s/\\\\/\\/g;			# '\\' to '\'
+  my @lines = $self->_formatted_label();
 
-  my @lines = split /\n/, $label;
   my $w = 0; my $h = scalar @lines;
   foreach my $line (@lines)
     {
-    $line =~ s/^\s+//; $line =~ s/\s+$//;		# rem spaces
     $w = length($line) if length($line) > $w;
     }
   ($w,$h);
@@ -1082,7 +1134,7 @@ sub edges_at_port
     # skip edges starting here if we look at end
     next if $e->{from} eq $self && $attr eq 'end';
 
-    my ($s_p,@ss_p) = $e->port($attr);
+    my ($s_p,@ss_p) = $e->port($attr);	
     next unless defined $s_p;
 
     # same side and same port number?
@@ -1095,7 +1147,7 @@ sub edges_at_port
 
 sub shared_edges
   {
-  # return all edges that share the same port
+  # return all edges that share one port with another edge
   my ($self) = @_;
 
   my @edges;
@@ -1124,7 +1176,30 @@ sub nodes_sharing_start
     my $to = $e->{to};
     next if $to == $self;
 
+    # remove duplicates
     $nodes->{ $to->{name} } = $to;
+    }
+
+  (values %$nodes);
+  }
+
+sub nodes_sharing_end
+  {
+  # return all nodes that share an edge end with an
+  # edge from that node
+  my ($self, $side, @port) = @_;
+
+  my @edges = $self->edges_at_port('end',$side,@port);
+
+  my $nodes;
+  for my $e (@edges)
+    {
+    # ignore self-loops
+    my $from = $e->{from};
+    next if $from == $self;
+
+    # remove duplicates
+    $nodes->{ $from->{name} } = $from;
     }
 
   (values %$nodes);
@@ -1385,6 +1460,24 @@ sub attribute
   $att;
   }
 
+sub default_attribute
+  {
+  my ($self, $name) = @_;
+
+  my $graph = $self->{graph}; $graph = $self if ref($self) eq 'Graph::Easy';
+
+  my $class = $self->{class} || 'graph';
+
+  # for Edge/Cell.pm
+  $class = $self->{edge}->{class} if ref($self->{edge});
+ 
+  return undef unless exists $graph->{att}->{$class};
+
+  my $att = $graph->{att}->{ $class };
+
+  $att->{$name};
+  }
+
 sub del_attribute
   {
   my ($self, $atr) = @_;
@@ -1462,23 +1555,17 @@ sub set_attribute
     return $val;
     }
 
-  if ($name =~ /^(rows|columns|size)\z/)
+  if ($name =~ /^(columns|rows|size)\z/)
     {
     if ($name eq 'size')
       {
-      $val =~ /^(\d+),(\d+)\z/;
-      ($self->{cx}, $self->{cy}) = (abs(int($1)),abs(int($2)));
-      ($self->{att}->{columns}, $self->{att}->{rows}) = ($self->{cx}, $self->{cy});
-      }
-    elsif ($name eq 'rows')
-      {
-      $self->{cy} = abs(int($val));
-      $self->{att}->{rows} = $self->{cy};
+      $val =~ /^(\d+)\s*,\s*(\d+)\z/;
+      my ($cx, $cy) = (abs(int($1)),abs(int($2)));
+      ($self->{att}->{columns}, $self->{att}->{rows}) = ($cx, $cy);
       }
     else
       {
-      $self->{cx} = abs(int($val));
-      $self->{att}->{columns} = $self->{cx};
+      $self->{att}->{$name} = abs(int($val));
       }
     return $self;
     }
@@ -1525,7 +1612,7 @@ sub set_attributes
     my $val = $atr->{$n};
     $val = $val->[$index] if ref($val) eq 'ARRAY' && defined $index;
 
-    next if !defined $val;
+    next if !defined $val || $val eq '';
 
     $n eq 'class' ? $self->sub_class($val) : $self->set_attribute($n, $val);
     }
@@ -1666,6 +1753,13 @@ Return the node as HTML code.
 Returns the respective attribute of the node or undef if it
 was not set. If there is a default attribute for all nodes
 of the specific class the node is in, then this will be returned.
+
+=head2 default_attribute()
+
+	my $def = $node->default_attribute('color');
+
+Returns the default value for the given attribute in the class
+of the object, or the empty string if no default could be found.
 
 =head2 attributes_as_txt
 
@@ -1808,6 +1902,16 @@ Returns the number of rows (in cells) that this node occupies.
 Returns true if the node consists of more than one cell. See als
 L<rows()> and L<cols()>.
 
+=head2 is_anon()
+
+	if ($node->is_anon())
+	  {
+	  ...
+	  }
+
+Returns true if the node is an anonymous node. False for C<Graph::Easy::Node>
+objects, and true for C<Graph::Easy::Node::Anon>.
+
 =head2 pos()
 
 	my ($x,$y) = $node->pos();
@@ -1899,10 +2003,17 @@ with another edge.
 
 =head2 nodes_sharing_start()
 
-	my @nodes = $node->sharing_start();
+	my @nodes = $node->nodes_sharing_start($side, $port);
 
 Return a list of unique nodes that share a start point with an edge
-from this node.
+from this node, on the specified side (absolut) and port number.
+
+=head2 nodes_sharing_end()
+
+	my @nodes = $node->nodes_sharing_end($side, $port);
+
+Return a list of unique nodes that share an end point with an edge
+from this node, on the specified side (absolut) and port number.
 
 =head2 edges_at_port()
 
@@ -1956,21 +2067,6 @@ Returns the node this node is relativ to, or undef otherwise.
 
 Sets itself relativ to C<$parent> with the offset C<$dx,$dy>.
 
-=head2 place()
-
-	if ($node->place($x,$y,$cells))
-	  {
-	  ...
-	  }
-
-Tries to place the node at position C<< ($x,$y) >> by checking that
-C<<$cells->{"$x,$y"}>> is still free. If the node is relative
-to any other node, follow back to the origin, and then
-process all children of the origin in one go, and if possible,
-places them all.
-
-Returns true if the operation succeeded, otherwise false.
-
 =head2 shape()
 
 	my $shape = $node->shape();
@@ -1992,6 +2088,32 @@ Returns the outgoing flow for this node as absolute direction in degrees.
 
 The value is computed from the incoming flow (or the general flow as
 default) and the flow attribute of this node.
+
+=head2 _extra_params()
+
+	my $extra_params = $node->_extra_params();
+
+The return value of that method is added as extra params to the
+HTML tag for a node when as_html() is called. Returns the empty
+string by default, and can be overriden in subclasses. See also
+C<use_class()>.
+
+Overriden method should return a text with a leading space, or the
+empty string.
+
+Example:
+
+	package Graph::Easy::MyNode;
+	use base qw/Graph::Easy::Node/;
+
+	sub _extra_params
+	  {
+	  my $self = shift;
+
+	  ' ' . 'onmouseover="alert(\'' . $self->name() . '\');"'; 
+	  }
+
+	1;
 
 =head1 EXPORT
 

@@ -1,11 +1,11 @@
 # Example from: http://www.islandseeds.org/wiki/Biofuel
 # http://www.islandseeds.org/wiki/Biofuel
 
-graph { flow: right; }
+graph { flow: east; }
 node { shape: ellipse; }
 
-   [ solar energy ] { fill: yellow; },
-   [ water] { fill: cyan; },
+   [ solar energy ] { fill: yellow; }
+   [ water] { fill: cyan; }
    [ soil ] { fill: burlywood; }
 
 -> [ vegetation ]
@@ -21,7 +21,7 @@ node { shape: ellipse; }
 [ processing ] ..> [ carbon dioxide ]
 [ processing ] ..> [ pollution ]
 
-#[ water ] -> [ vegetation ]
-#[ solar energy ] -> [ vegetation ]
+[ water ] -> [ vegetation ]
+[ solar energy ] -> [ vegetation ]
 
 

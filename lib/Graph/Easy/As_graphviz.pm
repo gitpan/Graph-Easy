@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 #############################################################################
 #############################################################################
@@ -17,67 +17,85 @@ use strict;
 
 my $remap = {
   'node' => {
-    'fill' => 'fillcolor',
+    'align' => undef,
     'background' => undef,   # need a way to simulate that on non-rect nodes
-    'title' => 'tooltip',
-    'color' => 'fontcolor',
+    'basename' => undef,
     'border-color' => 'color',
     'border-style' => \&_graphviz_remap_border_style,
     'border-width' => undef,
     'border' => undef,
-    'shape' => \&_graphviz_remap_node_shape,
+    'color' => 'fontcolor',
+    'fill' => 'fillcolor',
+    'label' => \&_graphviz_remap_label,
     'point-style' => undef,
     'rotate' => \&_graphviz_remap_node_rotate,
-    'label' => \&_graphviz_remap_label,
+    'shape' => \&_graphviz_remap_node_shape,
+    'title' => 'tooltip',
     },
   'edge' => {
-    'title' => 'tooltip',
+    'align' => undef,
+    'arrow-style' => \&_graphviz_remap_arrow_style,
     'background' => undef,
     'border' => undef,
     'border-style' => undef,
-    'style' => \&_graphviz_remap_edge_style,
-    'arrow-style' => \&_graphviz_remap_arrow_style,
-    'label-color' => \&_graphviz_remap_label_color,
-    'start' => \&_graphviz_remap_port,
     'end' => \&_graphviz_remap_port,
     'flow' => undef,
+    'label-color' => \&_graphviz_remap_label_color,
+    'start' => \&_graphviz_remap_port,
+    'style' => \&_graphviz_remap_edge_style,
+    'title' => 'tooltip',
     },
   'graph' => {
-    'fill' => 'bgcolor',
+    'align' => \&_graphviz_remap_align,
     'background' => undef,
-    'flow' => undef,
-    'output' => undef,
-    'label-pos' => 'labelloc',
-    'gid' => 'undef',
     'border-color' => 'color',
     'border-style' => \&_graphviz_remap_border_style,
     'border-width' => undef,
+    'fill' => 'bgcolor',
+    'flow' => undef,
+    'gid' => 'undef',
+    'label-pos' => 'labelloc',
+    'output' => undef,
     },
   'group' => {
+    'align' => \&_graphviz_remap_align,
+    'background' => undef,
     'border-color' => 'color',
     'border-style' => \&_graphviz_remap_border_style,
+    'border-width' => undef,
+    'color' => 'fontcolor',
     'fill' => 'fillcolor',
     'title' => 'tooltip',
-    'color' => 'fontcolor',
-    'border-width' => undef,
-    'background' => undef,
     },
   'all' => {
     class => undef,
-    'link' => \&_graphviz_remap_link,
-    'linkbase' => undef,
     'autolink' => undef,
     'autotitle' => undef,
-    'text-style' => undef,
     'font-size' => \&_graphviz_remap_fontsize,
+    'link' => \&_graphviz_remap_link,
+    'linkbase' => undef,
+    'text-style' => undef,
     },
   'always' => {
-    'link' => 1,
+    'border-style' => 1,
     'label-pos' => 1,
     'label-color' => 1,
+    'link' => 1,
     'rotate' => 1,
     },
   };
+
+sub _graphviz_remap_align
+  {
+  my ($self, $name, $style) = @_;
+
+  return (undef, undef) if $style eq 'center';
+
+  my $s = 'l';		# $style eq 'left';
+  $s = 'r' if $style eq 'right';
+
+  ('labeljust', $s);
+  }
 
 sub _graphviz_remap_edge_style
   {
@@ -90,6 +108,7 @@ sub _graphviz_remap_edge_style
   $style = 'dotted' if $style =~ /^dot-/;	# dot-dash, dot-dot-dash
   $style = 'dotted' if $style =~ /^wave/;	# wave
   $style = 'bold' if $style eq 'double';	# double
+  $style = 'invis' if $style eq 'invisible';	# invisible
 
   # XXX TODO: These should be (3, 0.5em, 1em) instead of 3,7,14
   $style = 'setlinewidth(3), dashed' if $style =~ /^bold-dash/;
@@ -169,11 +188,15 @@ sub _graphviz_remap_border_style
   {
   my ($self, $name, $style, $node) = @_;
 
+  my $shape = '';
+  $shape = ($node->attribute('shape') || '') if ref($node);
+ 
   # shape "none" or plaintext don't need a border
-  return (undef,undef) if 
-    (ref($node) && ($node->attribute('shape') ||'') =~ /^(none|invisible|img)\z/);
+  return (undef,undef) if $shape =~ /^(none|invisible|img)\z/;
 
   # valid styles are: solid dashed dotted bold invis
+
+  $style = '' unless defined $style;
 
   $style = 'dotted' if $style =~ /^dot-/;	# dot-dash, dot-dot-dash
   $style = 'dashed' if $style =~ /^double-/;	# double-dash
@@ -189,10 +212,13 @@ sub _graphviz_remap_border_style
   $style = 'setlinewidth(0)' if $style eq 'none';
   
   # default style can be suppressed
-  return (undef, undef) if $style eq 'solid';
+  return (undef, undef) if $style =~ /^(|solid)\z/ && $shape ne 'rounded';
 
   # for graphviz v2.4 and up
-  $style = 'filled, ' . $style;
+  $style = 'filled,'.$style;
+  $style = 'rounded,'.$style if $shape eq 'rounded';
+
+  $style =~ s/,\z//;		# "rounded," => "rounded"
 
   ('style', $style);
   }
@@ -229,7 +255,8 @@ sub _graphviz_remap_node_shape
   {
   my ($self, $name, $style) = @_;
 
-  return (undef,undef) if $style eq 'img';
+  # img needs no shape, and rounded is handled as style
+  return (undef,undef) if $style =~ /^(img|rounded)\z/;
 
   # valid styles are: solid dashed dotted bold invis
 
@@ -321,7 +348,7 @@ sub _generate_group_edge
     # find an arbitray node inside the group
     my ($n, $v) = each %{$from->{nodes}};
     
-    $a = 'lhead="cluster' . $from->{id}.'"';	# lhead=cluster0
+    $a = 'ltail="cluster' . $from->{id}.'"';	# ltail=cluster0
     $from = $v;
     }
 
@@ -330,7 +357,7 @@ sub _generate_group_edge
     # find an arbitray node inside the group
     my ($n, $v) = each %{$to->{nodes}};
     
-    $b = 'ltail="cluster' . $to->{id}.'"';	# ltail=cluster0
+    $b = 'lhead="cluster' . $to->{id}.'"';	# lhead=cluster0
     $to = $v;
     }
 
@@ -380,11 +407,16 @@ sub _generate_edge
   # if the edge has a shared start/end port
   if ($e->has_ports())
     {
-    # access the invisible node
-    my $sp = $e->start_port();
-    if (defined $sp)				# has strict port
+    my @edges = ();
+
+    my ($side,@port) = $e->port('start');
+    @edges = $e->{from}->edges_at_port('start',$side,@port) if defined $side;
+
+    if (@edges > 1)					# has strict port
       {
-      my $key = "\"invis,$e->{from}->{name},$sp,0\"";
+      # access the invisible node
+      my $sp = $e->port('start');
+      my $key = "\"invis,$e->{from}->{name},$sp\"";
       if (!exists $invis->{$key})
 	{
 	# create the invisible helper node
@@ -399,13 +431,17 @@ sub _generate_edge
 	  }
 	$invis->{$key} = undef;			# mark as output
 	}
-      # "Bonn,south,0,0"
+      # "Bonn,south,0"
       $first = $key;
       }
-    my $ep = $e->end_port();
-    if (defined $ep)				# has strict port
+
+    ($side,@port) = $e->port('end');
+    @edges = ();
+    @edges = $e->{from}->edges_at_port('end',$side,@port) if defined $side;
+    if (@edges > 1)
       {
-      my $key = "\"invis,$e->{to}->{name},$ep,0\"";
+      my $ep = $e->port('end');
+      my $key = "\"invis,$e->{to}->{name},$ep\"";
       if (!exists $invis->{$key})
 	{
 	# create the invisible helper node
@@ -420,7 +456,7 @@ sub _generate_edge
 	  }
 	$invis->{$key} = undef;			# mark as output
 	}
-      # "Bonn,south,0,0"
+      # "Bonn,south,0"
       $other = $key;
       }
     }
@@ -513,14 +549,11 @@ sub _as_graphviz
     # output group attributes first
     $txt .= "  subgraph \"cluster$group->{id}\" {\n${indent}label=\"$name\";\n";
    
-#    print STDERR " class: ", $group->class(), " att: ", $group->{att}, "\n";
-
     # make a copy of the attributes
     my $copy = {};
     for my $a (keys %{$group->{att}})
       {
       $copy->{$a} = $group->{att}->{$a};
-      print "$a\n";
       }
     # set some defaults
     $copy->{'border-style'} = 'solid' unless defined $copy->{'border-style'};

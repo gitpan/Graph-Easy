@@ -9,7 +9,7 @@ package Graph::Easy::Parser;
 use Graph::Easy;
 use Graph::Easy::Base;
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -32,6 +32,14 @@ sub _init
       }
     $self->{$k} = $args->{$k};
     }
+
+  # setup default class names for generated objects
+  $self->{use_class} = {
+    edge => 'Graph::Easy::Edge',
+    group => 'Graph::Easy::Group',
+    graph => 'Graph::Easy',
+    node => 'Graph::Easy::Node',
+  };
 
   $self;
   }
@@ -78,6 +86,19 @@ sub from_file
   $self->from_text($doc);
   }
 
+sub use_class
+  {
+  # use the provided class for generating objects of the type $object
+  my ($self, $object, $class) = @_;
+
+  $self->_croak("Expected one of node, edge, group or graph, but got $object")
+    unless $object =~ /^(node|group|graph|edge)\z/;
+
+  $self->{use_class}->{$object} = $class;
+
+  $self;  
+  }
+
 sub from_text
   {
   my ($self,$txt) = @_;
@@ -86,15 +107,22 @@ sub from_text
 
   $self->reset();
 
-  $self->{graph} = Graph::Easy->new( { debug => $self->{debug}, strict => 0 } );
+  $self->{graph} = $self->{use_class}->{graph}->new( { debug => $self->{debug}, strict => 0 } );
   my $graph = $self->{graph};
+ 
+  my $uc = $self->{use_class};
+
+  # instruct the graph to use the custom classes, too
+  for my $o (keys %$uc)
+    {
+    $graph->use_class($o, $uc->{$o}) unless $o eq 'graph';	# group, node and edge
+    }
 
   return $graph if !defined $txt || $txt =~ /^\s*\z/;		# empty text?
 
   my @lines = split /\n/, $txt;
 
-  my $e = 'Graph::Easy::Edge';
-  my $g = 'Graph::Easy::Group';
+  my $e = $uc->{edge};
 
   # regexps for the different parts
   my $qr_node = _match_node();
@@ -180,13 +208,7 @@ sub from_text
       # unquote special chars
       $gn =~ s/\\([\[\(\{\}\]\)#\|])/$1/g;
 
-      my $group = $graph->group ($gn);
-      if (!defined $group)
-        {
-        $group = $g->new( { name => $gn } );
-        $graph->add_group ($group);
-        }
-      push @group_stack, $group;
+      push @group_stack, $graph->add_group($gn);
 
       $line =~ s/^$qr_group_start/\[/;
       }
@@ -352,13 +374,7 @@ sub from_text
       # unquote special chars in group name
       $gn =~ s/\\([\[\(\{\}\]\)#\|])/$1/g;
 
-      my $group = $graph->group ($gn);
-      if (!defined $group)
-        {
-        $group = $g->new( { name => $gn } );
-        $graph->add_group ($group);
-        }
-      @group_stack = ($group);
+      @group_stack = ( $graph->add_group( $gn) );
 
       # strip trailing spaces
       $edge_label =~ s/\s+\z//;
@@ -421,12 +437,14 @@ sub _link_lists
   $style = 'wave' if $ed =~ /^\~+\z/; 
   $style = 'bold' if $ed =~ /^#+\z/; 
 
+  my $e = $self->{use_class}->{edge};
+
   # add edges for all nodes in the left list
   for my $node (@$left)
     {
     for my $node_b (@$right)
       {
-      my $edge = Graph::Easy::Edge->new( { style => $style, name => $label } );
+      my $edge = $e->new( { style => $style, name => $label } );
       $edge->set_attributes($edge_atr);
       # "<--->": bidirectional
       $edge->bidirectional(1) if $edge_bd;
@@ -455,15 +473,16 @@ sub _new_node
   $name =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
   my $autosplit;
+  my $uc = $self->{use_class};
 
   my @rc = ();
 
   if ($name eq '')
     {
     print STDERR "# Parser: Creating anon node\n" if $graph->{debug};
-
     # create a new anon node and add it to the graph
-    my $node = Graph::Easy::Node::Anon->new();
+    my $class = $uc->{node} . '::Anon';
+    my $node = $class->new();
     @rc = ( $graph->add_node($node) );
     }
   elsif ($name =~ /[^\\]\|/)
@@ -481,6 +500,8 @@ sub _new_node
 
     # strip trailing spaces on basename
     $base_name =~ s/\s+\z//;
+
+    my $first_in_row;			# for relative placement of new row
 
     # first one gets: "ABC", second one "ABC.1" and so on
     # Try to find a unique cluster name in case some one get's creative and names the
@@ -504,7 +525,7 @@ sub _new_node
     $self->{clusters}->{$base_name} = undef;	# reserve this name
 
     my $x = 0; my $y = 0; my $idx = 0;
-    my $remaining = $name; my $sep;
+    my $remaining = $name; my $sep; my $last_sep = '';
     while ($remaining ne '')
       {
       # XXX TODO: parsing of "\|" and "|" in one node
@@ -512,11 +533,11 @@ sub _new_node
       my $part = $1 || '';
       $sep = $2;
 
-      my $class = "Graph::Easy::Node";
+      my $class = $uc->{node};
       if ($part eq ' ')
         {
         # create an empty node with no border
-        $class = "Graph::Easy::Node::Empty";
+        $class .= "::Empty";
         }
       elsif ($part =~ /^0x20{2,}\z/)
         {
@@ -531,20 +552,27 @@ sub _new_node
 
       my $node_name = "$base_name.$idx";
 
+      if ($graph->{debug})
+	{
+        my $empty = '';
+        $empty = ' empty' if $class ne $self->{use_class}->{node};
+        print STDERR "# Parser:  Creating$empty autosplit part '$part'\n" if $graph->{debug};
+	}
+
       # if it doesn't exist, add it, otherwise retrieve node object to $node
-      my $node;
-      if ($class eq 'Graph::Easy::Node')
-        { 
-        print STDERR "# Parser:  Creating autosplit part '$part'\n" if $graph->{debug};
-        $node = $graph->add_node($node_name);
-        $node->set_attribute('label', $part);
-        }
-      else
+      if ($class =~ /::Empty/)
         {
-        print STDERR "# Parser:  Creating empty autosplit part '$part'\n" if $graph->{debug};
-        $node = $class->new( $node_name ); $graph->add_node($node);
-        $node->set_attribute('label', $part);
+        my $node = $graph->node($node_name);
+        if (!defined $node)
+	  {
+	  # create node object from the correct class
+	  $node = $class->new($node_name);
+          $graph->add_node($node);
+	  }
         }
+
+      my $node = $graph->add_node($node_name);
+      $node->{autosplit_label} = $part;
 
       push @rc, $node;
       if (@rc == 1)
@@ -552,11 +580,21 @@ sub _new_node
         # for correct as_txt output
         $node->{autosplit} = $name;
         $node->{autosplit} =~ s/\s+\z//;		# strip trailing spaces
+        $node->set_attribute('basename', $att->{basename}) if defined $att->{basename};
+	$first_in_row = $node;
         }
       else
         {
-	# second, third etc get first as origin 
-        $node->relative_to($rc[0],$x,$y);
+	# second, third etc get previous as origin
+        my ($sx,$sy) = (1,0);
+	my $origin = $rc[-2];
+        if ($last_sep eq '||')
+          {
+	  ($sx,$sy) = (0,1); $origin = $first_in_row;
+          $first_in_row = $node;
+          } 
+        $node->relative_to($origin,$sx,$sy);
+
 	# suppress as_txt output for other parts
         $node->{autosplit} = undef;
         }	
@@ -564,8 +602,7 @@ sub _new_node
       $node->{autosplit_xy} = "$x,$y";
 
       $idx++;						# next node ID
-
-      } continue {
+      $last_sep = $sep;
       $x++;
       # || starts a new row:
       if ($sep eq '||')
@@ -924,8 +961,9 @@ Please see the manual for a full description of the syntax rules.
 
 =head2 Output
 
-The output will be a L<Graph::Easy|Graph::Easy> object, see there for what you
-can do with it.
+The output will be a L<Graph::Easy|Graph::Easy> object (unless overrriden
+with C<use_class()>), see the documentation for Graph::Easy what you can do
+with it.
 
 =head1 EXAMPLES
 
@@ -952,6 +990,69 @@ when set to true it will enable debug output to STDERR:
 
 Reset the status of the parser, clear errors etc. Automatically called
 when you call any of the C<from_XXX()> methods below.
+
+=head2 use_class()
+
+	$parser->use_class('node', 'Graph::Easy::MyNode');
+
+Override the class to be used to constructs objects while parsing. The
+first parameter can be one of the following:
+
+	node
+	edge
+	graph
+	group
+
+The second parameter should be a class that is a subclass of the
+appropriate base class:
+
+	package Graph::Easy::MyNode;
+
+	use Graph::Easy::Node;
+	use base qw/Graph::Easy::Node/;
+
+	# override here methods for your node class
+
+	######################################################
+	# when overriding nodes, we also need ::Anon
+
+	package Graph::Easy::MyNode::Anon;
+
+	use Graph::Easy::MyNode;
+	use base qw/Graph::Easy::MyNode/;
+	use base qw/Graph::Easy::Node::Anon/;
+
+	######################################################
+	# and :::Empty
+
+	package Graph::Easy::MyNode::Empty;
+
+	use Graph::Easy::MyNode;
+	use base qw/Graph::Easy::MyNode/;
+
+	######################################################
+	package main;
+	
+	use Graph::Easy::Parser;
+	use Graph::Easy;
+
+	use Graph::Easy::MyNode;
+	use Graph::Easy::MyNode::Anon;
+	use Graph::Easy::MyNode::Empty;
+
+	my $parser = Graph::Easy::Parser;
+
+	$parser->use_class('node', 'Graph::Easy::MyNode');
+
+	my $graph = $parser->from_text(...);
+
+The object C<$graph> will now contain nodes that are of your
+custom class instead of plain C<Graph::Easy::Node>.
+
+When overriding nodes, you also should provide subclasses
+for C<Graph::Easy::Node::Anon> and C<Graph::Easy::Node::Empty>,
+and make these subclasses of your custom node class as shown
+above. For edges, groups and graphs, you need just one subclass.
 
 =head2 from_text()
 

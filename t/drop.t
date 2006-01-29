@@ -37,7 +37,7 @@ $graph->merge_nodes('Bonn', 'Berlin');
 
 my $result = $first . "\n" . $graph->as_boxart();
 
-my $expected = readfile('stress/drop_result.txt');
+my $expected = readfile('out/drop_result.txt');
 
 is ($result, $expected, 'dropping a node works');
 

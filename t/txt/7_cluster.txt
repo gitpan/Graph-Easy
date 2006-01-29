@@ -1,2 +1,1 @@
-[ A | BCD | E | F ||  G |     | H ] { label: A; }
-
+[ A | BCD | E | F ||  G |     | H ]

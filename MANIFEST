@@ -1,45 +1,59 @@
-CHANGES
-INSTALL
-Makefile.PL
-MANIFEST
-LICENSE
-README
-SIGNATURE
-TODO
-examples/common.pl		generate example graphs
-examples/ascii.pl		examples as ASCII
-examples/html.pl		examples as HTML
-examples/syntax.pl		syntax tests
-examples/syntax.tpl		HTML template for syntax tests
-examples/parse			parser for tests
-examples/base.css		needed for the output of syntax.pl
-examples/history.txt		test-graph for version comparisations
-examples/fun.tpl
-examples/as_graphviz		parse text and output as graphviz
-examples/as_svg			parse text and output as standalone SVG
-examples/as_ascii		parse text and output it as ASCII art
-examples/as_boxart		parse text and output it as box drawing using unicode
-examples/as_boxart_html		parse text and output it as standalone HTML page with box drawing
-examples/as_html		parse text and output it as standalone HTML page
-examples/as_txt			parse text and output as text again
-examples/complex.txt		a complex example
-todos/autosplit.txt
-todos/layouter_loop.txt
-todos/layouter_loop_2.txt
-todos/6_cluster.txt
-todos/hash.txt
-todos/cluster.txt
-todos/chain.txt
-todos/tree2.txt
 bench/bench.pl
 bench/serie.pl
+bench/stress.pl
 bench/test.dot
 bench/test.txt
+CHANGES
+examples/as_ascii		parse text and output it as ASCII art
+examples/as_boxart_html		parse text and output it as standalone HTML page with box drawing
+examples/as_boxart		parse text and output it as box drawing using unicode
+examples/ascii.pl		examples as ASCII
+examples/as_graphviz		parse text and output as graphviz
+examples/as_html		parse text and output it as standalone HTML page
+examples/as_svg			parse text and output as standalone SVG
+examples/as_txt			parse text and output as text again
+examples/base.css		needed for the output of syntax.pl
+examples/common.pl		generate example graphs
+examples/complex.txt		a complex example
+examples/fun.tpl
+examples/history.txt		test-graph for version comparisations
+examples/html.pl		examples as HTML
+examples/parse			parser for tests
+examples/syntax.pl		syntax tests
+examples/syntax.tpl		HTML template for syntax tests
+INSTALL
+lib/Graph/Easy/As_ascii.pm		generate ASCII art
+lib/Graph/Easy/As_graphviz.pm		generate graphviz text
+lib/Graph/Easy/As_txt.pm		generate textual description
+lib/Graph/Easy/Attributes.pm		define and check attributes
+lib/Graph/Easy/Base.pm			OO base class
+lib/Graph/Easy/Edge/Cell.pm
+lib/Graph/Easy/Edge.pm
+lib/Graph/Easy/Group/Cell.pm
+lib/Graph/Easy/Group.pm
+lib/Graph/Easy/Layout/Chain.pm		a chain of nodes
+lib/Graph/Easy/Layout/Grid.pm		prepare layout
+lib/Graph/Easy/Layout/Path.pm		path management
+lib/Graph/Easy/Layout/Repair.pm		group cells splicing/repair code
+lib/Graph/Easy/Layout.pm		actual layout routines
+lib/Graph/Easy/Layout/Scout.pm		pathfinding (including A*)
+lib/Graph/Easy/Node/Anon.pm
+lib/Graph/Easy/Node/Cell.pm
+lib/Graph/Easy/Node/Empty.pm		empty parts of a cluster
+lib/Graph/Easy/Node.pm
+lib/Graph/Easy/Parser.pm		parse textual descriptions
+lib/Graph/Easy.pm
+LICENSE
+Makefile.PL
+MANIFEST
+META.yml				Module meta-data
+README
+SIGNATURE
 t/anon.t
-t/attributes.t
 t/ascii.t
-t/as_txt.t
 t/astar.t
+t/as_txt.t
+t/attributes.t
 t/base.t
 t/boxart.t
 t/cell.t
@@ -47,27 +61,266 @@ t/chain.t
 t/cluster.t
 t/delete.t			test deletion of nodes/edges
 t/drop.t
+t/easypm.t
+t/edge_cell.t
+t/edge.t
 t/fb.t
+t/fun/0000.txt			fun with graph examples
+t/fun/0010.txt
+t/fun/0011.txt
+t/fun/0020.txt
+t/fun/0030.txt
+t/fun/0131.txt
+t/fun/0200.txt
+t/fun/biofuel.txt
 t/graph.t
 t/graphviz.t
-t/easypm.t
-t/edge.t
-t/edge_cell.t
+t/group/0010.txt
+t/group/0131.txt
+t/group/0230.txt
 t/group.t
 t/html.t			HTML output
+t/in/10borders.txt
+t/in/18_multiples.txt
+t/in/1_bidi_loop.txt
+t/in/1node.txt
+t/in/1_selfloop_2.txt
+t/in/1_selfloop_label.txt
+t/in/1_selfloop.txt
+t/in/1_undirected_loop.txt
+t/in/2_autolabel.txt
+t/in/2_autosplit_empty.txt
+t/in/2_bidi_astar.txt
+t/in/2_bidi_endpoint.txt
+t/in/2_cluster_2.txt
+t/in/2_cluster_3.txt
+t/in/2_cluster.txt
+t/in/2_dot_dot_dash.txt
+t/in/2_edges.txt
+t/in/2_flow.txt
+t/in/2_graph_label.txt
+t/in/2_group_no_border.txt
+t/in/2_group.txt
+t/in/2_invisible_left.txt
+t/in/2_invisible_right.txt
+t/in/2_label.txt
+t/in/2_list_attr.txt
+t/in/2_long_labels.txt
+t/in/2_newlines.txt
+t/in/2nodes.txt
+t/in/2_selfloop_flow_down.txt
+t/in/2_selfloop.txt
+t/in/2_zeros.txt
+t/in/2_group_multicell.txt
+t/in/3_autosplit_hang.txt
+t/in/3_bend_bug.txt
+t/in/3_cluster.txt
+t/in/3_edge_repair.txt
+t/in/3_empty_group.txt
+t/in/3_group_align_center.txt
+t/in/3_invisible_both.txt
+t/in/3_invisible.txt
+t/in/3_joining.txt
+t/in/3_list_attr.txt
+t/in/3_lists.txt
+t/in/3_nodes_5_edges.txt
+t/in/3nodes.txt
+t/in/3_selfloop_flip.txt
+t/in/3_selfloop_flow_down.txt
+t/in/3_selfloop_flow_left.txt
+t/in/3_selfloop_flow_up.txt
+t/in/3_selfloop.txt
+t/in/4_2x2nodes.txt
+t/in/4_att.txt
+t/in/4_autosplit_class.txt
+t/in/4_autosplit_empty.txt
+t/in/4_autosplit_offset.txt
+t/in/4_bend_bug.txt
+t/in/4_comma.txt
+t/in/4_cross.txt
+t/in/4_edge_cross.txt
+t/in/4_edge_labels.txt
+t/in/4_edge_types.txt
+t/in/4_endless_loop_2.txt
+t/in/4_endless_loop.txt
+t/in/4_flow.txt
+t/in/4groups_class.txt
+t/in/4groups.txt
+t/in/4_list_attr.txt
+t/in/4_lists.txt
+t/in/4_minlen.txt
+t/in/4_near.txt
+t/in/4_nodes_5_edges.txt
+t/in/4_nodes_6_edges.txt
+t/in/4nodes.txt
+t/in/5_arrow_styles.txt
+t/in/5_a-star_bug.txt
+t/in/5_group_split.txt
+t/in/5_offsets_2.txt
+t/in/5_offsets.txt
+t/in/5_rounded.txt
+t/in/5_tree_joint.txt
+t/in/6_autosplit_class.txt
+t/in/6_chain_10_edges.txt
+t/in/6_chained.txt
+t/in/6_fanout.txt
+t/in/6_multicell_offset.txt
+t/in/6_multicell.txt
+t/in/7_cluster.txt
+t/in/7_star.txt
+t/in/7_tree.txt
+t/in/8_align.txt
+t/in/8_basename.txt
+t/in/8_chain.txt
+t/in/8_endless_loop.txt
+t/in/8_flow.txt
+t/in/8_invisible.txt
+t/in/8_labels.txt
+t/in/8_points.txt
+t/in/9_chain.txt
+t/in/9_cross.txt
+t/in/README
 t/layers.t
-t/layout.t
+t/layouter/edge_label.txt
+t/layouter/layouter_chain.txt
+t/layouter/layouter_loop.txt
+t/layouter/layouter.txt
+t/layouter/multiples.txt
+t/layouter/state.txt
 t/layouter.t
-t/node.t
+t/layout.t
 t/node_mc.t
-t/path.t
-t/parser.t			general parser tests
+t/node.t
+TODO
+todos/6_cluster.txt
+todos/autosplit.txt
+todos/chain.txt
+todos/cluster.txt
+todos/hash.txt
+todos/layouter_loop_2.txt
+todos/layouter_loop.txt
+todos/tree2.txt
+t/out/10borders.txt
+t/out/18_multiples.txt
+t/out/1_bidi_loop.txt
+t/out/1node.txt
+t/out/1_selfloop_2.txt
+t/out/1_selfloop_label.txt
+t/out/1_selfloop.txt
+t/out/1_undirected_loop.txt
+t/out/2_autolabel.txt
+t/out/2_autosplit_empty.txt
+t/out/2_bidi_astar.txt
+t/out/2_bidi_endpoint.txt
+t/out/2_cluster_2.txt
+t/out/2_cluster_3.txt
+t/out/2_cluster.txt
+t/out/2_dot_dot_dash.txt
+t/out/2_edges.txt
+t/out/2_flow.txt
+t/out/2_graph_label.txt
+t/out/2_group_no_border.txt
+t/out/2_group.txt
+t/out/2_invisible_left.txt
+t/out/2_invisible_right.txt
+t/out/2_label.txt
+t/out/2_list_attr.txt
+t/out/2_long_labels.txt
+t/out/2_newlines.txt
+t/out/2_nodes_inv.txt
+t/out/2nodes.txt
+t/out/2_selfloop_flow_down.txt
+t/out/2_selfloop.txt
+t/out/2_zeros.txt
+t/out/2_group_multicell.txt
+t/out/3_autosplit_hang.txt
+t/out/3_bend_bug.txt
+t/out/3_cluster.txt
+t/out/3_edge_repair.txt
+t/out/3_empty_group.txt
+t/out/3_group_align_center.txt
+t/out/3_invisible_both.txt
+t/out/3_invisible.txt
+t/out/3_joining.txt
+t/out/3_list_attr.txt
+t/out/3_lists.txt
+t/out/3_nodes_5_edges.txt
+t/out/3nodes.txt
+t/out/3_selfloop_flip.txt
+t/out/3_selfloop_flow_down.txt
+t/out/3_selfloop_flow_left.txt
+t/out/3_selfloop_flow_up.txt
+t/out/3_selfloop.txt
+t/out/4_2x2nodes.txt
+t/out/4_att.txt
+t/out/4_autosplit_class.txt
+t/out/4_autosplit_empty.txt
+t/out/4_autosplit_offset.txt
+t/out/4_bend_bug.txt
+t/out/4_comma.txt
+t/out/4_cross.txt
+t/out/4_edge_cross.txt
+t/out/4_edge_labels.txt
+t/out/4_edge_types.txt
+t/out/4_endless_loop_2.txt
+t/out/4_endless_loop.txt
+t/out/4_flow.txt
+t/out/4groups_class.txt
+t/out/4groups.txt
+t/out/4_list_attr.txt
+t/out/4_lists.txt
+t/out/4_minlen.txt
+t/out/4_near.txt
+t/out/4_nodes_5_edges.txt
+t/out/4_nodes_6_edges.txt
+t/out/4nodes.txt
+t/out/5_arrow_styles.txt
+t/out/5_a-star_bug.txt
+t/out/5_group_split.txt
+t/out/5_offsets_2.txt
+t/out/5_offsets.txt
+t/out/5_rounded.txt
+t/out/5_tree_joint.txt
+t/out/6_autosplit_class.txt
+t/out/6_chain_10_edges.txt
+t/out/6_chained.txt
+t/out/6_fanout.txt
+t/out/6_multicell_offset.txt
+t/out/6_multicell.txt
+t/out/7_cluster.txt
+t/out/7_star.txt
+t/out/7_tree.txt
+t/out/8_align.txt
+t/out/8_basename.txt
+t/out/8_chain.txt
+t/out/8_endless_loop.txt
+t/out/8_flow.txt
+t/out/8_invisible.txt
+t/out/8_labels.txt
+t/out/8_points.txt
+t/out/9_chain.txt
+t/out/9_cross.txt
+t/out/drop_result.txt
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
-t/pod.t				test the POD for correctness
+t/parser.t			general parser tests
+t/path.t
 t/pod_cov.t			test the POD for covering all subroutines
+t/pod.t				test the POD for correctness
 t/re_layout.t			test forcing a relayout/recalc
 t/split.t			[ A | B | C ] || [ D | E | F ] tests
+t/stress/0001.txt		stress-testing the layouter
+t/stress/0002.txt
+t/stress/0003.txt
+t/stress/0004.txt
+t/stress/0005.txt
+t/stress/0006.txt
+t/stress/0010.txt
+t/stress/0011.txt
+t/stress/0012.txt
+t/stress/0020.txt
+t/stress/anon.txt
+t/stress/drop.txt
 t/syntax/0000.txt		syntax tests for the parser
 t/syntax/0001.txt
 t/syntax/0002.txt
@@ -108,300 +361,79 @@ t/syntax/0250.txt
 t/syntax/0251.txt
 t/syntax/0252.txt
 t/syntax/0254.txt
-t/stress/0001.txt		stress-testing the layouter
-t/stress/0002.txt
-t/stress/0003.txt
-t/stress/0004.txt
-t/stress/0005.txt
-t/stress/0006.txt
-t/stress/0010.txt
-t/stress/0011.txt
-t/stress/0012.txt
-t/stress/0020.txt
-t/stress/drop.txt
-t/stress/drop_result.txt
-t/stress/anon.txt
-t/layouter/edge_label.txt
-t/layouter/layouter_chain.txt
-t/layouter/layouter_loop.txt
-t/layouter/layouter.txt
-t/layouter/multiples.txt
-t/layouter/state.txt
-t/fun/0000.txt			fun with graph examples
-t/fun/0010.txt
-t/fun/0011.txt
-t/fun/0020.txt
-t/fun/0030.txt
-t/fun/0131.txt
-t/fun/0200.txt
-t/fun/biofuel.txt
-t/in/1node.txt
-t/in/1_selfloop.txt
-t/in/1_selfloop_label.txt
-t/in/1_selfloop_2.txt
-t/in/1_undirected_loop.txt
-t/in/1_bidi_loop.txt
-t/in/2_autolabel.txt
-t/in/2_bidi_astar.txt
-t/in/2_bidi_endpoint.txt
-t/in/2nodes.txt
-t/in/2_cluster.txt
-t/in/2_cluster_2.txt
-t/in/2_cluster_3.txt
-t/in/2_dot_dot_dash.txt
-t/in/2_flow.txt
-t/in/2_selfloop.txt
-t/in/2_selfloop_flow_down.txt
-t/in/2_edges.txt
-t/in/2_label.txt
-t/in/2_long_labels.txt
-t/in/2_graph_label.txt
-t/in/2_group.txt
-t/in/2_group_no_border.txt
-t/in/2_zeros.txt
-t/in/2_autosplit_empty.txt
-t/in/2_list_attr.txt
-t/in/2_invisible_left.txt
-t/in/2_invisible_right.txt
-t/in/2_newlines.txt
-t/in/3_autosplit_hang.txt
-t/in/3_empty_group.txt
-t/in/3nodes.txt
-t/in/3_nodes_5_edges.txt
-t/in/3_cluster.txt
-t/in/3_selfloop.txt
-t/in/3_selfloop_flip.txt
-t/in/3_selfloop_flow_left.txt
-t/in/3_selfloop_flow_down.txt
-t/in/3_selfloop_flow_up.txt
-t/in/3_bend_bug.txt
-t/in/3_invisible_both.txt
-t/in/3_invisible.txt
-t/in/3_lists.txt
-t/in/3_list_attr.txt
-t/in/3_joining.txt
-t/in/4_bend_bug.txt
-t/in/4_autosplit_offset.txt
-t/in/4_att.txt
-t/in/4nodes.txt
-t/in/4_nodes_5_edges.txt
-t/in/4_nodes_6_edges.txt
-t/in/4_2x2nodes.txt
-t/in/4_list_attr.txt
-t/in/4_lists.txt
-t/in/4_flow.txt
-t/in/4groups.txt
-t/in/4groups_class.txt
-t/in/4_edge_labels.txt
-t/in/4_edge_cross.txt
-t/in/4_near.txt
-t/in/4_edge_types.txt
-t/in/4_cross.txt
-t/in/4_endless_loop.txt
-t/in/4_endless_loop_2.txt
-t/in/4_comma.txt
-t/in/5_arrow_styles.txt
-t/in/5_offsets.txt
-t/in/5_offsets_2.txt
-t/in/5_a-star_bug.txt
-t/in/5_group_split.txt
-t/in/5_tree_joint.txt
-t/in/6_chained.txt
-t/in/6_chain_10_edges.txt
-t/in/6_multicell.txt
-t/in/6_multicell_offset.txt
-t/in/6_fanout.txt
-t/in/7_cluster.txt
-t/in/7_star.txt
-t/in/7_tree.txt
-t/in/8_basename.txt
-t/in/8_chain.txt
-t/in/8_points.txt
-t/in/8_labels.txt
-t/in/8_endless_loop.txt
-t/in/8_flow.txt
-t/in/9_chain.txt
-t/in/9_cross.txt
-t/in/10borders.txt
-t/in/18_multiples.txt
-t/in/README
-t/out/10borders.txt
-t/out/1node.txt
-t/out/1_selfloop.txt
-t/out/1_selfloop_label.txt
-t/out/1_selfloop_2.txt
-t/out/1_bidi_loop.txt
-t/out/1_undirected_loop.txt
-t/out/2_autolabel.txt
-t/out/2_bidi_astar.txt
-t/out/2_bidi_endpoint.txt
-t/out/2nodes.txt
-t/out/2_flow.txt
-t/out/2_selfloop.txt
-t/out/2_selfloop_flow_down.txt
-t/out/2_nodes_inv.txt
-t/out/2_edges.txt
-t/out/2_cluster.txt
-t/out/2_cluster_2.txt
-t/out/2_cluster_3.txt
-t/out/2_dot_dot_dash.txt
-t/out/2_invisible_left.txt
-t/out/2_invisible_right.txt
-t/out/2_newlines.txt
-t/out/2_label.txt
-t/out/2_long_labels.txt
-t/out/2_graph_label.txt
-t/out/2_group.txt
-t/out/2_group_no_border.txt
-t/out/2_zeros.txt
-t/out/2_autosplit_empty.txt
-t/out/3_autosplit_hang.txt
-t/out/3_bend_bug.txt
-t/out/3_empty_group.txt
-t/out/3nodes.txt
-t/out/3_cluster.txt
-t/out/3_selfloop.txt
-t/out/3_selfloop_flip.txt
-t/out/3_selfloop_flow_left.txt
-t/out/3_selfloop_flow_down.txt
-t/out/3_selfloop_flow_up.txt
-t/out/3_invisible_both.txt
-t/out/3_invisible.txt
-t/out/3_nodes_5_edges.txt
-t/out/4_bend_bug.txt
-t/out/4_autosplit_offset.txt
-t/out/4_att.txt
-t/out/4_cross.txt
-t/out/4_comma.txt
-t/out/4_flow.txt
-t/out/4nodes.txt
-t/out/4_2x2nodes.txt
-t/out/4groups.txt
-t/out/4groups_class.txt
-t/out/4_near.txt
-t/out/4_nodes_5_edges.txt
-t/out/4_nodes_6_edges.txt
-t/out/4_edge_types.txt
-t/out/4_edge_cross.txt
-t/out/4_edge_labels.txt
-t/out/4_endless_loop.txt
-t/out/4_endless_loop_2.txt
-t/out/2_list_attr.txt
-t/out/3_lists.txt
-t/out/3_list_attr.txt
-t/out/3_joining.txt
-t/out/4_list_attr.txt
-t/out/4_lists.txt
-t/out/5_arrow_styles.txt
-t/out/5_offsets.txt
-t/out/5_offsets_2.txt
-t/out/5_a-star_bug.txt
-t/out/5_group_split.txt
-t/out/5_tree_joint.txt
-t/out/6_chained.txt
-t/out/6_chain_10_edges.txt
-t/out/6_multicell.txt
-t/out/6_multicell_offset.txt
-t/out/6_fanout.txt
-t/out/7_cluster.txt
-t/out/7_star.txt
-t/out/7_tree.txt
-t/out/8_basename.txt
-t/out/8_points.txt
-t/out/8_chain.txt
-t/out/8_labels.txt
-t/out/8_endless_loop.txt
-t/out/8_flow.txt
-t/out/9_chain.txt
-t/out/9_cross.txt
-t/out/18_multiples.txt
+t/txt/10borders.txt
+t/txt/18_multiples.txt
 t/txt/1_undirected_loop.txt
 t/txt/2_autolabel.txt
 t/txt/2_autosplit_empty.txt
-t/txt/2_cluster.txt
 t/txt/2_cluster_2.txt
 t/txt/2_cluster_3.txt
+t/txt/2_cluster.txt
+t/txt/2_dot_dot_dash.txt
+t/txt/2_graph_label.txt
+t/txt/2_group_no_border.txt
+t/txt/2_group.txt
 t/txt/2_invisible_left.txt
 t/txt/2_invisible_right.txt
-t/txt/2_newlines.txt
-t/txt/2_graph_label.txt
-t/txt/2_group.txt
-t/txt/2_group_no_border.txt
-t/txt/2_zeros.txt
-t/txt/2_dot_dot_dash.txt
 t/txt/2_label.txt
 t/txt/2_list_attr.txt
+t/txt/2_newlines.txt
+t/txt/2_zeros.txt
+t/txt/2_group_multicell.txt
+t/txt/3_autosplit_hang.txt
+t/txt/3_cluster.txt
+t/txt/3_edge_repair.txt
+t/txt/3_empty_group.txt
+t/txt/3_group_align_center.txt
 t/txt/3_invisible_both.txt
 t/txt/3_invisible.txt
-t/txt/3_cluster.txt
-t/txt/3_empty_group.txt
-t/txt/3_nodes_5_edges.txt
-t/txt/3_selfloop.txt
-t/txt/3_selfloop_flip.txt
-t/txt/3_nodes_5_edges.txt
-t/txt/3_autosplit_hang.txt
-t/txt/3_lists.txt
 t/txt/3_list_attr.txt
-t/txt/4_autosplit_offset.txt
-t/txt/4groups.txt
-t/txt/4groups_class.txt
-t/txt/4_near.txt
-t/txt/4_comma.txt
+t/txt/3_lists.txt
+t/txt/3_nodes_5_edges.txt
+t/txt/3_selfloop_flip.txt
+t/txt/3_selfloop.txt
 t/txt/4_2x2nodes.txt
-t/txt/4_nodes_5_edges.txt
-t/txt/4_nodes_6_edges.txt
-t/txt/4_edge_labels.txt
-t/txt/4_edge_cross.txt
+t/txt/4_autosplit_class.txt
+t/txt/4_autosplit_empty.txt
+t/txt/4_autosplit_offset.txt
+t/txt/4_comma.txt
 t/txt/4_cross.txt
-t/txt/4_endless_loop.txt
+t/txt/4_edge_cross.txt
+t/txt/4_edge_labels.txt
 t/txt/4_endless_loop_2.txt
+t/txt/4_endless_loop.txt
 t/txt/4_flow.txt
+t/txt/4groups_class.txt
+t/txt/4groups.txt
 t/txt/4_list_attr.txt
 t/txt/4_lists.txt
+t/txt/4_minlen.txt
+t/txt/4_near.txt
+t/txt/4_nodes_5_edges.txt
+t/txt/4_nodes_6_edges.txt
 t/txt/5_arrow_styles.txt
-t/txt/5_offsets.txt
-t/txt/5_offsets_2.txt
 t/txt/5_group_split.txt
+t/txt/5_offsets_2.txt
+t/txt/5_offsets.txt
+t/txt/5_rounded.txt
 t/txt/5_tree_joint.txt
-t/txt/6_chained.txt
+t/txt/6_autosplit_class.txt
 t/txt/6_chain_10_edges.txt
-t/txt/6_multicell.txt
-t/txt/6_multicell_offset.txt
+t/txt/6_chained.txt
 t/txt/6_fanout.txt
+t/txt/6_multicell_offset.txt
+t/txt/6_multicell.txt
 t/txt/7_cluster.txt
-t/txt/7_tree.txt
 t/txt/7_star.txt
+t/txt/7_tree.txt
+t/txt/8_align.txt
 t/txt/8_basename.txt
 t/txt/8_chain.txt
-t/txt/8_points.txt
-t/txt/8_labels.txt
 t/txt/8_endless_loop.txt
 t/txt/8_flow.txt
+t/txt/8_invisible.txt
+t/txt/8_labels.txt
+t/txt/8_points.txt
 t/txt/9_chain.txt
 t/txt/9_cross.txt
-t/txt/10borders.txt
-t/txt/18_multiples.txt
-t/group/0010.txt
-t/group/0131.txt
-t/group/0230.txt
-lib/Graph/Easy.pm
-lib/Graph/Easy/As_ascii.pm		generate ASCII art
-lib/Graph/Easy/As_txt.pm		generate textual description
-lib/Graph/Easy/As_graphviz.pm		generate graphviz text
-lib/Graph/Easy/Attributes.pm		define and check attributes
-lib/Graph/Easy/Base.pm			OO base class
-lib/Graph/Easy/Edge.pm
-lib/Graph/Easy/Edge/Cell.pm
-lib/Graph/Easy/Group.pm
-lib/Graph/Easy/Group/Cell.pm
-lib/Graph/Easy/Layout.pm		actual layout routines
-lib/Graph/Easy/Layout/Scout.pm		pathfinding (including A*)
-lib/Graph/Easy/Layout/Path.pm		path management
-lib/Graph/Easy/Layout/Chain.pm		a chain of nodes
-lib/Graph/Easy/Layout/Grid.pm		prepare layout
-lib/Graph/Easy/Node.pm
-lib/Graph/Easy/Node/Anon.pm
-lib/Graph/Easy/Node/Cell.pm
-lib/Graph/Easy/Node/Empty.pm		empty parts of a cluster
-lib/Graph/Easy/Parser.pm		parse textual descriptions
-META.yml				Module meta-data
+t/use_class.t			test overriding classes in the Parser

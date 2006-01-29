@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 package Graph::Easy;
 
@@ -259,7 +259,7 @@ sub text_styles
 
 sub text_styles_as_css
   {
-  my $self = shift;
+  my ($self, $align, $fontsize) = @_;
 
   my $style = '';
   my $ts = $self->text_styles();
@@ -279,11 +279,25 @@ sub text_styles_as_css
     $style .= " text-decoration: $s;" if $s;
     }
 
-  # XXX TODO: this will needless include the font-size if set via
-  # "node { font-size: X }:
   my $fs = $self->attribute('font-size') || '';
 
+  # get the fonts-size from the class
+  if ($fontsize)
+    {
+    my $DEF = $self->default_attribute('font-size') || '';
+    $fs = '' unless $fs ne $DEF;
+    }
   $style .= " font-size: $fs;" if $fs;
+
+  my $al = $self->attribute('align') || '';
+  $al = 'left' if $al eq '' and $self->isa('Graph::Easy::Group::Cell');
+
+  if ($align)
+    {
+    my $DEF = $self->default_attribute('align') || 'center';
+    $al = '' unless $al ne $DEF;
+    }
+  $style .= " text-align: $al;" if $al;
 
   $style;
   }
@@ -537,6 +551,19 @@ sub _angle
   $angle;
   }
 
+sub _uint
+  {
+  # check a small unsigned integer for being valid
+  my ($self, $val) = @_;
+
+  return undef unless $val =~ /^\d+\z/;
+
+  $val = abs(int($val));
+  $val = 4 * 1024 if $val > 4 * 1024;
+
+  $val;
+  }
+
 sub split_border_attributes
   {
   # split "1px solid black" or "red dotted" into style, width and color
@@ -575,18 +602,22 @@ sub split_border_attributes
 # attribute checking
 
 # different types of attributes with pre-defined handling
-use constant ATTR_STRING	=> 0;
-use constant ATTR_COLOR		=> 1;
-use constant ATTR_ANGLE		=> 2;
-use constant ATTR_PORT		=> 3;
-use constant ATTR_URL		=> 4;
+use constant {
+  ATTR_STRING	=> 0,
+  ATTR_COLOR	=> 1,
+  ATTR_ANGLE	=> 2,
+  ATTR_PORT	=> 3,
+  ATTR_URL	=> 4,
+  ATTR_UINT	=> 5,		# a "small" unsigned integer
 
-use constant ATTR_DESC_SLOT	=> 0;
-use constant ATTR_MATCH_SLOT	=> 1;
-use constant ATTR_DEFAULT_SLOT	=> 2;
-use constant ATTR_EXAMPLE_SLOT	=> 3;
-use constant ATTR_TYPE_SLOT	=> 4;
+  ATTR_DESC_SLOT	=> 0,
+  ATTR_MATCH_SLOT	=> 1,
+  ATTR_DEFAULT_SLOT	=> 2,
+  ATTR_EXAMPLE_SLOT	=> 3,
+  ATTR_TYPE_SLOT	=> 4,
      
+  };
+
 # Lists the attribute names along with
 #   * a short description, 
 #   * regexp or sub name to match valid attributes
@@ -699,6 +730,15 @@ my $attributes = {
      undef,
      '',
      'My label',
+     ],
+
+    align => [
+     "The alignment of the label text.",
+     [ qw/center left right/ ],
+     'center',
+     'center for graph and nodes, left for groups and edge labels',
+     undef,
+     "graph { align: left; label: My Graph; }\nnode {align: left;}\n ( Nodes:\n [ Right\\nAligned ] { align: right; } -- label\\n text -->\n { align: left; }\n [ Left\\naligned ] )",
      ],
 
     linkbase => [
@@ -881,7 +921,7 @@ EOF
 
     style => [
       'The line style of the edge. When set on the general edge class, this attribute changes only the style of all solid edges to the specified one.',
-      [ qw/solid dotted dashed dot-dash dot-dot-dash bold bold-dash double-dash double wave broad wide/], # broad-dash wide-dash/ ],
+      [ qw/solid dotted dashed dot-dash dot-dot-dash bold bold-dash double-dash double wave broad wide invisible/], # broad-dash wide-dash/ ],
       'solid',
       'dotted',
       undef,
@@ -929,6 +969,15 @@ EOF
      'west',
      ATTR_PORT,
      "[ Bonn ] -- NORTH --> { start: south; end: east; } [ Berlin ]",
+     ],
+
+    minlen => [
+     'The minimum length of the edge, in cells. Defaults to 1, or 2 for edges with joints.',
+     undef,
+     '1',
+     '4',
+     ATTR_UINT,
+     "[ Bonn ] -- longer --> { minlen: 3; } [ Berlin ] [ Bonn ] --> [ Potsdam ] { origin: Bonn; offset: 2,2; }",
      ],
 
    }, # edge
@@ -989,6 +1038,7 @@ sub valid_attribute
 
   $check = 'color_as_hex' if $type == ATTR_COLOR;
   $check = '_angle' if $type == ATTR_ANGLE;
+  $check = '_uint' if $type == ATTR_UINT;
 
   my @values = ($value);
 
@@ -996,7 +1046,9 @@ sub valid_attribute
   # XXX TODO:
   # This will not work in case of mixed " $i \|\| 0| $a = 1;"
 
-  @values = split /\s*\|\s*/, $value if $value =~ /[^\\]\|/;
+  @values = split (/\s*\|\s*/, $value, -1) if $value =~ /(^|[^\\])\|/;
+
+  my $multiples = 0; $multiples = 1 if @values > 1;
 
   # check each part on it's own
   my @rc;
@@ -1024,7 +1076,7 @@ sub valid_attribute
     }
 
   # only one value ('green')
-  return $rc[0] if @rc == 1;
+  return $rc[0] unless $multiples;
 
   # multiple values ('green|red')
   \@rc;
@@ -1082,7 +1134,8 @@ sub _remap_attributes
          (exists $ra->{$atr} && !defined $ra->{$atr});
       }
     # suppress default attributes
-    next if defined $def->{$atr} && $val eq $def->{$atr};
+
+    next if defined $def->{$atr} && defined $val && $val eq $def->{$atr};
 
     if ($color_remap)
       {

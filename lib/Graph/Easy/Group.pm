@@ -5,10 +5,10 @@
 package Graph::Easy::Group;
 
 use Graph::Easy::Group::Cell;
-use Graph::Easy::Node;
+use Graph::Easy;
 
-@ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.11';
+@ISA = qw/Graph::Easy::Node Graph::Easy/;
+$VERSION = '0.12';
 
 use strict;
 
@@ -258,24 +258,64 @@ sub del_cell
   $self;
   }
 
-sub find_label_cell
+sub _find_label_cell
   {
   # go through all cells of this group and find one where to attach the label
   my $self = shift;
 
   my $g = $self->{graph};
 
-  my $lc;
+  my $align = $self->attribute('align') || 'left';
+
+  my $lc;						# the label cell
+
   for my $c (values %{$self->{cells}})
     {
-    # find a cell at the top-left corner
-    if ($c->{cell_class} =~ /^\s*gt\s*\z/)
+    # find a cell where to put the label
+    next unless $c->{cell_class} =~ /^\s*gt\s*\z/;
+
+    if (defined $lc)
       {
-      if (defined $lc)
-        {
-        next if $lc->{x} < $c->{x} || $lc->{y} < $c->{y};
-        }
-      $lc = $c;
+      if ($align eq 'left')
+	{
+	# find top-most, left-most cell
+	next if $lc->{x} < $c->{x} || $lc->{y} < $c->{y};
+	}
+      elsif ($align eq 'center')
+	{
+	# just find any top-most cell
+	next if $lc->{y} < $c->{y};
+	}
+      elsif ($align eq 'right')
+	{
+	# find top-most, right-most cell
+	next if $lc->{x} > $c->{x} || $lc->{y} < $c->{y};
+	}
+      }  
+    $lc = $c;
+    }
+
+  # find the the cell mostly near the center in the found top-row
+  if (ref($lc) && $align eq 'center')
+    {
+    my ($left, $right);
+    # find left/right most coordinates
+    for my $c (values %{$self->{cells}})
+      {
+      next if $c->{y} != $lc->{y};
+      $left = $c->{x} if !defined $left || $left > $c->{x};  
+      $right = $c->{x} if !defined $right || $right < $c->{x};
+      }
+    my $center = int(($right - $left) / 2 + $left);
+    my $min_dist;
+    # find the the cell mostly near the center in the found top-row
+    for my $c (values %{$self->{cells}})
+      {
+      next if $c->{y} != $lc->{y};
+      # squared to get rid of sign
+      my $dist = ($center - $c->{x}); $dist *= $dist;
+      next if defined $min_dist && $dist > $min_dist;
+      $min_dist = $dist; $lc = $c;
       }
     }
 
@@ -444,12 +484,12 @@ Clears the cells associated with this group.
 
 Returns the group as Graph::Easy textual description.
 
-=head2 find_label_cell()
+=head2 _find_label_cell()
 
-	$group->find_label_cell();
+	$group->_find_label_cell();
 
-Called by the layouter once for each group. Goes through all cells of this group and
-finds one where to attach the label to.
+Called by the layouter once for each group. Goes through all cells of this
+group and finds one where to attach the label to. Internal usage only.
 
 =head1 EXPORT
 

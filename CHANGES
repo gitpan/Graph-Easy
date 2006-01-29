@@ -1,5 +1,102 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-01-29 v0.40 Tels 1652 tests
+  * add attribute:
+    + "invisible" as edge style
+    + "minlen"	- for edges (minimum distance in cells)
+    + "align"	- alignment for graph, group, edge and node labels
+  * General:
+    + fix Makefile.PL to work with newer YAML
+    + avoid duplicate code when dealing with labels and dimensions
+    + empty attribute-parts on autosplit nodes work now:
+        [ A|B ] { class: |legend; }
+      will put B into class 'legend' and leave the class of A alone
+        [ A|B ] { class: legend|; }
+      will put A into class 'legend' and leave the class of B alone
+        [ A|B ] { class: legend; }
+      will put A *and* B into class 'legend'
+    + _class_styles(): use correct indent instead of hard-coded '  '
+  * Edge:
+    * start_port()/end_port(): + remove spaces to normalize result
+      + return list in list context
+  * Node:
+    + add nodes_sharing_end(), is_anon()
+    + remove place() from public API (is now _do_place())  
+    + allow spaces in set_attribute('size', '9 , 8')
+  * Node::Cell:
+    + add a group() method to make things like $cell->group() easier
+  * Group:
+    + is also a Graph::Easy, to inherit from it (for nesting)
+    + find right-most cell for label if "align: right"
+    + rename find_label_cell() to _find_label_cell() (is internal use only)
+  * Graph:
+    + add use_class(), and use it instead of hard-coded class names
+    + due to bad caching, one couldn't set the node size as class-attribute
+    + weaken() is costly and O(N), so avoid it whenever possible.
+      Graph creation and destroy are now O(1) again. Creating a graph with
+      N nodes and N-1 edges takes (bench/stress.pl):
+	N         0.39     0.39	   |  0.40    0.40
+                  Create   Destroy |  Create  Destroy
+       ----------------------------|------------------------
+	4000      0.35     0.23    |  0.31    0.12
+	8000      0.77     0.68    |  0.61    0.21
+	16000     1.91     2.26    |  1.19    0.48
+	32000     9.32     8.02    |  2.32    0.78
+  * Parser: 
+    + add use_class() to use user-provided classes for generated objects
+    + referencing an (empty) part of an autosplit node before the autosplit
+      node itself would create wrongly a stray node
+    + simplify group code ($graph->add_group() does everything nec. already)
+    + store labels for autosplit nodes not in the label attribute, but
+      seperately. This fixes the problem that you couldn't put a node
+      (resulting from an autosplit) into a class and set a label on the
+      class - the node would always show the part name as label. In addition
+      that fixes the long-standing bug that as_txt() would output stray labels
+      for autosplit nodes.
+    + parts in an autosplit node are relative to their preceding part, not
+      to the first part. This enables setting columns/rows/size on parts
+      and the other parts will flow/adjust properly.
+    + set the basename property on the first part in an autosplit node,
+      enabling proper as_txt() output of it.
+  * Layouter:
+    + implement the same spacing rules between nodes for end points as
+      0.39 did for start points: edges joining up to a node work now
+    + only use 3 cells space when there are more than one node sharing
+      the same port (was "more than zero")
+    + fix a problem when placing nodes without an edge object resulting in
+      a crash
+    + repair edges outside of groups, as well as edges that end at a corner
+    + multi-celled nodes in spliced layouts (e.g. with group fillers) 
+      did not preserve their filler-cells correctly
+  * as_txt():
+    + clean up nodes after output so that a following as_graphviz() does work
+  * as_graphviz(): 
+    + fix links involving groups: lhead/ltail were swapped 
+    + generate shorter invisible node names ("A,south,0" vs "A,south,0,0")
+    + do not create invisible joint-nodes when there is only one edge sharing
+      the start/end port
+    + make "shape: rounded" work (needs "style=rounded,...")
+    + support label alignments on groups
+  * as_ascii():
+    + round corners for shape: rounded (using ' ', instead
+      of using unicode characters by accident)
+    + support for aligned labels (left|right|center)
+  * as_boxart(): round corners for bold/wide/broad etc using spaces
+  * as_html():
+    + make space below edges smaller, to create more compact layout
+    + a color on a group was ignored, resulting always in black group labels
+    + finally align the vertical arrows with the edge lines. In Opera 8.5
+      under Linux the "v" now gets cut off, but this seems a browser bug.
+      Sorry, some of the Opera users!
+    + support label alignments (center|left|right)
+    + when a class attribute specified the font-size, don't include it at
+      at the td (node|edge|caption etc) again
+    + edge { arrow-style: none; } did not remove the arrows from edges
+    + group cells need '&nbsp;' for IE to show the border - I hate IE bugs :-(
+  * error() is now fatal by calling _croak() - no longer do errors in
+    attributes go undetected and cause havoc later on. You can use
+    $object->no_fatal_errors() (on any object) to supress this.
+
 2006-01-08 v0.39 Tels 1603 tests
   * Graph: fix merge_nodes() to delete node B from group if part of one
   * fix Group:
@@ -24,7 +121,7 @@ Revision history for Graph::Easy (formerly known as Graph::Simple):
     + allow sharing of end ports (making edges join up on the way
       to the target node)
     + min distance between node is 3, not 2, when there are edges
-      that share an start/end point (to make room for the joints)
+      that share a start point (to make room for the joints)
     + Layouter: place nodes with a shared start point in the same column/row
       than the others (to render tree-like layouts automatically)
   * multiple attributes for autosplit nodes were broken, when:

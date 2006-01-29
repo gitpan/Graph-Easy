@@ -1,14 +1,14 @@
 #############################################################################
 # Output an Graph::Easy object as textual description
 #
-# (c) by Tels 2004-2005.
+# (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy::As_txt;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 #############################################################################
 #############################################################################
@@ -126,6 +126,11 @@ sub _as_txt
       }
     }
 
+  foreach my $n (@nodes)
+    {
+    delete $n->{_p};			# clean up
+    }
+
   $txt;
   }
 
@@ -234,11 +239,7 @@ sub as_pure_txt
   {
   my $self = shift;
 
-  if (exists $self->{autosplit})
-    {
-    return '[ '. $self->{autosplit} .' ]' if defined $self->{autosplit};
-    return '';
-    }
+  return '[ '. $self->{autosplit} .' ]' if exists $self->{autosplit} && defined $self->{autosplit};
 
   my $name = $self->{name};
 
@@ -309,7 +310,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

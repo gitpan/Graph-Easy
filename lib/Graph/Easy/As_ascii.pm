@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 sub _u8
   {
@@ -616,6 +616,8 @@ sub _draw_label
   # routines called below.
   my ($self, $fb, $x, $y) = @_;
 
+  return if ($self->attribute('style') || '') eq 'invisible';
+
   my $type = $self->{type} & EDGE_TYPE_MASK;
 
   my $m = $draw_dispatch->{$type};
@@ -658,19 +660,33 @@ sub _framebuffer
 
 sub _printfb_aligned
   {
-  my ($self,$fb, $x1,$y1, $x2,$y2, $lines, $align_ver, $align_hor) = @_;
-    
-  my $w = $x2 - $x1;
-  my $h = $y2 - $y1;
+  my ($self,$fb, $x1,$y1, $w,$h, $lines, $align_hor, $align_ver) = @_;
 
   my $y = $y1 + ($h / 2) - (scalar @$lines / 2); 
-  my $x = int($x1 + ($w / 2));
+  $align_hor ||= 'center';
 
-  for my $l (@$lines)
+  if ($align_hor eq 'center')
     {
-    my $xi = int($x - length($l) / 2);
-    $self->_printfb_line($fb, $xi, $y, $l);
-    $y++;
+    my $x = $x1 + ($w / 2);
+    for my $l (@$lines)
+      {
+      my $xi = int($x - length($l) / 2);
+      $self->_printfb_line($fb, $xi, $y, $l);
+      $y++;
+      }
+    }
+  elsif ($align_hor eq 'left')
+    {
+    $self->_printfb($fb, $x1, $y, @$lines);
+    }
+  else	# $align_hor eq 'right'
+    {
+    for my $l (@$lines)
+      {
+      my $xi = $x1 + $w - length($l);
+      $self->_printfb_line($fb, $xi, $y, $l);
+      $y++;
+      }
     }
   }
 
@@ -791,7 +807,7 @@ my $border_styles =
  # lower right edge
  # lower left edge
 
-my $rounded_edges = 
+my $rounded_edges =
   [
   _u8('6d'), _u8('6e'), _u8('6f'), _u8('70'),
   ]; 
@@ -838,11 +854,17 @@ sub _border_style
 
   die ("Unknown $type border style '$style'") if @$s == 0;
 
-  # if shape: rounded, overlay the rounded edge pieces
   my $shape = $self->attribute('shape') || '';
+  return $s unless $shape eq 'rounded';
+
+  # if shape: rounded, overlay the rounded edge pieces
   splice (@$s, 0, 4, @$rounded_edges)
-    if $shape eq 'rounded' && 
-       $style =~ /^(solid|dotted|dashed|dot-dash|dot-dot-dash)\z/;
+    if $style =~ /^(solid|dotted|dashed|dot-dash|dot-dot-dash)\z/;
+
+  # '####' => ' ### '
+  splice (@$s, 0, 4, (' ', ' ', ' ', ' '))
+    if $g == 0 || $style =~ /^(bold|wide|broad|double|double-dash|bold-dash)\z/;
+
   $s;
   }
 
@@ -1011,8 +1033,8 @@ sub _draw_border
  
 sub _draw_label
   {
-  # insert the label into the framebuffer
-  my ($self, $fb) = @_;
+  # draw the node label into the framebuffer
+  my ($self, $fb, $x, $y) = @_;
 
   my $shape = $self->attribute('shape') || 'rect';
 
@@ -1032,12 +1054,17 @@ sub _draw_label
   #        | Label  
   # 2,1: ----^
 
-  my $y = int( ($self->{h} - @lines) / 2);
-  my $max = length($lines[0] || '');
-  for my $l (@lines) { $max = length($l) if length($l) > $max; }
-  my $x = int( ($self->{w} - $max) / 2);
+  my $align = $self->attribute('align') || 'center';
+  my $w = $self->{w} - 4; my $xs = 2;
+  my $h = $self->{h} - 2; my $ys = 1;
+  my $border = $self->attribute('border-style') || '';
+  if ($border eq 'none')
+    {
+    $w += 2; $h += 2;
+    $xs = 1; $ys = 0;
+    }
 
-  $self->_printfb ($fb, $x, $y, @lines);
+  $self->_printfb_aligned ($fb, $xs, $ys, $w, $h, \@lines, $align);
   }
 
 sub as_ascii

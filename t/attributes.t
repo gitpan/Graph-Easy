@@ -89,6 +89,8 @@ is (ref($new_value), 'ARRAY', 'output is invalid for edges');
 
 my $graph = Graph::Easy->new();
 
+$graph->no_fatal_errors(1);
+
 my ($n,$m,$e) = $graph->add_edge('A','B');
 
 $n->set_attribute('color','red');
@@ -99,14 +101,16 @@ $n->set_attribute('shape','point');
 is ($graph->error(),'','no error');
 $graph->error('');			# reset potential error for next test
 
+$graph->set_attribute('graph', 'shape', 'point');
+is ($graph->error(),"Error: 'shape' is not a valid attribute for graph",'no error');
+$graph->error('');			# reset potential error for next test
+
+$e->no_fatal_errors(1);
+
 $e->set_attribute('shape','point');
 is ($graph->error(),"Error: 'shape' is not a valid attribute for edge",'no error');
 $graph->error('');			# reset potential error for next test
 
-
-$graph->set_attribute('graph', 'shape', 'point');
-is ($graph->error(),"Error: 'shape' is not a valid attribute for graph",'no error');
-$graph->error('');			# reset potential error for next test
 
 #############################################################################
 # text-style attribute

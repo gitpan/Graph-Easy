@@ -7,7 +7,7 @@ package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
 @ISA = qw/Graph::Easy::Node/;		# an edge is a special node
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 use strict;
 
@@ -71,7 +71,7 @@ sub as_txt
 
   # suppress border on edges
   my $suppress = { all => { label => undef } };
-  if ($s =~ /^(bold|bold-dash|broad|wide)\z/)
+  if ($s =~ /^(bold|bold-dash|broad|wide|invisible)\z/)
     {
     # output "--> { style: XXX; }"
     $style = '--';
@@ -143,6 +143,10 @@ sub start_port
 
   my $s = $self->{att}->{start} || $self->attribute('start');
   return undef if !defined $s || $s !~ /,/;	# "south, 0" => ok, "south" => no
+
+  return split /\s*,\s*/, $s if wantarray;
+
+  $s =~ s/\s+//g;		# remove spaces to normalize "south, 0" to "south,0"
   $s;
   }
 
@@ -154,6 +158,10 @@ sub end_port
 
   my $s = $self->{att}->{end} || $self->attribute('end');
   return undef if !defined $s || $s !~ /,/;	# "south, 0" => ok, "south" => no
+
+  return split /\s*,\s*/, $s if wantarray;
+
+  $s =~ s/\s+//g;		# remove spaces to normalize "south, 0" to "south,0"
   $s;
   }
 

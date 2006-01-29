@@ -69,6 +69,13 @@ sub as_html
   '';
   }
 
+sub group
+  {
+  my $self = shift;
+
+  $self->{node}->group();
+  }
+
 1;
 __END__
 

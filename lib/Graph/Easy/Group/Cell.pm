@@ -1,5 +1,5 @@
 #############################################################################
-# (c) by Tels 2004 - 2005. Part of Graph::Easy
+# (c) by Tels 2004 - 2006. Part of Graph::Easy
 #
 #############################################################################
 
@@ -8,7 +8,7 @@ package Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 use strict;
 
@@ -200,7 +200,7 @@ sub as_ascii
     # draw our border into the framebuffer
 
     my $c = $self->{cell_class};
-
+  
     my $b_top = $border_style;
     my $b_left = $border_style;
     my $b_right = $border_style; 
@@ -219,8 +219,18 @@ sub as_ascii
   if (exists $self->{has_label})
     {
     # include our label
-    my @pieces = $self->_formatted_label();
-    $self->_printfb ($fb, 0, $self->{h} - @pieces - 1, @pieces) if @pieces > 0;
+    my @lines = $self->_formatted_label();
+
+    my $align = $self->attribute('align') || 'left';
+    # the default label cell as a top border, but no left/right border
+    my $w = $self->{w}; my $xs = 0;
+    my $h = $self->{h} - 2; my $ys = 1;
+    my $border = $self->attribute('border-style') || '';
+    if ($border eq 'none')
+      {
+      $h += 2; $ys = 0;
+      }
+    $self->_printfb_aligned ($fb, $xs, $ys, $w, $h, \@lines, $align);
     }
 
   join ("\n", @$fb);
@@ -369,7 +379,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

@@ -1,5 +1,5 @@
 +------+          +---+
-| My   |  A       |   |
+|  My  |  A       |   |
 | long |  long    | B |
 | node |  label   |   |
 | name | -------> |   |

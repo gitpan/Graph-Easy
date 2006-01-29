@@ -50,8 +50,8 @@ is (join(",", $B->offset()), "1,0", 'B is at +1,0');
 
 my $C = $graph->node('ABC.2');
 is (ref($C), 'Graph::Easy::Node', 'node is node');
-is ($C->origin(), $A, 'A is the origin of C');
-is (join(",", $C->offset()), "2,0", 'C is at +2,0');
+is ($C->origin(), $B, 'B is the origin of C');
+is (join(",", $C->offset()), "1,0", 'C is at +1,0 from B');
 
 #############################################################################
 # general split tests
@@ -105,11 +105,11 @@ foreach (<DATA>)
 
 __DATA__
 # split tests with attributes
-[A|B|C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=1.0.#ffffff;ABC.2,C=2.0.#ffffff
-[A|B|C] { fill: red; }|3;ABC.0,A=0.0.#ff0000;ABC.1,B=1.0.#ff0000;ABC.2,C=2.0.#ff0000
-[A|B|C] { label: foo; fill: red; }|3;ABC.0,foo=0.0.#ff0000;ABC.1,foo=1.0.#ff0000;ABC.2,foo=2.0.#ff0000
-[A| |C]|3;AC.0,A=0.0.#ffffff;AC.1, =1.0.#ffffff;AC.2,C=2.0.#ffffff
-[A||B|C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=0.1.#ffffff;ABC.2,C=1.1.#ffffff
-[A||B||C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=0.1.#ffffff;ABC.2,C=0.2.#ffffff
-[A|| |C]|3;AC.0,A=0.0.#ffffff;AC.1, =0.1.#ffffff;AC.2,C=1.1.#ffffff
+[A|B|C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=1.0.#ffffff;ABC.2,C=1.0.#ffffff
+[A|B|C] { fill: red; }|3;ABC.0,A=0.0.#ff0000;ABC.1,B=1.0.#ff0000;ABC.2,C=1.0.#ff0000
+[A|B|C] { label: foo; fill: red; }|3;ABC.0,foo=0.0.#ff0000;ABC.1,foo=1.0.#ff0000;ABC.2,foo=1.0.#ff0000
+[A| |C]|3;AC.0,A=0.0.#ffffff;AC.1, =1.0.#ffffff;AC.2,C=1.0.#ffffff
+[A||B|C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=0.1.#ffffff;ABC.2,C=1.0.#ffffff
+[A||B||C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=0.1.#ffffff;ABC.2,C=0.1.#ffffff
+[A|| |C]|3;AC.0,A=0.0.#ffffff;AC.1, =0.1.#ffffff;AC.2,C=1.0.#ffffff
 

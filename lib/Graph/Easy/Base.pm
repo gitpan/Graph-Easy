@@ -1,12 +1,12 @@
 #############################################################################
 # A baseclass for Graph::Easy objects like nodes, edges etc.
 #
-# (c) by Tels 2004-2005. Part of Graph::Easy
+# (c) by Tels 2004-2006. Part of Graph::Easy
 #############################################################################
 
 package Graph::Easy::Base;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 use strict;
 
@@ -55,12 +55,33 @@ sub self
 
 #############################################################################
 
+sub no_fatal_errors
+  {
+  my $self = shift;
+
+  $self->{no_fatal_errors} = $_[1] ? 0 : 1 if @_ > 0;
+
+  $self->{no_fatal_errors} || 0;
+  }
+
 sub error
   {
   my $self = shift;
 
-  $self->{error} = $_[0] if defined $_[0];
+  if (defined $_[0])
+    {
+    $self->{error} = $_[0];
+    $self->_croak($self->{error}, 2)
+      unless $self->{no_fatal_errors} || $self->{error} eq '';
+    }
   $self->{error} || '';
+  }
+
+sub warn
+  {
+  my $self = shift;
+
+  warn($_[0]);
   }
 
 #############################################################################
@@ -99,9 +120,12 @@ sub main_class
 
 sub _croak
   {
+  my ($self, $msg, $level) = @_;
+  $level = 1 unless defined $level;
+  
   require Carp;
-  $Carp::CarpLevel = 1;			# don't report Base itself
-  Carp::confess($_[1]);
+  $Carp::CarpLevel = $level;			# don't report Base itself
+  Carp::confess($msg);
   }
  
 1;
@@ -135,6 +159,24 @@ Create a new object, and call C<_init()> on it.
 	$object->error('');			# clear the error
 
 Returns the last error message, or '' for no error.
+
+When setting a new error message, 
+C<$self->_croak($error)> will be called unless C<$object->no_fatal_errors()>
+is true.
+
+=head2 warn()
+
+	$object->warn('Warning!');
+
+Warn on STDERR with the given message.
+
+=head2 no_fatal_errors()
+
+	$fatal = $object->no_fatal_errors();
+	$object->no_fatal_errors(1);
+
+Set/get the flag that determines whether setting an error message
+via C<error()> is fatal, e.g. results in a call to C<_croak()>.
 
 =head2 self()
 
@@ -170,7 +212,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

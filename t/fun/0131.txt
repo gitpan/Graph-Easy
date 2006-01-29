@@ -1,11 +1,11 @@
 # Three non-overlapping groups
 
-group.dmz { background: #ffa070; }
-group.outer { background: #f07070; }
+group.dmz { fill: #ffa070; }
+group.outer { fill: #f07070; }
 
 ( Internal Network
   [ Workstation ]
-) { background: #70b070; }
+) { fill: #70b070; }
   
 [ Workstation ] --> [ Inner Firewall ]
 

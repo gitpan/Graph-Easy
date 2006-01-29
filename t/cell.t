@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 26;
+   plan tests => 28;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node::Cell") or die($@);
@@ -70,13 +70,20 @@ is ($cell->height(), 0, 'h = 0');
 #############################################################################
 # group tests
 
-is ($cell->group(), undef, 'no group yet');
-
 use Graph::Easy::Group;
 
 my $group = Graph::Easy::Group->new( { name => 'foo' } );
-$cell->add_to_group($group);
 
+# fake that the cell belongs as filler to a node
+my $node = Graph::Easy::Node->new( 'foo' );
+$cell->{node} = $node;
+
+is ($cell->node(), $node, 'node for cell');
+is ($cell->group(), undef, 'no group yet');
+
+$node->add_to_group($group);
+
+is ($cell->node(), $node, 'node for cell');
 is ($cell->group(), $group, 'group foo');
 
 #############################################################################
@@ -94,7 +101,7 @@ is ($cell->title(), $cell->name(), 'title equals name');
 #############################################################################
 # invisible nodes
 
-my $node = Graph::Easy::Node->new( { name => "anon 0", label => 'X' } );
+$node = Graph::Easy::Node->new( { name => "anon 0", label => 'X' } );
 $node->set_attribute('shape', "invisible");
 
 is ($node->as_ascii(), "", 'invisible text node');

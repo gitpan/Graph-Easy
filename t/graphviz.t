@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 109;
+   plan tests => 111;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -352,7 +352,7 @@ $bonn->set_attribute( 'border-style' => 'broad' );
 
 $grviz = $graph->as_graphviz();
 like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
-like ($graph->as_graphviz(), qr/Bonn.*style="filled, setlinewidth\(7\)"/, 
+like ($graph->as_graphviz(), qr/Bonn.*style="filled,setlinewidth\(7\)"/, 
  '7 pixel for broad border');
 
 #############################################################################
@@ -411,5 +411,15 @@ $bonn->set_attribute('border-style', 'none');
 
 $grviz = $graph->as_graphviz();
 
-like ($graph->as_graphviz(), qr/Bonn.*style="filled, setlinewidth\(0\)"/, 'contains setlinewidth(0)');
+like ($graph->as_graphviz(), qr/Bonn.*style="filled,setlinewidth\(0\)"/, 'contains setlinewidth(0)');
+
+#############################################################################
+# node with shape: rounded;
+
+$bonn->del_attribute('border-style');
+$bonn->set_attribute( 'shape' => 'rounded' );
+
+$grviz = $graph->as_graphviz();
+like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($graph->as_graphviz(), qr/Bonn.*style="rounded,filled"/, 'contains rounded,filled'); 
 

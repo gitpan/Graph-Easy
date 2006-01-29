@@ -17,6 +17,7 @@ can_ok ("Graph::Easy::Parser", qw/
   from_file
   reset
   error
+  use_class
   _parse_attributes
   /);
 
@@ -30,6 +31,8 @@ is ($parser->error(), '', 'no error yet');
 
 #############################################################################
 # parse_error():
+
+$parser->no_fatal_errors(1);
 
 $parser->{line_nr} = 0;
 is ($parser->parse_error(1,'foo','bar','node'),

@@ -11,14 +11,13 @@ use Graph::Easy::Base;
 use Graph::Easy::Attributes;
 use Graph::Easy::Edge;
 use Graph::Easy::Group;
-use Graph::Easy::Group::Cell;
 use Graph::Easy::Layout;
 use Graph::Easy::Node;
 use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.39';
+$VERSION = '0.40';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -33,6 +32,7 @@ BEGIN
   *as_boxart_file = \&as_boxart;
   *as_txt_file = \&as_txt;
   *_formatted_label = \&Graph::Easy::Node::_formatted_label;
+  *default_attribute = \&Graph::Easy::Node::default_attribute; 
   }
 
 #############################################################################
@@ -53,6 +53,9 @@ sub new
 sub DESTROY
   {
   my $self = shift;
+ 
+  # Be carefull to not delete ->{graph}, these will be cleaned out by
+  # Perl automatically in O(1) time, manual delete is O(N) instead.
 
   delete $self->{chains};
   # clean out pointers in child-objects so that they can safely be reused
@@ -60,12 +63,8 @@ sub DESTROY
     {
     if (ref($n))
       {
-      delete $n->{graph};
       delete $n->{edges};
       delete $n->{group};
-#      delete $n->{_chain};
-#      delete $n->{_c};
-#      delete $n->{_next};
       }
     }
   for my $e (values %{$self->{edges}})
@@ -75,7 +74,6 @@ sub DESTROY
       delete $e->{cells};
       delete $e->{to};
       delete $e->{from};
-      delete $e->{graph};
       }
     }
   for my $g (values %{$self->{groups}})
@@ -83,7 +81,6 @@ sub DESTROY
     if (ref($g))
       {
       delete $g->{nodes};
-      delete $g->{graph};
       delete $g->{edges};
       }
     }
@@ -109,8 +106,16 @@ sub _init
 
   $self->{_astar_bias} = 0.001;
 
+  # default classes to use in add_foo() methods
+  $self->{use_class} = {
+    edge => 'Graph::Easy::Edge',
+    group => 'Graph::Easy::Group',
+    node => 'Graph::Easy::Node',
+  };
+
   $self->{att} = {
   node => {
+    align => 'center',
     'border' => 'solid 1px black',
     'border-style' => 'solid',
     'border-width' => '1',
@@ -120,9 +125,9 @@ sub _init
     'padding-left' => '0.3em',
     'padding-right' => '0.3em',
     margin => '0.1em',
-    'text-align' => 'center',
     },
-  graph => { 
+  graph => {
+    'align' => 'center',
     border => 'none',
     background => 'inherit',
     margin => '0.5em',
@@ -342,7 +347,7 @@ sub anon_nodes
     my $count = 0;
     for my $node (values %$n)
       {
-      $count++ if $node->isa('Graph::Easy::Node::Anon');
+      $count++ if $node->is_anon();
       }
     return $count;
     }
@@ -350,7 +355,7 @@ sub anon_nodes
   my @anon = ();
   for my $node (values %$n)
     {
-    push @anon, $node if $node->isa('Graph::Easy::Node::Anon');
+    push @anon, $node if $node->is_anon();
     }
   @anon;
   }
@@ -607,6 +612,7 @@ sub _class_styles
   my $a = $self->{att};
 
   $indent = '' unless defined $indent;
+  my $indent2 = $indent x 2; $indent2 = '  ' if $indent2 eq '';
 
   if (defined $overlay)
     {
@@ -683,8 +689,8 @@ sub _class_styles
       # should be skipped?
       next if $att =~ $skip || $att eq 'border';
 
-      # do not specify font-size for the entire graph (only for it's label)
-      next if $class eq 'graph' && $att eq 'font-size';
+      # do not specify font-size or text-align for the entire graph (only for it's label)
+      next if $class eq 'graph' && $att =~ /^(font-size|text-align)\z/;
 
       $done++;						# how many did we really?
       my $val = $a->{$class}->{$att};
@@ -696,7 +702,7 @@ sub _class_styles
       $val .= 'px' if $att eq 'border-width' && $val !~ /(px|em|%)\z/;
 
       $att = $map->{$att} if exists $map->{$att};	# change attribute name?
-      $css_txt .= "$indent  $att: $val;\n";
+      $css_txt .= "$indent2$att: $val;\n";
       }
 
     $css_txt .= "$indent}\n";
@@ -711,7 +717,7 @@ sub _skip
   my ($self) = shift;
 
   # skip these for CSS
-  qr/^(rows|column|size|offset|origin|label|link|linkbase|(auto)?(link|title)|(node|edge)class|shape|arrow-style|label-color|point-style|text-style|style)\z/;
+  qr/^(basename|rows|column|size|offset|origin|label|link|linkbase|(auto)?(link|title)|(node|edge)class|shape|arrow-style|label-color|point-style|text-style|style)\z/;
   }
 
 sub css
@@ -728,10 +734,11 @@ sub css
   my $css = $self->_class_styles( $self->_skip(),
     {
       fill => 'background',
+      align => 'text-align',
     }, undef, undef, 
     {
       graph => {
-        'empty-cells' => 'show' 
+        'empty-cells' => 'show',
       },
     } );
 
@@ -753,13 +760,6 @@ table.graph##id## td {
   }
 CSS
 ;
-
-# eb and eh seem not longer nec.:
-# table.graph##id## .eb {
-#  height: 1em;
-#  max-height: 1em;
-#  line-height: 0.5em;
-#  }
 
   # count anon nodes and append CSS for them if nec.
   $css .= <<CSSANON
@@ -783,19 +783,35 @@ table.graph##id## .ve {
 table.graph##id## .el {
   width: 1em;
   max-width: 1em;
+  min-width: 1em;
   }
 table.graph##id## .lh, table.graph##id## .lv {
   font-size: 0.8em;
   padding-left: 0.4em;
   }
-table.graph##id## .v, table.graph##id## .hat {
-  text-align: center;
+table.graph##id## .v, table.graph##id## .hat, table.graph##id## .sv {
+  text-align: left;
   height: 0.5em;
   line-height: 0.6em;
   }
+table.graph##id## .sv {
+  position: relative;
+  left: -0.5em;
+  overflow: visible;
+  }
+table.graph##id## .sh {
+  position: relative;
+  top: 0.8em;
+  vertical-align: bottom;
+  overflow: visible;
+  }
 table.graph##id## .hat {
   padding-top: 0.5em;
-  line-height: 0.2em;
+  line-height: 0.5em;
+  }
+table.graph##id## .eb {
+  max-height: 0.4em;
+  line-height: 0.4em;
   }
 CSS
 ;
@@ -881,7 +897,44 @@ sub as_html_file
   }
 
 #############################################################################
- 
+
+sub _caption
+  {
+  # create the graph label as caption
+  my $self = shift;
+
+  my $caption = $self->attribute('graph','label');
+
+  return ('','') unless defined $caption && $caption ne '';
+
+  my $bg = $self->attribute('graph','background') || '';
+
+  my $style = '';
+  $style = " style='background: $bg;" if $bg ne '';
+    
+  # bold, italic, underline, incl. fontsize and align
+  $style .= $self->text_styles_as_css();	
+
+  $style =~ s/;\z//;				# remove last ';'
+  $style .= "'" unless $style eq '';
+
+  my $link = $self->link();
+
+  if ($link ne '')
+    {
+    # encode critical entities
+    $link =~ s/\s/\+/g;				# space
+    $link =~ s/'/%27/g;				# replace quotation marks
+    $caption = "<a class='l' href='$link'>$caption</a>";
+    }
+
+  $caption = "<tr>\n  <td colspan=##cols##$style>$caption</td>\n</tr>\n";
+
+  my $pos = $self->attribute('graph','label-pos') || 'top';
+
+  ($caption,$pos);
+  } 
+
 sub as_html
   {
   # convert the graph to HTML+CSS
@@ -927,40 +980,8 @@ sub as_html
   my $html = '';
 
   # prepare the graph label
-  my $pos = '';
-  my $caption = $self->attribute('graph','label');
-  if (defined $caption && $caption ne '')
-    {
-    my $bg = $self->attribute('graph','background');
-    my $style = '';
-    $bg = '' if !defined $bg;
-    $style = " style='background: $bg;" if $bg ne '';
-    
-    my $fs = $self->attribute('graph','font-size') || '';
-    $style .= " font-size: $fs;" if $fs ne '';
+  my ($caption,$pos) = $self->_caption();
 
-    $style .= $self->text_styles_as_css();	# bold, italic, underline etc.
-
-    $style .= " text-align: center;";
-
-    $pos = $self->attribute('graph','label-pos') || 'top';
-
-    $style =~ s/;\z//;				# remove last ';'
-    $style .= "'" unless $style eq '';
-
-    my $link = $self->link();
-
-    if ($link ne '')
-      {
-      # encode critical entities
-      $link =~ s/\s/\+/g;				# space
-      $link =~ s/'/%27/g;				# replace quotation marks
-      $caption = "<a class='l' href='$link'>$caption</a>";
-      }
-
-    $caption = "<tr>\n  <td colspan=##cols##$style>$caption</td>\n</tr>\n";
-    }
- 
   # now run through all rows, and for each of them through all columns 
   for my $y (sort { ($a||0) <=> ($b||0) } keys %$rows)
     {
@@ -977,6 +998,9 @@ sub as_html
 	next;
 	}
       my $node = $rows->{$y}->{$x};
+      next if $node->isa('Graph::Easy::Node::Cell');		# skip empty cells
+
+#      print STDERR "rendering $node->{name} ref($node)\n";
 
       my $h = $node->as_html();
 
@@ -1013,12 +1037,15 @@ sub as_html
     # now combine equal columns to shorten output
     for my $row (@$rs)
       {
+#      next;
+
       # append row to output
       my $i = 0;
       while ($i < @$row)
         {
         next if $row->[$i] =~ /border[:-]/;
-        next if $row->[$i] !~ />(nbsp;)?</;	# non-empty?
+#        next if $row->[$i] !~ />(\&nbsp;)?</;	# non-empty?
+        next if $row->[$i] =~ /span /;		# non-empty?
 
         # count all sucessive equal ones
         my $j = $i + 1;
@@ -1031,6 +1058,7 @@ sub as_html
           # insert empty colspan if not already there
           $row->[$i] =~ s/<td/<td colspan=0/ unless $row->[$i] =~ /colspan/;
           # replace
+      #    print STDERR "combining row $i to $j ($cnt) ($row->[$i] $row->[$i+1] $row->[$j]\n";
           $row->[$i] =~ s/colspan=(\d+)/'colspan='.($1+$cnt*4)/e;
           }
         } continue { $i++; }
@@ -1168,15 +1196,16 @@ sub _as_ascii
     
     # XXX TODO: align label left|right|center
 
+    my $align = $self->attribute('align');
+
     my $y = 0; $y = $max_y - scalar @label if $label_pos eq 'bottom';
-    my $y2 = $y + scalar @label;
-    Graph::Easy::Node->_printfb_aligned($fb, 0, $y, $max_x, $y2, \@label, 'center', 'middle');
+    Graph::Easy::Node->_printfb_aligned($fb, 0, $y, $max_x, scalar @label, \@label, $align, 'middle');
     }
 
   # draw all cells into framebuffer
   foreach my $v (values %$cells)
     {
-    next if ref($v) =~ /::Node::Cell/;		# skip empty cells
+    next if $v->isa('Graph::Easy::Node::Cell');		# skip empty cells
 
     # get as ASCII box
     my $x = $cols->{ $v->{x} };
@@ -1271,9 +1300,11 @@ sub as_txt
 sub add_edge
   {
   my ($self,$x,$y,$edge) = @_;
-  
-  $edge = Graph::Easy::Edge->new() unless defined $edge;
-  $edge = Graph::Easy::Edge->new(label => $edge) unless ref($edge);
+ 
+  my $uc = $self->{use_class};
+ 
+  $edge = $uc->{edge}->new() unless defined $edge;
+  $edge = $uc->{edge}->new(label => $edge) unless ref($edge);
 
   $self->_croak("Adding an edge object twice is not possible")
     if (exists ($self->{edges}->{$edge->{id}}));
@@ -1292,9 +1323,9 @@ sub add_edge
   $x = $nodes->{$xn} if exists $nodes->{$xn};		# first look them up
   $y = $nodes->{$yn} if exists $nodes->{$yn};
 
-  $x = Graph::Easy::Node->new( $x ) unless ref $x;	# if this fails, create
+  $x = $uc->{node}->new( $x ) unless ref $x;		# if this fails, create
   $y = $x if !ref($y) && $y eq $xn;			# make add_edge('A','A') work
-  $y = Graph::Easy::Node->new( $y ) unless ref $y;
+  $y = $uc->{node}->new( $y ) unless ref $y;
 
   print STDERR "# add_edge '$x->{name}' ($x->{id}) -> '$y->{name}' ($y->{id}) (edge $edge->{id})\n" if $self->{debug};
 
@@ -1304,17 +1335,27 @@ sub add_edge
       if ref($n->{graph}) && $n->{graph} != $self;
     }
 
-  # register the nodes and the edge with our graph object
-  $x->{graph} = $self;
-  $y->{graph} = $self;
-  $edge->{graph} = $self;
-  # and weaken the references
-  {
-    no warnings; # dont warn on already weak references
+  # Register the nodes and the edge with our graph object
+  # and weaken the references. Be carefull to not needlessly
+  # override and weaken again an already existing reference, this
+  # is an O(N) operation in most Perl versions, and thus very slow.
+
+  if (!ref($x->{graph}))
+    {
+    $x->{graph} = $self;
     weaken($x->{graph});
+    }
+
+  if (!ref($y->{graph}))
+    {
+    $y->{graph} = $self;
     weaken($y->{graph});
+    }
+  if (!ref($edge->{graph}))
+    {
+    $edge->{graph} = $self;
     weaken($edge->{graph});
-  }
+    }
 
   # Store at the edge from where to where it goes for easier reference
   $edge->{from} = $x;
@@ -1356,17 +1397,22 @@ sub add_node
   my $no = $self->{nodes};
   return $no->{$n} if exists $no->{$n};
 
-  $x = Graph::Easy::Node->new( $x ) unless ref $x;
+  my $uc = $self->{use_class};
+  $x = $uc->{node}->new( $x ) unless ref $x;
 
   # store the node
   $no->{$n} = $x;
 
-  # register node with ourself and weaken the reference
-  $x->{graph} = $self;
-  {
-    no warnings; # dont warn on already weak references
+  # Register the nodes and the edge with our graph object
+  # and weaken the references. Be carefull to not needlessly
+  # override and weaken again an already existing reference, this
+  # is an O(N) operation in most Perl versions, and thus very slow.
+
+  if (!ref($x->{graph}))
+    {
+    $x->{graph} = $self;
     weaken($x->{graph});
-  }
+    }
 
   $self->{score} = undef;			# invalidate last layout
 
@@ -1497,12 +1543,14 @@ sub add_group
   # add a group object
   my ($self,$group) = @_;
 
+  my $uc = $self->{use_class};
+
   # group with that name already exists?
   my $name = $group; 
   $group = $self->{groups}->{ $group } unless ref $group;
 
   # group with that name doesn't exist, so create new one
-  $group = Graph::Easy::Group->new( name => $name ) unless ref $group;
+  $group = $uc->{group}->new( name => $name ) unless ref $group;
 
   # index under the group name for easier lookup
   $self->{groups}->{ $group->{name} } = $group;
@@ -1547,6 +1595,19 @@ sub groups
     if wantarray;
 
   scalar keys %{$self->{groups}};
+  }
+
+sub use_class
+  {
+  # use the provided class for generating objects of the type $object
+  my ($self, $object, $class) = @_;
+
+  $self->_croak("Expected one of node, edge or group, but got $object")
+    unless $object =~ /^(node|group|edge)\z/;
+
+  $self->{use_class}->{$object} = $class;
+
+  $self;  
   }
 
 1;
@@ -2445,6 +2506,22 @@ Return a hash with the given text-style properties, aka 'underline', 'bold' etc.
 
 Return the text styles as a chunk of CSS styling that can be embedded into
 a C< style="" > parameter.
+
+=head2 use_class()
+
+	$graph->use_class('node', 'Graph::Easy::MyNode');
+
+Override the class to be used to constructs objects when calling
+C<add_edge()>, C<add_group()> or C<add_node()>.
+
+The first parameter can be one of the following:
+
+	node
+	edge
+	group
+
+Please see the documentation about C<use_class()> in C<Graph::Easy::Parser>
+for examples and details.
 
 =head1 EXPORT
 

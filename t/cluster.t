@@ -38,16 +38,16 @@ is (scalar $graph->nodes(), 2, 'two nodes');
 
 my $cells = { };
 
-is ($first->place(1,1,$cells), 1, 'node can be placed');
+is ($first->_do_place(1,1,$cells), 1, 'node can be placed');
 
 is ($cells->{"1,1"}, $first, 'first was really placed');
 is ($cells->{"2,1"}, $second, 'second node was placed, too');
 is (scalar keys %$cells, 2, 'two nodes placed');
 
 # 1,0 and 2,0 are blocked, so 0,0+1,0; 1,0+2,0 and 2,0+3,0 are blocked, too:
-is ($first->place(0,1,$cells), 0, 'node cannot be placed again');
-is ($first->place(1,1,$cells), 0, 'node cannot be placed again');
-is ($first->place(2,1,$cells), 0, 'node cannot be placed again');
+is ($first->_do_place(0,1,$cells), 0, 'node cannot be placed again');
+is ($first->_do_place(1,1,$cells), 0, 'node cannot be placed again');
+is ($first->_do_place(2,1,$cells), 0, 'node cannot be placed again');
 
 is (scalar keys %$cells, 2, 'two nodes placed');
 

@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 #############################################################################
 #############################################################################
@@ -111,7 +111,7 @@ sub _near_places
       my ($x,$y,$t) = ($tries[$idx], $tries[$idx+1], $tries[$idx+2]);
 
       # This quick check does not take node clusters or multi-celled nodes
-      # into account. These are handled in $node->place() later.
+      # into account. These are handled in $node->_do_place() later.
       next if !$loose && exists $cells->{"$x,$y"};
       push @places, $x, $y;
       push @places, $t if defined $type;
@@ -375,6 +375,19 @@ my $flow_shift = {
   180 => [ -1, 0 ],
   };
 
+sub _placed_shared
+  {
+  # check whether one of the nodes from the list of shared was already placed
+  my ($self) = shift;
+
+  my $placed;
+  for my $n (@_)
+    {
+    $placed = [$n->{x}, $n->{y}] and last if defined $n->{x};
+    }
+  $placed;
+  }
+
 sub _find_node_place
   {
   # Try to place a node (or node cluster). Return score (usually 0).
@@ -386,6 +399,12 @@ sub _find_node_place
   print STDERR "# Parent node is '$parent->{name}'\n" if $self->{debug} && ref $parent;
 
 #  local $self->{debug} = 1;
+
+  my $min_dist = 2;
+  # minlen = 0 => min_dist = 2,
+  # minlen = 1 => min_dist = 2, 
+  # minlen = 2 => min_dist = 3, etc
+  $min_dist = ($edge->attribute('minlen')||1) + 1 if ref($edge);
 
   my @tries;
   if (ref($parent) && defined $parent->{x})
@@ -400,26 +419,25 @@ sub _find_node_place
     my ($s_p, @ss_p);
     ($s_p, @ss_p) = $edge->port('start') if ref($edge);
 
-    my $from = $edge->{from};
+    my ($from,$to);
+    if (ref($edge))
+      {
+      $from = $edge->{from}; $to = $edge->{to};
+      }
+
     my @shared_nodes;
     @shared_nodes = $from->nodes_sharing_start($s_p,@ss_p) if defined $s_p;
 
     print STDERR "# $parent->{name} shares an edge start with ", scalar @shared_nodes, " other nodes\n"
 	if $self->{debug};
 
-    my $min_dist = 2;
-
-    if (@shared_nodes > 0)
+    if (@shared_nodes > 1)
       {
+      $min_dist = 3 if $min_dist < 3;				# make space
+
       # if we are the first shared node to be placed
-      my $placed;
+      my $placed = $self->_placed_shared(@shared_nodes);
 
-      for my $n (@shared_nodes)
-        {
-        $placed = [$n->{x}, $n->{y}] and last if defined $n->{x};
-        }
-
-      $min_dist = 3;
       if (defined $placed)
         {
         # we are not the first, so skip the placement below
@@ -442,15 +460,61 @@ sub _find_node_place
 	    if $self->{debug};
 
 	  next if $self->_clear_tries($node, $cells, [ $x,$y ]) == 0;
-	  last if $node->place($x,$y,$cells);
+	  last if $node->_do_place($x,$y,$cells);
 	  }
 	continue {
 	    $ofs += 2;
 	  }
         return 0;			# found place already
-        }
+	} # end we-are-the-first-to-be-placed
       }
- 
+
+    # shared end point?
+    ($s_p, @ss_p) = $edge->port('end') if ref($edge);
+
+    @shared_nodes = $to->nodes_sharing_end($s_p,@ss_p) if defined $s_p;
+
+    print STDERR "# $parent->{name} shares an edge end with ", scalar @shared_nodes, " other nodes\n"
+	if $self->{debug};
+
+    if (@shared_nodes > 1)
+      {
+      $min_dist = 3 if $min_dist < 3;
+
+      # if we are the first shared node to be placed
+      my $placed = $self->_placed_shared(@shared_nodes);
+
+      if (defined $placed)
+        {
+        # we are not the first, so skip the placement below
+	# instead place on the same column/row as already placed node(s)
+        my ($bx, $by) = @$placed;
+
+	my $flow = $node->flow();
+
+	print STDERR "# One of the shared nodes was already placed at ($bx,$by) with flow $flow\n"
+	  if $self->{debug};
+
+	my $ofs = 2;			# start with a distance of 2
+	my ($mx, $my) = @{ ($flow_shift->{$flow} || [ 0, 1 ]) };
+
+	while (1)
+	  {
+	  my $x = $bx + $mx * $ofs; my $y = $by + $my * $ofs;
+
+	  print STDERR "# Trying to place $node->{name} at ($x,$y)\n"
+	    if $self->{debug};
+
+	  next if $self->_clear_tries($node, $cells, [ $x,$y ]) == 0;
+	  last if $node->_do_place($x,$y,$cells);
+	  }
+	continue {
+	    $ofs += 2;
+	  }
+        return 0;			# found place already
+	} # end we-are-the-first-to-be-placed
+      }
+
     @tries = $parent->_near_places($cells, $min_dist, undef, 0, $dir);
 
     print STDERR "# Trying chained placement of $node->{name} with min distance $min_dist\n" if $self->{debug};
@@ -467,14 +531,14 @@ sub _find_node_place
       my $y = shift @tries;
 
       print STDERR "# Trying to place $node->{name} at $x,$y\n" if $self->{debug};
-      return 0 if $node->place($x,$y,$cells);
+      return 0 if $node->_do_place($x,$y,$cells);
       } # for all trial positions
     }
 
   print STDERR "# Trying to place $node->{name} at 0,0\n" if $try == 0 && $self->{debug};
   # Try to place node at upper left corner (the very first node to be
   # placed will usually end up there).
-  return 0 if $try == 0 && $node->place(0,0,$cells);
+  return 0 if $try == 0 && $node->_do_place(0,0,$cells);
 
   # try to place node near the predecessor(s)
   my @pre_all = $node->predecessors();
@@ -501,7 +565,7 @@ sub _find_node_place
       {
       # only one placed predecessor, so place $node near it
       print STDERR "# placing $node->{name} near predecessor\n" if $self->{debug};
-      @tries = ( $pre[0]->_near_places($cells), $pre[0]->_near_places($cells,4) ); 
+      @tries = ( $pre[0]->_near_places($cells, $min_dist), $pre[0]->_near_places($cells,$min_dist+2) ); 
       }
     else
       {
@@ -539,7 +603,7 @@ sub _find_node_place
       # different nodes:
       foreach my $n (@pre)
         {
-        push @tries, $n->_near_places($cells);
+        push @tries, $n->_near_places($cells, $min_dist);
         }
       }
     }
@@ -556,8 +620,8 @@ sub _find_node_place
   foreach my $s (@suc)
     {
     # for each successors (especially if there is only one), try to place near
-    push @tries, $s->_near_places($cells); 
-    push @tries, $s->_near_places($cells,4); 
+    push @tries, $s->_near_places($cells, $min_dist); 
+    push @tries, $s->_near_places($cells, $min_dist + 2);
     }
 
   # weed out positions that are unsuitable
@@ -573,7 +637,7 @@ sub _find_node_place
     my $y = shift @tries;
 
     print STDERR "# Trying to place $node->{name} at $x,$y\n" if $self->{debug};
-    return 0 if $node->place($x,$y,$cells);
+    return 0 if $node->_do_place($x,$y,$cells);
 
     } # for all trial positions
 
@@ -581,7 +645,6 @@ sub _find_node_place
   # all simple possibilities exhausted, try a generic approach
 
   print STDERR "# No more simple possibilities for node $node->{name}\n" if $self->{debug};
-  #print STDERR "# $node->{name} has ", scalar @pre ," predecessorts\n" if $self->{debug};
 
   # XXX TODO:
   # find out which sides of the node predecessor node(s) still have free
@@ -603,7 +666,7 @@ sub _find_node_place
   while (1)
     {
     next if $self->_clear_tries($node, $cells, [ $col,$y ]) == 0;
-    last if $node->place($col,$y,$cells);
+    last if $node->_do_place($col,$y,$cells);
     }
     continue {
     $y += 2;

@@ -1,2 +1,2 @@
-[ Husum | Schleswig | Flensburg ] { background: #ddaaff; label: Husum; }
+[ Husum | Schleswig | Flensburg ] { background: #ddaaff; }
 

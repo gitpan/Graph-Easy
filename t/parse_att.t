@@ -29,6 +29,8 @@ $parser->{graph} = Graph::Easy->new();			# for _color_as_hex
 
 my $line = 0;
 
+$parser->no_fatal_errors(1);
+
 foreach (<DATA>)
   {
   chomp;

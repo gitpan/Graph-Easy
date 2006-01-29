@@ -1,12 +1,12 @@
 #############################################################################
 # Find paths from node to node in a Manhattan-style grid.
 #
-# (c) by Tels 2004-2005.
+# (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 #############################################################################
 #############################################################################
@@ -607,8 +607,6 @@ sub _get_joints
   # from a list of shared, already placed edges, get possible start/end fields
   my ($self, $shared, $mask, $types, $cells, $next_fields) = @_;
 
- # my @R;				# resulting positions
-
   # take each cell from all edges shared, already placed edges as start-point
   for my $e (@$shared)
     {
@@ -626,15 +624,14 @@ sub _get_joints
       my ($px,$py) = ($c->{x},$c->{y});
       my $i = 0;
       while ($i < @$fields)
-        {
-        my ($sx,$sy, $jt) = ($fields->[$i], $fields->[$i+1], $fields->[$i+2]);
-        $sx += $px; $sy += $py; $i += 3;
-
+	{
+	my ($sx,$sy, $jt) = ($fields->[$i], $fields->[$i+1], $fields->[$i+2]);
+	$sx += $px; $sy += $py; $i += 3;
         # don't add the field twice
-        next if exists $cells->{"$sx,$sy"};
-        $cells->{"$sx,$sy"} = [ $sx, $sy, undef, $px, $py ];
+	next if exists $cells->{"$sx,$sy"};
+	$cells->{"$sx,$sy"} = [ $sx, $sy, undef, $px, $py ];
 	$types->{"$sx,$sy"} = $jt;
-        } 
+	} 
       }
     }
  
@@ -706,7 +703,7 @@ sub _find_path_astar
     {
     # from SRC to DST
 
-    # get all the starting positions and add them to OPEN:
+    # get all the starting positions
     # distance = 1: slots, generate starting types, the direction is shifted
     # by 90° counter-clockwise
 
@@ -753,6 +750,7 @@ sub _find_path_astar
     push @shared, $s if @{$s->{cells}} > 0;
     }
 
+  my $per_field = 5;			# for shared: x,y,undef, px,py
   if (@shared > 0)
     {
     # more than one edge share the same end port, and one of the others was
@@ -761,9 +759,7 @@ sub _find_path_astar
     print STDERR "# edge from $edge->{from} to $edge->{to} shares port with ",
 	scalar @shared, " other edge(s)\n" if $self->{debug};
 
-    @B = $self->_get_joints(\@shared, EDGE_START_MASK, $joint_type_end, $end_cells, $prev_fields);
-
-#  use Data::Dumper; print Dumper($end_cells, \@B, $joint_type_end);
+    @B = $self->_get_joints(\@shared, EDGE_START_MASK, $joint_type_end, $end_cells, $prev_fields, 3);
     }
   else
     {
@@ -773,11 +769,13 @@ sub _find_path_astar
     # the edge has a port description, limiting the end places
     @B = $dst->_allowed_places( \@B, $dst->_allow( $e_p, @ee_p ), 3)
       if defined $e_p;
+
+    $per_field = 3;			# x,y,type
     }
 
   return unless scalar @B > 0;			# no free slots on target node?
 
-  my $path = $self->_astar(\@A,\@B,$edge);
+  my $path = $self->_astar(\@A,\@B,$edge, $per_field);
 
   if (@$path > 0 && keys %$start_cells > 0)
     {
@@ -793,7 +791,7 @@ sub _find_path_astar
   if (@$path > 0 && keys %$end_cells > 0)
     {
     # convert the edge piece of the starting edge-cell to a join
-    my ($x, $y) = ($path->[-2],$path->[-1]);
+    my ($x, $y) = ($path->[-3],$path->[-2]);
     my $xy = "$x,$y";
     my ($sx,$sy,$t,$px,$py) = @{$end_cells->{$xy}};
 
@@ -806,7 +804,7 @@ sub _find_path_astar
 
 sub _astar
   {
-  my ($self, $A, $B, $edge) = @_;
+  my ($self, $A, $B, $edge, $per_field) = @_;
 
   my @start = @$A;
   my @stop = @$B;
@@ -853,7 +851,7 @@ sub _astar
     # the smallest as value
 
     my $lowest = _astar_distance($sx,$sy, $stop[0], $stop[1]);
-    for (my $u = 3; $u < $stop; $u += 3)
+    for (my $u = $per_field; $u < $stop; $u += $per_field)
       {
       my $dist = _astar_distance($sx,$sy, $stop[$u], $stop[$u+1]);
       $lowest = $dist if $dist < $lowest;
@@ -901,12 +899,12 @@ sub _astar
     delete $open_by_pos->{$key};
 
     # we are done when we hit one of the potential stop positions
-    for (my $i = 0; $i < $stop; $i += 3)
+    for (my $i = 0; $i < $stop; $i += $per_field)
       {
       # reached one stop position?
       if ($x == $stop[$i] && $y == $stop[$i+1])
         {
-        $closed->{$key}->[4] += $stop[$i+2];
+        $closed->{$key}->[4] += $stop[$i+2] if defined $stop[$i+2];
         print STDERR "# Reached stop position $x,$y\n" if $self->{debug};
         last STEP;
         }
@@ -935,7 +933,7 @@ sub _astar
       # calculate distance to each possible stop position, and
       # use the lowest one
       my $lowest_distance = _astar_distance($nx, $ny, $stop[0], $stop[1]);
-      for (my $i = 3; $i < $stop; $i += 3)
+      for (my $i = $per_field; $i < $stop; $i += $per_field)
         {
         my $d = _astar_distance($nx, $ny, $stop[$i], $stop[$i+1]);
         $lowest_distance = $d if $d < $lowest_distance; 
@@ -1205,7 +1203,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for information.
 

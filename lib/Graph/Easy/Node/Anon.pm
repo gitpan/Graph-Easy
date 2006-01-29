@@ -8,7 +8,7 @@ package Graph::Easy::Node::Anon;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = 0.05;
+$VERSION = 0.07;
 
 use strict;
 
@@ -90,6 +90,12 @@ sub title
 sub text_styles_as_css
   {
   '';
+  }
+
+sub is_anon
+  {
+  # is an anon node
+  1;
   }
 
 1;

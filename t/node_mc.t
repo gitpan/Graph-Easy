@@ -99,7 +99,7 @@ is ($suc[0], $other, 'one successor');
 
 my $cells = { };
 
-is ($node->place(1,1,$cells), 1, 'node can be placed');
+is ($node->_do_place(1,1,$cells), 1, 'node can be placed');
 
 is (scalar keys %$cells, 3, '3 entries (3 rows)');
 is ($cells->{"1,1"}, $node, 'node was really placed');
@@ -107,7 +107,7 @@ my $filler = $cells->{"1,2"};
 is (ref($filler), 'Graph::Easy::Node::Cell', 'filler cell');
 is ($filler->node(), $node, 'filler associated with node');
 
-is ($node->place(1,1,$cells), 0, 'node cannot be placed again');
+is ($node->_do_place(1,1,$cells), 0, 'node cannot be placed again');
 is ($cells->{"1,1"}, $node, 'node still there placed');
 is (scalar keys %$cells, 3, 'still three entries');
 

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 33;
+   plan tests => 40;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -246,5 +246,16 @@ is ($html, <<EOF
  <td colspan=4 rowspan=4 class='node' style="background: #ff0000;border: solid 1px #ffa500"><a class='l' href='http://bloodgate.com'>Friedrichshafen</a></td>
 EOF
 , 'border is on the TD, not the A HREF');
+
+#############################################################################
+# as_html_file() includes the proper classes
+
+$html = $graph->as_html_file();
+
+for my $c (qw/eb hat lh lv ve va el/)
+  {
+  like ($html, qr/table.graph \.$c/, "includes '$c'");
+  }
+
 
 
