@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 109;
+   plan tests => 110;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -19,7 +19,7 @@ can_ok ("Graph::Easy", qw/
   html_page_header
   html_page_footer
   error
-  node nodes edges anon_nodes
+  edge node nodes edges anon_nodes
 
   svg_information
 
@@ -239,11 +239,12 @@ is ($bonn, $bonn4, 'same node');
 # adding an edge with two plain scalars as names
 
 $graph = Graph::Easy->new();
-my $edge = $graph->add_edge( 'Test', 'Test2' );
+my ($T1,$T2,$edge) = $graph->add_edge( 'Test', 'Test2' );
 
 is (scalar $graph->nodes(), 2, '2 nodes');
 is (scalar $graph->edges(), 1, '1 edge');
-is ($edge, $graph->edge('Test', 'Test2'), 'edge() works');
+is ($graph->edge('Test', 'Test2'), $edge, 'edge("A","B") works');
+is ($graph->edge($T1,$T2), $edge, 'edge($A,$B) works');
 
 # adding a multi-edge
 $graph->add_edge( 'Test', 'Test2' );

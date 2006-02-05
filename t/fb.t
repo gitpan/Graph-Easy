@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 28;
+   plan tests => 36;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -22,6 +22,7 @@ can_ok ("Graph::Easy::Node", qw/
   _printfb_ver
   _draw_label
   _framebuffer
+  _aligned_label
   /);
 
 #############################################################################
@@ -126,4 +127,46 @@ $node->_draw_border( $fb, 'solid', 'dotted', 'solid', 'solid');
 is (join ("::", @$fb), 
   '+------+::|      |::|      |:::......:',
   'solid border, except bottom, which is dotted');
+
+#############################################################################
+# label alignments
+
+$node->set_attribute('label', 'left\r right\l left\c center\n normal');
+
+my ($lines,$aligns) = $node->_aligned_label();
+
+is_deeply ( $lines, [ 'left', 'right', 'left', 'center', 'normal' ], 
+           'lines are ok');
+is_deeply ( $aligns, [ 'c', 'r', 'l', 'c', 'c', ], 'aligns is ok');
+
+# empty lines at the are thrown away
+$node->set_attribute('label', 'left\r right\l left\c center\n normal\c');
+
+($lines,$aligns) = $node->_aligned_label();
+
+is_deeply ( $lines, [ 'left', 'right', 'left', 'center', 'normal' ], 
+           'lines are ok');
+is_deeply ( $aligns, [ 'c', 'r', 'l', 'c', 'c', ], 'aligns is ok');
+
+# start with alignment
+$node->set_attribute('label', '\rleft\r right\l left\c center\n normal\c');
+
+($lines,$aligns) = $node->_aligned_label();
+
+is_deeply ( $lines, [ '', 'left', 'right', 'left', 'center', 'normal' ], 
+           'lines are ok');
+is_deeply ( $aligns, [ 'c', 'r', 'r', 'l', 'c', 'c', ], 'aligns is ok');
+
+# start with alignment
+$node->set_attribute('label', '\r\l\rleft\r right\l left\c center\n normal\c');
+
+($lines,$aligns) = $node->_aligned_label();
+
+is_deeply ( $lines, [ '','','','left', 'right', 'left', 'center', 'normal' ], 
+           'lines are ok');
+is_deeply ( $aligns, [ 'c','r','l','r', 'r', 'l', 'c', 'c', ], 'aligns is ok');
+
+
+
+
 

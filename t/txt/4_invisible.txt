@@ -1,5 +1,7 @@
+[ Borna ] { point-style: invisible; shape: point; }
 [ You don't see me! ] { shape: invisible; }
 
 [ Bischofswerda ] --> [ You don't see me! ]
+[ Borna ] --> [ Bremen ]
 [ You don't see me! ] --> [ Bischofswerda ]
-[ You don't see me! ] --> [ Senftenberg ]
+[ You don't see me! ] --> [ Borna ]

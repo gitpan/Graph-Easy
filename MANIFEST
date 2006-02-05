@@ -119,7 +119,6 @@ t/in/3_edge_repair.txt
 t/in/3_empty_group.txt
 t/in/3_group_align_center.txt
 t/in/3_invisible_both.txt
-t/in/3_invisible.txt
 t/in/3_joining.txt
 t/in/3_list_attr.txt
 t/in/3_lists.txt
@@ -146,6 +145,7 @@ t/in/4_endless_loop.txt
 t/in/4_flow.txt
 t/in/4groups_class.txt
 t/in/4groups.txt
+t/in/4_invisible.txt
 t/in/4_list_attr.txt
 t/in/4_lists.txt
 t/in/4_minlen.txt
@@ -240,7 +240,6 @@ t/out/3_edge_repair.txt
 t/out/3_empty_group.txt
 t/out/3_group_align_center.txt
 t/out/3_invisible_both.txt
-t/out/3_invisible.txt
 t/out/3_joining.txt
 t/out/3_list_attr.txt
 t/out/3_lists.txt
@@ -267,6 +266,7 @@ t/out/4_endless_loop.txt
 t/out/4_flow.txt
 t/out/4groups_class.txt
 t/out/4groups.txt
+t/out/4_invisible.txt
 t/out/4_list_attr.txt
 t/out/4_lists.txt
 t/out/4_minlen.txt
@@ -386,7 +386,6 @@ t/txt/3_edge_repair.txt
 t/txt/3_empty_group.txt
 t/txt/3_group_align_center.txt
 t/txt/3_invisible_both.txt
-t/txt/3_invisible.txt
 t/txt/3_list_attr.txt
 t/txt/3_lists.txt
 t/txt/3_nodes_5_edges.txt
@@ -405,6 +404,7 @@ t/txt/4_endless_loop.txt
 t/txt/4_flow.txt
 t/txt/4groups_class.txt
 t/txt/4groups.txt
+t/txt/4_invisible.txt
 t/txt/4_list_attr.txt
 t/txt/4_lists.txt
 t/txt/4_minlen.txt
@@ -437,3 +437,15 @@ t/txt/8_points.txt
 t/txt/9_chain.txt
 t/txt/9_cross.txt
 t/use_class.t			test overriding classes in the Parser
+
+inc/Module/AutoInstall.pm
+inc/Module/Install.pm
+inc/Module/Install/AutoInstall.pm
+inc/Module/Install/Base.pm
+inc/Module/Install/Can.pm
+inc/Module/Install/Fetch.pm
+inc/Module/Install/Include.pm
+inc/Module/Install/Makefile.pm
+inc/Module/Install/Metadata.pm
+inc/Module/Install/Win32.pm
+inc/Module/Install/WriteAll.pm

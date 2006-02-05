@@ -1,5 +1,25 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-02-05 v0.41 Tels 1670 tests
+  * use Module::Install and bundle it in inc/
+  * add "point-style: invisible" for very small, invisible nodes - nodes with
+    "shape: invisible;" will still have a minimum size.
+  * add support for '\l', '\r' and '\c' as line breaks to align individual
+    label lines left, right or center
+  * as_ascii:
+    + support proper alignment on edge labels
+  * as_graphviz():
+    + fix invisible nodes to not show their label
+    + add support for nodes with "shape: point;"
+  * t/graphviz.t: reduce the number of unnec. calls to as_graphviz()
+  * as_html():
+    + use white-space: nowrap; (not "pre")
+    + add support for \l, \r, \c and don't include text-align twice
+  * Node:
+    + remove the unused and undocumented "noquote" param from as_html()
+  * Graph:
+    + add: add_edge_once(): add an edge from A to B only once
+
 2006-01-29 v0.40 Tels 1652 tests
   * add attribute:
     + "invisible" as edge style

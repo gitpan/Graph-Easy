@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 111;
+   plan tests => 117;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -23,9 +23,11 @@ is ($graph->edges(), 0, '0 edges');
 
 is (join (',', $graph->edges()), '', '0 edges');
 
-like ($graph->as_graphviz(), qr/digraph.*\{/, 'looks like digraph');
-unlike ($graph->as_graphviz(), qr/#/, 'and has proper comment');
-like ($graph->as_graphviz(), qr#// Generated#, 'and has proper comment');
+my $grviz = $graph->as_graphviz();
+
+like ($grviz, qr/digraph.*\{/, 'looks like digraph');
+unlike ($grviz, qr/#/, 'and has proper comment');
+like ($grviz, qr#// Generated#, 'and has proper comment');
 
 #############################################################################
 # after first call to as_graphviz, these should now exist:
@@ -43,7 +45,7 @@ my $berlin = Graph::Easy::Node->new( 'Berlin' );
 
 my $edge = $graph->add_edge ($bonn, $berlin);
 
-my $grviz = $graph->as_graphviz();
+$grviz = $graph->as_graphviz();
 
 like ($grviz, qr/Bonn/, 'contains Bonn');
 like ($grviz, qr/Berlin/, 'contains Bonn');
@@ -52,16 +54,12 @@ like ($grviz, qr/arrowhead=open/, 'contains open arrowheads');
 
 unlike ($grviz, qr/\w+=,/, "doesn't contain empty defintions");
 
-#print $graph->as_graphviz(),"\n";
-
 #############################################################################
 # with attributes on the graph
 
 $graph->set_attribute( 'graph', 'fill' => 'red' );
 
 like ($graph->as_graphviz(), qr/bgcolor="#ff0000"/, 'contains bgcolor="#ff0000"');
-
-#print $graph->as_graphviz(),"\n";
 
 #############################################################################
 # with label/label-pos attributes on the graph
@@ -78,26 +76,21 @@ $grviz = $graph->as_graphviz();
 like ($grviz, qr/label="My Label"/, 'graph label');
 like ($grviz, qr/labelloc=top/, 'default is top');
 
-#print $graph->as_graphviz(),"\n";
-
 $graph->set_attribute( 'graph', 'label-pos' => 'bottom' );
 $grviz = $graph->as_graphviz();
 
 like ($grviz, qr/label="My Label"/, 'graph label');
 like ($grviz, qr/labelloc=bottom/, 'now bottom');
 
-#print $graph->as_graphviz(),"\n";
-
 #############################################################################
 # with some nodes with atributes
 
 $bonn->set_attribute( 'shape' => 'rect' );
 
-like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
-like ($graph->as_graphviz(), qr/[^"]Berlin[^"]/, 'contains Bonn unquoted');
-like ($graph->as_graphviz(), qr/shape=box/, 'contains shape');
-
-#print $graph->as_graphviz(),"\n";
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($grviz, qr/[^"]Berlin[^"]/, 'contains Bonn unquoted');
+like ($grviz, qr/shape=box/, 'contains shape');
 
 #############################################################################
 # remapped attributes, quoted attributes
@@ -117,8 +110,6 @@ like ($grviz, qr/tooltip="title string"/, 'contains tooltip');
 like ($grviz, qr/color="#a52a2a"/, 'contains color');
 like ($grviz, qr/fontcolor="#ff0000"/, 'contains fontcolor');
 unlike ($grviz, qr/(city|class)/, "doesn't contain class");
-
-#print $graph->as_graphviz(),"\n";
 
 #############################################################################
 # quoting (including " in node names)
@@ -317,8 +308,8 @@ $bonn->{name} = 'Bonn';
 $bonn->set_attribute( 'shape' => 'none' );
 
 $grviz = $graph->as_graphviz();
-like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
-like ($graph->as_graphviz(), qr/Bonn.*shape=plaintext/, 'contains shape=plaintext');
+like ($grviz, qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($grviz, qr/Bonn.*shape=plaintext/, 'contains shape=plaintext');
 
 
 # some different node shapes
@@ -332,8 +323,8 @@ for my $s (qw/
   $bonn->set_attribute( 'shape' => $s );
 
   $grviz = $graph->as_graphviz();
-  like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
-  like ($graph->as_graphviz(), qr/Bonn.*shape=$s/, 'contains shape=plaintext');
+  like ($grviz, qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+  like ($grviz, qr/Bonn.*shape=$s/, "contains shape=$s");
   }
 
 #############################################################################
@@ -342,8 +333,8 @@ for my $s (qw/
 $bonn->set_attribute( 'font-size' => '2em' );
 
 $grviz = $graph->as_graphviz();
-like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
-like ($graph->as_graphviz(), qr/Bonn.*fontsize=22/, '11px eq 1em');
+like ($grviz, qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($grviz, qr/Bonn.*fontsize=22/, '11px eq 1em');
 
 #############################################################################
 # bold-dash, broad and wide edges
@@ -351,8 +342,8 @@ like ($graph->as_graphviz(), qr/Bonn.*fontsize=22/, '11px eq 1em');
 $bonn->set_attribute( 'border-style' => 'broad' );
 
 $grviz = $graph->as_graphviz();
-like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
-like ($graph->as_graphviz(), qr/Bonn.*style="filled,setlinewidth\(7\)"/, 
+like ($grviz, qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($grviz, qr/Bonn.*style="filled,setlinewidth\(7\)"/, 
  '7 pixel for broad border');
 
 #############################################################################
@@ -366,7 +357,7 @@ like ($graph->as_graphviz(), qr/Bonn.*label="\$a = 2;"/, 'contains label unquote
 $bonn->set_attribute( 'label' => '2"' );
 $grviz = $graph->as_graphviz();
 
-like ($graph->as_graphviz(), qr/Bonn.*label="2\\""/, 'contains label 2"');
+like ($grviz, qr/Bonn.*label="2\\""/, 'contains label 2"');
 
 
 #############################################################################
@@ -382,7 +373,7 @@ $group->add_node($berlin);
 
 $grviz = $graph->as_graphviz();
 
-like ($graph->as_graphviz(), qr/subgraph "cluster\d+"\s+\{/, 'contains cluster');
+like ($grviz, qr/subgraph "cluster\d+"\s+\{/, 'contains cluster');
 
 #############################################################################
 # nodes w/o links and attributes in a group
@@ -399,7 +390,7 @@ $group->add_node($berlin);
 
 $grviz = $graph->as_graphviz();
 
-like ($graph->as_graphviz(), qr/Berlin(.|\n)*Bonn(.|\n)*\}(.|\n)*\}/, 'contains nodes inside group');
+like ($grviz, qr/Berlin(.|\n)*Bonn(.|\n)*\}(.|\n)*\}/, 'contains nodes inside group');
 
 #############################################################################
 # node with border-style: none:
@@ -411,7 +402,7 @@ $bonn->set_attribute('border-style', 'none');
 
 $grviz = $graph->as_graphviz();
 
-like ($graph->as_graphviz(), qr/Bonn.*style="filled,setlinewidth\(0\)"/, 'contains setlinewidth(0)');
+like ($grviz, qr/Bonn.*style="filled,setlinewidth\(0\)"/, 'contains setlinewidth(0)');
 
 #############################################################################
 # node with shape: rounded;
@@ -420,6 +411,27 @@ $bonn->del_attribute('border-style');
 $bonn->set_attribute( 'shape' => 'rounded' );
 
 $grviz = $graph->as_graphviz();
-like ($graph->as_graphviz(), qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
-like ($graph->as_graphviz(), qr/Bonn.*style="rounded,filled"/, 'contains rounded,filled'); 
+like ($grviz, qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($grviz, qr/Bonn.*style="rounded,filled"/, 'contains rounded,filled'); 
+
+#############################################################################
+# invisible nodes and node with shape: point;
+
+$bonn->del_attribute('border-style');
+$bonn->set_attribute( 'shape' => 'invisible' );
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($grviz, qr/Bonn.*shape=plaintext/, 'contains shape plaintext'); 
+like ($grviz, qr/Bonn.*label=" "/, 'contains label=" "'); 
+
+$bonn->del_attribute('border-style');
+$bonn->set_attribute( 'shape' => 'point' );
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
+like ($grviz, qr/Bonn.*shape=plaintext/, 'contains shape plaintext'); 
+like ($grviz, qr/Bonn.*label="*"/, 'contains label="*"'); 
+
+
 

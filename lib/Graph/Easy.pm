@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.40';
+$VERSION = '0.41';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -31,7 +31,7 @@ BEGIN
   *as_ascii_file = \&as_ascii;
   *as_boxart_file = \&as_boxart;
   *as_txt_file = \&as_txt;
-  *_formatted_label = \&Graph::Easy::Node::_formatted_label;
+  *_aligned_label = \&Graph::Easy::Node::_aligned_label;
   *default_attribute = \&Graph::Easy::Node::default_attribute; 
   }
 
@@ -395,14 +395,33 @@ sub sorted_nodes
   return sort $sort values %{$self->{nodes}};
   }
 
+sub add_edge_once
+  {
+  # add an edge, unless it already exists. In that case it returns undef
+  my ($self, $x, $y, $edge) = @_;
+
+  # got an edge object? Don't add it twice!
+  return undef if ref($edge);
+
+  # turn plaintext scalars into objects 
+  $x = $self->{nodes}->{$x} unless ref $x;
+  $y = $self->{nodes}->{$y} unless ref $y;
+
+  # nodes do exist => maybe the edge also exists
+  if (ref($x) && ref($y))
+    {
+    my @ids = $x->edges_to($y);
+
+    return undef if @ids;	# found already one edge?
+    }
+
+  $self->add_edge($x,$y,$edge);
+  }
+
 sub edge
   {
   # return an edge between two nodes as object
   my ($self, $x, $y) = @_;
-
-  # turn objects into names (e.g. unique key)
-  my $xn = $x; $xn = $x->{name} if ref $xn;
-  my $yn = $y; $yn = $y->{name} if ref $yn;
 
   # turn plaintext scalars into objects 
   $x = $self->{nodes}->{$x} unless ref $x;
@@ -756,8 +775,10 @@ CSS
 table.graph##id## td {
   padding: 2px;
   background: inherit;
-  white-space: pre;
+  white-space: nowrap;
   }
+table.graph##id## span.l { float: left; }
+table.graph##id## span.r { float: right; }
 CSS
 ;
 
@@ -777,9 +798,7 @@ table.graph##id## .va {
   line-height: 1.5em;
   width: 0.4em;
   }
-table.graph##id## .ve {
-  width: 0em;
-  }
+table.graph##id## .ve { width: 0em; }
 table.graph##id## .el {
   width: 1em;
   max-width: 1em;
@@ -1170,17 +1189,22 @@ sub _as_ascii
 
   my $y_start = 0;
 
-  # if the graph has a label, reserve space for it
-  my @label = $self->_formatted_label();
+  my $align = $self->attribute('align') || 'center';
 
+  # get the label lines and their alignment
+  my ($label,$aligns) = $self->_aligned_label($align);
+
+  # if the graph has a label, reserve space for it
   my $label_pos = 'top';
-  if (@label > 0)
+  if (@$label > 0)
     {
-    unshift @label, '';
-    push @label, '';
+    # insert one line over and below
+    unshift @$label, '';   push @$label, '';
+    unshift @$aligns, 'c'; push @$aligns, 'c';
+
     $label_pos = $self->attribute('graph','label-pos') || 'top';
-    $y_start += scalar @label if $label_pos eq 'top';
-    $max_y += scalar @label + 1;
+    $y_start += scalar @$label if $label_pos eq 'top';
+    $max_y += scalar @$label + 1;
     print STDERR "# Graph with label, position $label_pos\n" if $self->{debug};
     }
 
@@ -1190,16 +1214,10 @@ sub _as_ascii
   my $fb = Graph::Easy::Node->_framebuffer($max_x, $max_y);
 
   # output the label
-  if (@label > 0)
+  if (@$label > 0)
     {
-    # my ($self, $fb, $x, $y, @lines) = @_;
-    
-    # XXX TODO: align label left|right|center
-
-    my $align = $self->attribute('align');
-
-    my $y = 0; $y = $max_y - scalar @label if $label_pos eq 'bottom';
-    Graph::Easy::Node->_printfb_aligned($fb, 0, $y, $max_x, scalar @label, \@label, $align, 'middle');
+    my $y = 0; $y = $max_y - scalar @$label if $label_pos eq 'bottom';
+    Graph::Easy::Node->_printfb_aligned($fb, 0, $y, $max_x, scalar @$label, $label, $aligns, 'middle');
     }
 
   # draw all cells into framebuffer
@@ -1625,6 +1643,9 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
 
 	$graph->add_edge ('Bonn', 'Berlin');
 
+	# will not add it, since it already exists
+	$graph->add_edge_once ('Bonn', 'Berlin');
+
 	print $graph->as_ascii( );
 
 	# prints:
@@ -1753,7 +1774,16 @@ Adding the edge the second time creates another edge from 'Mainz' to 'Ulm':
 	my $other_edge;
 	 ($first,$second,$other_edge) = $graph->add_edge('Mainz','Ulm');
 
-You can even add a self-loop:
+This can be avoided by using C<add_edge_once()>:
+
+	my $edge = $graph->add_edge_once('Mainz','Ulm');
+	if (defined $edge)
+	  {
+	  # the first time the edge was added, so do something with it
+	  $edge->set_attribute('color','blue');
+	  }
+
+You can also add self-loops:
 
 	$graph->add_edge('Bremen','Bremen');
 
@@ -1900,11 +1930,32 @@ the nodes, or objects of L<Graph::Easy::Node|Graph::Easy::Node>,
 while the optional C<$edge> should be L<Graph::Easy::Edge|Graph::Easy::Edge>.
 
 Note: C<Graph::Easy> graphs are multi-edged, and adding the same edge
-twice will result in two edges going from C<$x> to C<$y>!
+twice will result in two edges going from C<$x> to C<$y>! See
+C<add_edge_once()> on how to avoid that.
 
-You can use C<edge()> to check whether an edge from X to Y already exists
+You can also use C<edge()> to check whether an edge from X to Y already exists
 in the graph.
  
+=head2 add_edge_once()
+
+	my ($first, $second, $edge) = $graph->add_edge_once( 'node 1', 'node 2');
+	my $edge = $graph->add_edge_once( $x, $y, $edge);
+	$graph->add_edge_once( $x, $y);
+
+	if (defined $edge)
+	  {
+	  # got added once, so do something with it
+	  $edge->set_attribute('label','unique');
+	  }
+
+Adds an edge between nodes X and Y, unless there exists already
+an edge between these two nodes. See C<add_edge()>.
+
+Returns undef when an edge between X and Y already exists.
+
+When called in scalar context, will return C<$edge>. In array/list context
+it will return the two nodes and the edge object.
+
 =head2 add_node()
 
 	my $node = $graph->add_node( 'Node 1' );

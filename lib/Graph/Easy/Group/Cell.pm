@@ -219,18 +219,16 @@ sub as_ascii
   if (exists $self->{has_label})
     {
     # include our label
-    my @lines = $self->_formatted_label();
 
     my $align = $self->attribute('align') || 'left';
     # the default label cell as a top border, but no left/right border
-    my $w = $self->{w}; my $xs = 0;
-    my $h = $self->{h} - 2; my $ys = 1;
+    my $ys = 0.5;
     my $border = $self->attribute('border-style') || '';
-    if ($border eq 'none')
-      {
-      $h += 2; $ys = 0;
-      }
-    $self->_printfb_aligned ($fb, $xs, $ys, $w, $h, \@lines, $align);
+    $ys = 0 if $border eq 'none';
+    my $h = $self->{h} - 1; $h ++ if $border eq 'none';
+
+    $self->_printfb_aligned ($fb, 0, $ys, $self->{w}, $h, 
+	$self->_aligned_label($align), 'middle');
     }
 
   join ("\n", @$fb);

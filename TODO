@@ -7,15 +7,12 @@ In addition:
 
 Important short-term TODO:
 
-* inserting nbsp; for group-cells causes them no longer to be combined
 * complete edge-arrow alignment in HTML
 * if a "shared start point" edge is leading past a node where another, also
   shared edge leads, a joint should be created right-away next to the
   target node (see "A23" in todo/tree2.txt)
 * edges between groups (ala "( 1 [A ]) -> ( 2 [B] )") or between a node
   and a group are missing in HTML, ASCII and SVG.
-* layout() will grow nodes base on layout contraints, an as_txt() afterwards
-  will produce these sizes, even when the input did not specify a node size.
 * "[A],[B],[C] -> [ very wide node ] { size: 7,1; }" results in A being very
   broad, and B and C being very small. They should be roughly the same size.
   (for multicelled nodes: find smallest row/column, increase, until all
@@ -29,7 +26,7 @@ Important short-term TODO:
 * define missing HTML edge pieces: CROSS/JOINT sections w/ end/start points
 * as_html(): output of node-clusters is slightly wrong
 * as_html(): there is no space between two nodes placed next (with filler
-	     cell) to each other. Make filler cells output a &nbsp;
+	     cell) to each other. Make filler cells output a &nbsp;?
 * as_html(): bidir. self-loops are rendered with only one arrow: [A] <--> [A]
 * put framebuffer related routines into own package (Graph::Easy::As_ascii)
   to avoid the dilemma that we need them from both Node and Graph.
@@ -37,11 +34,11 @@ Important short-term TODO:
   be in a super-package and inherited)
 * as_txt(): the following are wrong as txt:
   + 3_autosplit_hang.txt
-  + 3_autosplit_class.txt
 * use "shape: record" and label="{ { 00 | 01 | 02 } | { 10 | 112 | 12 } }" to
   implement auto-split nodes in graphviz (including <port>'s and rerouting
   edges to the ports)
 * joints in as_boxart() have problems with the joint character:
+  "[ A ] --> { start: south, 0; } [ A1 ], [ A2 ]" produces
 	┌───┐
 	│ A │
 	└───┘
@@ -54,7 +51,8 @@ Important short-term TODO:
 
 Tests:
 
-* write tests for the new graphviz output (inter-group links and joints)
+* test the new graphviz output (inter-group links and joints)
+* test \r, \l and \c in HTML output
 
 Parser:
 
@@ -98,10 +96,11 @@ Output:
 
 * as_txt(): output of node clusters is not optimal
 * as_txt(): output of node chains is not optimal
-* better support for different shapes (circle, box, rounded, polygon etc)
+* better support for different shapes (circle, box, polygon etc)
   in ASCII
 * as_graphviz(): implement border-styles: wave, dot-dot-dash and dot-dash
 * as_graphviz(): implement edge-styles: double, double-dash, wave, dot-dot-dash and dot-dash
+* as_graphviz(): text-styles: underline, overline, strike-through, italic and bold
 * as_ascii() and others: grow cells around point-shaped nodes to intrude:
 
 	...........................
@@ -113,6 +112,7 @@ Output:
 	:-----> : * : <---- :     :
         :       :   :       :     :
 	...........................
+  (at least the edge pieces could omit their left/right spacer in ASCII)
 
 * as_boxart has some incorrect corner pieces:
    echo "[A|B|C||D]" | perl examples/as_boxart

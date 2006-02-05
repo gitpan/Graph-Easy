@@ -1,62 +1,31 @@
-use 5.008000;
-use ExtUtils::MakeMaker;
-use strict;
 
-sub MY::metafile {
-  package MY;
-  my $self = shift;
-  if (!eval { require YAML; 1 })
-  {
-    warn ("YAML not installed, 'make dist' will not override 'META.yml'.");
-    return $self->SUPER::metafile_target(@_);
-  };
+# Load the Module::Install bundled in ./inc/
+use inc::Module::Install;
+    
+# The name of your distribution
+name		'Graph-Easy';
+    
+# Get most of the details from the primary module
+all_from	'lib/Graph/Easy.pm';
+   
+requires	'Scalar::Util'	=> 1.13;
+requires	'Heap'		=> 0.71;
 
-  require YAML::Node;
-  my $node = YAML::Node->new({});
+recommends	'Graph::Easy::As_svg'	=> 0.18;
 
-  $node->{name}                 = $self->{DISTNAME};
-  $node->{version}              = $self->{VERSION};
-  $node->{version_from}         = $self->{VERSION_FROM};
-  $node->{license}              = 'gpl';
-  $node->{distribution_type}    = 'module';
-  $node->{generated_by}         = "$self->{DISTNAME} version $self->{VERSION}";
-  $node->{installdirs}          = 'site';
-  $node->{requires}             = $self->{PREREQ_PM};
+build_requires	'Test::More'	=> 0.42;
+   
+license		'gpl'; 
 
-  my $dump = YAML::Dump( $node );
+author		'Tels <nospam-abuse@bloodgate.com>';
 
-  $dump =~ s/^(.*)$/\t\$(NOECHO) \$(ECHO) "$1" >>META.yml/gm;
-  $dump =~ s/>>META\.yml/>META.yml/;
-
-  return "metafile:\n$dump";
-}
-
-eval { require Graph::Easy::As_svg; };
-
-my $ver = $Graph::Easy::As_svg::VERSION;
-
-if (!defined $ver)
-  {
-  print "\n************\n";
-  print "Warning: You do not seem to have Graph::Easy::As_svg installed.\n";
-  print "         SVG output is not possible until you install it afterwards.\n\n";
-  }
-
-if (defined $ver && $ver <= 0.16)
-  {
-  print "\n************\n";
-  print "Warning: Your Graph::Easy::As_svg version is outdated.\n";
-  print "         Please upgrade it after installing this package.\n\n";
-  }
-
-WriteMakefile(
-    NAME		=> 'Graph::Easy',
-    VERSION_FROM	=> 'lib/Graph/Easy.pm', # finds $VERSION
-    PREREQ_PM		=> {
-	"Scalar::Util" => 1.13,
-	"Heap" => 0.71,
-	},
-    ABSTRACT_FROM	=> 'lib/Graph/Easy.pm',
-    AUTHOR		=> 'Tels <nospam-abuse@bloodgate.com>',
-    PREREQ_FATAL	=> 1,  # can't work w/o proper prereqs
-);
+# Do not index these
+no_index	directory	=> 'examples',
+		directory	=> 'bench',
+		directory	=> 'todos';
+    
+# Auto-install all dependencies from CPAN
+auto_install;
+    
+# Generate the Makefile
+WriteAll;

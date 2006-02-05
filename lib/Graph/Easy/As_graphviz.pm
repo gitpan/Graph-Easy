@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 #############################################################################
 #############################################################################
@@ -192,7 +192,7 @@ sub _graphviz_remap_border_style
   $shape = ($node->attribute('shape') || '') if ref($node);
  
   # shape "none" or plaintext don't need a border
-  return (undef,undef) if $shape =~ /^(none|invisible|img)\z/;
+  return (undef,undef) if $shape =~ /^(none|invisible|img|point)\z/;
 
   # valid styles are: solid dashed dotted bold invis
 
@@ -253,7 +253,7 @@ sub _graphviz_remap_label_color
 
 sub _graphviz_remap_node_shape
   {
-  my ($self, $name, $style) = @_;
+  my ($self, $name, $style, $object) = @_;
 
   # img needs no shape, and rounded is handled as style
   return (undef,undef) if $style =~ /^(img|rounded)\z/;
@@ -261,7 +261,7 @@ sub _graphviz_remap_node_shape
   # valid styles are: solid dashed dotted bold invis
 
   my $s = $style;
-  $s = 'plaintext' if $style =~ /^(invisible|none)/;
+  $s = 'plaintext' if $style =~ /^(invisible|none|point)\z/;
 
   ($name, $s);
   }
@@ -285,15 +285,21 @@ sub _graphviz_remap_label
   {
   my ($self, $name, $style, $node) = @_;
 
+  my $s = $style;
+
+  my $shape = 'rect';
+  $shape = ($node->attribute('shape') || '') if ref($node);
+
   # only for nodes and when they have a "shape: img"
-  return ($name, $style) if !ref($node) || ($node->attribute('shape')||'') ne 'img';
+  if ($shape eq 'img')
+    {
+    my $s = '<<TABLE BORDER="0"><TR><TD><IMG SRC="##url##" /></TD></TR></TABLE>>';
 
-  my $s = '<<TABLE BORDER="0"><TR><TD><IMG SRC="##url##" /></TD></TR></TABLE>>';
-
-  my $url = $node->label();
-  $url =~ s/\s/\+/g;				# space
-  $url =~ s/'/%27/g;				# replace quotation marks
-  $s =~ s/##url##/$url/g;
+    my $url = $node->label();
+    $url =~ s/\s/\+/g;				# space
+    $url =~ s/'/%27/g;				# replace quotation marks
+    $s =~ s/##url##/$url/g;
+    }
 
   ($name, $s);
   }
@@ -713,10 +719,29 @@ sub attributes_as_graphviz
 
   # For nodes with shape plaintext, set the fillcolor to the background of
   # the graph/group
-  if ($class =~ /node/ && exists $a->{shape} && $a->{shape} eq 'plaintext')
+  my $shape = $a->{shape} || 'rect';
+  if ($class =~ /node/ && $shape eq 'plaintext')
     {
     my $p = $self->parent();
     $a->{fillcolor} = $p->attribute('fill') || 'white';
+    }
+
+  my $sh = $self->attribute('shape') || 'rect';
+
+  # for point-shaped nodes, include the point as label and set width/height
+  if ($sh eq 'point')
+    {
+    require Graph::Easy::As_ascii;		# for _u8 and point-style
+
+    my $style = $self->_point_style( $self->attribute('point-style') || 'star' );
+
+    $a->{label} = $style;
+    # for point-shaped invisible nodes, set height/width = 0
+    $a->{width} = 0, $a->{height} = 0 if $style eq '';  
+    }
+  if ($sh eq 'invisible')
+    {
+    $a->{label} = ' ';
     }
 
   # create the attributes as text:

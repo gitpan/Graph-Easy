@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 
 package Graph::Easy;
 
@@ -289,15 +289,13 @@ sub text_styles_as_css
     }
   $style .= " font-size: $fs;" if $fs;
 
-  my $al = $self->attribute('align') || '';
-  $al = 'left' if $al eq '' and $self->isa('Graph::Easy::Group::Cell');
-
-  if ($align)
+  if (!$align)
     {
-    my $DEF = $self->default_attribute('align') || 'center';
-    $al = '' unless $al ne $DEF;
+    my $al = $self->attribute('align') || '';
+    $al = 'left' if $al eq '' and $self->isa('Graph::Easy::Group::Cell');
+
+    $style .= " text-align: $al;" if $al;
     }
-  $style .= " text-align: $al;" if $al;
 
   $style;
   }
@@ -735,8 +733,8 @@ my $attributes = {
     align => [
      "The alignment of the label text.",
      [ qw/center left right/ ],
-     'center',
      'center for graph and nodes, left for groups and edge labels',
+     'left',
      undef,
      "graph { align: left; label: My Graph; }\nnode {align: left;}\n ( Nodes:\n [ Right\\nAligned ] { align: right; } -- label\\n text -->\n { align: left; }\n [ Left\\naligned ] )",
      ],
@@ -849,7 +847,7 @@ EOF
      ],
 
     shape => [
-     "The shape of the node. Nodes with shape 'point' (see L<point-style>) have a fixed size and do not display their label. When set to the value 'img', the L<label> will be interpreted as an external image resource to display. In this case attributes like L<color>, L<font-size> etc. are ignored.",
+     "The shape of the node. Nodes with shape 'point' (see L<point-style>) have a fixed size and do not display their label. The border of such a node is the outline of the C<point-shape>, and the fill is the inside of the C<point-shape>. When the C<shape> is set to the value 'img', the L<label> will be interpreted as an external image resource to display. In this case attributes like L<color>, L<font-size> etc. are ignored.",
        [ qw/ circle diamond ellipse hexagon house invisible invhouse invtrapezium invtriangle octagon parallelogram pentagon
              point triangle trapezium septagon rect rounded none img/ ],
       'rect',
@@ -869,9 +867,12 @@ EOF
 
     "point-style" => [
      "Controls the style of a node that has a L<shape> of 'point'.",
-     [ qw/circle square dot cross star diamond/ ],
+     [ qw/circle square dot cross star diamond invisible/ ],
       'star',
       'square',
+      undef,
+     "node { shape: point; }\n\n [ A ] { point-style: star; }\n -> [ B ] { point-style: invisible; }\n -> [ C ]\n" . 
+     " -> [ D ] { point-style: diamond; }",
      ], 
 
     "basename" => [

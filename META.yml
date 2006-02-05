@@ -1,11 +1,24 @@
----
-name: Graph-Easy
-version: 0.40
-version_from: lib/Graph/Easy.pm
-license: gpl
+abstract: 'Render graphs as ASCII, HTML, SVG or Graphviz'
+author: 'Tels <nospam-abuse@bloodgate.com>'
+build_requires:
+  Test::More: 0.42
 distribution_type: module
-generated_by: Graph-Easy version 0.40
-installdirs: site
+generated_by: Module::Install version 0.55
+license: gpl
+name: Graph-Easy
+no_index:
+  directory:
+    - examples
+    - directory
+    - bench
+    - directory
+    - todos
+    - inc
+    - t
+recommends:
+  Graph::Easy::As_svg: 0.18
 requires:
   Heap: 0.71
   Scalar::Util: 1.13
+  perl: 5.8.0
+version: 0.41

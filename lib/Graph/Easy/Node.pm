@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.23';
+$VERSION = '0.24';
 
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
@@ -80,6 +80,11 @@ sub _correct_size
     {
     $self->{w} = 5;
     $self->{h} = 3;
+    my $style = $self->attribute('point-style') || 'star';
+    if ($style eq 'invisible')
+      {
+      $self->{w} = 0; $self->{h} = 0; return; 
+      }
     }
   elsif ($shape eq 'invisible')
     {
@@ -323,25 +328,41 @@ sub _do_place
 
 #############################################################################
 
-sub _formatted_label
+sub _aligned_label
   {
-  my $self = shift;
+  # returns the label lines and for each one the alignment l/r/c
+  my ($self, $align) = @_;
 
   my $name = $self->label();
-  $name =~ s/([^\\])\\n/$1\n/g;			# insert real newlines
-  $name =~ s/\\\|/\|/g;				# \| => |
-  $name =~ s/\\\\/\\/g;				# '\\' to '\'
+  $align = 'center' unless $align;
 
-  # split into lines, remove extranous spacing
-  my @lines = split /\n/, $name;
-  my $i = 0;
-  while ($i < scalar @lines)
+  my (@lines,@aligns);
+
+  my $last_align = substr($align,0,1);
+
+  # split up each line from the front
+  while ($name ne '')
     {
-    $lines[$i] =~ s/^\s+//;			# remove spaces at front
-    $lines[$i] =~ s/\s+\z//;			# remove spaces at end
-    $i++;
+    $name =~ s/^(.*?([^\\]|))(\z|\\(n|r|l|c))//;
+    my $part = $1;
+    my $al = $3 || '\n';
+
+    $part =~ s/\\\|/\|/g;		# \| => |
+    $part =~ s/\\\\/\\/g;		# '\\' to '\'
+    $part =~ s/^\s+//;			# remove spaces at front
+    $part =~ s/\s+\z//;			# remove spaces at end
+    $al =~ s/\\//;			# \n => n
+    $al = substr($align,0,1) if $al eq 'n';
+    
+    push @lines, $part;
+    push @aligns, $last_align;
+
+    $last_align = $al;
     }
-  @lines;
+
+  # XXX TODO: should remove empty lines at start/end?
+
+  (\@lines, \@aligns);
   }
 
 #############################################################################
@@ -349,6 +370,7 @@ sub _formatted_label
 
 my $node_remap = {
   node => {
+    align => undef,
     background => undef,
     basename => undef,
     'border' => undef,
@@ -390,9 +412,56 @@ sub _extra_params
   '';
   }
 
+sub _label_as_html
+  {
+  # build the text from the lines, by inserting <b> for each break
+  my ($self) = @_;
+
+  my $align = $self->attribute('align') || $self->default_attribute('align') || 'center';
+
+  my ($lines,$aligns) = $self->_aligned_label($align);
+
+  # Since there is no "float: center;" in CSS, we must set the general
+  # text-align to center when we encounter any \c and the default is
+  # left or right:
+
+  my $switch_to_center = 0;
+  if ($align ne 'center')
+    {
+    local $_;
+    $switch_to_center = grep /^c/, @$aligns;
+    }
+
+  $align = 'center' if $switch_to_center;
+  my $a = substr($align,0,1);			# center => c
+
+  my $name = '';
+  my $i = 0;
+  while ($i < @$lines)
+    {
+    my $line = $lines->[$i];
+    my $al = $aligns->[$i];
+  
+    $line =~ s/&/&amp;/g;			# quote &
+    $line =~ s/>/&gt;/g;			# quote >
+    $line =~ s/</&lt;/g;			# quote <
+    $line =~ s/\\\\/\\/g;			# "\\" to "\"
+
+    # insert a span to align the line unless the default already covers it
+    $line = '<span class="' . $al . '">' . $line . '</span>'
+      if $a ne $al;
+    $name .= "\n <br \/>" . $line;
+
+    $i++;					# next line
+    }
+  $name =~ s/^\n <br \/>//;			# remove first <br> 
+
+  ($name, $switch_to_center);
+  }
+
 sub as_html
   {
-  my ($self, $noquote) = @_;
+  my ($self) = @_;
 
   my $extra = $self->_extra_params();
   my $taga = "td$extra";
@@ -422,13 +491,14 @@ sub as_html
   my $html = " <$taga colspan=$cs rowspan=$rs";
   $html .= " class='$c'" if $c ne '';
    
-  my $name = $self->label(); 
   my $link = $self->link();
 
   my $title = $self->title();
   $title =~ s/'/&#27;/g;			# replace quotation marks
 
   $html .= " title='$title'" if $title ne '' && $shape ne 'img';	# add mouse-over title
+
+  my ($name, $switch_to_center);
 
   if ($shape eq 'point')
     {
@@ -437,31 +507,24 @@ sub as_html
     local $self->{graph}->{_ascii_style} = 1;	# use utf-8
     $name = $self->_point_style( $self->attribute('point-style') || 'star' );
     }
-
-  if (!$noquote)
-    {
-    $name =~ s/&/&amp;/g;			# quote &
-    $name =~ s/>/&gt;/g;			# quote >
-    $name =~ s/</&lt;/g;			# quote <
-
-    $name =~ s/([^\\])\\n/$1\n/g;		# "\n" to "n" (but not "\\n")
-    $name =~ s/\\\\/\\/g;			# "\\" to "\"
-    $name =~ s/\s*\n\s*/<br>/g;			# |\n|\nv => |<br>|<br>v
-    $name =~ s/^\s*<br>//;			# remove empty leading line
-    $name =~ s/<br>/<br \/>/g;			# correct <br>
-    }
-
-  if ($shape eq 'img')
+  elsif ($shape eq 'img')
     {
     # take the label as the URL, but escape critical characters
+    $name = $self->label();
     $name =~ s/\s/\+/g;				# space
     $name =~ s/'/%27/g;				# replace quotation marks
     $name =~ s/\n//g;				# remove newlines
     my $t = $title; $t = $name if $t eq ''; 
     $name = "<img class='i' src='$name' alt='$t' title='$t' border='0' />";
     }
+  else
+    {
+    ($name,$switch_to_center) = $self->_label_as_html(); 
+    }
 
   my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $node_remap, 'noquote', 'encode');
+
+  $out->{'text-align'} = 'center' if $switch_to_center;
 
   if ($shape eq 'rounded')
     {
@@ -541,7 +604,7 @@ sub as_html
     }
 
   # bold, italic, underline etc. (but not for empty cells)
-  $style .= $self->text_styles_as_css(2,2) if $name !~ /^(|&nbsp;)\z/;
+  $style .= $self->text_styles_as_css(1,1) if $name !~ /^(|&nbsp;)\z/;
 
   $style =~ s/;\s$//;				# remove '; ' at end
   $style =~ s/\s+/ /g;				# '  ' => ' '
@@ -1082,14 +1145,14 @@ sub shape
 
 sub dimensions
   {
-  # Returns the dimensions of the node/cell derived from the label (or name)
-  # in characters.
+  # Returns the minimum dimensions of the node/cell derived from the
+  # label or name, in characters.
   my $self = shift;
 
-  my @lines = $self->_formatted_label();
+  my ($lines,$aligns) = $self->_aligned_label();
 
-  my $w = 0; my $h = scalar @lines;
-  foreach my $line (@lines)
+  my $w = 0; my $h = scalar @$lines;
+  foreach my $line (@$lines)
     {
     $w = length($line) if length($line) > $w;
     }

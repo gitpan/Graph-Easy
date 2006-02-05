@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 sub _u8
   {
@@ -135,6 +135,24 @@ sub _cross_style
   $cross_styles->[$g]->{ $st };
   }
 
+sub _insert_label
+  {
+  my ($self, $fb, $xs, $ys, $ws, $hs, $align_ver) = @_;
+
+  # for edge labels, left is the default
+  my $align = $self->{edge}->attribute('align') || 'left';
+  
+  my ($lines,$aligns) = $self->_aligned_label($align);
+
+  $ys = $self->{h} - scalar @$lines + $ys if $ys < 0; 
+
+  $ws ||= 0; $hs ||= 0;
+  my $w = $self->{w} - $ws - $xs;
+  my $h = $self->{h} - $hs - $ys;
+
+  $self->_printfb_aligned ($fb, $xs, $ys, $w, $h, $lines, $aligns, $align_ver);
+  }
+
 sub _draw_hor
   {
   # draw a HOR edge piece
@@ -158,11 +176,15 @@ sub _draw_hor
 
   # handle start/end point
 
-  my $flags = $self->{type} & EDGE_FLAG_MASK; my $x = 0;
+  my $flags = $self->{type} & EDGE_FLAG_MASK;
 
+  my $x = 0;				# offset for the edge line
+  my $xs = 1;				# offset for the edge label
+  my $xr = 0;				# right offset for label
   if (($flags & EDGE_START_W) != 0)
     {
     $x++; chop($line);			# ' ---'
+    $xs++;
     }
   if (($flags & EDGE_START_E) != 0)
     {
@@ -175,22 +197,20 @@ sub _draw_hor
     # '--> '
     chop($line);
     substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT) if $as ne 'none';
+    $xr++;
     }
   if (($flags & EDGE_END_W) != 0)
     {
     # ' <--'
     substr($line,0,1) = ' ' if $as eq 'none';
     substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT) if $as ne 'none';
+    $xs++;
     }
 
   $self->_printfb_line ($fb, $x, $self->{h} - 2, $line);
 
-  if ($self->{type} & EDGE_LABEL_CELL)
-    {
-    # include our label
-    my @pieces = $self->_formatted_label();
-    $self->_printfb ($fb, 2, $self->{h} - @pieces - 2, @pieces) if @pieces > 0;
-    }
+  $self->_insert_label($fb, $xs, 0, $xs+$xr, 2, 'bottom' )  
+   if ($self->{type} & EDGE_LABEL_CELL);
 
   }
 
@@ -221,12 +241,9 @@ sub _draw_ver
     }
   $self->_printfb_ver ($fb, 2, 0, $line);
 
-  if ($self->{type} & EDGE_LABEL_CELL)
-    {
-    # include our label
-    my @pieces = $self->_formatted_label();
-    $self->_printfb ($fb, 4, $self->{h} - 2, @pieces) if @pieces > 0;
-    }
+  $self->_insert_label($fb, 4, 1, 4, 2, 'middle')
+    if ($self->{type} & EDGE_LABEL_CELL);
+
   }
 
 sub _draw_cross
@@ -483,12 +500,9 @@ sub _draw_loop_hor
   $self->_printfb ($fb, 2, $y, $style->[$corner_idx]);
   $self->_printfb ($fb, $self->{w}-3, $y, $style->[$corner_idx+1]);
 
-  if ($self->{type} & EDGE_LABEL_CELL)
-    {
-    # include our label
-    my @pieces = $self->_formatted_label();
-    $self->_printfb ($fb, 4, $self->{h} - 3, @pieces) if @pieces > 0;
-    }
+  my $align = 'bottom'; $align = 'top' if $type == EDGE_S_W_N;
+  $self->_insert_label($fb, 4, 0, 4, 2, $align)
+  if ($self->{type} & EDGE_LABEL_CELL);
 
   # done
   }
@@ -573,14 +587,9 @@ sub _draw_loop_ver
   $self->_printfb ($fb, $x, $y, $style->[$corner_idx]);
   $self->_printfb ($fb, $x, $self->{h}-2, $style->[$corner_idx+2]);
 
-  if ($self->{type} & EDGE_LABEL_CELL)
-    {
-    # include our label
-    my @pieces = $self->_formatted_label();
-    $x = 4; $x = 3 if ($type == EDGE_E_S_W);
-
-    $self->_printfb ($fb, $x, $self->{h} - 5, @pieces) if @pieces > 0;
-    }
+  $x = 4; $x = 3 if ($type == EDGE_E_S_W);
+  $self->_insert_label($fb, $x, 0, $x, 4, 'bottom')
+    if ($self->{type} & EDGE_LABEL_CELL);
 
   # done
   }
@@ -660,33 +669,31 @@ sub _framebuffer
 
 sub _printfb_aligned
   {
-  my ($self,$fb, $x1,$y1, $w,$h, $lines, $align_hor, $align_ver) = @_;
+  my ($self,$fb, $x1,$y1, $w,$h, $lines, $aligns, $align_ver) = @_;
 
-  my $y = $y1 + ($h / 2) - (scalar @$lines / 2); 
-  $align_hor ||= 'center';
+  $align_ver = 'center' unless $align_ver;
 
-  if ($align_hor eq 'center')
+  my $y = $y1 + ($h / 2) - (scalar @$lines / 2);
+  $y = $y1 if $align_ver eq 'top';
+  $y = $h - scalar @$lines if $align_ver eq 'bottom';
+
+  my $xc = ($w / 2);
+
+  my $i = 0;
+  while ($i < @$lines)
     {
-    my $x = $x1 + ($w / 2);
-    for my $l (@$lines)
-      {
-      my $xi = int($x - length($l) / 2);
-      $self->_printfb_line($fb, $xi, $y, $l);
-      $y++;
-      }
-    }
-  elsif ($align_hor eq 'left')
-    {
-    $self->_printfb($fb, $x1, $y, @$lines);
-    }
-  else	# $align_hor eq 'right'
-    {
-    for my $l (@$lines)
-      {
-      my $xi = $x1 + $w - length($l);
-      $self->_printfb_line($fb, $xi, $y, $l);
-      $y++;
-      }
+    # get the line and her alignment
+    my ($l,$al) = ($lines->[$i],$aligns->[$i]);
+
+    my $x = 0;			# left is default
+
+    $x = $xc - length($l) / 2 if $al eq 'c';
+    $x = $w - length($l) if $al eq 'r';
+
+    # now print the line (inlined print_fb_line for speed)
+    substr ($fb->[int($y+$i+$y1)], int($x+$x1), length($l)) = $l;
+
+    $i++;
     }
   }
 
@@ -824,6 +831,7 @@ my $point_styles =
   'cross' => '+',
   'diamond' => '<>',
   'x' => 'X',
+  'invisible' => '',
   },
   {
   'star' => _u8('2605'),
@@ -833,6 +841,7 @@ my $point_styles =
   'cross' => '+',
   'diamond' => _u8('c6'),
   'x' => _u8('73'),
+  'invisible' => '',
   },
   ];  
 
@@ -841,7 +850,7 @@ sub _point_style
   my ($self, $style) = @_;
 
   my $g = $self->{graph}->{_ascii_style} || 0;
-  $point_styles->[$g]->{$style} || '*';
+  $point_styles->[$g]->{$style};
   }
 
 sub _border_style
@@ -1041,22 +1050,19 @@ sub _draw_label
   if ($shape eq 'point')
     {
     # point-shaped nodes do not show their label in ASCII
-    my $style = $self->attribute('point-style') || 'point';
+    my $style = $self->attribute('point-style') || 'star';
     my $l = $self->_point_style($style);
 
-    $self->_printfb_line ($fb, 2, $self->{h} - 2, $l);
+    $self->_printfb_line ($fb, 2, $self->{h} - 2, $l) if $l;
     return;
     }
-
-  my @lines = $self->_formatted_label();
 
   #        +----
   #        | Label  
   # 2,1: ----^
 
-  my $align = $self->attribute('align') || 'center';
   my $w = $self->{w} - 4; my $xs = 2;
-  my $h = $self->{h} - 2; my $ys = 1;
+  my $h = $self->{h} - 2; my $ys = 0.5;
   my $border = $self->attribute('border-style') || '';
   if ($border eq 'none')
     {
@@ -1064,7 +1070,8 @@ sub _draw_label
     $xs = 1; $ys = 0;
     }
 
-  $self->_printfb_aligned ($fb, $xs, $ys, $w, $h, \@lines, $align);
+  my $align = $self->attribute('align') || 'center';
+  $self->_printfb_aligned ($fb, $xs, $ys, $w, $h, $self->_aligned_label($align));
   }
 
 sub as_ascii
@@ -1111,7 +1118,7 @@ sub as_ascii
     }
 
   ###########################################################################
-  # "draw" the label into the framebuffer
+  # "draw" the label into the framebuffer (e.g. the edge and the label text)
 
   $self->_draw_label($fb, $x, $y);
   

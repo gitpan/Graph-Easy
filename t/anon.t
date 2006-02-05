@@ -72,7 +72,7 @@ my $graph = Graph::Easy->new();
 $graph->add_node($node);
 
 is ($node->as_txt(), '[ ]', 'anon as_txt');
-is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon'> </td>\n",
+is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon'></td>\n",
  'as_html');
 is ($node->as_ascii(), "", 'anon as_ascii');
 
@@ -94,7 +94,7 @@ $node->set_attribute('border-style', 'dotted');
 
 is ($node->as_txt(), '[ ] { border: dotted; }', 'anon as_txt');
 
-is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon' style=\"border: dotted 1px black\"> </td>\n",
+is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon' style=\"border: dotted 1px black\"></td>\n",
  'as_html');
 
 #############################################################################
@@ -104,6 +104,6 @@ $node->set_attribute('fill', 'orange');
 
 is ($node->as_txt(), '[ ] { fill: orange; border: dotted; }', 'anon as_txt');
 
-is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon' style=\"background: #ffa500; border: dotted 1px black\"> </td>\n",
+is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon' style=\"background: #ffa500; border: dotted 1px black\"></td>\n",
  'as_html');
 

@@ -4,6 +4,6 @@
                        Nodes:
 
 +---------+  label   +---------+     +---------+
-|   Right |  text    | Left    |     | Center  |
+|   Right |   text   | Left    |     | Center  |
 | Aligned | -------> | aligned | --> | aligned |
 +---------+          +---------+     +---------+
