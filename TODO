@@ -7,6 +7,8 @@ In addition:
 
 Important short-term TODO:
 
+* in HTML: do not "<td..>\n<td.." but ['<td..','<td..'] to allow proper
+  combining of cells
 * complete edge-arrow alignment in HTML
 * if a "shared start point" edge is leading past a node where another, also
   shared edge leads, a joint should be created right-away next to the

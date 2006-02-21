@@ -12,7 +12,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.18';
+$VERSION = '0.19';
 
 use Scalar::Util qw/weaken/;
 
@@ -914,7 +914,7 @@ sub as_html
 
       # put the style on the link
       $label_style = " style='$label_style'" if $label_style;
-      $label = "<a class='l' href='$link'$label_style>$label</a>";
+      $label = "<a href='$link'$label_style>$label</a>";
       $label_style = '';
       }
 
@@ -936,25 +936,32 @@ sub as_html
 
   ###########################################################################
   my $edge_color = ''; $edge_color = " color: $color;" if $color;
-  
-  my $bg = $self->background(); $bg = " background: $bg;" if $bg;
+
+  # If the group doesn't have a fill attribute, then it is defined in the CSS
+  # of the group, and since we get the same class, we can skip the background.
+  # But if the group has a fill, we need to use this as override.
+  # The idea behind is to omit the "background: #daffff;" as much as possible.
+
+  my $bg = $self->attribute('background') || '';
+  my $group = $self->{edge}->{group};
+  $bg = $group->{att}->{fill} if $group->{att}->{fill};
+  $bg = '' if $bg eq 'inherit';
+  $bg = " background: $bg;" if $bg;
 
   my $title = $self->title();
   $title =~ s/"/&#22;/g;			# replace quotation marks
   $title = " title=\"$title\"" if $title ne '';	# add mouse-over title
 
-  # XXX TODO: replace "&gt;" and "&lt;" with unicode arrow chars for
-  # arrow-style: (filled|closed)
-
   ###########################################################################
   # replace templates
+      
+  require Graph::Easy::As_ascii if $as ne 'none';	# for _arrow_to_dir
 
   my @rc;
   for my $a (@$code)
     {
     my $c = $a;					# make a copy
-    # insert the title, label, class and border
-    $c =~ s/>##label##/$title>$label/;
+
     my $cl = $self->class(); $cl =~ s/\./-/g;	# group.cities => group-cities
     $c =~ s/##class##/$cl/g;
     # replace borderv with the border for the vertical edge on CROSS sections
@@ -969,7 +976,14 @@ sub as_html
     $c =~ s/ style=""//g;		# remove empty styles
 
     # remove arrows if edge is undirected
-    $c =~ s/(v|\^|&lt;|&gt;)//g if $as eq 'none';
+    $c =~ s/>(v|\^|&lt;|&gt;)/>/g if $as eq 'none';
+
+    # only for filled and close
+    $c =~ s/>(v|\^|&lt;|&gt;)/'>' . $self->_unicode_arrow($as, $self->_arrow_to_dir($1)); /eg
+      if $as =~ /^(filled|closed)\z/;
+
+    # insert the label last, other "v" as label might get replaced above
+    $c =~ s/>##label##/$title>$label/;
 
     $c .= "\n" unless $c =~ /\n\z/;
     push @rc, " " . $c;

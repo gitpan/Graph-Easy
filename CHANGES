@@ -1,5 +1,31 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-02-21 v0.42 Tels 1674 tests
+  * add the missing testfiles to MANIFEST
+  * add a few examples to the doc
+  * remove the static classes "l" (a) and "i" (img) - these can be styled
+    by CSS selectors, so there is no need for them.
+  * as_html: 
+    + use unicode chars for filled/closed arrow heads
+    + fix garbled class names on undirected edges (caused by removing "v")
+    + fix output of default left-aligned group labels and add test for that
+    + output "<br \>" instead of "\n <br \>", because due to
+      "whitespace: nowrap;" this did insert spurious spaces before each line
+      break, throwing center-aligned labels off-center.
+  * as_graphviz:
+    + output correct minlen
+  * Parser:
+    + Reverse the removing of trailing/leading "|" in autosplit nodes,
+      introduced in v0.34.
+      [|G|] is " ", "G", " ", and not just "G". The unconditional removal
+      of leading/trailing empty parts meant you could never have an empty
+      trailing part, ever. Fixes also the regression from todos/hash.txt
+      no longer working. Adjust doc to reflect this change.
+    + add more tests for trailing/leading empty parts.
+  * Layout.pm:
+    + typo: {_chain} vs. {chain} (Thanx Jim Cromie)
+    + don't use alarm when under the debugger (Thanx Jim Cromie)
+ 
 2006-02-05 v0.41 Tels 1670 tests
   * use Module::Install and bundle it in inc/
   * add "point-style: invisible" for very small, invisible nodes - nodes with
@@ -19,6 +45,7 @@ Revision history for Graph::Easy (formerly known as Graph::Simple):
     + remove the unused and undocumented "noquote" param from as_html()
   * Graph:
     + add: add_edge_once(): add an edge from A to B only once
+      (Thanx to Florian Lindner for the suggestion!)
 
 2006-01-29 v0.40 Tels 1652 tests
   * add attribute:

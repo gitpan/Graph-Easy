@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 #############################################################################
 #############################################################################
@@ -44,6 +44,7 @@ my $remap = {
     'start' => \&_graphviz_remap_port,
     'style' => \&_graphviz_remap_edge_style,
     'title' => 'tooltip',
+    'minlen' => \&_graphviz_remap_edge_minlen,
     },
   'graph' => {
     'align' => \&_graphviz_remap_align,
@@ -95,6 +96,14 @@ sub _graphviz_remap_align
   $s = 'r' if $style eq 'right';
 
   ('labeljust', $s);
+  }
+
+sub _graphviz_remap_edge_minlen
+  {
+  my ($self, $name, $len) = @_;
+
+  $len = int(($len + 1) / 2);
+  ($name, $len);
   }
 
 sub _graphviz_remap_edge_style

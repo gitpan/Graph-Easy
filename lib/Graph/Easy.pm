@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.41';
+$VERSION = '0.42';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -150,6 +150,7 @@ sub _init
     'font-size' => '0.8em',
     fill => '#a0d0ff',
     padding => '0.2em',
+    align => 'left',
     },
   };
 
@@ -944,7 +945,7 @@ sub _caption
     # encode critical entities
     $link =~ s/\s/\+/g;				# space
     $link =~ s/'/%27/g;				# replace quotation marks
-    $caption = "<a class='l' href='$link'>$caption</a>";
+    $caption = "<a href='$link'>$caption</a>";
     }
 
   $caption = "<tr>\n  <td colspan=##cols##$style>$caption</td>\n</tr>\n";
@@ -1065,19 +1066,25 @@ sub as_html
         next if $row->[$i] =~ /border[:-]/;
 #        next if $row->[$i] !~ />(\&nbsp;)?</;	# non-empty?
         next if $row->[$i] =~ /span /;		# non-empty?
+        next if $row->[$i] =~ /^(\s|\n)*\z/;	# empty?
 
         # count all sucessive equal ones
         my $j = $i + 1;
-        while ($j < @$row && $row->[$j] eq $row->[$i]) { $j++; }
+
+        $j++ while ($j < @$row && $row->[$j] eq $row->[$i]); # { $j++; }
+
         if ($j > $i + 1)
           {
           my $cnt = $j - $i - 1;
+
+#         print STDERR "combining row $i to $j ($cnt) (\n'$row->[$i]'\n'$row->[$i+1]'\n'$row->[$j-1]'\n";
+
           # throw away
           splice (@$row, $i + 1, $cnt);
+
           # insert empty colspan if not already there
           $row->[$i] =~ s/<td/<td colspan=0/ unless $row->[$i] =~ /colspan/;
           # replace
-      #    print STDERR "combining row $i to $j ($cnt) ($row->[$i] $row->[$i+1] $row->[$j]\n";
           $row->[$i] =~ s/colspan=(\d+)/'colspan='.($1+$cnt*4)/e;
           }
         } continue { $i++; }
@@ -1667,6 +1674,9 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
 
 	print $graph->as_ascii( );
 
+	# You can use plain scalars as node names and for the edge label:
+	$graph->add_edge ('Berlin', 'Frankfurt', 'via train');
+
 	# adding edges with attributes:
 
         my $edge = Graph::Easy::Edge->new();
@@ -1783,9 +1793,22 @@ This can be avoided by using C<add_edge_once()>:
 	  $edge->set_attribute('color','blue');
 	  }
 
+You can set attributes on nodes and edges:
+
+	$node->attribute('fill', 'yellow');
+	$edge->attribute('label', 'train');
+
+It is possible to add an edge with a label:
+
+	$graph->add_edge('Cottbus', 'Berlin', 'my label');
+
 You can also add self-loops:
 
 	$graph->add_edge('Bremen','Bremen');
+
+For more options please see the online manual at:
+
+	http://bloodgate.com/perl/graph/manual/
 
 =head2 Output
 
@@ -1796,6 +1819,10 @@ The output can be done in various styles:
 =item ASCII ART
 
 Uses things like C<+>, C<-> C<< < >> and C<|> to render the boxes.
+
+=item BOXART
+
+Uses Unicode box art drawing elements to output the graph.
 
 =item HTML
 
@@ -2670,8 +2697,9 @@ X<online>
 =head1 LICENSE
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms of the GPL version 2.
-See the LICENSE file for information.
+it under the terms of the GPL version 2.
+
+See the LICENSE file for information for a copy of the GPL.
 
 X<gpl>
 X<license>

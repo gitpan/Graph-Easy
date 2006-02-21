@@ -9,7 +9,7 @@ package Graph::Easy::Parser;
 use Graph::Easy;
 use Graph::Easy::Base;
 
-$VERSION = '0.21';
+$VERSION = '0.22';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -466,9 +466,6 @@ sub _new_node
 
   print STDERR "# Parser: new node '$name'\n" if $graph->{debug};
 
-  # strip trailing spaces
-  $name =~ s/\s+\z//; 
-
   # unquote special chars
   $name =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
@@ -477,7 +474,7 @@ sub _new_node
 
   my @rc = ();
 
-  if ($name eq '')
+  if ($name =~ /^\s*\z/)
     {
     print STDERR "# Parser: Creating anon node\n" if $graph->{debug};
     # create a new anon node and add it to the graph
@@ -489,17 +486,15 @@ sub _new_node
     {
     $autosplit = 1;
 
-    $name =~ s/^\s*\|\s*//;		# remove first empty part
-    $name =~ s/\s*\|\s*\z//;		# remove last empty part
-
     # build base name: "A|B |C||D" => "ABCD"
     my $base_name = $name; $base_name =~ s/\s*\|\|?\s*//g;
 
     # use user-provided base name
     $base_name = $att->{basename} if exists $att->{basename};
 
-    # strip trailing spaces on basename
+    # strip trailing/leading spaces on basename
     $base_name =~ s/\s+\z//;
+    $base_name =~ s/^\s+//;
 
     my $first_in_row;			# for relative placement of new row
 
@@ -526,12 +521,20 @@ sub _new_node
 
     my $x = 0; my $y = 0; my $idx = 0;
     my $remaining = $name; my $sep; my $last_sep = '';
+    my $add = 0;
     while ($remaining ne '')
       {
       # XXX TODO: parsing of "\|" and "|" in one node
       $remaining =~ s/^([^\|]*)(\|\|?|\z)//;
-      my $part = $1 || '';
+      my $part = $1 || ' ';
       $sep = $2;
+
+      # fix [|G|] to have one empty part as last part
+      if ($add == 0 && $remaining eq '' && $sep =~ /\|\|?/)
+        {
+        $add++;				# only do it once
+        $remaining .= '|' 
+        }
 
       my $class = $uc->{node};
       if ($part eq ' ')
@@ -579,7 +582,8 @@ sub _new_node
         {
         # for correct as_txt output
         $node->{autosplit} = $name;
-        $node->{autosplit} =~ s/\s+\z//;		# strip trailing spaces
+        $node->{autosplit} =~ s/\s+\z//;	# strip trailing spaces
+        $node->{autosplit} =~ s/^\s+//;		# strip leading spaces
         $node->set_attribute('basename', $att->{basename}) if defined $att->{basename};
 	$first_in_row = $node;
         }
@@ -614,6 +618,10 @@ sub _new_node
   else
     {
     print STDERR "# Parser: Creating normal node\n" if $graph->{debug};
+
+    # strip trailing and leading spaces
+    $name =~ s/\s+\z//; 
+    $name =~ s/^\s+//; 
 
     # collapse multiple spaces
     $name =~ s/\s+/ /g;
@@ -679,9 +687,9 @@ sub _match_node
   # return a regexp that matches something like " [ bonn ]" and returns
   # the inner text without the [] (might leave some spaces)
 
-  #           v--- for empty nodes
-  #            v-- normal nodes  
-  qr/\s*\[\s*(|[^\]]*?[^\\])\]/;
+  #        v--- for empty nodes
+  #         v-- normal nodes  
+  qr/\s*\[(|[^\]]*?[^\\])\]/;
   }
 
 sub _match_group_start

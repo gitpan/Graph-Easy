@@ -1,5 +1,5 @@
 
-[ ||  ||  ||  ||  ||  ||  ||  | ] { basename: left; }
+[  ||  ||  ||  ||  ||  ||  ||  ] { basename: left; }
 
 [ n14 | 719 |  ||
   a1  | 805 |  ||
@@ -9,8 +9,8 @@
   e5  | 989 |  ||
   t20 | 959 | ] { basename: middle; }
 
-[ 015 | 794 | ] { basename: r11; }
-[ s19 | 659 | ] { basename: r12; }
+[ 015 | 794 |  ] { basename: r11; }
+[ s19 | 659 |  ] { basename: r12; }
 
 [ left.0 ] -> [ middle.0  ]
 [ left.1 ] -> [ middle.3  ]

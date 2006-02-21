@@ -104,6 +104,7 @@ t/in/2_group.txt
 t/in/2_invisible_left.txt
 t/in/2_invisible_right.txt
 t/in/2_label.txt
+t/in/2_label_align.txt
 t/in/2_list_attr.txt
 t/in/2_long_labels.txt
 t/in/2_newlines.txt
@@ -179,6 +180,7 @@ t/in/8_labels.txt
 t/in/8_points.txt
 t/in/9_chain.txt
 t/in/9_cross.txt
+t/in/25_autosplit_empty.txt
 t/in/README
 t/layers.t
 t/layouter/edge_label.txt
@@ -199,6 +201,7 @@ todos/cluster.txt
 todos/hash.txt
 todos/layouter_loop_2.txt
 todos/layouter_loop.txt
+todos/tree.txt
 todos/tree2.txt
 t/out/10borders.txt
 t/out/18_multiples.txt
@@ -224,6 +227,7 @@ t/out/2_group.txt
 t/out/2_invisible_left.txt
 t/out/2_invisible_right.txt
 t/out/2_label.txt
+t/out/2_label_align.txt
 t/out/2_list_attr.txt
 t/out/2_long_labels.txt
 t/out/2_newlines.txt
@@ -300,6 +304,7 @@ t/out/8_labels.txt
 t/out/8_points.txt
 t/out/9_chain.txt
 t/out/9_cross.txt
+t/out/25_autosplit_empty.txt
 t/out/drop_result.txt
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
@@ -436,6 +441,7 @@ t/txt/8_labels.txt
 t/txt/8_points.txt
 t/txt/9_chain.txt
 t/txt/9_cross.txt
+t/txt/25_autosplit_empty.txt
 t/use_class.t			test overriding classes in the Parser
 
 inc/Module/AutoInstall.pm

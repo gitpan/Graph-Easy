@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.17';
+$VERSION = '0.18';
 
 package Graph::Easy;
 
@@ -840,7 +840,7 @@ EOF
      ],
 
     flow => [
-     "The general direction in which edges will leave this node first. See the section about flow control for reference.",
+     "The general direction in which edges will leave this node first. Please see the section about <a href='hinting.html#flow'>flow control</a> for reference.",
      '_direction',
      'east',
      'south',
@@ -889,7 +889,7 @@ EOF
   graph => {
 
     flow => [
-      "The graph's general flow direction. See the section about flow control for reference.",
+      "The graph's general flow direction. Please see the section about <a href='hinting.html#flow'>flow control</a> for reference.",
       '_direction',
       'east',
       'south',
@@ -939,7 +939,7 @@ EOF
      ],
 
     flow => [
-     "The flow direction for this edge. See the section about flow control for reference.",
+      "The flow direction for this edge. Influence where the target node is placed. Please see the section about <a href='hinting.html#flow'>flow control</a> for reference.",
      '_direction',
      'east',
      'south',

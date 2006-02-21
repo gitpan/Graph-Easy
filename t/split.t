@@ -112,4 +112,3 @@ __DATA__
 [A||B|C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=0.1.#ffffff;ABC.2,C=1.0.#ffffff
 [A||B||C]|3;ABC.0,A=0.0.#ffffff;ABC.1,B=0.1.#ffffff;ABC.2,C=0.1.#ffffff
 [A|| |C]|3;AC.0,A=0.0.#ffffff;AC.1, =0.1.#ffffff;AC.2,C=1.0.#ffffff
-

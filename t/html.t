@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 40;
+   plan tests => 41;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -156,7 +156,7 @@ $edge->set_attribute('label', 'Schiff');
 # in these cases we would convert the single edge cells to HTML.
 
 my $edge_html = <<EDGE
- <td colspan=4 rowspan=4 class='edge' title='Vrooom!'><a class='l' href='http://bloodgate.com' style="color: #ffa500; text-decoration: none; font-size: 1.5em;">Schiff</a></td>
+ <td colspan=4 rowspan=4 class='edge' title='Vrooom!'><a href='http://bloodgate.com' style="color: #ffa500; text-decoration: none; font-size: 1.5em;">Schiff</a></td>
 EDGE
 ;
 is ($edge->as_html(), $edge_html, 'edge->as_html()');
@@ -165,7 +165,7 @@ is ($edge->as_html(), $edge_html, 'edge->as_html()');
 $html = $graph->as_html();
 
 $edge_html = <<EDGE_CELL
-<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: solid 2px #ffa500;" title="Vrooom!"><a class='l' href='http://bloodgate.com' style='color: #ffa500; text-decoration: none; font-size: 1.5em;'>Schiff</a></td>
+<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: solid 2px #ffa500;" title="Vrooom!"><a href='http://bloodgate.com' style='color: #ffa500; text-decoration: none; font-size: 1.5em;'>Schiff</a></td>
 EDGE_CELL
 ;
 my $like = quotemeta($edge_html); 
@@ -231,7 +231,7 @@ $f->set_attribute('fill', 'red');
 $html = $f->as_html();
 
 is ($html, <<EOF
- <td colspan=4 rowspan=4 class='node' style="background: #ff0000"><a class='l' href='http://bloodgate.com'>Friedrichshafen</a></td>
+ <td colspan=4 rowspan=4 class='node' style="background: #ff0000"><a href='http://bloodgate.com'>Friedrichshafen</a></td>
 EOF
 , 'fill is on the TD, not the A HREF');
 
@@ -243,7 +243,7 @@ $f->set_attribute('border', 'orange');
 $html = $f->as_html();
 
 is ($html, <<EOF
- <td colspan=4 rowspan=4 class='node' style="background: #ff0000;border: solid 1px #ffa500"><a class='l' href='http://bloodgate.com'>Friedrichshafen</a></td>
+ <td colspan=4 rowspan=4 class='node' style="background: #ff0000;border: solid 1px #ffa500"><a href='http://bloodgate.com'>Friedrichshafen</a></td>
 EOF
 , 'border is on the TD, not the A HREF');
 
@@ -257,5 +257,19 @@ for my $c (qw/eb hat lh lv ve va el/)
   like ($html, qr/table.graph \.$c/, "includes '$c'");
   }
 
+#############################################################################
+# group labels are left-aligned
 
+$graph = Graph::Easy->new();
+
+my $group = $graph->add_group('Cities');
+
+my ($A,$B) = $graph->add_edge('Krefeld', 'Düren');
+
+$group->add_node($A);
+$group->add_node($B);
+
+$css = $graph->css();
+
+like ($css, qr/group[^\}]*text-align: left;/, 'contains text-align: left');
 

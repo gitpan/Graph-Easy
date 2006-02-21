@@ -1,4 +1,4 @@
-#line 1 "/home/te/perl/graph/Graph-Easy-0.41/inc/Module/Install.pm - /usr/local/lib/perl5/site_perl/5.8.6/Module/Install.pm"
+#line 1 "/home/te/perl/graph/Graph-Easy-0.42/inc/Module/Install.pm - /usr/local/lib/perl5/site_perl/5.8.6/Module/Install.pm"
 package Module::Install;
 
 use 5.004;

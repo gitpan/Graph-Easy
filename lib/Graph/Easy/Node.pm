@@ -450,11 +450,11 @@ sub _label_as_html
     # insert a span to align the line unless the default already covers it
     $line = '<span class="' . $al . '">' . $line . '</span>'
       if $a ne $al;
-    $name .= "\n <br \/>" . $line;
+    $name .= "<br \/>" . $line;
 
     $i++;					# next line
     }
-  $name =~ s/^\n <br \/>//;			# remove first <br> 
+  $name =~ s/^<br \/>//;			# remove first <br> 
 
   ($name, $switch_to_center);
   }
@@ -515,7 +515,7 @@ sub as_html
     $name =~ s/'/%27/g;				# replace quotation marks
     $name =~ s/\n//g;				# remove newlines
     my $t = $title; $t = $name if $t eq ''; 
-    $name = "<img class='i' src='$name' alt='$t' title='$t' border='0' />";
+    $name = "<img src='$name' alt='$t' title='$t' border='0' />";
     }
   else
     {
@@ -628,7 +628,7 @@ sub as_html
     $td_style =~ s/;\z//;				# remove last ;
     $td_style = " style=\"$td_style\"" if $td_style;
 
-    $html .= "$td_style><a class='l' href='$link'";	# put the style on "<a.."
+    $html .= "$td_style><a href='$link'";	# put the style on "<a.."
     $end_tag = '</a>'.$end_tag;
     }
   $html .= " style=\"$style\"" if $style;
@@ -1013,7 +1013,7 @@ sub title
 
 sub background
   {
-  # get the background for this group/edge cell, honouring group membership
+  # get the background for this group/edge cell, honouring group membership.
   my $self = shift;
 
   my $bg = $self->attribute('background') || 'inherit';

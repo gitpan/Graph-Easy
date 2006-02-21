@@ -3,6 +3,7 @@
  <head>
  <title>&lt;graph&gt;-Plugin for Mediawiki - Syntax</title>
  <meta name="MSSmartTagsPreventParsing" content="TRUE">
+ <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
  <meta http-equiv="imagetoolbar" content="no">
  <link rel="stylesheet" type="text/css" href="base.css">
  <style type="text/css">
@@ -15,7 +16,7 @@
 <a name="top"></a>
 
 <div class="menu">
-  <p class="menu"><a class="menu" href="index.html" title="Back to the main page">Main</a></p>
+  <a class="menubck" href="index.html" title="Back to the main page">Main</a>
 </div>
 
 <div class="right">

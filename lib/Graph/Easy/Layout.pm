@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.18';
+$VERSION = '0.19';
 
 #############################################################################
 #############################################################################
@@ -148,7 +148,7 @@ sub _follow_chain
       next if exists $to->{_c};		# backloop into current branch?
 
       next if defined $to->{_chain} &&	# ignore if it points to the same
-		$to->{chain} == $c; 	# chain (backloop)
+		$to->{_chain} == $c; 	# chain (backloop)
 
       # if the next node's grandparent is the same as ours, it depends on us
       next if $to->find_grandparent() == $node->find_grandparent();
@@ -343,11 +343,10 @@ sub layout
   {
   my $self = shift;
 
-  # protect the layout with a timeout:
-  
+  # protect the layout with a timeout, unless run under the debugger:
   eval {
     local $SIG{ALRM} = sub { die "layout did not finish in time\n" };
-    alarm(abs($self->{timeout} || 5));
+    alarm(abs($self->{timeout} || 5)) unless defined $DB::single; # debugger?
 
   # Reset the sequence of the random generator, so that for the same
   # seed, the same layout will occur. Both for testing and repeatable

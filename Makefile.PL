@@ -15,7 +15,7 @@ recommends	'Graph::Easy::As_svg'	=> 0.18;
 
 build_requires	'Test::More'	=> 0.42;
    
-license		'gpl'; 
+license		'gpl';		# v2.0 only 
 
 author		'Tels <nospam-abuse@bloodgate.com>';
 

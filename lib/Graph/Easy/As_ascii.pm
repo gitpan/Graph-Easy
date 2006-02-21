@@ -1,12 +1,12 @@
 #############################################################################
 # Render Nodes/Edges/Cells as ASCII/Unicode box drawing art
 #
-# (c) by Tels 2004-2005. Part of Graph::Easy
+# (c) by Tels 2004-2006. Part of Graph::Easy
 #############################################################################
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 sub _u8
   {
@@ -906,6 +906,29 @@ sub _arrow
   $arrow_styles->[$g]->{$style}->[$dir];
   }
 
+sub _unicode_arrow
+  {
+  # return an arror in unicode, depending on style and direction
+  my ($self, $style, $dir) = @_;
+
+  $arrow_styles->[1]->{$style}->[$dir];
+  }
+
+my $arrow_dir = {
+  '&gt;' => 0,
+  '&lt;' => 1,
+  '^' => 2,
+  'v' => 3,
+  };
+
+sub _arrow_to_dir
+  {
+  # return an arror in unicode, depending on style and direction
+  my ($self, $style) = @_;
+
+  $arrow_dir->{$style} || 0;
+  }
+
 #############################################################################
 
 #
@@ -1158,7 +1181,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

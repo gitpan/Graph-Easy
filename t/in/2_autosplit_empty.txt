@@ -1,1 +1,1 @@
-[ | Siegen | Siegburg | ]
+[  Siegen | Siegburg  ]
