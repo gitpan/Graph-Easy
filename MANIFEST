@@ -42,6 +42,7 @@ lib/Graph/Easy/Node/Cell.pm
 lib/Graph/Easy/Node/Empty.pm		empty parts of a cluster
 lib/Graph/Easy/Node.pm
 lib/Graph/Easy/Parser.pm		parse textual descriptions
+lib/Graph/Easy/Parser/Graphviz.pm	parse dot/graphviz text
 lib/Graph/Easy.pm
 LICENSE
 Makefile.PL
@@ -73,6 +74,8 @@ t/fun/0030.txt
 t/fun/0131.txt
 t/fun/0200.txt
 t/fun/biofuel.txt
+t/fun/geek_dating.txt
+t/fun/overview.txt
 t/graph.t
 t/graphviz.t
 t/group/0010.txt
@@ -116,7 +119,10 @@ t/in/2_group_multicell.txt
 t/in/3_autosplit_hang.txt
 t/in/3_bend_bug.txt
 t/in/3_cluster.txt
+t/in/3_corrupt.txt
+t/in/3_edge_labels_from_class.txt
 t/in/3_edge_repair.txt
+t/in/3_edge_start.txt
 t/in/3_empty_group.txt
 t/in/3_group_align_center.txt
 t/in/3_invisible_both.txt
@@ -157,6 +163,7 @@ t/in/4nodes.txt
 t/in/5_arrow_styles.txt
 t/in/5_a-star_bug.txt
 t/in/5_group_split.txt
+t/in/5_long_edge_labels.txt
 t/in/5_offsets_2.txt
 t/in/5_offsets.txt
 t/in/5_rounded.txt
@@ -240,7 +247,10 @@ t/out/2_group_multicell.txt
 t/out/3_autosplit_hang.txt
 t/out/3_bend_bug.txt
 t/out/3_cluster.txt
+t/out/3_corrupt.txt
+t/out/3_edge_labels_from_class.txt
 t/out/3_edge_repair.txt
+t/out/3_edge_start.txt
 t/out/3_empty_group.txt
 t/out/3_group_align_center.txt
 t/out/3_invisible_both.txt
@@ -281,6 +291,7 @@ t/out/4nodes.txt
 t/out/5_arrow_styles.txt
 t/out/5_a-star_bug.txt
 t/out/5_group_split.txt
+t/out/5_long_edge_labels.txt
 t/out/5_offsets_2.txt
 t/out/5_offsets.txt
 t/out/5_rounded.txt
@@ -308,7 +319,8 @@ t/out/25_autosplit_empty.txt
 t/out/drop_result.txt
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
-t/parser.t			general parser tests
+t/parser.t			general Parser tests
+t/parser_dot.t			general Parser::Graphviz tests
 t/path.t
 t/pod_cov.t			test the POD for covering all subroutines
 t/pod.t				test the POD for correctness
@@ -387,7 +399,10 @@ t/txt/2_zeros.txt
 t/txt/2_group_multicell.txt
 t/txt/3_autosplit_hang.txt
 t/txt/3_cluster.txt
+t/txt/3_corrupt.txt
+t/txt/3_edge_labels_from_class.txt
 t/txt/3_edge_repair.txt
+t/txt/3_edge_start.txt
 t/txt/3_empty_group.txt
 t/txt/3_group_align_center.txt
 t/txt/3_invisible_both.txt
@@ -418,6 +433,7 @@ t/txt/4_nodes_5_edges.txt
 t/txt/4_nodes_6_edges.txt
 t/txt/5_arrow_styles.txt
 t/txt/5_group_split.txt
+t/txt/5_long_edge_labels.txt
 t/txt/5_offsets_2.txt
 t/txt/5_offsets.txt
 t/txt/5_rounded.txt

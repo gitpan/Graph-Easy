@@ -7,7 +7,7 @@ my $tests;
 
 BEGIN
    {
-   $tests = 19;
+   $tests = 20;
    plan tests => $tests;
    chdir 't' if -d 't';
    use lib '../lib';
@@ -28,6 +28,7 @@ SKIP:
   pod_file_ok( '../lib/Graph/Easy/Layout/Scout.pm' );
   pod_file_ok( '../lib/Graph/Easy/Layout/Path.pm' );
   pod_file_ok( '../lib/Graph/Easy/Layout/Grid.pm' );
+  pod_file_ok( '../lib/Graph/Easy/Layout/Repair.pm' );
   pod_file_ok( '../lib/Graph/Easy/Node.pm' );
   pod_file_ok( '../lib/Graph/Easy/Edge.pm' );
   pod_file_ok( '../lib/Graph/Easy/Group.pm' );

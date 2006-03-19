@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 64;
+   plan tests => 65;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -34,8 +34,8 @@ $parser->no_fatal_errors(1);
 foreach (<DATA>)
   {
   chomp;
-  next if $_ =~ /^\s*\z/;
-
+  next if $_ =~ /^(\s*\z|#)/;			# skip empty lines or comments
+  
   my ($in,$result) = split /\|/, $_;
 
   my $txt = $in;
@@ -51,7 +51,7 @@ foreach (<DATA>)
 
   my $att = $parser->_parse_attributes($txt, $class);	# reuse parser object
 
-  if (!defined $att)
+  if (!ref($att))
     {
     if ($result =~ /^error=/)
       {
@@ -98,15 +98,17 @@ color: slategrey;|color=#708090;
 color: slategrey;|color=#708090;
 color: gray;|color=#808080;
 color: gray;|color=#808080;
+# attribute with a ";" inside quotes
+label: "baz;bar"; color: red;|color=#ff0000;label="baz;bar";
 border-style: double;|border-style=double;
 border-width: 1;|border-width=1;
 border-color: red;|border-color=#ff0000;
 color: red; border: none; |border=none;color=#ff0000;
 color:|error=Error in attribute: 'color:' doesn't look valid
-: red;|error=Error in attribute: ': red' doesn't look valid
+: red;|error=Error in attribute: ': red;' doesn't look valid
 : red|error=Error in attribute: ': red' doesn't look valid
 color: reddish|error=Error in attribute: 'reddish' is not a valid color for a node
-color:;background: red|error=Error in attribute: 'color:' doesn't look valid
+color:;background: red|error=Error in attribute: 'color:;background: red' doesn't look valid
 shape:fruggle;|error=Error in attribute: 'fruggle' is not a valid shape for a node
 color: rgb(256, 0, 0);|error=Error in attribute: 'rgb(256, 0, 0)' is not a valid color for a node
 color: rgb(0, 256, 0);|error=Error in attribute: 'rgb(0, 256, 0)' is not a valid color for a node

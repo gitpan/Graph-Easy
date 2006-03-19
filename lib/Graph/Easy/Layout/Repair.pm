@@ -10,7 +10,7 @@ package Graph::Easy::Layout::Repair;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 #############################################################################
 #############################################################################
@@ -76,6 +76,19 @@ sub _splice_nodes
     }
   }
 
+sub _repair_cell
+  {
+  my ($self, $type, $edge, $x, $y, $after) = @_;
+
+  # already repaired?
+  return if exists $self->{cells}->{"$x,$y"};
+
+  $self->{cells}->{"$x,$y"} =
+    Graph::Easy::Edge::Cell->new( 
+      type => $type, 
+      edge => $edge, x => $x, y => $y, after => $after );
+  }
+
 sub _splice_edges
   {
   # Splicing the rows/columns to add filler cells might have torn holes into
@@ -84,34 +97,106 @@ sub _splice_edges
 
   my $cells = $self->{cells};
 
+  print STDERR "# Reparing spliced layout\n" if $self->{debug};
+
   # go over the old layout, because the new cells were inserted into odd
   # rows/columns and we do not care for these:
   for my $cell (sort { $a->{x} <=> $b->{x} || $a->{y} <=> $b->{y} } values %$cells)
     {
     next unless $cell->isa('Graph::Easy::Edge::Cell');
+  
+    #EDGE_S_E_W	=> 7,		# -,-	three-sided corner (S to W/E)
+    #EDGE_N_E_W	=> 8,		# -'-	three-sided corner (N to W/E)
+    #EDGE_E_N_S	=> 9,		#  |-   three-sided corner (E to S/N)
+    #EDGE_W_N_S	=> 10,		# -|	three-sided corner (W to S/N)
+
+    #########################################################################
+    # check for "[ JOINT ] [ empty  ] [ edge ]"
+    
+    my $x = $cell->{x} + 2; my $y = $cell->{y}; 
+
+    my $type = $cell->{type} & EDGE_TYPE_MASK;
+
+    # left is a joint and right exists
+    if ( ($type == EDGE_S_E_W || $type == EDGE_N_E_W || $type == EDGE_E_N_S)
+         && exists $cells->{"$x,$y"})
+      {
+      my $right = $cells->{"$x,$y"};
+
+      # when the left one is a joint, the right one must be an edge
+      $self->error('Found non-edge piece right to a joint') 
+        unless $right->isa('Graph::Easy::Edge::Cell');
+
+      #print STDERR "splicing in HOR piece to the right of joint at $x, $y\n";
+
+      # insert the new piece before the first part of the edge after the joint
+      $self->_repair_cell(EDGE_HOR(), $right->{edge},$cell->{x}+1,$y,0)
+        if $cell->{edge} != $right->{edge};
+      }
+
+    #########################################################################
+    # check for "[ edge ] [ empty  ] [ joint ]"
+    
+    $x = $cell->{x} - 2; $y = $cell->{y}; 
+
+    # right is a joint and left exists
+    if ( ($type == EDGE_S_E_W || $type == EDGE_N_E_W || $type == EDGE_W_N_S)
+         && exists $cells->{"$x,$y"})
+     {
+      my $left = $cells->{"$x,$y"};
+
+      # when the left one is a joint, the right one must be an edge
+      $self->error('Found non-edge piece right to a joint') 
+        unless $left->isa('Graph::Easy::Edge::Cell');
+
+      # insert the new piece before the joint
+      $self->_repair_cell(EDGE_HOR(), $cell->{edge},$cell->{x}+1,$y,$cell)
+        if $cell->{edge} != $left->{edge};
+      }
+
+    #########################################################################
+    # check for " [ joint ]
+    #		  [ empty ]
+    #             [ edge ]"
+    
+    $x = $cell->{x}; $y = $cell->{y} + 2; 
+
+    # top is a joint and down exists
+    if ( ($type == EDGE_S_E_W || $type == EDGE_E_N_S || $type == EDGE_W_N_S)
+         && exists $cells->{"$x,$y"})
+     {
+      my $bottom = $cells->{"$x,$y"};
+
+      # when top is a joint, the bottom one must be an edge
+      $self->error('Found non-edge piece below a joint') 
+        unless $bottom->isa('Graph::Easy::Edge::Cell');
+
+#      print STDERR "splicing in VER piece below joint at $x, $y\n";
+
+#      for my $c (@{$bottom->{edge}->{cells}})
+#	{
+#	print STDERR $c," ", $c->{type},"\n";
+#	}
+
+	# XXX TODO
+      # insert the new piece after the joint
+#      $self->_repair_cell(EDGE_VER(), $bottom->{edge},$x,$cell->{y}+1,0)
+#        if $cell->{edge} != $bottom->{edge}; 
+      }
 
     #########################################################################
     # check for "[ --- ] [ empty  ] [ ---> ]"
 
-    my $x = $cell->{x} + 2; my $y = $cell->{y}; 
+    $x = $cell->{x} + 2; $y = $cell->{y}; 
 
     if (exists $cells->{"$x,$y"})
       {
       my $right = $cells->{"$x,$y"};
 
       # check that both cells belong to the same edge
-      if ($right->isa('Graph::Easy::Edge::Cell') && $cell->{edge} == $right->{edge})
-	{
-        $x = $cell->{x} + 1;
-  
-        my $filler = 
-	  Graph::Easy::Edge::Cell->new( 
-	    type => EDGE_HOR(), 
-	    edge => $cell->{edge}, x => $x, y => $y, after => $cell );
-	$cells->{"$x,$y"} = $filler;
-	}
+      $self->_repair_cell(EDGE_HOR(), $cell->{edge},$cell->{x}+1,$y,$cell)
+        if ($right->isa('Graph::Easy::Edge::Cell') && $cell->{edge} == $right->{edge});
       }
-    
     
     #########################################################################
     # check for [ | ]
@@ -125,15 +210,9 @@ sub _splice_edges
     # check that both cells belong to the same edge
     next unless $below->isa('Graph::Easy::Edge::Cell') && $cell->{edge} == $below->{edge};
 
-    $y = $cell->{y} + 1;
+    $self->_repair_cell(EDGE_VER(),$cell->{edge},$x,$cell->{y}+1,$cell)
 
-    my $filler = 
-      Graph::Easy::Edge::Cell->new( 
-	type => EDGE_VER(), 
-	edge => $cell->{edge}, x => $x, y => $y, after => $cell );
-    $cells->{"$x,$y"} = $filler;
-    }
-
+    } # for all cells
   }
 
 sub _new_edge_cell

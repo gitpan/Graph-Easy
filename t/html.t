@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 41;
+   plan tests => 51;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -113,7 +113,7 @@ $graph->set_attribute( 'graph', 'label' => 'My Graph Label' );
 
 $html = $graph->as_html();
 
-like ($html, qr/<td colspan=12 style='background: inherit; text-align: center'>My Graph Label<\/td>/,
+like ($html, qr/<td colspan=12 style="text-align: center">My Graph Label<\/td>/,
 	'graph caption from label');
 
 #############################################################################
@@ -124,7 +124,7 @@ $graph->set_attribute( 'graph', 'label-pos' => 'bottom' );
 
 $html = $graph->as_html();
 
-like ($html, qr/<td colspan=12 style='background: inherit; text-align: center'>My Graph Label<\/td>/,
+like ($html, qr/<td colspan=12 style="text-align: center">My Graph Label<\/td>/,
  'graph caption from label');
 
 #############################################################################
@@ -252,7 +252,7 @@ EOF
 
 $html = $graph->as_html_file();
 
-for my $c (qw/eb hat lh lv ve va el/)
+for my $c (qw/eb hat lh lv va el sh shl/)
   {
   like ($html, qr/table.graph \.$c/, "includes '$c'");
   }
@@ -266,10 +266,36 @@ my $group = $graph->add_group('Cities');
 
 my ($A,$B) = $graph->add_edge('Krefeld', 'Düren');
 
-$group->add_node($A);
-$group->add_node($B);
+$group->add_nodes($A,$B);
+
+$css = $graph->css();
+like ($css, qr/group[^\}]*text-align: left;/, 'contains text-align: left');
+
+#############################################################################
+# setting a graph color does not override nodes/edges/groups
+
+$graph->set_attribute('color', 'red');
 
 $css = $graph->css();
 
-like ($css, qr/group[^\}]*text-align: left;/, 'contains text-align: left');
+for my $e (qw/node edge group/)
+  {
+  like ($css, qr/table.graph\s+\.$e\s+\{[^\}]*[^-]color: black;/m, "contains $e color black");
+  }
+
+#############################################################################
+# setting a graph font/fill does not override nodes/edges/groups
+
+$graph->set_attribute('font', 'times');
+$graph->set_attribute('fill', 'blue');
+$graph->set_attribute('font-size', '8em');
+$graph->set_attribute('align', 'left');
+
+$css = $graph->css();
+unlike ($css, qr/table.graph\s+\{[^\}]*font-family: /m, "doesn't contain font-family");
+unlike ($css, qr/table.graph\s+\{[^\}]*fill: /m, "doesn't contain fill");
+unlike ($css, qr/table.graph\s+\{[^\}]*color: /m, "doesn't contain color");
+unlike ($css, qr/table.graph\s+\{[^\}]*background[^\}]*background/m, "doesn't contain two times background");
+unlike ($css, qr/table.graph\s+\{[^\}]*text-align/m, "doesn't contain font-size");
+unlike ($css, qr/table.graph\s+\{[^\}]*font-size/m, "doesn't contain text-align");
 

@@ -1,5 +1,66 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-03-19 v0.43 Tels 1755 tests
+  * add attributes:
+    + text-wrap: 'auto': auto wrap label, 'none' is the default
+    + id: unique identifier for each object (usefull for animation later on)
+    + font: comma-separated list of font family names/generic names
+    + format: 'none' (no special processing, default) or 'pod' (enables inline
+      text formatting ala B<bold>, I<italic> etc)
+  * Node.pm: avoid autovivify of ->{edge} in background() and use ->{group}
+  * Edge/Cell.pm: set {group} to edge's group to make things easier
+  * Layout/Path.pm: add some pods for the internal routines
+  * add more .pm files to t/pod_cov.t and t/pod.t
+  * it wasn't possible to set an edge label via a class or subclass:
+      edge { label: yes; }
+      edge.no { label: no; }
+      [ A ] --> [ B ] --> { class: no; } [ C ]
+  * as_html:
+    + table cells inherit some attributes like "color" from the table, this
+      caused all labels to be the same color as the graph if you set a color
+      there:
+        graph { color: red; } ( Cities: [ Bonn ] -- train --> [ Berlin ] )
+      Likewise for fill, align, font, font-size etc. These are all fixed and
+      tests make sure that this doesn't happen again.
+    + fix CSS
+      + "vertical-align: center;" has to be "vertical-align: middle;"
+      + don't output bogus "flow" attributes
+      + don't output spurious edge class "ha"
+      + merge classes "ve" and "el" into "el"
+      + draw arrows on short hor edges closer to the line
+    + graph and edge labels need to use _label_as_html() to properly
+      quote "<",">" and "&" as well as have support for \n,\r,\c and \l
+    + fill and background color for graphs were swapped
+    + do not combine table cells if the returned cell code contains two
+      successive cells
+    + fix EDGE_S_E + EDGE_START_S
+  * as_graphviz:
+    + add support for edge styles "double" and "double-dash" by emitting
+      "color:color" for the edge
+  * Edge.pm:
+    + add flip() - swap from/to for this edge
+    + remove dead code in flow() and fix POD for it
+  * Layouter:
+    + added a post-layout optimizer
+    + compact edges by combining VER or HOR edge cells into one cell
+      (fixes overly long edge labels stretching the layout)
+    + add a method to grow multiple column/row sizes to accomodate
+      a nec. multi-column cell (node/edge), this creates more compact
+      layouts with multi-cell objects in them.
+    + repairing edges after splicing in groups did not account for joints,
+      the joint and the next piece might not belong to the same edge.
+      Thanx to Florian Lindner for a testcase.
+    + Edge.pm: port() did falsely return ("east","0") for "east" instead of
+      (undef,undef), causing edges with "start: east" to get wrongly split up
+  * Parser: 
+    + refactor code to allow easier subclassing
+    + require and use Parser::Graphviz on detection of graphviz code
+    + allow quoted attributes that contain ";" like: 'label: "bar;baz";'
+  * Attributes:
+    + clarify rules when to quote, escape and encode
+    + only decode %xx for xx between 0x20 and 0x7e (to stop exploits)
+  * add Graph::Easy::Parser::Graphviz - parse graphviz text and convert it
+
 2006-02-21 v0.42 Tels 1674 tests
   * add the missing testfiles to MANIFEST
   * add a few examples to the doc

@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.42';
+$VERSION = '0.43';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -32,6 +32,8 @@ BEGIN
   *as_boxart_file = \&as_boxart;
   *as_txt_file = \&as_txt;
   *_aligned_label = \&Graph::Easy::Node::_aligned_label;
+  *_convert_pod = \&Graph::Easy::Node::_convert_pod;
+  *_label_as_html = \&Graph::Easy::Node::_label_as_html;
   *default_attribute = \&Graph::Easy::Node::default_attribute; 
   }
 
@@ -125,6 +127,7 @@ sub _init
     'padding-left' => '0.3em',
     'padding-right' => '0.3em',
     margin => '0.1em',
+    color => 'black',
     },
   graph => {
     'align' => 'center',
@@ -140,7 +143,8 @@ sub _init
     background => 'inherit',
     padding => '0.2em',
     margin => '0.1em',
-    'font-family' => 'monospaced, courier-new, courier, sans-serif',
+    color => 'black',
+    'font' => 'monospaced, courier-new, courier, sans-serif',
     },
   group => { 
     'border' => 'dashed 1px black',
@@ -151,6 +155,7 @@ sub _init
     fill => '#a0d0ff',
     padding => '0.2em',
     align => 'left',
+    color => 'black',
     },
   };
 
@@ -392,6 +397,32 @@ sub sorted_nodes
   $sort = sub { $a->{$f1} <=> $b->{$f1} || $a->{$f2} cmp $b->{$f2} } if $f2 &&
            $f2 =~ /^(name|title|label)$/;
 
+  # if we have groups, sort the nodes by their groups first:
+#  if (keys %{$self->{groups}} > 0)
+  if (3 < 1)
+    {
+    $sort = sub { 
+      my $ag = 0; $ag = $a->{group}->{id} if ref $a->{group};
+      my $bg = 0; $bg = $b->{group}->{id} if ref $b->{group};
+      $ag <=> $bg || $a->{$f1} <=> $b->{$f1} 
+      } if $f1;
+    $sort = sub { 
+      my $ag = 0; $ag = $a->{group}->{id} if ref $a->{group};
+      my $bg = 0; $bg = $b->{group}->{id} if ref $b->{group};
+      $ag <=> $bg || $a->{$f1} cmp $b->{$f1} 
+      } if $f1 && $f1 =~ /^(name|title|label)$/;
+    $sort = sub {
+      my $ag = 0; $ag = $a->{group}->{id} if ref $a->{group};
+      my $bg = 0; $bg = $b->{group}->{id} if ref $b->{group};
+      $ag <=> $bg || $a->{$f1} <=> $b->{$f1} || $a->{$f2} <=> $b->{$f2} 
+      } if $f2;
+    $sort = sub { 
+      my $ag = 0; $ag = $a->{group}->{id} if ref $a->{group};
+      my $bg = 0; $bg = $b->{group}->{id} if ref $b->{group};
+      $ag <=> $bg || $a->{$f1} <=> $b->{$f1} || $a->{$f2} cmp $b->{$f2} 
+      } if $f2 && $f2 =~ /^(name|title|label)$/;
+    }
+
   # the 'return' here should not be removed
   return sort $sort values %{$self->{nodes}};
   }
@@ -503,11 +534,7 @@ sub set_attribute
     return $self->error ("Illegal class '$class' when trying to set attribute '$name' to '$val'");
     }
 
-  $val =~ s/^["'](.*)["']\z/$1/; 	# remove quotation marks
-  $val =~ s/\\#/#/;             	# reverse backslashed \#
-
-  # decode %XX entities
-  $val =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
+  $val = $self->unquote_attribute($class,$name,$val);
 
   if ($self->{strict})
     {
@@ -709,8 +736,8 @@ sub _class_styles
       # should be skipped?
       next if $att =~ $skip || $att eq 'border';
 
-      # do not specify font-size or text-align for the entire graph (only for it's label)
-      next if $class eq 'graph' && $att =~ /^(font-size|text-align)\z/;
+      # do not specify attribtes for the entire graph (only for the label)
+      next if $class eq 'graph' && $att =~ /^(color|font|font-size|align|fill)\z/;
 
       $done++;						# how many did we really?
       my $val = $a->{$class}->{$att};
@@ -721,8 +748,13 @@ sub _class_styles
       # fix border-widths to be in pixel
       $val .= 'px' if $att eq 'border-width' && $val !~ /(px|em|%)\z/;
 
-      $att = $map->{$att} if exists $map->{$att};	# change attribute name?
-      $css_txt .= "$indent2$att: $val;\n";
+      # change attribute name/value?
+      if (exists $map->{$att})
+	{
+        $att = $map->{$att} unless ref $map->{$att};	# change attribute name?
+        ($att,$val) = &{$map->{$att}}($self,$att,$val) if ref $map->{$att};
+	}
+      $css_txt .= "$indent2$att: $val;\n" if defined $att;
       }
 
     $css_txt .= "$indent}\n";
@@ -737,7 +769,17 @@ sub _skip
   my ($self) = shift;
 
   # skip these for CSS
-  qr/^(basename|rows|column|size|offset|origin|label|link|linkbase|(auto)?(link|title)|(node|edge)class|shape|arrow-style|label-color|point-style|text-style|style)\z/;
+  qr/^(basename|columns|flow|format|rows|size|offset|origin|label|link|linkbase|(auto)?(link|title)|(node|edge)class|shape|arrow-style|label-color|point-style|text-style|style)\z/;
+  }
+
+sub _remap_text_wrap
+  {
+  my ($self,$name,$style) = @_;
+
+  return (undef,undef) if $style eq 'none';
+
+  # make text wrap again
+  ('white-space','normal');
   }
 
 sub css
@@ -754,7 +796,9 @@ sub css
   my $css = $self->_class_styles( $self->_skip(),
     {
       fill => 'background',
+      'text-wrap' => \&_remap_text_wrap,
       align => 'text-align',
+      font => 'font-family',
     }, undef, undef, 
     {
       graph => {
@@ -793,17 +837,28 @@ CSSANON
 
   # append CSS for edge cells (and their parts like va (vertical arrow
   # (left/right), vertical empty), etc)
+
+  # hat - arrow pointing up
+  # eb	- empty bottom
+  # v	- arrow pointing down
+  # el  - (vertical) empty left space of ver edge
+  #       or empty vertical space on hor edge starts
+  # lh  - edge label horizontal
+  # lv  - edge label vertical
+  # sv  - shifted arrow vertical
+  # sh  - shifted arrow horizontal (right)
+  # shl  - shifted arrow horizontal (left)
+
   $css .= <<CSS
 table.graph##id## .va {
   vertical-align: center;
   line-height: 1.5em;
   width: 0.4em;
   }
-table.graph##id## .ve { width: 0em; }
 table.graph##id## .el {
-  width: 1em;
-  max-width: 1em;
-  min-width: 1em;
+  width: 0.1em;
+  max-width: 0.1em;
+  min-width: 0.1em;
   }
 table.graph##id## .lh, table.graph##id## .lv {
   font-size: 0.8em;
@@ -819,11 +874,15 @@ table.graph##id## .sv {
   left: -0.5em;
   overflow: visible;
   }
-table.graph##id## .sh {
+table.graph##id## .sh, table.graph##id## .shl {
   position: relative;
   top: 0.8em;
+  left: -0.2em;
   vertical-align: bottom;
   overflow: visible;
+  }
+table.graph##id## .shl {
+  left: 0.2em;
   }
 table.graph##id## .hat {
   padding-top: 0.5em;
@@ -834,7 +893,8 @@ table.graph##id## .eb {
   line-height: 0.4em;
   }
 CSS
-;
+  # if we have edges
+  if keys %{$self->{edges}}  > 0;
 
   # append CSS for group cells (only if we actually have groups)
 
@@ -849,7 +909,6 @@ CSS
       $class =~ s/.*\.//;	# leave only subclass
       $css .= Graph::Easy::Group::Cell->_css($self->{id}, $class, $border); 
       }
-
     }
 
   # replace the id with either '' or '123', depending on our ID
@@ -869,7 +928,7 @@ sub html_page_header
  <head>
  <meta http-equiv="Content-Type" content="text/html; charset=##charset##">
  <title>##title##</title>##CSS##
- </head>
+</head>
 <body bgcolor=white text=black>
 HTML
 ;
@@ -923,20 +982,30 @@ sub _caption
   # create the graph label as caption
   my $self = shift;
 
-  my $caption = $self->attribute('graph','label');
+  my ($caption,$switch_to_center) = $self->_label_as_html();
 
   return ('','') unless defined $caption && $caption ne '';
 
-  my $bg = $self->attribute('graph','background') || '';
+  my $bg = $self->attribute('graph','fill') || '';
 
-  my $style = '';
-  $style = " style='background: $bg;" if $bg ne '';
+  my $style = ' style="';
+  $style .= "background: $bg;" if $bg ne '';
     
+  # the font family
+  my $f = $self->attribute('graph','font') || '';
+  $style .= "font-family: $f;" if $f ne '';
+
+  # the text color
+  my $c = $self->attribute('graph','color') || '';
+  $style .= "color: $c;" if $c ne '';
+
   # bold, italic, underline, incl. fontsize and align
-  $style .= $self->text_styles_as_css();	
+  $style .= $self->text_styles_as_css();
 
   $style =~ s/;\z//;				# remove last ';'
-  $style .= "'" unless $style eq '';
+  $style .= '"' unless $style eq ' style="';
+
+  $style =~ s/style="\s/style="/;		# remove leading space
 
   my $link = $self->link();
 
@@ -1014,31 +1083,27 @@ sub as_html
       {
       if (!exists $rows->{$y}->{$x})
 	{
+	# fill empty spaces with undef, butnot for parts of multicelled objects:
 	push @{$rs->[0]}, undef;
 	next;
 	}
       my $node = $rows->{$y}->{$x};
       next if $node->isa('Graph::Easy::Node::Cell');		# skip empty cells
 
-#      print STDERR "rendering $node->{name} ref($node)\n";
+      # print STDERR "rendering $node->{x},$node->{y} ref($node)\n";
 
       my $h = $node->as_html();
 
       if (ref($h) eq 'ARRAY')
         {
         my $i = 0;
-        # print STDERR '# expected 4 rows, but got ' . scalar @$h if @$h != 4;
-        for my $hh (@$h)
-          {
-          push @{$rs->[$i++]}, $hh;
-          }
+        #print STDERR '# expected 4 rows, but got ' . scalar @$h if @$h != 4;
+	local $_;
+        push @{$rs->[$i++]}, $_ for @$h;
         }
       else
         {
         push @{$rs->[0]}, $h;
-#        push @{$rs->[1]}, '';
-#        push @{$rs->[2]}, '';
-#        push @{$rs->[3]}, '';
         }
       }
 
@@ -1057,7 +1122,7 @@ sub as_html
     # now combine equal columns to shorten output
     for my $row (@$rs)
       {
-#      next;
+#     next;
 
       # append row to output
       my $i = 0;
@@ -1067,6 +1132,14 @@ sub as_html
 #        next if $row->[$i] !~ />(\&nbsp;)?</;	# non-empty?
         next if $row->[$i] =~ /span /;		# non-empty?
         next if $row->[$i] =~ /^(\s|\n)*\z/;	# empty?
+
+	# Combining these cells shows wierd artefacts when using the Firefox
+	# WebDeveloper toolbar and outlining table cells, but it does not
+	# seem to harm rendering in browsers:
+        #next if $row->[$i] =~ /class="[^"]+ eb"/;	# is class=".. eb"
+
+	# contains wo succ. cell?
+        next if $row->[$i] =~ /(row|col)span.*\1span/m;	
 
         # count all sucessive equal ones
         my $j = $i + 1;
@@ -1096,10 +1169,12 @@ sub as_html
       {
       # append row to output
       my $r = join('',@$row);
-      # make empty rows to "<tr></tr>"
-      $r =~ s/^( \n)+\z//;
-      # non empty rows get "\n</tr>"
-      $r = "\n" . $r if length($r) > 0;
+
+      if ($r !~ s/^[\s\n]*\z//)
+	{
+        # non empty rows get "\n</tr>"
+        $r = "\n" . $r; # if length($r) > 0;
+        }
 
       $html .= '<tr>' . $r . "</tr>\n\n";
       }
@@ -1365,22 +1440,9 @@ sub add_edge
   # override and weaken again an already existing reference, this
   # is an O(N) operation in most Perl versions, and thus very slow.
 
-  if (!ref($x->{graph}))
-    {
-    $x->{graph} = $self;
-    weaken($x->{graph});
-    }
-
-  if (!ref($y->{graph}))
-    {
-    $y->{graph} = $self;
-    weaken($y->{graph});
-    }
-  if (!ref($edge->{graph}))
-    {
-    $edge->{graph} = $self;
-    weaken($edge->{graph});
-    }
+  weaken($x->{graph} = $self) unless ref($x->{graph});
+  weaken($y->{graph} = $self) unless ref($y->{graph});
+  weaken($edge->{graph} = $self) unless ref($edge->{graph});
 
   # Store at the edge from where to where it goes for easier reference
   $edge->{from} = $x;
@@ -1633,6 +1695,23 @@ sub use_class
   $self->{use_class}->{$object} = $class;
 
   $self;  
+  }
+
+#############################################################################
+#############################################################################
+# Animation support
+
+sub animation_as_graph
+  {
+  my $self = shift;
+
+  my $graph = Graph::Easy->new();
+
+  $graph->add_node('onload');
+
+  # XXX TODO
+
+  $graph;
   }
 
 1;
@@ -1914,6 +1993,49 @@ different possible edge styles.
 
 More examples at: L<http://bloodgate.com/perl/graph/>
 
+=head1 ANIMATION SUPPORT
+
+It is possible to add animations to a graph. This is done by
+adding I<steps> via the pseudo-class C<step>:
+
+	step.0 {
+	  target: Bonn;		# find object with id=Bonn, or
+				# if this fails, the node named
+				# "Bonn".
+	  animate: fill:	# animate this attribute
+	  from: yellow;		# start value (0% of duration)
+	  via: red;		# at 50% of the duration
+	  to: yellow;		# and 100% of duration
+	  wait: 0;		# after triggering, wait so many seconds
+	  duration: 5;		# entire time to go from "from" to "to"
+	  trigger: onload;	# when to trigger this animation
+	  repeat: 2;		# how often to repeat ("2" means two times)
+				# also "infinite", then "next" will be ignored
+	  next: 1;		# which step to take after repeat is up
+	}
+	step.1 {
+	  from: white;		# set to white
+	  to: white;
+	  duration: 0.1;	# 100ms
+	  next: 0;		# go back to step.0
+	}
+
+Here two steps are created, I<0> and I<1> and the animation will
+be going like this:
+
+	                 +-----------------------------+
+	                 v                             |
+	+--------+     +--------+     +--------+     +--------+
+	| onload | --> | step.0 | --> | step.0 | --> | step.1 |
+	+--------+     +--------+     +--------+     +--------+
+
+You can generate a a graph with the animation flow via
+C<animation_as_graph()>.
+
+=head2 Output
+
+Currently no output formats supports animations yet.
+
 =head1 METHODS
 
 C<Graph::Easy> supports the following methods:
@@ -2069,6 +2191,15 @@ Example:
 	$graph->del_attribute('border');
 
 Delete the attribute with the given name.
+
+=head2 unquote_attribute()
+
+	# returns '"Hello World!"'
+	my $value = $self->unquote_attribute('node','label','"Hello World!"');
+	# returns 'red'
+	my $color = $self->unquote_attribute('node','color','"red"');
+
+Return the attribute unquoted except for labels and titles.
 
 =head2 border_attribute()
 
@@ -2413,6 +2544,10 @@ sorted by their attribute(s) given as arguments. The default is 'id',
 e.g. their internal ID number, which amounts more or less to the order
 they have been inserted.
 
+This routine will sort the nodes by their group first, so the requested
+sort order will be only valid if there are no groups or inside each
+group.
+
 =head2 node()
 
 	my $node = $graph->node('node name');
@@ -2600,6 +2735,14 @@ The first parameter can be one of the following:
 
 Please see the documentation about C<use_class()> in C<Graph::Easy::Parser>
 for examples and details.
+
+=head2 animation_as_graph()
+
+	my $graph_2 = $graph->animation_as_graph();
+	print $graph_2->as_ascii();
+
+Returns the animation of C<$graph> as a graph describing the flow of the
+animation. Usefull for debugging animation flows.
 
 =head1 EXPORT
 

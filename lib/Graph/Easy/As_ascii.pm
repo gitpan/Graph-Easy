@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 sub _u8
   {
@@ -628,8 +628,8 @@ sub _draw_label
   return if ($self->attribute('style') || '') eq 'invisible';
 
   my $type = $self->{type} & EDGE_TYPE_MASK;
-
   my $m = $draw_dispatch->{$type};
+
   $self->_croak("Unknown edge type $type") unless defined $m;
 
   # store the coordinates of our upper-left corner (for seamless rendering)

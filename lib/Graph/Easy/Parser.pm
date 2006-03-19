@@ -7,14 +7,13 @@
 package Graph::Easy::Parser;
 
 use Graph::Easy;
-use Graph::Easy::Base;
 
-$VERSION = '0.22';
-@ISA = qw/Graph::Easy::Base/;
+$VERSION = '0.23';
+use base qw/Graph::Easy::Base/;
 
 use strict;
 
-sub NO_MULTIPLES () { 1; }
+use constant NO_MULTIPLES => 1;
 
 sub _init
   {
@@ -28,17 +27,21 @@ sub _init
     if ($k !~ /^(debug)\z/)
       {
       require Carp;
-      Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Parser->new()");
+      my $class = ref($self);
+      Carp::confess ("Invalid argument '$k' passed to $class" . '->new()');
       }
     $self->{$k} = $args->{$k};
     }
 
+  $self->{group_start} = '[';
+  $self->{attr_sep} = ':';
+
   # setup default class names for generated objects
   $self->{use_class} = {
-    edge => 'Graph::Easy::Edge',
+    edge  => 'Graph::Easy::Edge',
     group => 'Graph::Easy::Group',
     graph => 'Graph::Easy',
-    node => 'Graph::Easy::Node',
+    node  => 'Graph::Easy::Node',
   };
 
   $self;
@@ -54,16 +57,28 @@ sub reset
   $self->{cluster_id} = '';		# each cluster gets a unique ID
   $self->{line_nr} = -1;
   $self->{graph} = undef;
+  $self->{match_stack} = [];		# patterns and their handlers
 
   $self->{clusters} = {};		# cluster names we already created
 
   Graph::Easy::Base::_reset_id();	# start with the same set of IDs
+  
+  # After "[ 1 ] -> [ 2 ]" we push "2" on the stack and when we encounter
+  # " -> [ 3 ]" treat the stack as a node-list left of "3".
+  # In addition, for " [ 1 ], [ 2 ] => [ 3 ]", the stack will contain
+  # "1" and "2" when we encounter "3".
+  $self->{stack} = [];
+
+  $self->{group_stack} = [];	# all the (nested) groups we are currently in
+  $self->{left_stack} = [];	# stack for the left side for "[]->[],[],..."
+  $self->{left_edge} = undef;	# for -> [A], [B] continuations
 
   $self;
   }
 
 sub from_file
   {
+  # read in entire file and call from_text() on the contents
   my ($self,$file) = @_;
 
   $self = $self->new() unless ref $self;
@@ -99,160 +114,42 @@ sub use_class
   $self;  
   }
 
-sub from_text
+sub _register_handler
   {
-  my ($self,$txt) = @_;
+  # register a pattern and a handler for it
+  my $self = shift;
 
-  $self = $self->new() unless ref $self;
+  push @{$self->{match_stack}}, [ @_ ];
 
-  $self->reset();
+  $self;
+  }
 
-  $self->{graph} = $self->{use_class}->{graph}->new( { debug => $self->{debug}, strict => 0 } );
-  my $graph = $self->{graph};
- 
-  my $uc = $self->{use_class};
+sub _register_attribute_handler
+  {
+  # register a handler for attributes like "{ color: red; }"
+  my ($self, $qr_attr) = @_;
 
-  # instruct the graph to use the custom classes, too
-  for my $o (keys %$uc)
-    {
-    $graph->use_class($o, $uc->{$o}) unless $o eq 'graph';	# group, node and edge
-    }
-
-  return $graph if !defined $txt || $txt =~ /^\s*\z/;		# empty text?
-
-  my @lines = split /\n/, $txt;
-
-  my $e = $uc->{edge};
-
-  # regexps for the different parts
-  my $qr_node = _match_node();
-  my $qr_attr = _match_attributes();
-  my $qr_oatr = _match_optional_attributes();
-  my $qr_edge = _match_edge();
-  my $qr_comma = _match_comma();
-
-  my $qr_group_start = _match_group_start();
-  my $qr_group_end   = _match_group_end();
-
-  # After "[ 1 ] -> [ 2 ]" we push "2" on the stack and when we encounter
-  # " -> [ 3 ]" treat the stack as a node-list left of "3".
-  # In addition, for " [ 1 ], [ 2 ] => [ 3 ]", the stack will contain
-  # "1" and "2" when we encounter "3".
-  my @stack = ();
-
-  my @group_stack = ();	# all the (nested) groups we are currently in
-  my $backbuffer = '';	# left over fragments to be combined with next line
-
-  my @left_stack = ();	# stack for the left side for "[]->[],[],..."
-  my $left_edge = undef;
-
-  ###########################################################################
-  # main parsing loop
-
-  LINE:
-  while (@lines > 0 || $backbuffer ne '')
-    {
-    my $curline = '';
-    
-    if (@lines > 0)
+  # { attributes }
+  $self->_register_handler( qr/^$qr_attr/,
+    sub
       {
-      $self->{line_nr}++;
-      $curline = shift @lines;
-      next if $curline =~ /^\s*(#|\z)/;		# comment or empty line?
-
-      # convert tabs to spaces (the regexps don't expect tabs)
-      $curline =~ s/\t/ /g;
-      }
-    
-    chomp($curline);
-
-    my $line = $backbuffer . $curline;
-
-    # convert #808080 into \#808080, and "#fff" into "\#fff"
-    $line =~ s/:\s*(#([a-fA-F0-9]{6}|[a-fA-F0-9]{3}))/: \\$1/g;
-
-    # remove comment at end of line (but leave \# alone):
-    $line =~ s/[^\\]#.*//;
-
-    # remove white space at start/end
-    $line =~ s/^\s+//;
-    $line =~ s/\s+\z//;
-
-#    print STDERR "# at line '$line' stack: ", join(",", @stack),"\n";
-
-    # node { color: red; } or 
-    # node.graph { color: red; }
-    if ($line =~ /^(node|graph|edge|group)(\.\w+)?$qr_attr/)
-      {
-      my $type = $1 || '';
-      my $class = $2 || '';
-      my $att = $self->_parse_attributes($3 || '', $type, NO_MULTIPLES );
-
-      return undef unless defined $att;		# error in attributes?
-
-      $graph->set_attributes ( "$type$class", $att);
-
-      # forget stacks
-      @stack = ();
-      $left_edge = undef;
-      @left_stack = ();
-
-      # purge parsed part from line
-      $line =~ s/^(node|graph|edge|group)(\.\w+)?$qr_attr//;
-      }
-    # ( group start [
-    elsif ($line =~ /^$qr_group_start/)
-      {
-      my $gn = $1; $gn = '' unless defined $gn;		# group name
-
-      # unquote special chars
-      $gn =~ s/\\([\[\(\{\}\]\)#\|])/$1/g;
-
-      push @group_stack, $graph->add_group($gn);
-
-      $line =~ s/^$qr_group_start/\[/;
-      }
-    # ) # group end
-    elsif ($line =~ /^$qr_group_end$qr_oatr/)
-      {
-
-      $self->parse_error(0) and return undef if @group_stack == 0;
-
-      my $group = pop @group_stack;
-
-      my $a1 = $self->_parse_attributes($1||'', 'group', NO_MULTIPLES);
-      return undef if $self->{error};
-
-      $group->set_attributes($a1);
-
-      # the new left side is the group itself
-      @stack = ($group);
-
-      $line =~ s/^$qr_group_end$qr_oatr//;
-      }
-    # { attributes }
-    elsif ($line =~ /^$qr_attr/)
-      {
+      my $self = shift;
       # This happens in the case of "[ Test ]\n { ... }", the node is consumed
       # first, and the attributes are left over:
 
       my ($a, $max_idx) = $self->_parse_attributes($1||'');
 
-      if (@stack == 0)
-        {
-        # error, no object that the attributes can apply to
-        $self->parse_error(3);
-        return undef;
-        }
+      # error, no object that the attributes can apply to
+      $self->parse_error(3) if @{$self->{stack}} == 0;
 
-      return undef if $self->{error};
+      return undef if $self->{error};	# wrong attributes or empty stack?
 
       if ($max_idx != 1)
 	{
 #	print STDERR "max_idx = $max_idx, stack contains ", join (" , ", @stack),"\n";
 	my $i = 0;
 	# XXX TODO: what on "[A], [ B|C ] { fill: red|green; }" ?
-        for my $n (@stack)
+        for my $n (@{$self->{stack}})
 	  {
 	  $n->set_attributes($a, $i++);
 	  }
@@ -260,58 +157,147 @@ sub from_text
       else
 	{
         # set attributes on all nodes on stack
-        for my $n (@stack) { $n->set_attributes($a); }
+        for my $n (@{$self->{stack}}) { $n->set_attributes($a); }
 	}
 
-      # remove parsed part
-      $line =~ s/^$qr_attr//;
-      }
-    # "[ A ] { ... }"
-    elsif ($line =~ /^$qr_node$qr_oatr/)
+      } );
+  }
+
+sub _register_node_attribute_handler
+  {
+  # register a handler for attributes like "[ A ] { ... }"
+  my ($self, $qr_node, $qr_oatr) = @_;
+
+  $self->_register_handler( qr/^$qr_node$qr_oatr/,
+    sub
       {
+      my $self = shift;
       my $n1 = $1;
       my $a1 = $self->_parse_attributes($2||'');
       return undef if $self->{error};
 
-      @stack = $self->_new_node ($graph, $n1, \@group_stack, $a1);
+      $self->{stack} = [ $self->_new_node ($self->{graph}, $n1, $self->{group_stack}, $a1) ];
 
       # forget left stack
-      $left_edge = undef;
-      @left_stack = ();
+      $self->{left_edge} = undef;
+      $self->{left_stack} = [];
 
-      $line =~ s/^$qr_node$qr_oatr//;
-      }
-    # , [ Berlin ] { color: red; }
-    elsif ($line =~ /^$qr_comma$qr_node$qr_oatr/)
+      } );
+  }
+
+sub _build_match_stack
+  {
+  # put all known patterns and their handlers on the match stack
+  my $self = shift;
+
+  # regexps for the different parts
+  my $qr_node  = $self->_match_node();
+  my $qr_attr  = $self->_match_attributes();
+  my $qr_oatr  = $self->_match_optional_attributes();
+  my $qr_edge  = $self->_match_edge();
+  my $qr_comma = $self->_match_comma();
+
+  my $qr_group_start = $self->_match_group_start();
+  my $qr_group_end   = $self->_match_group_end();
+
+  my $e = $self->{use_class}->{edge};
+
+  # node { color: red; } or 
+  # node.graph { color: red; }
+  $self->_register_handler( qr/^(node|graph|edge|group)(\.\w+)?$qr_attr/,
+    sub
       {
+      my $self = shift;
+      my $type = $1 || '';
+      my $class = $2 || '';
+      my $att = $self->_parse_attributes($3 || '', $type, NO_MULTIPLES );
+
+      return undef unless defined $att;		# error in attributes?
+
+      my $graph = $self->{graph};
+      $graph->set_attributes ( "$type$class", $att);
+
+      # forget stacks
+      $self->{stack} = [];
+      $self->{left_edge} = undef;
+      $self->{left_stack} = [];
+
+      } );
+
+  # ( group start [
+  $self->_register_handler( qr/^$qr_group_start/,
+    sub
+      {
+      my $self = shift;
+      my $graph = $self->{graph};
+      my $gn = $1; $gn = '' unless defined $gn;		# group name
+      # unquote special chars
+      $gn =~ s/\\([\[\(\{\}\]\)#\|])/$1/g;
+      push @{$self->{group_stack}}, $graph->add_group($gn);
+      }, $self->{group_start} );
+
+  # ") { }" # group end (with optional attributes)
+  $self->_register_handler( qr/^$qr_group_end$qr_oatr/,
+    sub
+      {
+      my $self = shift;
+
+      my $group = pop @{$self->{group_stack}};
+      return $self->parse_error(0) if !defined $group;
+
+      my $a1 = $self->_parse_attributes($1||'', 'group', NO_MULTIPLES);
+      return undef if $self->{error};
+
+      $group->set_attributes($a1);
+
+      # the new left side is the group itself
+      $self->{stack} = [ $group ];
+      } );
+
+  $self->_register_attribute_handler($qr_attr);
+  $self->_register_node_attribute_handler($qr_node,$qr_oatr);
+
+  # , [ Berlin ] { color: red; }
+  $self->_register_handler( qr/^$qr_comma$qr_node$qr_oatr/,
+    sub
+      {
+      my $self = shift;
+      my $graph = $self->{graph};
       my $n1 = $1;
       my $a1 = $self->_parse_attributes($2||'');
       return undef if $self->{error};
 
-      push @stack, $self->_new_node ($graph, $n1, \@group_stack, $a1, \@stack);
+      push @{$self->{stack}}, 
+        $self->_new_node ($graph, $n1, $self->{group_stack}, $a1, $self->{stack});
 
-      if (defined $left_edge)
+      if (defined $self->{left_edge})
 	{
-	my ($style, $edge_label, $edge_atr, $edge_bd, $edge_un) = @$left_edge;
+	my ($style, $edge_label, $edge_atr, $edge_bd, $edge_un) = @{$self->{left_edge}};
 
-	foreach my $node (@left_stack)
+	foreach my $node (@{$self->{left_stack}})
           {
 	  my $edge = $e->new( { style => $style, name => $edge_label } );
 	  $edge->set_attributes($edge_atr);
 	  # "<--->": bidirectional
 	  $edge->bidirectional(1) if $edge_bd;
 	  $edge->undirected(1) if $edge_un;
-	  $graph->add_edge ( $node, $stack[-1], $edge );
+	  $graph->add_edge ( $node, $self->{stack}->[-1], $edge );
           }
 	}
 
-      $line =~ s/^$qr_comma$qr_node$qr_oatr//;
-      }
-    # Things like "[ Node ]" will be consumed before, so we do not need a case
-    # for "[ A ] -> [ B ]":
-    # node chain continued like "-> { ... } [ Kassel ] { ... }"
-    elsif (@stack != 0 && $line =~ /^$qr_edge$qr_oatr$qr_node$qr_oatr/)
+      } );
+
+  # Things like "[ Node ]" will be consumed before, so we do not need a case
+  # for "[ A ] -> [ B ]":
+  # node chain continued like "-> { ... } [ Kassel ] { ... }"
+  $self->_register_handler( qr/^$qr_edge$qr_oatr$qr_node$qr_oatr/,
+    sub
       {
+      my $self = shift;
+
+      return if @{$self->{stack}} == 0;	# only match this if stack non-empty
+
+      my $graph = $self->{graph};
       my $eg = $1;					# entire edge ("-- label -->" etc)
 
       my $edge_bd = $2 || $4;				# bidirectional edge ('<') ?
@@ -319,41 +305,44 @@ sub from_text
       $edge_un = 1 if !defined $2 && !defined $5;
 
       # optional edge label
-      my $edge_label = $7; $edge_label = '' unless defined $edge_label;
+      my $edge_label = $7; # $edge_label = '' unless defined $edge_label;
       my $ed = $3 || $5 || $1;				# edge pattern/style ("--")
 
       my $edge_atr = $11 || '';				# save edge attributes
 
       my $n = $12;					# node name
       my $a1 = $self->_parse_attributes($13||'');	# node attributes
-      return undef if $self->{error};
 
       $edge_atr = $self->_parse_attributes($edge_atr, 'edge');
       return undef if $self->{error};
 
-      # strip trailing spaces
-      $edge_label =~ s/\s+\z//;
+      # strip trailing spaces (but allow non-set labels)
+      $edge_label =~ s/\s+\z// if defined $edge_label;
 
       # the right side node(s) (multiple in case of autosplit)
-      my @nodes_b = $self->_new_node ($graph, $n, \@group_stack, $a1);
+      my $nodes_b = [ $self->_new_node ($self->{graph}, $n, $self->{group_stack}, $a1) ];
 
-      my $style = $self->_link_lists( \@stack, \@nodes_b,
+      my $style = $self->_link_lists( $self->{stack}, $nodes_b,
 	$ed, $edge_label, $edge_atr, $edge_bd, $edge_un);
 
       # remember the left side
-      $left_edge = [ $style, $edge_label, $edge_atr, $edge_bd, $edge_un ];
-      @left_stack = @stack;
+      $self->{left_edge} = [ $style, $edge_label, $edge_atr, $edge_bd, $edge_un ];
+      $self->{left_stack} = $self->{stack};
 
       # forget stack and remember the right side instead
-      @stack = @nodes_b;
+      $self->{stack} = $nodes_b;
 
-      $line =~ s/^$qr_edge$qr_oatr$qr_node$qr_oatr//;
-      }
-    # Things like ")" will be consumed before, so we do not need a case
-    # for ") -> { ... } ( Group [ B ]":
-    # edge to a group like "-> { ... } ( Group ["
-    elsif (@stack != 0 && $line =~ /^$qr_edge$qr_oatr$qr_group_start/)
+      } );
+
+  # Things like ")" will be consumed before, so we do not need a case
+  # for ") -> { ... } ( Group [ B ]":
+  # edge to a group like "-> { ... } ( Group ["
+  $self->_register_handler( qr/^$qr_edge$qr_oatr$qr_group_start/,
+    sub
       {
+      my $self = shift;
+      return if @{$self->{stack}} == 0;	# only match this if stack non-empty
+
       my $eg = $1;					# entire edge ("-- label -->" etc)
 
       my $edge_bd = $2 || $4;				# bidirectional edge ('<') ?
@@ -374,39 +363,133 @@ sub from_text
       # unquote special chars in group name
       $gn =~ s/\\([\[\(\{\}\]\)#\|])/$1/g;
 
-      @group_stack = ( $graph->add_group( $gn) );
+      $self->{group_stack} = [ $self->{graph}->add_group( $gn) ];
 
       # strip trailing spaces
       $edge_label =~ s/\s+\z//;
 
-      my $style = $self->_link_lists( \@stack, \@group_stack,
+      my $style = $self->_link_lists( $self->{stack}, $self->{group_stack},
 	$ed, $edge_label, $edge_atr, $edge_bd, $edge_un);
 
       # remember the left side
-      $left_edge = [ $style, $edge_label, $edge_atr, $edge_bd, $edge_un ];
-      @left_stack = @stack;
-
+      $self->{left_edge} = [ $style, $edge_label, $edge_atr, $edge_bd, $edge_un ];
+      $self->{left_stack} = $self->{stack};
       # forget stack
-      @stack = ();
+      $self->{stack} = [];
 
-      $line =~ s/^$qr_edge$qr_oatr$qr_group_start/\[/;
-      }
-    else
+      }, $self->{group_start} );
+  }
+
+sub _clean_line
+  { 
+  # do some cleanups on a line before handling it
+  my ($self,$line) = @_;
+
+  chomp($line);
+
+  # convert #808080 into \#808080, and "#fff" into "\#fff"
+  my $sep = $self->{attr_sep};
+  $line =~ s/$sep\s*("?)(#(?:[a-fA-F0-9]{6}|[a-fA-F0-9]{3}))("?)/$sep $1\\$2$3/g;
+
+  # remove comment at end of line (but leave \# alone):
+  $line =~ s/([^\\])$self->{qr_comment}.*/$1/;
+
+  # remove white space at start/end
+  $line =~ s/^\s+//;
+  $line =~ s/\s+\z//;
+
+#  print STDERR "# at line '$line' stack: ", join(",",@{ $self->{stack}}),"\n";
+
+  $line;
+  }
+
+sub from_text
+  {
+  my ($self,$txt) = @_;
+
+  if ((ref($self)||$self) eq 'Graph::Easy::Parser' && $txt =~ /digraph\s+"?[\w]+"?\s+\{/)
+    {
+    require Graph::Easy::Parser::Graphviz;
+    $self = Graph::Easy::Parser::Graphviz->new();
+    }
+
+  $self = $self->new() unless ref $self;
+  $self->reset();
+
+  $self->{graph} = $self->{use_class}->{graph}->new( { debug => $self->{debug}, strict => 0 } );
+  my $graph = $self->{graph};
+  return $graph if !defined $txt || $txt =~ /^\s*\z/;		# empty text?
+ 
+  my $uc = $self->{use_class};
+
+  # instruct the graph to use the custom classes, too
+  for my $o (keys %$uc)
+    {
+    $graph->use_class($o, $uc->{$o}) unless $o eq 'graph';	# group, node and edge
+    }
+
+  my @lines = split /\n/, $txt;
+
+  my $backbuffer = '';	# left over fragments to be combined with next line
+
+  $self->{qr_comment} = $self->_match_comment();
+
+  $self->_build_match_stack();
+
+  ###########################################################################
+  # main parsing loop
+
+  LINE:
+  while (@lines > 0 || $backbuffer ne '')
+    {
+    my $curline = '';
+    
+    if (@lines > 0)
       {
-      # couldn't handle that fragement, so accumulate it
-      last LINE if @lines == 0;			# but not if it is the very last
+      $self->{line_nr}++;
+      $curline = shift @lines;
 
-      $line = $backbuffer . $curline;
+      # both Graph::Easy and Graphviz discard lines starting with '#'
+      next if $curline =~ /^\s*($self->{qr_comment}|^#|\z)/;   # comment or empty?
+
+      # convert tabs to spaces (the regexps don't expect tabs)
+      $curline =~ s/\t/ /g;
+      }
+    
+    my $line = $self->_clean_line($backbuffer . $curline);
+
+    my $handled = 0;
+    PATTERN:
+    for my $entry (@{$self->{match_stack}})
+      {
+      my ($pattern, $handler, $replace) = @$entry;
+      $replace = '' unless defined $replace;
+
+#  print STDERR "# Matching '$line' against $pattern\n";
+    
+      if ($line =~ $pattern)
+        {
+#  print STDERR "# Matched, calling handler\n";
+        &$handler($self) if defined $handler;
+        $line =~ s/$pattern/$replace/;
+#  print STDERR "# Line is now '$line' (replace was '$replace')\n";
+        $handled++; last PATTERN;
+        }
+      }
+
+    if ($handled == 0)
+      {
+      # couldn't handle that fragement, so accumulate it and try again
+      last LINE if @lines == 0;			# but not if it is the very last
+	# XXX TODO: necessary?
+      $line = $backbuffer . $curline;		# try again with unmodified version
       }
 
     $backbuffer = $line;
     }
 
-   if ($backbuffer ne '')
-    { 
-    $self->error("'$backbuffer' not recognized by parser.");
-    return undef;
-    }
+   $self->error("'$backbuffer' not recognized by parser.") and return undef
+     if $backbuffer ne '';
 
   print STDERR "# Parsing done\n" if $graph->{debug};
 
@@ -456,6 +539,18 @@ sub _link_lists
   $style;
   }
 
+sub _unquote
+  {
+  my ($self, $name) = @_;
+
+  $name = '' unless defined $name;
+
+  # unquote special chars
+  $name =~ s/\\([\[\(\{\}\]\)#])/$1/g;
+
+  $name;
+  }
+
 sub _new_node
   {
   # Create a new node unless it doesn't already exist. If the group stack
@@ -466,8 +561,7 @@ sub _new_node
 
   print STDERR "# Parser: new node '$name'\n" if $graph->{debug};
 
-  # unquote special chars
-  $name =~ s/\\([\[\(\{\}\]\)#])/$1/g;
+  $name = $self->_unquote($name);
 
   my $autosplit;
   my $uc = $self->{use_class};
@@ -668,6 +762,12 @@ sub _match_comma
   qr/\s*,\s*/;
   }
 
+sub _match_comment
+  {
+  # match the start of a comment
+  qr/(^|[^\\])#/;
+  }
+
 sub _match_attributes
   {
   # return a regexp that matches something like " { color: red; }" and returns
@@ -692,6 +792,11 @@ sub _match_node
   qr/\s*\[(|[^\]]*?[^\\])\]/;
   }
 
+sub _match_single_attribute
+  {
+  qr/^\s*([^:]+?)\s*:\s*("[^"]+"|[^;]+?)(?:\s*;\s*|\s*\z)/;	# "name: value"
+  }
+
 sub _match_group_start
   {
   # return a regexp that matches something like " ( group [" and returns
@@ -705,18 +810,6 @@ sub _match_group_end
   qr/\s*\)\s*/;
   }
 
-sub _match_edge_simple
-  {
-  # matches edges like "--", "- - ", "..-" etc
-
-  qr/\s*
-     (
-       (\.\.-|\.-)+			 # pattern (style) of edge (at least once)
-     |
-       (=\s|=|-\s|-|\.|~){2,}		 # these at least two times
-     )/x;
-  }
-
 sub _match_edge
   {
   # Matches all possible edge variants like:
@@ -727,6 +820,8 @@ sub _match_edge
 
   # "- " must come before "-"!
   # likewise, "..-" must come before ".-" must come before "."
+
+  # XXX TODO: convert the first group into a non-matching group
 
   qr/\s*
      (					# egde without label ("-->")
@@ -746,6 +841,16 @@ sub _match_edge
      /x;
    }
 
+sub _clean_attributes
+  {
+  my ($self,$text) = @_;
+
+  $text =~ s/^\s*\{\s*//;	# remove left-over "{" and spaces
+  $text =~ s/\s*\}\s*\z//;	# remove left-over "}" and spaces
+
+  $text;
+  }
+
 sub _parse_attributes
   {
   # takes a text like "attribute: value;  attribute2 : value2;" and
@@ -755,26 +860,32 @@ sub _parse_attributes
   my ($self, $text, $class, $no_multiples) = @_;
 
   $class ||= 'node';
+  my $out;
   my $att = {};
-
-  $text =~ s/^\s*\{\s*//;	# remove left-over "{" and spaces
-  $text =~ s/\s*\}\s*\z//;	# remove left-over "}" and spaces
-
-  my @atts = split /\s*;\s*/, $text;
-
   my $multiples = 0;
 
-  foreach my $a (@atts)
+  $text = $self->_clean_attributes($text);
+  my $qr_att = $self->_match_single_attribute();
+
+  while ($text ne '')
     {
-    $self->error ("Error in attribute: '$a' doesn't look valid to me.")
-      and return undef 
-    unless ($a =~ /^\s*([^:]+?)\s*:\s*(.+?)\s*\z/);	# "name: value"
+    return $self->error ("Error in attribute: '$text' doesn't look valid to me.")
+      unless $text =~ s/$qr_att//;		# match and remove "name: value"
 
-    my ($name, $val) = ($1,$2);
+    my $name = $1;
+    my $val = $self->_unquote($2);
 
-    $val =~ s/\\#/#/g;					# unquote \#
+    # store
+    $out->{$name} = $val;
+    }
 
-    my $v = Graph::Easy->valid_attribute($name,$val,$class);
+  # possible remap attributes (for parsing Graphviz)
+  $out = $self->_remap_attributes($out, $class) if $self->can('_remap_attributes');
+
+  # check for being valid and finally create hash with name => value pairs
+  for my $name (keys %$out)
+    {
+    my $v = Graph::Easy->valid_attribute($name,$out->{$name},$class);
 
     my $rc = 2;			# invaid attribute value
     if (ref($v) eq 'ARRAY' && @$v == 0)
@@ -784,11 +895,10 @@ sub _parse_attributes
       }
     $multiples = scalar @$v if ref($v) eq 'ARRAY';
 
-    return $self->parse_error(4,$val,$name,$class), return
-      if $no_multiples && $multiples;			# | and no multiples
-							# => error
+    $rc = 4, $v = undef 		# | and no multiples => error
+      if $no_multiples && $multiples;
 
-    return $self->parse_error($rc,$val,$name,$class), return
+    return $self->parse_error($rc,$out->{$name},$name,$class)
       unless defined $v;				# stop on error
 
     $att->{$name} = $v;
@@ -844,7 +954,12 @@ Graph::Easy::Parser - Parse graph from textual description
                 '[ Bonn ] => [ Berlin ]'.
                 '[ Berlin ] => [ Rostock ]'.
         );
-        print $graph->as_ascii( );
+        print $graph->as_ascii();
+
+        print $parser->from_file('mygraph.txt')->as_ascii();
+
+	# Also works automatically on graphviz code:
+        print Graph::Easy::Parser->from_file('mygraph.dot')->as_ascii();
 
 =head1 DESCRIPTION
 
@@ -862,8 +977,17 @@ The input consists of text describing the graph, encoded in UTF-8.
 	[ Bonn ]      --> [ Frankfurt ]
 	[ Bonn ]      = > [ Frankfurt ]
 
-The output will be a L<Graph::Easy|Graph::Easy> object, see there for what you
-can do with it.
+In addition there is a bit of magic that detects graphviz code, so
+input of the following form will also work:
+
+	digraph Graph1 {
+		"Bonn" -> "Berlin"
+	}
+
+See L<Graph::Easy::Parser::Graphviz|Graph::Easy::Parser::Graphviz>
+for more information about parsing graphviz code.
+
+=head2 Input Syntax
 
 =over 2
 
@@ -1083,8 +1207,8 @@ multiple times.
 Creates a L<Graph::Easy|Graph::Easy> object from the textual description in the file
 C<$filename>.
 
-The second calling style will create a temporary Graph::Easy::Parser object,
-parse the file and return the resulting Graph::Easy object.
+The second calling style will create a temporary C<Graph::Easy::Parser> object,
+parse the file and return the resulting C<Graph::Easy> object.
 
 Returns undef for error, you can find out what the error was
 with L<error()> when using the first calling style.
@@ -1122,7 +1246,7 @@ Exports nothing.
 
 =head1 SEE ALSO
 
-L<Graph::Easy>.
+L<Graph::Easy>. L<Graph::Easy::Parser::Graphviz>.
 
 =head1 AUTHOR
 

@@ -1,11 +1,13 @@
 #!/usr/bin/perl -w
 
+# test graphviz output
+
 use Test::More;
 use strict;
 
 BEGIN
    {
-   plan tests => 117;
+   plan tests => 123;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -125,9 +127,12 @@ $grviz = $graph->as_graphviz();
 like ($grviz, qr/"Bonn und Umgebung"/, 'quoted "Bonn und Umgebung"');
 
 is (join(",", $graph->_graphviz_remap_edge_style('style', 'bold')), 'style,bold', 'style,bold');
-is (join(",", $graph->_graphviz_remap_edge_style('style', 'double')), 'style,bold', 'style,double => style, bold');
 
-my ($name,$style) = $graph->_graphviz_remap_edge_style('style', 'solid');
+my ($name,$style) = $graph->_graphviz_remap_edge_style('style', 'double');
+is ($name, undef, 'style=double suppressed');
+is ($style, undef, 'style=double suppressed');
+
+($name,$style) = $graph->_graphviz_remap_edge_style('style', 'solid');
 
 is ($name, undef, 'style=solid suppressed');
 is ($style, undef, 'style=solid suppressed');
@@ -433,5 +438,23 @@ like ($grviz, qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
 like ($grviz, qr/Bonn.*shape=plaintext/, 'contains shape plaintext'); 
 like ($grviz, qr/Bonn.*label="*"/, 'contains label="*"'); 
 
+#############################################################################
+# edge styles double and double-dash
+
+$graph = Graph::Easy->new();
+
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+$edge->set_attribute('style','double');
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/[^"]Bonn[^"].*color="black:black/, 'contains Bonn and black:black');
+unlike ($grviz, qr/style="?solid/, "doesn't contain solid");
+
+$edge->set_attribute('style','double-dash');
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/[^"]Bonn[^"].*color="black:black/, 'contains Bonn and black:black');
+unlike ($grviz, qr/style="?solid/, "doesn't contain solid");
+like ($grviz, qr/style="?dashed/, 'contains solid');
 
 

@@ -1,14 +1,14 @@
 #############################################################################
 # Path and cell management for Graph::Easy.
 #
-# (c) by Tels 2004-2005.
+# (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 #############################################################################
 #############################################################################
@@ -47,7 +47,7 @@ sub _shuffle_dir
 
 sub _shift
   {
-  # get a direction shifted by X° to $dir
+  # get a flow shifted by X° to $dir
   my ($self, $turn) = @_;
 
   my $dir = $self->flow();
@@ -296,6 +296,7 @@ use Graph::Easy::Node::Cell;
 use Graph::Easy::Edge::Cell qw/
   EDGE_HOR EDGE_VER EDGE_CROSS
   EDGE_TYPE_MASK
+  EDGE_HOLE
  /;
 
 sub _clear_tries
@@ -426,7 +427,7 @@ sub _find_node_place
       }
 
     my @shared_nodes;
-    @shared_nodes = $from->nodes_sharing_start($s_p,@ss_p) if defined $s_p;
+    @shared_nodes = $from->nodes_sharing_start($s_p,@ss_p) if defined $s_p && @ss_p > 0;
 
     print STDERR "# $parent->{name} shares an edge start with ", scalar @shared_nodes, " other nodes\n"
 	if $self->{debug};
@@ -472,7 +473,7 @@ sub _find_node_place
     # shared end point?
     ($s_p, @ss_p) = $edge->port('end') if ref($edge);
 
-    @shared_nodes = $to->nodes_sharing_end($s_p,@ss_p) if defined $s_p;
+    @shared_nodes = $to->nodes_sharing_end($s_p,@ss_p) if defined $s_p && @ss_p > 0;
 
     print STDERR "# $parent->{name} shares an edge end with ", scalar @shared_nodes, " other nodes\n"
 	if $self->{debug};
@@ -718,8 +719,14 @@ sub _create_cell
 
   my $cells = $self->{cells}; my $xy = "$x,$y";
   
-  return $cells->{$xy}->_make_cross($edge,$type & EDGE_FLAG_MASK)
-    if ref($cells->{$xy}) && $cells->{$xy}->isa('Graph::Easy::Edge');
+  if (ref($cells->{$xy}) && $cells->{$xy}->isa('Graph::Easy::Edge'))
+    {
+    $cells->{$xy}->_make_cross($edge,$type & EDGE_FLAG_MASK);
+    # insert a EDGE_HOLE into the cells of the edge (but not into the list of
+    # to-be-rendered cells). This cell will be removed by the optimizer later on.
+    Graph::Easy::Edge::Cell->new( type => EDGE_HOLE, edge => $edge, x => $x, y => $y );
+    return;
+    }
 
   my $path = Graph::Easy::Edge::Cell->new( type => $type, edge => $edge, x => $x, y => $y );
   $cells->{$xy} = $path;	# store in cells
@@ -791,20 +798,69 @@ Exports nothing.
 
 L<Graph::Easy>.
 
-=head1 METHODS
+=head1 METHODS into Graph::Easy
 
-This module injects the following methods into Graph::Easy:
+This module injects the following methods into C<Graph::Easy>:
 
-=head2 _path_is_clear
+=head2 _path_is_clear()
 
 	$graph->_path_is_clear($path);
 
 For all points (x,y pairs) in the path, check that the cell is still free.
 C<$path> points to a list x,y,type pairs as in C<< [ [x,y,type], [x,y,type], ...] >>.
 
+=head2 _create_cell()
+
+	my $cell = $graph->($edge,$x,$y,$type);
+
+Create a cell at C<$x,$y> coordinates with type C<$type> for the specified
+edge.
+
+=head2 _path_is_clear()
+
+	$graph->_path_is_clear();
+
+For all points (x,y pairs) in the path, check that the cell is still free.
+C<$path> points to a list of C<[ x,y,type, x,y,type, ...]>.
+
+Returns true when the path is clear, false otherwise.
+
+=head2 _trace_path()
+
+	my $path = my $graph->_trace_path($src,$dst,$edge);
+
+Find a free way from source node/group to destination node/group for the
+specified edge. Both source and destination need to be placed beforehand.
+
+=head1 METHODS in Graph::Easy::Node
+
+This module injects the following methods into C<Graph::Easy::Node>:
+
+=head2 _near_places()
+
+	my $node->_near_places();
+  
+Take a node and return a list of possible placements around it and
+prune out already occupied cells. $d is the distance from the node
+border and defaults to two (for placements). Set it to one for
+adjacent cells. 
+
+=head2 _shuffle_dir()
+
+	my $dirs = $node->_shuffle_dir( [ 0,1,2,3 ], $dir);
+
+Take a ref to an array with four entries and shuffle them around according to
+C<$dir>.
+
+=head2 _shift()
+
+	my $dir = $node->_shift($degrees);
+
+Return a the C<flow()> direction shifted by X degrees to C<$dir>.
+
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for information.
 

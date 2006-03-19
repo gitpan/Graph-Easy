@@ -6,8 +6,8 @@
 package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
-@ISA = qw/Graph::Easy::Node/;		# an edge is a special node
-$VERSION = '0.21';
+@ISA = qw/Graph::Easy::Node/;		# an edge is just a special node
+$VERSION = '0.22';
 
 use strict;
 
@@ -36,6 +36,11 @@ sub _init
   $self->{att}->{label} = $self->{name} unless defined $self->{att}->{label};
   $self->{att}->{label} = $self->{label} unless defined $self->{att}->{label};
   delete $self->{label};
+
+  $self->{name} = '' unless defined $self->{name};
+
+  # not defined => no label, thus inherit from class  
+  delete $self->{att}->{label} unless defined $self->{att}->{label};
 
   $self->{att}->{'border-style'} = 'none';
   $self->{att}->{style} = $self->{style} if $self->{style};
@@ -144,7 +149,7 @@ sub start_port
   my $s = $self->{att}->{start} || $self->attribute('start');
   return undef if !defined $s || $s !~ /,/;	# "south, 0" => ok, "south" => no
 
-  return split /\s*,\s*/, $s if wantarray;
+  return (split /\s*,\s*/, $s) if wantarray;
 
   $s =~ s/\s+//g;		# remove spaces to normalize "south, 0" to "south,0"
   $s;
@@ -171,6 +176,9 @@ sub style
 
   $self->{att}->{style} || $self->attribute('style') || 'solid';
   }
+
+#############################################################################
+# cell management
 
 sub cells
   {
@@ -304,6 +312,8 @@ sub add_cell
   $self;
   }
 
+#############################################################################
+
 sub from
   {
   my $self = shift;
@@ -346,6 +356,7 @@ sub start_at
 
 sub flow
   {
+  # return the flow at this edge
   my ($self) = @_;
 
 # print STDERR "# flow from $self->{from}->{name} to $self->{to}->{name}\n";
@@ -353,20 +364,18 @@ sub flow
   # our flow comes from ourselves
   my $flow = $self->{att}->{flow};
 
-  my $f = $self->parent()->attribute('flow') || '90';
-
   # if the edge doesn't have a flwow, maybe the node has a default out flow
   $flow = $self->{from}->{att}->{flow} if !defined $flow;
 
   # if that didn't work out either, use the parents flows
   $flow = $self->parent()->attribute('flow') if !defined $flow; 
-  # default "east", or finally the
+  # or finally, the default "east":
   $flow = 90 if !defined $flow;
 
-  # absolute flow does not depend on the inflow, so can return early
+  # absolute flow does not depend on the in-flow, so can return early
   return $flow if $flow =~ /^(0|90|180|270)\z/;
 
-  # in_flow comes from our "from" node
+  # in-flow comes from our "from" node
   my $in = $self->{from}->flow();
 
 #  print STDERR "in $in out $flow\n";
@@ -388,18 +397,33 @@ sub port
 
   my ($side, $port) = split /\s*,\s*/, $sp;
 
-  $port = '' unless defined $port;
-
   # if absolut direction, return as is
   my $s = Graph::Easy->_direction_as_side($side);
-  return ($s, $port) if defined $s;
+
+  if (defined $s)
+    {
+    my @rc = ($s); push @rc, $port if defined $port;
+    return @rc;
+    }
 
   # in_flow comes from our "from" node
   my $in = 90; $in = $self->{from}->flow() if ref($self->{from});
 
   # turn left in "south" etc:
   $s = Graph::Easy->_flow_as_side($in,$side);
-  ($s, $port);
+
+  my @rc = ($s); push @rc, $port if defined $port;
+  @rc;
+  }
+
+sub flip
+  {
+  # swap from and to for this edge
+  my ($self) = @_;
+
+  ($self->{from}, $self->{to}) = ($self->{to}, $self->{from});
+
+  $self;
   }
 
 1;
@@ -587,17 +611,18 @@ will add that node to the graph first.
 
 Returns the new edge start point node.
 
+=head2 flip()
+
+	$edge->flip();
+
+Swaps the C<start> and C<end> nodes on this edge, e.g. reverses the direction
+of it.
+
 =head2 flow()
 
 	my $flow = $edge->flow();
-	my $flow = $edge->flow('start');
-	my $flow = $edge->flow('end');
 
 Returns the flow for this edge, or undef if it has none.
-
-The optional parameter defines the attribute name to use as the
-base flow, and defaults to C<flow>. When it is set to C<start>,
-for example, the returned direction 
 
 =head2 port()
 

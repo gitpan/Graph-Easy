@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.19';
+$VERSION = '0.20';
 
 #############################################################################
 #############################################################################
@@ -18,15 +18,9 @@ package Graph::Easy;
 use strict;
 use Graph::Easy::Node::Cell;
 use Graph::Easy::Edge::Cell qw/
-  EDGE_SHORT_E EDGE_SHORT_W EDGE_SHORT_N EDGE_SHORT_S
-
-  EDGE_START_E EDGE_START_W EDGE_START_N EDGE_START_S
-
-  EDGE_END_E EDGE_END_W EDGE_END_N EDGE_END_S
-
-  EDGE_N_E EDGE_N_W EDGE_S_E EDGE_S_W
-
-  EDGE_HOR EDGE_VER EDGE_CROSS
+  EDGE_HOR EDGE_VER
+  EDGE_CROSS
+  EDGE_TYPE_MASK EDGE_MISC_MASK EDGE_NO_M_MASK
   EDGE_SHORT_CELL
  /;
 
@@ -149,6 +143,7 @@ sub _follow_chain
 
       next if defined $to->{_chain} &&	# ignore if it points to the same
 		$to->{_chain} == $c; 	# chain (backloop)
+
 
       # if the next node's grandparent is the same as ours, it depends on us
       next if $to->find_grandparent() == $node->find_grandparent();
@@ -619,6 +614,10 @@ sub layout
         {
         $self->warn( "Layouter could only place $nodes nodes/$edges edges out of $e_nodes/$e_edges - giving up");
         }
+      else
+        {
+        $self->_optimize_layout();
+        }
       }
 
     # all things on the stack were done, or we encountered an error
@@ -639,6 +638,99 @@ sub layout
 
   die $@ if $@;				# propagate errors
 
+  }
+
+my $size_name = {
+  EDGE_HOR() => [ 'cx', 'x' ],
+  EDGE_VER() => [ 'cy', 'y' ]
+  };
+
+sub _optimize_layout
+  {
+  my $self = shift;
+
+  # optimize the finished layout
+
+  my $all_cells = $self->{cells};
+
+  ###########################################################################
+  # for each edge, compact HOR and VER stretches of cells
+  for my $e (values %{$self->{edges}})
+    {
+    my $cells = $e->{cells};
+
+    # there need to be at least two cells for us to be able to combine them
+    next if @$cells < 2;
+
+    print STDERR "# Compacting edge $e->{from}->{name} to $e->{to}->{name}\n"
+      if $self->{debug};
+
+    my $f = $cells->[0]; my $i = 1;
+    while ($i < @$cells)
+      {
+      my $c = $cells->[$i++];
+
+#      print STDERR "#  at $f->{type} $f->{x},$f->{y}  (next: $c->{type} $c->{x},$c->{y})\n";
+
+      my $t1 = $f->{type} & EDGE_NO_M_MASK;
+      my $t2 = $c->{type} & EDGE_NO_M_MASK;
+
+      my $delete = 0;
+
+      # compare $first to $c
+      if ($t1 == $t2 && ($t1 == EDGE_HOR || $t1 == EDGE_VER))
+        {
+#	print STDERR "#  $i: Combining them.\n";
+
+	# check that both pieces are continues (e.g. with a cross section,
+	# the other edge has a hole in the cell array)
+
+	# if the second cell has a misc (label, short) flag, carry it over
+        $f->{type} += $c->{type} & EDGE_MISC_MASK;
+
+        # which size/coordinate to modify
+	my ($m,$co) = @{ $size_name->{$t1} };
+
+	# new width/height is the combined size
+	$f->{$m} = ($f->{$m} || 1) + ($c->{$m} || 1);
+	# correct start coordinate for reversed order
+	$f->{$co} -= ($c->{$m} || 1) if $f->{$co} > $c->{$co};
+
+	$delete = 1;				# delete $c
+	}
+
+      # remove that cell, but start combining at next
+#      print STDERR "# found hole at $i\n" if $c->{type} == EDGE_HOLE;
+
+      $delete = 2 if $c->{type} == EDGE_HOLE;
+
+      if ($delete)
+	{
+        splice (@{$e->{cells}}, $i-1, 1);		# remove from the edge
+	if ($delete == 1)
+	  {
+	  my $xy = "$c->{x},$c->{y}";
+	  # replace with placeholder (important for HTML output)
+	  $all_cells->{$xy} = Graph::Easy::Edge::Cell::Empty->new (
+	    x => $c->{x}, y => $c->{y},
+	  );	
+
+          $i--; $c = $f;				# for the next statement
+	  }
+	else { $c = $cells->[$i-1]; }
+        }
+      $f = $c;
+      }
+
+#   $i = 0;
+#   while ($i < @$cells)
+#     {
+#     my $c = $cells->[$i];
+#     print STDERR "#   $i: At $c->{type} $c->{x},$c->{y}  ", $c->{cx}||1, " ", $c->{cy} || 1,"\n";
+#     $i++;
+#     }
+
+    }
   }
 
 1;

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 24;
+   plan tests => 32;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Layout") or die($@);
@@ -15,6 +15,8 @@ can_ok ("Graph::Easy", qw/
   _trace_path
   _find_path
   _create_cell
+  _path_is_clear
+  _clear_tries
   _find_path_astar
   _find_path_loop
 
@@ -95,8 +97,6 @@ is (scalar @$coords, 1*$e, 'same cell => short edge path');
 $src->{x} = 1; $src->{y} = 1;
 $dst->{x} = 2; $dst->{y} = 2;
 
-#use Data::Dumper;
-
 $coords = $graph->_find_path( $src, $dst, $edge);
 
 #print STDERR "# " . Dumper($coords) . "\n";
@@ -145,4 +145,45 @@ my $type = EDGE_VER();
 my $type_label = EDGE_VER() + EDGE_LABEL_CELL() + EDGE_START_N();
 my $type_end = EDGE_VER() + EDGE_END_S();
 is (join (":", @$coords), "1:1:$type_label:1:2:$type:1:3:$type:1:4:$type_end", 'path 1,0 => 1,5');
+
+#############################################################################
+#############################################################################
+
+# as_ascii() will load Graph::Easy::Layout::Grid, this provides some
+# additional methods:
+
+my $ascii = $graph->as_ascii();
+
+can_ok ("Graph::Easy", qw/
+  _balance_sizes
+  _prepare_layout
+  / );
+
+#############################################################################
+# _balance_sizes
+
+my $sizes = [ 3, 4, 5 ];
+
+$graph->_balance_sizes( $sizes, 3+4+5);
+
+is_deeply ( $sizes, [ 3,4,5 ], 'constraint already met');
+
+$graph->_balance_sizes( $sizes = [ 3, 4, 5 ], 3+4+5-1);
+is_deeply ( $sizes, [ 3,4,5 ], 'constraint already met');
+
+$graph->_balance_sizes( $sizes = [ 3, 4, 5 ], 3+4+5+1);
+is_deeply ( $sizes, [ 4,4,5 ], 'smallest gets bigger');
+
+$graph->_balance_sizes( $sizes = [ 3, 3, 3 ], 3*3 + 2);
+is_deeply ( $sizes, [ 4,4,3 ], 'first two smallest get bigger');
+
+$graph->_balance_sizes( $sizes = [ 3, 3, 3 ], 3*3 + 3);
+is_deeply ( $sizes, [ 4,4,4 ], 'all got bigger');
+
+$graph->_balance_sizes( $sizes = [ 3, 3, 3 ], 3*3 + 4);
+is_deeply ( $sizes, [ 5,4,4 ], 'all got bigger');
+
+$graph->_balance_sizes( $sizes = [ 10, 10, 3 ], 20+7);
+is_deeply ( $sizes, [ 10,10,7 ], 'last got bigger');
+
 

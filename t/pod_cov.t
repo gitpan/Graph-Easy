@@ -7,7 +7,7 @@ my $tests;
 
 BEGIN
    {
-   $tests = 12;
+   $tests = 15;
    plan tests => $tests;
    chdir 't' if -d 't';
    use lib '../lib';
@@ -29,6 +29,9 @@ SKIP:
     Graph::Easy::As_graphviz
     Graph::Easy::Layout::Chain
     Graph::Easy::Layout::Grid
+    Graph::Easy::Layout::Path
+    Graph::Easy::Layout::Scout
+    Graph::Easy::Layout::Repair
     Graph::Easy::Attributes
     Graph::Easy::As_ascii
    /)

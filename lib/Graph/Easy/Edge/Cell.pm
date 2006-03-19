@@ -12,7 +12,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.19';
+$VERSION = '0.20';
 
 use Scalar::Util qw/weaken/;
 
@@ -20,20 +20,26 @@ use Scalar::Util qw/weaken/;
 
 # The different cell types:
 use constant {
-  EDGE_CROSS	=> 1,		# +	crossing lines
-  EDGE_HOR	=> 2,	 	# --	horizontal line
-  EDGE_VER	=> 3,	 	# |	vertical line
+  EDGE_CROSS	=> 0,		# +	crossing lines
+  EDGE_HOR	=> 1,	 	# --	horizontal line
+  EDGE_VER	=> 2,	 	# |	vertical line
 
-  EDGE_N_E	=> 4,		# |_	corner (N to E)
-  EDGE_N_W	=> 5,		# _|	corner (N to W)
-  EDGE_S_E	=> 6,		# ,-	corner (S to E)
-  EDGE_S_W	=> 7,		# -,	corner (S to W)
+  EDGE_N_E	=> 3,		# |_	corner (N to E)
+  EDGE_N_W	=> 4,		# _|	corner (N to W)
+  EDGE_S_E	=> 5,		# ,-	corner (S to E)
+  EDGE_S_W	=> 6,		# -,	corner (S to W)
 
 # Joints:
-  EDGE_S_E_W	=> 8,		# -,-	three-sided corner (S to W/E)
-  EDGE_N_E_W	=> 9,		# -'-	three-sided corner (N to W/E)
-  EDGE_E_N_S	=> 10,		#  |-   three-sided corner (E to S/N)
-  EDGE_W_N_S	=> 11,		# -|	three-sided corner (W to S/N)
+  EDGE_S_E_W	=> 7,		# -,-	three-sided corner (S to W/E)
+  EDGE_N_E_W	=> 8,		# -'-	three-sided corner (N to W/E)
+  EDGE_E_N_S	=> 9,		#  |-   three-sided corner (E to S/N)
+  EDGE_W_N_S	=> 10,		# -|	three-sided corner (W to S/N)
+
+  EDGE_HOLE	=> 11,		# 	a hole (placeholder for the "other"
+				#	edge in a crossing section
+				#	Holes are inserted in the layout stage
+				#	and removed in the optimize stage, before
+				#	rendering occurs.
 
 # these loop types must come last
   EDGE_N_W_S	=> 12,		# v--+  loop, northwards
@@ -119,6 +125,7 @@ use constant EDGE_LOOP_EAST	=> EDGE_E_S_W + EDGE_END_W + EDGE_START_E + EDGE_LAB
   EDGE_HOR
   EDGE_VER
   EDGE_CROSS
+  EDGE_HOLE
 
   EDGE_N_E
   EDGE_N_W
@@ -247,7 +254,9 @@ sub _init
     $self->{style} = $self->{edge}->style();
     $self->{class} = $self->{edge}->{class};
     $self->{graph} = $self->{edge}->{graph};
+    $self->{group} = $self->{edge}->{group};
     weaken($self->{graph});
+    weaken($self->{group});
     $self->{att} = $self->{edge}->{att};
     }
   else
@@ -341,7 +350,7 @@ my $edge_html = {
   EDGE_S_E() + EDGE_START_E() + EDGE_END_S() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
     ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
-    ' <td rowspan=4 class="##class## ve"></td>',
+    ' <td rowspan=4 class="##class## el"></td>',
     '',
     ' <td colspan=2 class="##class## eb"></td>'. "\n" .
     ' <td class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
@@ -351,7 +360,7 @@ my $edge_html = {
   EDGE_S_E() + EDGE_START_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
     ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
-    ' <td rowspan=4 class="##class## ve"></td>',
+    ' <td rowspan=4 class="##class## el"></td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
@@ -361,7 +370,7 @@ my $edge_html = {
   EDGE_S_E() + EDGE_END_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
     ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
-    ' <td rowspan=4 class="##class## ha"##edgecolor##>&gt;</td>',
+    ' <td rowspan=4 class="##class##"##edgecolor##>&gt;</td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
     ' <td rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>',
@@ -372,7 +381,7 @@ my $edge_html = {
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>',
     '',
-    ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
+    ' <td colspan=2 class="##class## eb"></td>'. "\n" .
     ' <td colspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
     ' <td colspan=4 class="##class## eb"></td>',
    ],
@@ -380,7 +389,7 @@ my $edge_html = {
   EDGE_S_E() + EDGE_START_S() + EDGE_END_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
     ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>'.
-    ' <td rowspan=4 class="##class## ha"##edgecolor##>&gt;</td>',
+    ' <td rowspan=4 class="##class##"##edgecolor##>&gt;</td>',
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
     ' <td class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
@@ -420,7 +429,7 @@ my $edge_html = {
    ],
 
   EDGE_S_W() + EDGE_START_W() => [
-    ' <td rowspan=2 class="##class## ve"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## el"></td>' . "\n" .
     ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
     '',
@@ -458,7 +467,7 @@ my $edge_html = {
    ],
 
   EDGE_S_W() + EDGE_START_W() + EDGE_END_S() => [
-    ' <td rowspan=2 class="##class## ve"></td>' . "\n" .
+    ' <td rowspan=2 class="##class## el"></td>' . "\n" .
     ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>',
     '',
@@ -515,7 +524,7 @@ my $edge_html = {
    ],
 
   EDGE_N_W() + EDGE_START_W() => [
-    ' <td rowspan=2 class="##class## ve"></td>' . "\n" . 
+    ' <td rowspan=2 class="##class## el"></td>' . "\n" . 
     ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##;">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
     '',
@@ -547,7 +556,7 @@ my $edge_html = {
   EDGE_N_E() + EDGE_START_E() => [
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>' . "\n" .
     ' <td rowspan=2 class="##class## eb" style="border-bottom: ##border##; border-left: ##border##;">&nbsp;</td>' . "\n" .
-    ' <td rowspan=4 class="##class## ve"></td>',
+    ' <td rowspan=4 class="##class## el"></td>',
     '',
     ' <td colspan=3 rowspan=2 class="##class## eb"></td>',
     '',
@@ -725,6 +734,9 @@ sub _html_edge_hor
     $e_flags = 0; $s_flags = 0;
     }
 
+  # XXX TODO: we could skip the output of "eb" parts when this edge doesn't belong
+  # to a group.
+
   my $rc = [
     ' <td colspan=##mod## rowspan=2 class="##class## lh" style="border-bottom: ##border##;##lc####bg##">##label##</td>' . "\n",
     '',
@@ -732,42 +744,39 @@ sub _html_edge_hor
     '',
     ];
 
-  # The code below assumes that only 2 end/start flags are set at the same
-  # time.
+  # This assumes that only 2 end/start flags are set at the same time:
 
   my $mod = 4;							# modifier
-#  my $mod2 = 4;
   if ($s_flags & EDGE_START_W)
     {
     $mod--;
-#    $mod2--;
-    $rc->[0] = '<td rowspan=4 class="##class## ve" style="##bg##"></td>' . "\n" . $rc->[0];
+    $rc->[0] = '<td rowspan=4 class="##class## el" style="##bg##"></td>' . "\n" . $rc->[0];
     };
   if ($s_flags & EDGE_START_E)
     {
     $mod--;
-#    $mod2--;
-    $rc->[0] .= "\n " . '<td rowspan=4 class="##class## ve" style="##bg##"></td>';
+    $rc->[0] .= "\n " . '<td rowspan=4 class="##class## el" style="##bg##"></td>';
     };
   if ($e_flags & EDGE_END_W)
     {
     $mod--;
-#    $rc->[0] = '<td rowspan=4 class="##class## va" style="##ec####bg##">&lt;</td>' . "\n" . $rc->[0];
-    $rc->[0] = '<td rowspan=2 class="##class##" style="##ec####bg##"><span class="sh">&lt;</span></td>' . "\n" . $rc->[0];
+    $rc->[0] = '<td rowspan=2 class="##class##" style="##ec####bg##"><span class="shl">&lt;</span></td>' . "\n" . $rc->[0];
     $rc->[2] = '<td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' . "\n" . $rc->[2];
     }
   if ($e_flags & EDGE_END_E)
     { 
     $mod--;
-#    $rc->[0] .= "\n " . '<td rowspan=4 class="##class## va" style="##ec####bg##">&gt;</td>';
     $rc->[0] .= "\n " . '<td rowspan=2 class="##class##" style="##ec####bg##"><span class="sh">&gt;</span></td>';
     $rc->[2] .= "\n " . '<td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>';
     };
 
+  # cx == 1: mod = 2..4, cx == 2: mod = 6..8, etc.
+  $self->{cx} ||= 1;
+  $mod = $self->{cx} * 4 - 4 + $mod;
+
   for my $e (@$rc)
     {
     $e =~ s/##mod##/$mod/g;
-#    $e =~ s/##mod2##/$mod2/g;
     }
 
   $rc;
@@ -808,8 +817,8 @@ sub _html_edge_ver
   elsif ($e_flags & EDGE_END_N)
     {
     $mod--;
-    #unshift @$rc, '<td colspan=4 class="##class## hat" style="##bg####ec##">&nbsp;^</td>' . "\n";
-    unshift @$rc, '<td colspan=2 class="##class## eb" style="##bg####ec##">&nbsp;</td>' . "\n" . '<td colspan=2 class="##class## hat" style="##bg####ec##"><span class="sv">^</span></td>' . "\n";
+    unshift @$rc, '<td colspan=2 class="##class## eb" style="##bg####ec##">&nbsp;</td>' . "\n" .
+      '<td colspan=2 class="##class## hat" style="##bg####ec##"><span class="sv">^</span></td>' . "\n";
     delete $rc->[-1];
     }
 
@@ -823,9 +832,12 @@ sub _html_edge_ver
   if ($e_flags & EDGE_END_S)
     {
     $mod--;
-    #$rc->[3] = '<td colspan=4 class="##class## v" style="##bg####ec##">&nbsp;v</td>' . "\n";
-    $rc->[3] = '<td colspan=2 class="##class## eb" style="##bg####ec##">&nbsp;</td>'."\n".'<td colspan=2 class="##class## v" style="##bg####ec##"><span class="sv">v</span></td>' . "\n";
+    $rc->[3] = '<td colspan=2 class="##class## eb" style="##bg####ec##">&nbsp;</td>'."\n" .
+     '<td colspan=2 class="##class## v" style="##bg####ec##"><span class="sv">v</span></td>' . "\n";
     }
+
+  $self->{cy} ||= 1;
+  $mod = $self->{cy} * 4 - 4 + $mod;
 
   for my $e (@$rc)
     {
@@ -893,13 +905,21 @@ sub as_html
   # only include the label if we are the label cell
   if ($self->{type} & EDGE_LABEL_CELL)
     {
-    $label = $self->label();
+    my $switch_to_center;
+    ($label,$switch_to_center) = $self->_label_as_html();
+
+    #$out->{'text-align'} = 'center' if $switch_to_center;
+
     # replace linebreaks by <br>, but remove extra spaces 
     $label =~ s/\s*\\n\s*/<br \/>/g;
 
     my $label_color = $self->attribute('label-color') || $color;
     $label_color = '' if $label_color eq 'black';
     $label_style = "color: $label_color;" if $label_color;
+
+    my $font = $self->attribute('font') || '';
+    $font = '' if $font eq ($self->default_attribute('font') || '');
+    $label_style = "font-family: $font;" if $font;
   
     $label_style .= $self->text_styles_as_css(1,1) unless $label eq '';
 
@@ -1122,6 +1142,19 @@ sub attribute
   }
 
 1;
+
+#############################################################################
+#############################################################################
+
+package Graph::Easy::Edge::Cell::Empty;
+
+use base qw/Graph::Easy::Node::Cell/;
+
+use vars qw/$VERSION/;
+
+$VERSION = '0.01';
+
+1;
 __END__
 
 =head1 NAME
@@ -1178,7 +1211,7 @@ Returns the path-cell as a little ascii representation.
 
 	my $html = $path->as_html($tag,$id);
 
-Returns the path-cell as HTML code.
+eturns the path-cell as HTML code.
 
 =head2 label()
 

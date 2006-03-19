@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 #############################################################################
 #############################################################################
@@ -137,13 +137,13 @@ sub _find_path
   my @coords;
   my ($x,$y) = ($x0,$y0);			# starting pos
 
-  print STDERR "# dx,dy: $dx,$dy\n" if $self->{debug};
+  print STDERR "#  dx,dy: $dx,$dy\n" if $self->{debug};
 
   if ($dx == 0 || $dy == 0)
     {
     # try straight path to target:
  
-    print STDERR "# $src->{x},$src->{y} => $dst->{x},$dst->{y} - trying short path\n" if $self->{debug};
+    print STDERR "#  $src->{x},$src->{y} => $dst->{x},$dst->{y} - trying short path\n" if $self->{debug};
 
     # distance to node:
     my $dx1 = ($x1 - $x0);
@@ -198,7 +198,7 @@ sub _find_path
 
     if ($done == 0)
       {
-      print STDERR "# success for ", scalar @coords / 3, " steps in path\n" if $self->{debug};
+      print STDERR "#  success for ", scalar @coords / 3, " steps in path\n" if $self->{debug};
       # return all fields of path
       return $self->_end_points($edge, \@coords, $dx, $dy);
       }
@@ -216,7 +216,7 @@ sub _find_path
     # try first "--+" (aka hor => ver), then "+---" (aka ver => hor)
     my $done = 0;
 
-    print STDERR "# bend path from $x,$y\n" if $self->{debug};
+    print STDERR "#  bend path from $x,$y\n" if $self->{debug};
 
     # try hor => ver
     my $type = EDGE_HOR;
@@ -227,7 +227,7 @@ sub _find_path
     while ($x != $x1)
       {
       $done++, last if exists $cells->{"$x,$y"};	# cell already full
-      print STDERR "# at $x,$y\n" if $self->{debug};
+      print STDERR "#  at $x,$y\n" if $self->{debug};
       my $t = $type; $t += EDGE_LABEL_CELL if $label++ == 0;
       push @coords, $x, $y, $t;				# good one, is free
       $x += $dx;					# next field
@@ -673,7 +673,7 @@ sub _find_path_astar
   my (@A, @B);
   my @shared_start;
 
-  # has a starting point restriction
+  # has a starting point restriction:
   @shared_start = $edge->{from}->edges_at_port('start', $s_p, $ss_p[0]) if defined $s_p && @ss_p == 1;
 
   my @shared;
@@ -694,7 +694,7 @@ sub _find_path_astar
     # more than one edge share the same start port, and one of the others was
     # already placed
 
-    print STDERR "# edge from $edge->{from} to $edge->{to} shares port with ",
+    print STDERR "#  edge from $edge->{from} to $edge->{to} shares port with ",
 	scalar @shared, " other edge(s)\n" if $self->{debug};
 
     @A = $self->_get_joints(\@shared, EDGE_END_MASK, $joint_type, $start_cells, $next_fields);
@@ -756,7 +756,7 @@ sub _find_path_astar
     # more than one edge share the same end port, and one of the others was
     # already placed
 
-    print STDERR "# edge from $edge->{from} to $edge->{to} shares port with ",
+    print STDERR "#  edge from $edge->{from} to $edge->{to} shares port with ",
 	scalar @shared, " other edge(s)\n" if $self->{debug};
 
     @B = $self->_get_joints(\@shared, EDGE_START_MASK, $joint_type_end, $end_cells, $prev_fields, 3);
@@ -863,7 +863,7 @@ sub _astar
     $open->add( Graph::Easy::Astar::Node->new( $lowest, $sx, $sy, $px, $py, $type, 1 ));
 
     my $o = $malus + $bias + $lowest;
-    print STDERR "# adding open pos $sx,$sy ($o)\n" if $self->{debug};
+    print STDERR "#   adding open pos $sx,$sy ($o)\n" if $self->{debug};
 
     # The cost to reach the starting node is obviously 0. That means that there is
     # a tie between going down/up if both possibilities are equal likely. We insert
@@ -889,7 +889,7 @@ sub _astar
     # hard limit on number of steps todo
     return if $tries++ > $max_tries;
 
-    print STDERR "# Smallest elem is weight ", $elem->val, " at ", join(",", $elem->pos()),"\n" if $self->{debug};
+    print STDERR "#  Smallest elem is weight ", $elem->val, " at ", join(",", $elem->pos()),"\n" if $self->{debug};
     my (undef, $val, $x,$y, $px,$py, $type, $do_stop) = @$elem;
 
     my $key = "$x,$y";
@@ -905,7 +905,7 @@ sub _astar
       if ($x == $stop[$i] && $y == $stop[$i+1])
         {
         $closed->{$key}->[4] += $stop[$i+2] if defined $stop[$i+2];
-        print STDERR "# Reached stop position $x,$y\n" if $self->{debug};
+        print STDERR "#  Reached stop position $x,$y\n" if $self->{debug};
         last STEP;
         }
       } # end test for stop postion(s)
@@ -939,7 +939,7 @@ sub _astar
         $lowest_distance = $d if $d < $lowest_distance; 
         }
 
-    print STDERR "# opening pos $x,$y ($lowest_distance + $lg)\n" if $self->{debug};
+    print STDERR "#  opening pos $x,$y ($lowest_distance + $lg)\n" if $self->{debug};
 
       # open new position into OPEN
       $open->add( Graph::Easy::Astar::Node->new(
@@ -1018,7 +1018,7 @@ sub _astar
       $type += _astar_edge_type($px, $py, $cx, $cy, $lx,$ly);
       }
 
-    print STDERR "# Following back from $lx,$ly to $cx,$cy to $px,$py\n" if $self->{debug};
+    print STDERR "#  Following back from $lx,$ly to $cx,$cy to $px,$py\n" if $self->{debug};
 
     if ($px == $lx && $py == $ly && ($cx != $lx || $cy != $ly))
       {

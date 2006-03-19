@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 38;
+   plan tests => 40;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok qw/Graph::Easy::Edge/;
@@ -24,6 +24,7 @@ can_ok ("Graph::Easy::Edge", qw/
   undirected
   bidirectional
   has_ports
+  flip
 
   set_attribute
   set_attributes
@@ -156,7 +157,8 @@ is ($edge->has_ports(), 0, 'has no port restrictions');
 # port()
 
 $edge->set_attribute('start', 'south');
-is (join(":", $edge->port('start')), "south:", "port('start')");
+my @u = $edge->port('start');
+is_deeply (\@u, ['south'], "port('start')");
 
 $edge->del_attribute('end');
 $edge->del_attribute('start');
@@ -183,5 +185,18 @@ is ($cell->background(), '#a0d0ff', 'background() for group member');
 # now has the fill of the group as background
 $group->set_attribute('fill', 'green');
 is ($cell->background(), '#008000', 'background() for group member');
+
+#############################################################################
+# flip()
+
+my $from = $edge->from();
+my $to = $edge->to();
+
+$edge->flip();
+
+is ($from, $edge->to(), 'from/to flipped');
+is ($to, $edge->from(), 'from/to flipped');
+
+
 
 

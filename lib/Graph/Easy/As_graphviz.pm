@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 
 #############################################################################
 #############################################################################
@@ -38,6 +38,7 @@ my $remap = {
     'background' => undef,
     'border' => undef,
     'border-style' => undef,
+    'color' => \&_graphviz_remap_edge_color,
     'end' => \&_graphviz_remap_port,
     'flow' => undef,
     'label-color' => \&_graphviz_remap_label_color,
@@ -73,6 +74,7 @@ my $remap = {
     'autolink' => undef,
     'autotitle' => undef,
     'font-size' => \&_graphviz_remap_fontsize,
+    'font' => \&_graphviz_remap_font,
     'link' => \&_graphviz_remap_link,
     'linkbase' => undef,
     'text-style' => undef,
@@ -83,6 +85,7 @@ my $remap = {
     'label-color' => 1,
     'link' => 1,
     'rotate' => 1,
+    'color' => 1,
     },
   };
 
@@ -106,22 +109,42 @@ sub _graphviz_remap_edge_minlen
   ($name, $len);
   }
 
+sub _graphviz_remap_edge_color
+  {
+  my ($self, $name, $color, $object) = @_;
+
+  my $style = ref($object) ? 
+    $object->attribute('style') : 
+    $self->attribute('style','edge');
+  $style = '' unless defined $style;
+
+  $color = 'black' unless defined $color;
+ 
+  $color = $color . ':' . $color	# 'red:red'
+    if $style =~ /^double/;
+
+  ($name, $color);
+  }
+
 sub _graphviz_remap_edge_style
   {
   my ($self, $name, $style) = @_;
 
-  # valid styles are: solid dashed dotted bold invis
+  # valid output styles are: solid dashed dotted bold invis
 
   $style = 'solid' unless defined $style;
 
   $style = 'dotted' if $style =~ /^dot-/;	# dot-dash, dot-dot-dash
   $style = 'dotted' if $style =~ /^wave/;	# wave
-  $style = 'bold' if $style eq 'double';	# double
+
+  # double lines will be handled in the color attribute as "color:color"
+  $style = 'solid' if $style eq 'double';	# double
+  $style = 'dashed' if $style =~ /^double-dash/;
+
   $style = 'invis' if $style eq 'invisible';	# invisible
 
   # XXX TODO: These should be (3, 0.5em, 1em) instead of 3,7,14
   $style = 'setlinewidth(3), dashed' if $style =~ /^bold-dash/;
-  $style = 'setlinewidth(3), dashed' if $style =~ /^double-dash/;
   $style = 'setlinewidth(7)' if $style =~ /^broad/;
   $style = 'setlinewidth(14)' if $style =~ /^wide/;
   
@@ -161,6 +184,15 @@ sub _graphviz_remap_port
   my $n = 'tailport'; $n = 'headport' if $name eq 'start';
 
   ($n, $port);
+  }
+
+sub _graphviz_remap_font
+  {
+  # Remap the font names
+  my ($self, $name, $style) = @_;
+
+  # XXX TODO: "times" => "Times.ttf" ?
+  ('fontname', $style);
   }
 
 sub _graphviz_remap_fontsize

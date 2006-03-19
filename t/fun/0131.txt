@@ -3,19 +3,19 @@
 group.dmz { fill: #ffa070; }
 group.outer { fill: #f07070; }
 
-( Internal Network
+( Internal Network:
   [ Workstation ]
 ) { fill: #70b070; }
   
 [ Workstation ] --> [ Inner Firewall ]
 
-( DMZ
+( DMZ:
 [ Inner Firewall ] -> [ Proxy ]
 --> [ Outer Firewall ]
 [ Proxy ] --> [ Database\n Server ]
 ) { class: dmz; }
 
-( Outer 
+( Outer: 
   [ Internet ]
 ) { class: outer }
 

@@ -7,38 +7,54 @@ In addition:
 
 Important short-term TODO:
 
-* in HTML: do not "<td..>\n<td.." but ['<td..','<td..'] to allow proper
-  combining of cells
-* complete edge-arrow alignment in HTML
+* layouter: 
+  + honor flow on an edge
+  + don't build chains across groups
+  + when having edges with and without flow, track chains only for these with
+    a flow (to stop non-flow edges taking the space first and blocking it)
+
+* v-- and --^ edges in HTML (mis-aligned arrows)
+  (complete edge-arrow alignment in HTML)
+
+* as_ascii: use custom text-wrap (Text::Wrap is well, buggy)
+
+* as_html: handle multi-celled vertical edges with groups correctly
+* as_html: shift arrows on hor edge end/starts (non-short) left/right, too
+
+* fix nesting with pod-formatted labels
+* as_ascii: implement pod-formatted labels (*bold*, /italic/,
+  _underline_, -l-i-n-e-t-h-r-o-u-g-h-, ~overline~, "code")
+
 * if a "shared start point" edge is leading past a node where another, also
   shared edge leads, a joint should be created right-away next to the
   target node (see "A23" in todo/tree2.txt)
+
 * edges between groups (ala "( 1 [A ]) -> ( 2 [B] )") or between a node
   and a group are missing in HTML, ASCII and SVG.
-* "[A],[B],[C] -> [ very wide node ] { size: 7,1; }" results in A being very
-  broad, and B and C being very small. They should be roughly the same size.
-  (for multicelled nodes: find smallest row/column, increase, until all
-   columns/rows are equal size, the distribute remaining nec. min. size
-   to all columns/rows)
+
 * It would be good if we could remove Node::Empty (it blocks a cell
   just to draw the right/bottom border pieces)
   (we might put these "invisible" nodes into a different "cells" field,
    which will be rendered, but not queried for path finding etc)
+
 * implement HTML nodes as triangles, house, etc. using slanted edges
+
 * define missing HTML edge pieces: CROSS/JOINT sections w/ end/start points
+
 * as_html(): output of node-clusters is slightly wrong
+
 * as_html(): there is no space between two nodes placed next (with filler
 	     cell) to each other. Make filler cells output a &nbsp;?
+
 * as_html(): bidir. self-loops are rendered with only one arrow: [A] <--> [A]
-* put framebuffer related routines into own package (Graph::Easy::As_ascii)
-  to avoid the dilemma that we need them from both Node and Graph.
-  Likewise, some routines used by objects (e.g. graph, node etc) should
-  be in a super-package and inherited)
+
 * as_txt(): the following are wrong as txt:
   + 3_autosplit_hang.txt
+
 * use "shape: record" and label="{ { 00 | 01 | 02 } | { 10 | 112 | 12 } }" to
   implement auto-split nodes in graphviz (including <port>'s and rerouting
-  edges to the ports)
+  edges to the ports), or use HTML labels
+
 * joints in as_boxart() have problems with the joint character:
   "[ A ] --> { start: south, 0; } [ A1 ], [ A2 ]" produces
 	┌───┐
@@ -67,7 +83,7 @@ Parser:
 * Nodes with both "|" and "\|" in their name are not parsed correctly
 * handle RGB colors with percentages or fractions like: rgb(100%,50%,0.5)
 * handle RGBA colors (with an alpha channel component, making transparency
-  possible)
+  possible, especially important for animations)
 * quoting of "[" and "{" inside edge labels ala:
 
   [ A ] -- label \[ 8 ] --> [ B ]
@@ -96,13 +112,14 @@ Output:
 
   ----->  |----->  o----->  +----->  *----->  >>---->
 
-* as_txt(): output of node clusters is not optimal
-* as_txt(): output of node chains is not optimal
-* better support for different shapes (circle, box, polygon etc)
-  in ASCII
-* as_graphviz(): implement border-styles: wave, dot-dot-dash and dot-dash
-* as_graphviz(): implement edge-styles: double, double-dash, wave, dot-dot-dash and dot-dash
-* as_graphviz(): text-styles: underline, overline, strike-through, italic and bold
+* as_txt(): 
+  + output of node clusters and node chains is not optimal
+  + better support for different shapes (circle, box, polygon etc)
+  + text-styles: underline, overline, strike-through, italic and bold
+* as_graphviz(): (these things seem to be actually not possible in Graphviz)
+  + border-styles: wave, dot-dot-dash and dot-dash
+  + edge-styles: wave, dot-dot-dash and dot-dash
+  + text-styles: underline, overline, strike-through, italic and bold
 * as_ascii() and others: grow cells around point-shaped nodes to intrude:
 
 	...........................
@@ -157,8 +174,16 @@ General:
 
 	[ Red ] { class: red green; } -> [ Green ] { class: green red; }
 
-Optimizer:
+* add pseudo-class "any { color: red; }"
 
+* implement pseudo-class "step" for animations (see POD)
+
+Optimizing:
+
+* put framebuffer related routines into own package (Graph::Easy::As_ascii)
+  to avoid the dilemma that we need them from both Node and Graph.
+  Likewise, some routines used by objects (e.g. graph, node etc) should
+  be in a super-package and inherited)
 * write an optimizer for already laid out graphs to optimize layout
 * less memory: store border and edge styles as ints instead of "solid" etc
 * use AUTOLOAD for accessors in Node.pm: most are never used by normal code

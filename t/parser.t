@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 111;
+   plan tests => 113;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -52,7 +52,13 @@ is ($parser->parse_error(3),
 my $graph = Graph::Easy::Parser->from_text('[A]');
 
 is (ref($graph), 'Graph::Easy');
-is ($graph->nodes(), 1, 'one node');
+is ($graph->nodes(), 1, 'one node from_text');
+
+# from_text with graphviz code
+$graph = Graph::Easy::Parser->from_text('digraph Graph1 { Bonn1 -> Berlin1 }');
+
+is (ref($graph), 'Graph::Easy');
+is ($graph->nodes(), 2, 'two nodes from graphviz texts');
 
 $graph = Graph::Easy::Parser->from_file('in/1node.txt');
 
@@ -84,7 +90,6 @@ foreach (<DATA>)
   my $txt = $in;
   $txt =~ s/\\n/\n/g;				# insert real newlines
 
-  Graph::Easy::Node->_reset_id();		# to get "#0" for each test
   my $graph = $parser->from_text($txt);		# reuse parser object
 
   if (!defined $graph)
@@ -110,7 +115,7 @@ foreach (<DATA>)
 
   $got .= '+' . $es if $es > 0;
 
-  for my $n ( sort { $a->{name} cmp $b->{name} || $b->{att}->{label} cmp $a->{att}->{label} }
+  for my $n ( sort { $a->{name} cmp $b->{name} || ($b->{att}->{label}||'') cmp ($a->{att}->{label}||'') }
    ($graph->nodes(), $graph->edges()) )
     {
     $got .= "," . $n->label() unless $n->label() =~ /^\s?\z/ || $n->label() eq $n->name();

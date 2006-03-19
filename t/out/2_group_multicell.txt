@@ -2,8 +2,7 @@
 ' Some group:                            '
 '                                        '
 ' +-------------------+       +--------+ '
-' |                   |       | Berlin | '
-' | Frankfurt a. Main | ----> |        | '
+' | Frankfurt a. Main | ----> | Berlin | '
 ' |    (Flughafen)    |       +--------+ '
 ' |                   |                  '
 ' +-------------------+   - - - - - - - -+

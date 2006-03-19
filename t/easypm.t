@@ -42,6 +42,8 @@ can_ok ("Graph::Easy", qw/
   text_style
   text_styles
   text_styles_as_css
+
+  animation_as_graph
   /);
 
 #############################################################################

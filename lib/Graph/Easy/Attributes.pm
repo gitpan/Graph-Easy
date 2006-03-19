@@ -6,11 +6,12 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.18';
+$VERSION = '0.19';
 
 package Graph::Easy;
 
 use strict;
+use utf8;		# for examples like "Fähre"
 
 #############################################################################
 # color handling
@@ -562,6 +563,14 @@ sub _uint
   $val;
   }
 
+sub _font
+  {
+  # check a font-list for being valid
+  my ($self, $font) = @_;
+
+  $font;
+  }
+
 sub split_border_attributes
   {
   # split "1px solid black" or "red dotted" into style, width and color
@@ -601,12 +610,14 @@ sub split_border_attributes
 
 # different types of attributes with pre-defined handling
 use constant {
-  ATTR_STRING	=> 0,
-  ATTR_COLOR	=> 1,
-  ATTR_ANGLE	=> 2,
-  ATTR_PORT	=> 3,
-  ATTR_URL	=> 4,
-  ATTR_UINT	=> 5,		# a "small" unsigned integer
+  ATTR_STRING	=> 0,		# other strings 
+  ATTR_TEXT	=> 1,		# titles, links, labels etc
+  ATTR_COLOR	=> 2,
+  ATTR_ANGLE	=> 3,
+  ATTR_PORT	=> 4,
+  ATTR_URL	=> 5,
+  ATTR_UINT	=> 6,		# a "small" unsigned integer
+  ATTR_LIST	=> 7,		# a list of values
 
   ATTR_DESC_SLOT	=> 0,
   ATTR_MATCH_SLOT	=> 1,
@@ -626,6 +637,15 @@ use constant {
 
 my $attributes = {
   all => {
+    align => [
+     "The alignment of the label text.",
+     [ qw/center left right/ ],
+     'center for graph and nodes, left for groups and edge labels',
+     'left',
+     undef,
+     "graph { align: left; label: My Graph; }\nnode {align: left;}\n ( Nodes:\n [ Right\\nAligned ] { align: right; } -- label\\n text -->\n { align: left; }\n [ Left\\naligned ] )",
+     ],
+
     autolink => [
      "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<link>, unless L<link> is already set. This attribute is inherited by nodes, edges and groups. See the section about labels, titles, names and links for reference.",
      [ qw/label title name none/ ],
@@ -666,6 +686,7 @@ my $attributes = {
      ATTR_COLOR,
      "node { border: black bold; }\n[ Black ]\n --> [ Red ]      { border-color: red; }\n --> [ Green ]    { border-color: green; }",
      ],
+
     'border-style' => [
      'The style of the L<border>. The special styles "bold", "broad", "wide", "double-dash" and "bold-dash" will set and override the L<border-width>.',
      [ qw/none solid dotted dashed dot-dash dot-dot-dash double wave bold bold-dash broad double-dash wide/ ],
@@ -674,12 +695,14 @@ my $attributes = {
      undef,
      "node { border: dotted; }\n[ Dotted ]\n --> [ Dashed ]      { border-style: dashed; }\n --> [ broad ]    { border-style: broad; }",
      ],
+
     'border-width' => [
      'The width of the L<border>. Certain L<border>-styles will override the width.',
      qr/^\d+(px|em)?\z/,
      '1px',
      '2px',
      ],
+
     'border' => [
      'The border. Can be any combination of L<border-style>, L<border-color> and L<border-width>.',
      undef,
@@ -706,7 +729,7 @@ my $attributes = {
      ],
 
     fill => [
-     "The fill color, e.g. the color inside the shape. See the section about color names and values for reference.",
+     "The fill color, e.g. the color inside the shape. For the graph, this is the background color for the label. For edges, the color inside the arrow shape. See also L<background>. See the section about color names and values for reference.",
      undef,
      '"white" for the graph and nodes, "inherit" for edges',
      'rgb(255,0,0)',
@@ -723,20 +746,30 @@ my $attributes = {
      "graph { font-size: 200%; label: Sample; }\n\n ( Nodes:\n [ Crimson ] { font-size: 1.5em; color: white; fill: darkred; }\n  -- Aqua Marine -->\n { font-size: 0.2em; }\n  [ Two ] )",
      ],
 
+    font => [
+     'A prioritized list of lower-case, unquoted values, separated by a comma. Values are either font family names (like "times", "arial" etc) or generic family names (like "serif", "cursive", "monospace"), the first recognized value will be used. Always offer a generic name as the last possibility.',
+     '_font',
+     '"sans-serif" for edge labels, and "serif" for all other labels',
+     'arial, helvetica, sans-serif',
+     undef,
+     "graph { font: vinque, georgia, utopia, serif; label: Sample; }\n\n ( Nodes:\n [ Crimson ] { font: webdings; }\n  -- FlatLine -->\n { font: flatline; }\n  [ Two ] )",
+     ],
+
+    id => [
+     "A unique identifier for this object, consisting only of letters, digits, or underscores.",
+     qr/^[a-zA-Z0-9_]+\z/,
+     '',
+     'Bonn123',
+     undef,
+     "[ Bonn ] --> { id: 123; } [ Berlin ]",
+     ],
+
     label => [
      "The text displayed as label. If not set, equals the name (for nodes) or no label (for edges, groups and the graph itself).",
      undef,
      '',
      'My label',
-     ],
-
-    align => [
-     "The alignment of the label text.",
-     [ qw/center left right/ ],
-     'center for graph and nodes, left for groups and edge labels',
-     'left',
-     undef,
-     "graph { align: left; label: My Graph; }\nnode {align: left;}\n ( Nodes:\n [ Right\\nAligned ] { align: right; } -- label\\n text -->\n { align: left; }\n [ Left\\naligned ] )",
+     ATTR_TEXT,
      ],
 
     linkbase => [
@@ -744,6 +777,7 @@ my $attributes = {
      undef,
      '',
      'http://en.wikipedia.org/wiki/',
+     ATTR_URL,
      ],
 
     link => [
@@ -772,10 +806,31 @@ LINK_EOF
      ],
 
     title => [
-     "The text displayed as mouse-over for nodes/edges, or as the title for the graph. No title will be generated unless L<autotitle> is set.",
+     "The text displayed as mouse-over for nodes/edges, or as the title for the graph. If empty, no title will be generated unless L<autotitle> is set.",
      undef,
      '',
      'My title',
+     ATTR_TEXT,
+     ],
+
+    'format' => [
+     "The formatting language of the label. The default, C<none> means nothing special will be done. When set to C<pod>, formatting codes like <code>B&lt;bold&gt;</code> will change the formatting of the label. See the section about label text formatting for reference.",
+     [ 'none', 'pod' ],
+     'none',
+     'pod',
+     undef,
+     <<EOF
+graph {
+  format: pod;
+  label: I am B<bold> and I<italic>;
+  }
+node { format: pod; }
+edge { format: pod; }
+
+[ U<B<bold and underlined>> ]
+--> { label: "S<Fähre>"; }
+ [ O<Konstanz> ]
+EOF
      ],
 
     'text-style' => [
@@ -802,6 +857,15 @@ edge {
  -- F\x{e4}hre --> { font-size: 1.2em; color: red; }
  [ Konstanz ]
 EOF
+     ],
+
+    'text-wrap' => [
+     "When set to C<auto>, the label text will be wrapped to make the node size smaller, alignments on individual line breaks are ignored.. The default <code>none</code> makes the label text appear exactly as it was written, with <a href='syntax.html'>manual line breaks</a> applied.",
+     [ qw/auto none/ ],
+     'none',
+     'auto',
+     undef,
+     "node { text-wrap: auto; }\n ( Nodes:\n [ Frankfurt (Oder) liegt an der\n   ostdeutschen Grenze und an der Oder ] -->\n [ Städte innerhalb der\n   Ost-Westfahlen Region mit sehr langen Namen] )",
      ],
    },
 
@@ -978,7 +1042,7 @@ EOF
      '1',
      '4',
      ATTR_UINT,
-     "[ Bonn ] -- longer --> { minlen: 3; } [ Berlin ] [ Bonn ] --> [ Potsdam ] { origin: Bonn; offset: 2,2; }",
+     "[ Bonn ] -- longer --> { minlen: 3; } [ Berlin ]\n[ Bonn ] --> [ Potsdam ] { origin: Bonn; offset: 2,2; }",
      ],
 
    }, # edge
@@ -1008,6 +1072,25 @@ sub _attribute_entries
   $attributes;
   }
 
+sub unquote_attribute
+  {
+  # return the attribute unquoted (remove quotes on labels, links etc)
+  my ($self,$class,$name,$val) = @_;
+
+  # clean quoted strings
+  $val =~ s/^["'](.*)["']\z/$1/;
+
+  $val =~ s/\\([#"])/$1/g;		# reverse backslashed \# and \"
+
+  # remove any %00-%1f, %7f and high-bit chars to avoid exploits and problems
+  $val =~ s/%[^2-7][a-fA-F0-9]|%7f//g;
+
+  # decode %XX entities
+  $val =~ s/%([2-7][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
+
+  $val;
+  }
+
 sub valid_attribute
   {
   # Check that an name/value pair is an valid attribute, return new
@@ -1034,8 +1117,8 @@ sub valid_attribute
   # didn't found an entry
   return [] unless ref($entry);
 
-  my $check = $entry->[1];
-  my $type = $entry->[4] || ATTR_STRING;
+  my $check = $entry->[ATTR_MATCH_SLOT];
+  my $type = $entry->[ATTR_TYPE_SLOT] || ATTR_STRING;
 
   $check = 'color_as_hex' if $type == ATTR_COLOR;
   $check = '_angle' if $type == ATTR_ANGLE;
@@ -1169,7 +1252,7 @@ sub _remap_attributes
     # encode critical characters (including ")
     $val =~ s/([;"%\x00-\x1f])/sprintf("%%%02x",ord($1))/eg if $encode;
     # quote if nec.
-    $val = '"' . $val . '"' if !$noquote;
+    $val = '"' . $val . '"' unless $noquote;
 
     $out->{$atr} = $val;
     }

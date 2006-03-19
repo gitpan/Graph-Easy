@@ -13,14 +13,14 @@ not run its Makefile.PL or Build.PL.
 
 -----BEGIN PGP SIGNED MESSAGE-----
 
-SHA1 6599dcb432cb9e591261f7bb1a518770babf0a32 CHANGES
+SHA1 7fb841a6a41d24bbfc2de18252589695e51bb975 CHANGES
 SHA1 8c47b1f9bba78c8eace060f89cb8c9df0e73d1d9 INSTALL
 SHA1 02154445bc9831e791c35050f1a018ed99030016 LICENSE
-SHA1 3cb0f7b2a381a674458b9886d7edf22640812101 MANIFEST
-SHA1 89f8422fc335235c2dbe2c5e23aeb3d80d15e144 META.yml
+SHA1 47b23fe150a00573166073d7dbc7c79a317b71ec MANIFEST
+SHA1 23c4450739a598bb1e69309251df7e541e5a57e9 META.yml
 SHA1 c54bdd0251dcce9d1f99d495e3a8904b19c4b8e0 Makefile.PL
 SHA1 4e8eac31579bda7a9eb6b8115f5370553e0aaa60 README
-SHA1 35aad67362a74ee03ecd697b698bbd9fe11a805e TODO
+SHA1 9076bd98b3d958ba4c294d6ee934b2b53f272f2e TODO
 SHA1 778996f9134a9a3675a368c1b7ba9430e683659c bench/bench.pl
 SHA1 224ba89e9e5176124e32697aad3144e30c9e2636 bench/serie.pl
 SHA1 9ca3806d6826c7a6c9aded04729b905d39eccd6a bench/stress.pl
@@ -43,41 +43,42 @@ SHA1 af429a1f4f4ae0b680c1be404a9043a519c4320e examples/html.pl
 SHA1 023f57e1fae5eef557052c7848c247358b39435c examples/parse
 SHA1 bd308172e58da03a712a041ec9a174f30c6fcdb9 examples/syntax.pl
 SHA1 dccca8feea0f15becd2d6fb2a42ac6005b89e4c9 examples/syntax.tpl
-SHA1 ccd097c406a4e68cb21339e83843db77701f7bb4 inc/Module/AutoInstall.pm
-SHA1 2028fd61f437464f684921ec2f04fbf20b240340 inc/Module/Install.pm
-SHA1 94866deed45156890199c3f04fc84af2a3a172e6 inc/Module/Install/AutoInstall.pm
-SHA1 f2c85ff6f61ba16632329a13bd453bf5dd3a558c inc/Module/Install/Base.pm
-SHA1 72a98f83f78122e2ca7d3db7a890e2f8fe97490a inc/Module/Install/Can.pm
-SHA1 98fc2ce57c71abe76f7662fe30b2998da2d24170 inc/Module/Install/Fetch.pm
-SHA1 beb9a02cfd4cfa161d36c4c95050ccb3d4ce4d7e inc/Module/Install/Include.pm
-SHA1 7542a2c66c309ea5b210f7671628f46f26a20718 inc/Module/Install/Makefile.pm
-SHA1 e70e07f90fbaa941b82c8a5ff9da4851b4db1239 inc/Module/Install/Metadata.pm
-SHA1 6266ecd2f55ab3f3beebd6db54702881cbe748a9 inc/Module/Install/Win32.pm
-SHA1 6f945e247389da9a2dd996bd21cbd93dff84f04e inc/Module/Install/WriteAll.pm
-SHA1 a52a4afd6973a60d180e62cff78871e39ef6dd0d lib/Graph/Easy.pm
-SHA1 f50b633d567a3b2e2bce2004f2d9b6599ab70717 lib/Graph/Easy/As_ascii.pm
-SHA1 90be5419897d2382b192f8757288a3e93f7fccc1 lib/Graph/Easy/As_graphviz.pm
+SHA1 0bb5ddbe64424d40536acdee2f09e853ab39087d inc/Module/AutoInstall.pm
+SHA1 e7688055bf405375921ea837273d8bdc68803efb inc/Module/Install.pm
+SHA1 4fad9a959426996f62d0e4e972cf09e3a0cf8c0c inc/Module/Install/AutoInstall.pm
+SHA1 e5b3215acb96829f2142dcfce736c1b6484fbc08 inc/Module/Install/Base.pm
+SHA1 07c44e137098675ea35a5d537df1e4af098382d9 inc/Module/Install/Can.pm
+SHA1 8f691f8e451ba687551fa836e8d75c4d514241e5 inc/Module/Install/Fetch.pm
+SHA1 0db6efc5925b96e1ea3b8bc46c3ecdb14660ae82 inc/Module/Install/Include.pm
+SHA1 81b798c6ca71d1b665a470fb49d32105084ac389 inc/Module/Install/Makefile.pm
+SHA1 c8c9737da19baa15ffa7d9d5037913f64b592189 inc/Module/Install/Metadata.pm
+SHA1 b97304e2a5c405d950eeaa4afd09c6b5507571c3 inc/Module/Install/Win32.pm
+SHA1 73a588d58f7ad0a6a9ed0ea80c48fa12f234a02c inc/Module/Install/WriteAll.pm
+SHA1 b9851c323606f4cdb742dc8f423fb798c5131d76 lib/Graph/Easy.pm
+SHA1 ca60b13c0dd010b9ed2a03c78fee0fd66f4682d6 lib/Graph/Easy/As_ascii.pm
+SHA1 5df6247e08d639149957215bb6859a778aeb3a51 lib/Graph/Easy/As_graphviz.pm
 SHA1 b77c6b19d5989c02c39f03ad3683e29d0bb00a64 lib/Graph/Easy/As_txt.pm
-SHA1 41989d9a5657153f9f619b2e2a84186901eff119 lib/Graph/Easy/Attributes.pm
+SHA1 61cd45afa6d71c2593b86e5dabebf4b216186708 lib/Graph/Easy/Attributes.pm
 SHA1 0fb386370822bbb3da91aae2cc35f320352b44a9 lib/Graph/Easy/Base.pm
-SHA1 88666589444dc3a5bed98e9ec232044ea7cb9418 lib/Graph/Easy/Edge.pm
-SHA1 370676d212521222e165a68a4ada7e28ee1be437 lib/Graph/Easy/Edge/Cell.pm
+SHA1 43bfcdd77cb8b07144dd9604c8c492ab9eab559c lib/Graph/Easy/Edge.pm
+SHA1 b2b4b0a92959eea020197403782130df7409b77d lib/Graph/Easy/Edge/Cell.pm
 SHA1 89715efcfc1bd35b600c9cff34506acd0d617e53 lib/Graph/Easy/Group.pm
 SHA1 8b7a0b670d2882be3337130643e94c436c29df54 lib/Graph/Easy/Group/Cell.pm
-SHA1 a7fded2d0ba11ddf25f4e94434701f0914d60230 lib/Graph/Easy/Layout.pm
+SHA1 c956490dede9ec46b1864214583e70f47590fa3d lib/Graph/Easy/Layout.pm
 SHA1 c2e8615c5c011f64a8b8d6d63a9cc45e422b1b39 lib/Graph/Easy/Layout/Chain.pm
-SHA1 834d965eb52385380f3994183c12ca72b965a076 lib/Graph/Easy/Layout/Grid.pm
-SHA1 c87b801ccd04f1d2e64932e0d1b4df5b9f99e8a2 lib/Graph/Easy/Layout/Path.pm
-SHA1 c3a71af34fdd98111d5705541832b59921fce35c lib/Graph/Easy/Layout/Repair.pm
-SHA1 43ad609fde1623faa17c710595c61ad2eba00389 lib/Graph/Easy/Layout/Scout.pm
-SHA1 3595c7796f2544f953012e7bd2909943e09be68c lib/Graph/Easy/Node.pm
+SHA1 78494db4df0c1022764cd6b98df9550fa189873b lib/Graph/Easy/Layout/Grid.pm
+SHA1 fb605946216209ca2b79f3008473c6109b0ff573 lib/Graph/Easy/Layout/Path.pm
+SHA1 95bc7034e544f4b816757067e14f272eb1921e4d lib/Graph/Easy/Layout/Repair.pm
+SHA1 3aa22ab22442282604ed6ad2a4c6795bf57347a3 lib/Graph/Easy/Layout/Scout.pm
+SHA1 a8cf6669d9f86d21bdb0b91fd13bfbbc11d20e4b lib/Graph/Easy/Node.pm
 SHA1 102f0c0c3a054207880fe69c5670c1fcaae7d259 lib/Graph/Easy/Node/Anon.pm
 SHA1 fe1b4ec88f54ef6d6396b8e2d2dc551c1a24630e lib/Graph/Easy/Node/Cell.pm
 SHA1 493213fd04db1cdfe5936a3a919189cc695fad66 lib/Graph/Easy/Node/Empty.pm
-SHA1 ed540e5c0f8bebafa461a9375bd7c706963fe1cb lib/Graph/Easy/Parser.pm
+SHA1 421cc0c55a262c3e0377c2c3a78f9046345eaf7b lib/Graph/Easy/Parser.pm
+SHA1 01f25f0873c45dba7bcb058d065f862999a593e1 lib/Graph/Easy/Parser/Graphviz.pm
 SHA1 03debae608cadf810e4e529d35a94cba90e5edec t/anon.t
 SHA1 5a88d62b19083e45351db68f0ee259617894e453 t/as_txt.t
-SHA1 851d5e82804387208b488f4d65b4410f8cee9e70 t/ascii.t
+SHA1 b3b03d3054bb468c3b01a2a582b6c2b735a57ff5 t/ascii.t
 SHA1 503eb4ad1562673437c003e6611b4162ebf41850 t/astar.t
 SHA1 fabf82dcca4fd74b1c835bcd0e18efddcd32bd66 t/attributes.t
 SHA1 5b97997fef6120454c9ef35c1af672305edbcc4b t/base.t
@@ -87,8 +88,8 @@ SHA1 1245b6f9cfd430601b1e8f3409a54a67378f0039 t/chain.t
 SHA1 e07ad2743ea0c4a0c2b4867d60537991faf6b44f t/cluster.t
 SHA1 a7f9776706c16b89f5e3240771629ba44d763341 t/delete.t
 SHA1 3d55a4c98cfee92f66a912e5399ab12182114a08 t/drop.t
-SHA1 f2c7b9c3ab95d9f818de7fa297b15ce139ce5f4f t/easypm.t
-SHA1 c3ceaf1bb24410b0c5b9fee5341a6235c276d07e t/edge.t
+SHA1 b1cd9bac9195df13e3a3d6e503f60e4783614591 t/easypm.t
+SHA1 1168675bb03c6bf320f7fb33993e0471d5f5771d t/edge.t
 SHA1 7a5c5663f9258ff50036d7ad5a65331cb616d038 t/edge_cell.t
 SHA1 4de58e531dd85a6ec18a7b9242865f16aa33a500 t/fb.t
 SHA1 61894164c6be7a23b79b0bf356084531b96800af t/fun/0000.txt
@@ -96,16 +97,18 @@ SHA1 d5a6cabc90177c8cd5f48876d97e83fa27aa21c4 t/fun/0010.txt
 SHA1 ab36d43295f505ab212276486c243f3995050d54 t/fun/0011.txt
 SHA1 3a97d04ca05bb3ff36537c8a8eddbc53292db029 t/fun/0020.txt
 SHA1 31c27b15661d4128f7f180320a3cda531f9db00f t/fun/0030.txt
-SHA1 70aa964fcd971154e7cf1df1ee92333495df7aa8 t/fun/0131.txt
+SHA1 c4b0deb71526c8b48bf999c99c3da43e5343d362 t/fun/0131.txt
 SHA1 6b22c64a7ca45289e7beb0f43843aa2cf16a3e05 t/fun/0200.txt
 SHA1 085035fc92bd9c91ef012818a0a185d7fa215fb0 t/fun/biofuel.txt
+SHA1 4d7761bd6464f43e48426d53600f8df4a9a678d5 t/fun/geek_dating.txt
+SHA1 bec67bcae8251fe1a4c2a8055166a7b115a49d7e t/fun/overview.txt
 SHA1 15d3b14fddca494dc5fcf174a4e3cab6caf1978a t/graph.t
-SHA1 3a8d8a8967b97d4550135932e1127cc09236cbec t/graphviz.t
+SHA1 7e8c436d0b895bcd4dc6b40508a27e6db24b8304 t/graphviz.t
 SHA1 e07da653ed1d6d81cb3701e32581a99126ca75e5 t/group.t
 SHA1 b77c80d15fb5a39e7abe8af5b2a79a5c395a3dd2 t/group/0010.txt
 SHA1 54d098b4f588ff0fcfaeb7cd10878deb1051a9fb t/group/0131.txt
 SHA1 3560aa3d3ed6963ad113875ad3d2392e4bd51cc3 t/group/0230.txt
-SHA1 13f10f274a7785456eef07dd1bcdd5ea0c2d5af1 t/html.t
+SHA1 29e35e9d4708a6674ebafa065e93314544c489ae t/html.t
 SHA1 d4f692bddc095af690732655ac33d6f49ea4e7d6 t/in/10borders.txt
 SHA1 4c2b2dcabfaa735cfee10149e61cd4f97391da3b t/in/18_multiples.txt
 SHA1 7a01503cb95720bc5150371531586ff58bb99293 t/in/1_bidi_loop.txt
@@ -143,7 +146,10 @@ SHA1 0cdd24038a0de32a7ef8a0ea9f8a1cf94ba6579a t/in/2nodes.txt
 SHA1 eb2b0cbf7b739fc5e498048e22247969e08778c7 t/in/3_autosplit_hang.txt
 SHA1 6d09ac7b1a2fb3dc93a4d7e1dde62f4487f9126b t/in/3_bend_bug.txt
 SHA1 490143d79a961ab372290f5e40955481a0a4fba3 t/in/3_cluster.txt
+SHA1 d61cb770ba00aabedf55dccc2b63a78be9b1876a t/in/3_corrupt.txt
+SHA1 bfa074bbf66064bf68f396a95f2d1cd4e0c4dfbc t/in/3_edge_labels_from_class.txt
 SHA1 fac8c8b356b82facaa1f311fe476c6eba94bcf2f t/in/3_edge_repair.txt
+SHA1 e0879f13c39f3534595ce8cc1ac441736a7945a8 t/in/3_edge_start.txt
 SHA1 d5e60693ac195262626e8a9c6f66d942b95c7a0f t/in/3_empty_group.txt
 SHA1 68c6d4426fdf3234d48c6d4d5f291600d2a2e946 t/in/3_group_align_center.txt
 SHA1 13b0bad9045e75808b5a3ae13892e5d5138b4f8c t/in/3_invisible_both.txt
@@ -184,6 +190,7 @@ SHA1 05f9791fafbc57ca5ecc47f23294a4ce9767d5e2 t/in/4nodes.txt
 SHA1 e20ba2fca49d3838f54da1582ce46266ad406106 t/in/5_a-star_bug.txt
 SHA1 9af6381adfdd33ba0cc678e1bbd115377a658dd4 t/in/5_arrow_styles.txt
 SHA1 7710a1ed2890996287b997a0d5f72e2a3c100839 t/in/5_group_split.txt
+SHA1 5fd494968579807e61409dc9c312dfad719d5a37 t/in/5_long_edge_labels.txt
 SHA1 b050e94ed9bd60ecccce5d127f7ec07c43aa42f0 t/in/5_offsets.txt
 SHA1 fe234b759b8f3eb0f7a6b8db927b5a97b983b91c t/in/5_offsets_2.txt
 SHA1 00f6e2a3b8f70dcb56676f5441df8e772992b214 t/in/5_rounded.txt
@@ -191,7 +198,7 @@ SHA1 b8f0fd9b2d9888c31ed754d25e421231c2cb894b t/in/5_tree_joint.txt
 SHA1 f38db65b550d533415ff7732ac70d652944aa1de t/in/6_autosplit_class.txt
 SHA1 594e3f526d70943e18b1b9331db327bb5c96bdd3 t/in/6_chain_10_edges.txt
 SHA1 7a12e07186913ea234ba28a0a3c0e515aea1f12c t/in/6_chained.txt
-SHA1 bc325b255fdbca95196230a37684101ee01a86dc t/in/6_fanout.txt
+SHA1 6baf3bf647bc1c29acdfd196a95744961a78b385 t/in/6_fanout.txt
 SHA1 aee9cd1ff5544e178262cee9f6821d154cddc40c t/in/6_multicell.txt
 SHA1 d6fef8df9ce72032fb03d7cb59523d8e707e4a14 t/in/6_multicell_offset.txt
 SHA1 efed605cfa307224a108de21baa1dead7c0d3dba t/in/7_cluster.txt
@@ -209,7 +216,7 @@ SHA1 55c6b87df446c372925c7383cec4ea06e94c0908 t/in/9_chain.txt
 SHA1 b8ee2b595bd65e558655bc82006ee7f814df90ed t/in/9_cross.txt
 SHA1 0d8bf2b772347087fabccf3a64c9e923da69892b t/in/README
 SHA1 62628daa3a42581a2d32b417b2837e85bbe4d655 t/layers.t
-SHA1 e2d2b84165ab91853a96827fc2fdfd39bd34435f t/layout.t
+SHA1 4035a57c02b3bfc0d3d4f4fa2fdd6b16ab501831 t/layout.t
 SHA1 6cd23d5574b08022beefcf678235b90171f8506a t/layouter.t
 SHA1 b6fd346c971037dfddd9f7d1e98e69339878dda7 t/layouter/edge_label.txt
 SHA1 7a12e07186913ea234ba28a0a3c0e515aea1f12c t/layouter/layouter.txt
@@ -234,13 +241,13 @@ SHA1 727ced978b31859ddfb16b7f7867fa0c349df2b4 t/out/2_bidi_astar.txt
 SHA1 727ced978b31859ddfb16b7f7867fa0c349df2b4 t/out/2_bidi_endpoint.txt
 SHA1 6852b476349a1fdabc54a433ab13d3e7b1c1ed54 t/out/2_cluster.txt
 SHA1 c5aa576208db6eb81ecf7ca69ca9352ce813ccfd t/out/2_cluster_2.txt
-SHA1 a6a73d61de04a1b74d06751826fff7fcd551edd4 t/out/2_cluster_3.txt
+SHA1 8b400738c38e04711f7663a5d3a2496397fc322d t/out/2_cluster_3.txt
 SHA1 b2080af9e23c77709194352477b46aac027d237e t/out/2_dot_dot_dash.txt
 SHA1 28a7db9af99ed80d8e9fa2c4b60ab79d3bba9e47 t/out/2_edges.txt
 SHA1 402df1c5554f3e6d14b8ee961f39d1c800bd0ca0 t/out/2_flow.txt
 SHA1 375bb99a6b35d5a35ca9d0e9dd589ac8654153a0 t/out/2_graph_label.txt
 SHA1 7a03d1032b4ef3f89356ff54650c9e4b389f206e t/out/2_group.txt
-SHA1 f1fb770fb0672ba59fe56126a97c7fc0c6f7469b t/out/2_group_multicell.txt
+SHA1 e4f467e5539ba259d9d7e5a61fa0a46df7a6ea3a t/out/2_group_multicell.txt
 SHA1 ed98b60939c8b0ff254e60e7c5f9bc9adebf2013 t/out/2_group_no_border.txt
 SHA1 b37a1d2ff006f9959c9540efcf56589c7e49a0a1 t/out/2_invisible_left.txt
 SHA1 c8d45df38f11c772435b38db5a07447ba683a640 t/out/2_invisible_right.txt
@@ -257,7 +264,10 @@ SHA1 9c4f16281e8ae5a284698f0754c48fa711b819e1 t/out/2nodes.txt
 SHA1 4e3666f7fa7925284189302c41431c3f910e7f03 t/out/3_autosplit_hang.txt
 SHA1 18327a2893e03cbd9e4f5f761f70fcf535816652 t/out/3_bend_bug.txt
 SHA1 2b1b2cf3ab913d0b8f2998395c7c5320f787c7e4 t/out/3_cluster.txt
+SHA1 3a99258cbfcc4d7c353208b8a97df5f2dc38b689 t/out/3_corrupt.txt
+SHA1 68da4bc320b3dac79d0e3be37d3f20fb24c2cf1b t/out/3_edge_labels_from_class.txt
 SHA1 689c7180db1a899a2d2f83568749b5c05532845b t/out/3_edge_repair.txt
+SHA1 f894f405a1319832e532036db6e2f9cdbffce0c9 t/out/3_edge_start.txt
 SHA1 ede1f6f2b01adb3e5d04050cdf8dd4f143540d78 t/out/3_empty_group.txt
 SHA1 45a8477707e85be2e1ec912ce671194dba7653cf t/out/3_group_align_center.txt
 SHA1 e37304635aaaa7ba34e7eb72a5a03e910f3dd2a1 t/out/3_invisible_both.txt
@@ -275,18 +285,18 @@ SHA1 183b1bd8f9e9c47604c24165f60df97983de8272 t/out/4_2x2nodes.txt
 SHA1 da2a41c33a3c0cbe27c34712345daf70bcc887c5 t/out/4_att.txt
 SHA1 22caa9111fc658123e024bceb49fa48b691f79f4 t/out/4_autosplit_class.txt
 SHA1 380eb76f0c560fdd9048646e4ba468000dbdd611 t/out/4_autosplit_empty.txt
-SHA1 4a648c80b7e05dd08b2751ede7cf0f71d8596658 t/out/4_autosplit_offset.txt
+SHA1 ba2f1a4f9a382a203ba4fbac788e82cf85f8b206 t/out/4_autosplit_offset.txt
 SHA1 f9cb075d2481374b883faf7e41d25f792d09c555 t/out/4_bend_bug.txt
 SHA1 a6e00e3c82d0614655e8630973ab33494306f2f7 t/out/4_comma.txt
 SHA1 b4f857203c7b79a3407db8f8dcf6f70e554a115a t/out/4_cross.txt
 SHA1 3177ef4a648d1075638d76a89a1e06d6d7bbed7b t/out/4_edge_cross.txt
-SHA1 4ea3db5d2db9ab076845734ae72ad0cff1b726f4 t/out/4_edge_labels.txt
+SHA1 0a3863d503fb3345e5945dfcf736f9c363064ee0 t/out/4_edge_labels.txt
 SHA1 aa7db235f101e991348e323fb6c35e33b8a394d0 t/out/4_edge_types.txt
 SHA1 c0d829d648c9e9ce0db974e501ac8931de55d24c t/out/4_endless_loop.txt
 SHA1 7af5fafa379ee8aa6dd47a6e91d5f091aaabc6c3 t/out/4_endless_loop_2.txt
 SHA1 64e38c97f39e471fc101e41bae1ea6914e0d9785 t/out/4_flow.txt
 SHA1 d3af7d5e0d5fd45c74bc4dd210f919c539bfacaf t/out/4_invisible.txt
-SHA1 2803aac58f075de779b312972d49ea5e0163941d t/out/4_list_attr.txt
+SHA1 002799ec32c132d4345ae959276585d756c97c09 t/out/4_list_attr.txt
 SHA1 b079f59308e11baac7bb6ab4c019b427c0e29078 t/out/4_lists.txt
 SHA1 b2ad066d88e09cd9ae189190fbfd766229cea4c5 t/out/4_minlen.txt
 SHA1 84fb0faa20cea5fdcb82f557df408652487368d8 t/out/4_near.txt
@@ -298,6 +308,7 @@ SHA1 32b04c3eda7608c1e946143eed292545b5303ffc t/out/4nodes.txt
 SHA1 3c8fc569d6f2dc587264499cffd16fc583cb30f2 t/out/5_a-star_bug.txt
 SHA1 12f44576e15b8fb8a49cf57d39c17e2b4af79cbf t/out/5_arrow_styles.txt
 SHA1 6c7de0b4f48adae10dd3a00b351e0444a4abad75 t/out/5_group_split.txt
+SHA1 bd2c919562c92e7ceb80e4e831df21e800003dc4 t/out/5_long_edge_labels.txt
 SHA1 8aea40532bb9748164c328e22b3faf32bb380808 t/out/5_offsets.txt
 SHA1 6629b90cbba4027343f9c146729b44c11bda8874 t/out/5_offsets_2.txt
 SHA1 f509599b7d390bd54d62b1a4981ab0515751a205 t/out/5_rounded.txt
@@ -307,7 +318,7 @@ SHA1 ca7d05241ae0120e537090a2ce9286bbeb6f44c8 t/out/6_chain_10_edges.txt
 SHA1 198eb6f77bc34a87304f1cab4662dc4dbf15365f t/out/6_chained.txt
 SHA1 6e0f6d9e0989083a22b114021499fb091bb7b442 t/out/6_fanout.txt
 SHA1 806c490b14a25a8beaac4c2adc8ec194c67b42fc t/out/6_multicell.txt
-SHA1 b16380c62795e1627ba733be6fd828067938c0ef t/out/6_multicell_offset.txt
+SHA1 0d2a6446348d0bb6dbee64742fb5e4147c9449b6 t/out/6_multicell_offset.txt
 SHA1 e92215846b59eda069166c817c90db70535dd952 t/out/7_cluster.txt
 SHA1 2e9898a9ede3ae8f79ffd49060e5bb1e6377cfeb t/out/7_star.txt
 SHA1 084aa50fc0aaaf625304f7dc2ca1fd3300007821 t/out/7_tree.txt
@@ -322,12 +333,13 @@ SHA1 0b1aa2971d9fe6a45a0e2cfaf8c79f6e95b5d2d6 t/out/8_points.txt
 SHA1 cdc1fb282dce23abb19640db65fa3fa17c29f323 t/out/9_chain.txt
 SHA1 34b1afbbba38bb749a0fd985a9d44aa906cdbe99 t/out/9_cross.txt
 SHA1 81a955ce53729f7b1c348f9ff2c55b63f3e1bc05 t/out/drop_result.txt
-SHA1 bddb753610c6983dd262b008fa6c499e30f807a7 t/parse_att.t
+SHA1 8e173f6fc923d877b80d765f13045fe33f2943e6 t/parse_att.t
 SHA1 c929440f5afbe0d015f6fccb1c2aab8be42fa188 t/parse_edge.t
-SHA1 b6ee0ed49e27c91a156c667a827b4620baac5d26 t/parser.t
+SHA1 55f0b9783ef6490b93373ef0a7f5da773daff9d1 t/parser.t
+SHA1 df6f195c99a8319d51f08897484dbfb8c49fb8be t/parser_dot.t
 SHA1 ed91c8ac021d2639847fce6a872f65c57aee2296 t/path.t
-SHA1 1fc10dd14695f0fedca027318c399796ecd65072 t/pod.t
-SHA1 a58f5dd0858c599b419f823be121a23f7527b2f4 t/pod_cov.t
+SHA1 5f69e4c8c015a55afb9e62effa054385fb967c07 t/pod.t
+SHA1 59a43272c22aa44108020c4459e34e31df5a98bc t/pod_cov.t
 SHA1 8d8795858181ff783aeeb6773df7a6ea130286d3 t/re_layout.t
 SHA1 ca84154930d76fe1195e5af88642b71c0d9b9f1d t/split.t
 SHA1 0c2dca34d65dad0a5e9ad902cb213fa416048d4d t/stress/0001.txt
@@ -404,7 +416,10 @@ SHA1 76282b41f12b77b66711c344388d378dacd0570a t/txt/2_newlines.txt
 SHA1 d9f3e8c7fbeb6e192f7c4d3b3df30c5a5acf55ac t/txt/2_zeros.txt
 SHA1 46a7e3e62750520470f26116feddff41f150882e t/txt/3_autosplit_hang.txt
 SHA1 23fa1b3f4b2bcfbfeb31de9338aeda1683ab6b25 t/txt/3_cluster.txt
+SHA1 cc89a384b599382e25ecfd4aac64efe85a70b2e8 t/txt/3_corrupt.txt
+SHA1 1f4eaa6cf0cb914b2f2516685d20ef10e8488f5e t/txt/3_edge_labels_from_class.txt
 SHA1 1bf46047967a8cace67af5bdd87be191b728d490 t/txt/3_edge_repair.txt
+SHA1 ed229951521105b2f6f87eed581b5674c5e85b33 t/txt/3_edge_start.txt
 SHA1 a7b4c3d47754aad6d21b88411342738c5f05de94 t/txt/3_empty_group.txt
 SHA1 96437db063fb4cf6400a65e00b91d05dfa5fd246 t/txt/3_group_align_center.txt
 SHA1 59a625106f8d7cce2c650699cf3cfdc4a9ec9a74 t/txt/3_invisible_both.txt
@@ -435,6 +450,7 @@ SHA1 14b0cce39b6c69dad4ce168bff4e3e1f54391b17 t/txt/4groups.txt
 SHA1 7af3199f96e9061de7834d30a45f042959dc79b7 t/txt/4groups_class.txt
 SHA1 85f3aba05b503bcfe23d1bc43ca1154eb0366faf t/txt/5_arrow_styles.txt
 SHA1 dfae891ab800e19661a356bdc61883890b08c34c t/txt/5_group_split.txt
+SHA1 ce02bcce62167a7998b700c07df1918ca139ac55 t/txt/5_long_edge_labels.txt
 SHA1 6ec22fa013d606dec02b04906bbc2270c6d7a90b t/txt/5_offsets.txt
 SHA1 348557bbe3e362215455a2772a7a8b86c18d35aa t/txt/5_offsets_2.txt
 SHA1 dfe06b1cc990935f61fb11ce2f03d5c38846c858 t/txt/5_rounded.txt
@@ -471,11 +487,11 @@ SHA1 9c45df18cbbf345cbc1e33094bcde891c7ae40a4 todos/tree2.txt
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iQEVAwUBQ/tDY3cLPEOTuEwVAQExvgf9GLsV3aHtpctgf00FT8KCY3pw0DEFv4OS
-tKL58AmGvFHdpwnBv8YGsibugb+bIYzne4qdDU70ueqa9TEispBU5rMQO2tRLTa3
-HV2/8XYNGLZGpq0ohRmk/gVPjD6Fo/udtZF7nNs0A9y3Wkl5Vd+fOtKzRByPP/uT
-WowbJ4sY4aJ5B7+6JiMZRaMwwAmJ62U14bZPRfK8jg+irKKHRx7pi+bMt2yh3ZsN
-r30cakaGQ71sYbfVSBiVA7lmzyHZHbf3FpSAjjJYwJS3SjbJw6/g14QXMMCy3iip
-1e6PLBV2HQh8heBVgNyeAgdZsAJfKtx8Y5A4e2d7QQEkWpsUEssoTw==
-=3IR2
+iQEVAwUBRB3eaXcLPEOTuEwVAQEMegf/QbEdiuBwqelVTLw1LaKmXwAyrk2ypfyF
+MXnvR63aFmdSuEwzpfJSCmykRkwx1N4esGcpSN/vgZLP4ZUGT9N7Dyw4vi2W+DLg
+cm90ucJ1v0naKPcPw7a57MW3M2udOkOJSz71Kj3xcKr3/iJsxCSaUvezOSMjeZuE
+NmYVKUwQWpJBYj61VVaDUJbNf61tbeMLgiyo2j32bqTyfU4+iUjzPOWY9gxYMM4G
+kaN59hnlpx7w+oygnq5+Dx9LqgYPLOxBnvlOeIj+XAf6TJZp6XBW8WQOR8JnZal6
+KSUx5obTmSh6tLJR5QUksNz0sZW8NvlgLbSDIx0J7IPcEa4WcPMRzA==
+=HzT2
 -----END PGP SIGNATURE-----

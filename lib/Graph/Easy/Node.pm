@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.24';
+$VERSION = '0.25';
 
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
@@ -328,47 +328,99 @@ sub _do_place
 
 #############################################################################
 
+sub _wrapped_label
+  {
+  # returns the label wrapped automatically to use the least space
+  my ($self, $name, $align) = @_;
+
+  use Text::Wrap;
+
+  # XXX TODO: handle "paragraphs"
+  $name =~ s/\\(n|r|l|c)//;		# remove line splits 
+
+  my $cols = $self->{w};
+  if (!defined $cols)
+    {
+    # find out where to wrap
+    $cols = int(sqrt(length($name)) * 1.4);
+    $cols = 2 if $cols < 2;
+
+    print STDERR "# Wrapping: min-columns is $cols\n";
+ 
+    # find longest word, and set columns to it if longer
+    my $l;
+
+    $name =~ s/([^-\s]+)/ $l = $1, $cols = length($1)+2 if length($1)+2 > $cols; $1; /eg;
+
+    print STDERR "# longest word is '$l'\n";
+    }
+  else
+    {
+    # XXX TODO: -2 if no border
+    $cols -= 2;
+    }
+
+
+# $cols = length($1) if length($1) > $cols;
+
+  $Text::Wrap::columns = $cols;
+
+  $name = Text::Wrap::wrap('','',$name); 
+
+  my @aligns;
+  my $al = substr($align,0,1); 
+  my @lines = split /\n/, $name;
+  for my $i (0.. scalar @lines)
+    {
+    push @aligns, $al; 
+    }
+  (\@lines, \@aligns);
+  }
+
 sub _aligned_label
   {
   # returns the label lines and for each one the alignment l/r/c
-  my ($self, $align) = @_;
+  my ($self, $align, $wrap) = @_;
+
+  $align = 'center' unless $align;
+  $wrap = $self->attribute('text-wrap') || 'none' unless defined $wrap;
 
   my $name = $self->label();
-  $align = 'center' unless $align;
+
+  return $self->_wrapped_label($name,$align) unless $wrap eq 'none';
 
   my (@lines,@aligns);
-
-  my $last_align = substr($align,0,1);
+  my $al = substr($align,0,1);
+  my $last_align = $al;
 
   # split up each line from the front
   while ($name ne '')
     {
     $name =~ s/^(.*?([^\\]|))(\z|\\(n|r|l|c))//;
     my $part = $1;
-    my $al = $3 || '\n';
+    my $a = $3 || '\n';
 
     $part =~ s/\\\|/\|/g;		# \| => |
     $part =~ s/\\\\/\\/g;		# '\\' to '\'
     $part =~ s/^\s+//;			# remove spaces at front
     $part =~ s/\s+\z//;			# remove spaces at end
-    $al =~ s/\\//;			# \n => n
-    $al = substr($align,0,1) if $al eq 'n';
+    $a =~ s/\\//;			# \n => n
+    $a = $al if $a eq 'n';
     
     push @lines, $part;
     push @aligns, $last_align;
 
-    $last_align = $al;
+    $last_align = $a;
     }
 
   # XXX TODO: should remove empty lines at start/end?
-
   (\@lines, \@aligns);
   }
 
 #############################################################################
 # as_html conversion and helper functions related to that
 
-my $node_remap = {
+my $remap = {
   node => {
     align => undef,
     background => undef,
@@ -379,7 +431,6 @@ my $node_remap = {
     'border-color' => undef,
     columns => undef,
     fill => 'background',
-    flow => undef,
     origin => undef,
     offset => undef, 
     'point-style' => undef,
@@ -396,12 +447,16 @@ my $node_remap = {
     autolink => undef,
     autotitle => undef,
     'font-size' => undef,
+    font => 'font-family',
+    flow => undef,
+    format => undef,
     label => undef,
     link => undef,
     linkbase => undef,
     style => undef,
     'text-style' => undef,
     title => undef,
+    'text-wrap' => \&Graph::Easy::_remap_text_wrap,
     },
   };
 
@@ -412,14 +467,47 @@ sub _extra_params
   '';
   }
 
+# XXX TODO: <span class="o">?
+my $pod = {
+  B => [ '<b>', '</b>' ],
+  O => [ '<span style="text-decoration: overline">', '</span>' ],
+  S => [ '<span style="text-decoration: line-through">', '</span>' ],
+  U => [ '<span style="text-decoration: underline">', '</span>' ],
+  C => [ '<code>', '</code>' ],
+  I => [ '<i>', '</i>' ],
+  };
+
+sub _convert_pod
+  {
+  my ($self, $type, $text) = @_;
+
+  my $t = $pod->{$type} or return $text;
+
+  # "<b>" . "text" . "</b>"
+  $t->[0] . $text . $t->[1];
+  }
+
 sub _label_as_html
   {
-  # build the text from the lines, by inserting <b> for each break
+  # Build the text from the lines, by inserting <b> for each break
+  # Also align each line, and if nec., convert B<bold> to <b>bold</b>.
   my ($self) = @_;
 
   my $align = $self->attribute('align') || $self->default_attribute('align') || 'center';
 
-  my ($lines,$aligns) = $self->_aligned_label($align);
+  my $text_wrap = $self->attribute('text-wrap') || 'none';
+
+  my ($lines,$aligns);
+  if ($text_wrap ne 'none')
+    {
+    # set "white-space: nowrap;" in CSS and ignore linebreaks in label
+    $lines = [ $self->label() ];
+    $aligns = [ substr($align,0,1) ];
+    }
+  else
+    {
+    ($lines,$aligns) = $self->_aligned_label($align,'none');
+    }
 
   # Since there is no "float: center;" in CSS, we must set the general
   # text-align to center when we encounter any \c and the default is
@@ -435,16 +523,30 @@ sub _label_as_html
   $align = 'center' if $switch_to_center;
   my $a = substr($align,0,1);			# center => c
 
+  my $format = $self->attribute('format') || 'none';
+
   my $name = '';
   my $i = 0;
   while ($i < @$lines)
     {
     my $line = $lines->[$i];
     my $al = $aligns->[$i];
-  
+
+    # This code below will not handle B<bold\n and bolder> due to the
+    # line break. Also, nesting does not work due to returned "<" and ">".
+
+    if ($format eq 'pod')
+      {
+      # first inner-most, then go outer until there are none left
+      $line =~ s/([BOSUCI])<([^<>]+)>/ $self->_convert_pod($1,$2);/eg
+        while ($line =~ /[BOSUCI]<[^<>]+>/)
+      }
+    else
+      { 
+      $line =~ s/>/&gt;/g;			# quote >
+      $line =~ s/</&lt;/g;			# quote <
+      }
     $line =~ s/&/&amp;/g;			# quote &
-    $line =~ s/>/&gt;/g;			# quote >
-    $line =~ s/</&lt;/g;			# quote <
     $line =~ s/\\\\/\\/g;			# "\\" to "\"
 
     # insert a span to align the line unless the default already covers it
@@ -522,7 +624,7 @@ sub as_html
     ($name,$switch_to_center) = $self->_label_as_html(); 
     }
 
-  my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $node_remap, 'noquote', 'encode');
+  my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'encode');
 
   $out->{'text-align'} = 'center' if $switch_to_center;
 
@@ -849,7 +951,7 @@ sub grow
 
 	if (defined $side)
 	  {
-	  if ($nr eq '')
+	  if (!defined $nr || $nr eq '')
 	    {
 	    # no port number specified, so just count
 	    $cnt->{$side}++;
@@ -1021,7 +1123,8 @@ sub background
   if ($bg eq 'inherit')
     {
     # if part of a group, the groups fill is the members background.
-    $bg = ($self->{edge}->{group}->attribute('fill')||'inherit') if ref $self->{edge}->{group};
+    $bg = ($self->{group}->attribute('fill')||'inherit')
+      if ref $self->{group};
     $bg = '' if $bg eq 'inherit';
     }
 
@@ -1549,7 +1652,7 @@ sub del_attribute
   delete $self->{att}->{$atr};
   $self;
   }
-  
+
 sub set_attribute
   {
   my ($self, $name, $v, $class) = @_;
@@ -1565,13 +1668,8 @@ sub set_attribute
     $class = $self->{class}; $class =~ s/\..*//; # remove subclass
     }
 
-  my $val = $v;
-  $val =~ s/^["'](.*)["']\z/$1/; 	# remove quotation marks
-  #$val =~ s/([^\\])\\#/$1#/;		# reverse backslashed \#
-  $val =~ s/\\#/#/;			# reverse backslashed \#
-
-  # decode %XX entities
-  $val =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
+  # remove quotation marks, but not for titles, labels etc
+  my $val = Graph::Easy->unquote_attribute($class,$name,$v);
 
   my $g = $self->{graph};
   
@@ -1598,12 +1696,12 @@ sub set_attribute
   if ($name eq 'class')
     {
     $self->sub_class($val);
-    return $self;
+    return $val;
     }
   if ($name eq 'group')
     {
     $self->add_to_groups($val);
-    return $self;
+    return $val;
     }
 
   if ($name eq 'border')
