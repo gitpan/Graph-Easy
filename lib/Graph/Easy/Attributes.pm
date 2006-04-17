@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.19';
+$VERSION = '0.20';
 
 package Graph::Easy;
 
@@ -723,7 +723,7 @@ my $attributes = {
 
     class => [
      'The subclass. See the section about class names for reference.',
-     undef,
+      qr/^(|[a-zA-Z][a-zA-Z0-9_]*)\z/,
      '',
      'mynodeclass',
      ],
@@ -870,6 +870,24 @@ EOF
    },
 
   node => {
+    "basename" => [
+     "Controls the base name of an autosplit node. Ignored for all other nodes.",
+     undef,
+      'automatically generated from the parts',
+      '123',
+       undef,
+     "[ A|B|C ] { basename: A } [ 1 ] -> [ A.2 ]\n [ A|B|C ] [ 2 ] -> [ ABC.2 ]",
+     ], 
+
+    "group" => [
+     "Puts the node into this group.",
+     undef,
+      '',
+      'Cities',
+       undef,
+     "[ A ] { group: Cities:; } ( Cities: [ B ] ) [ A ] --> [ B ]",
+     ], 
+
     size => [
      'The size of the node in columns and rows. Must be greater than 1 in each direction.',
      qr/^\d+\s*,\s*\d+\z/,
@@ -937,15 +955,6 @@ EOF
       undef,
      "node { shape: point; }\n\n [ A ] { point-style: star; }\n -> [ B ] { point-style: invisible; }\n -> [ C ]\n" . 
      " -> [ D ] { point-style: diamond; }",
-     ], 
-
-    "basename" => [
-     "Controls the base name of an autosplit node. Ignored for all other nodes.",
-     undef,
-      'automatically generated from the parts',
-      '123',
-       undef,
-     "[ A|B|C ] { basename: A } [ 1 ] -> [ A.2 ]\n [ A|B|C ] [ 2 ] -> [ ABC.2 ]",
      ], 
 
   }, # node
@@ -1050,14 +1059,14 @@ EOF
   group => {
     nodeclass => [
       'The class into which all nodes of this group are put.',
-      undef,
+      qr/^(|[a-zA-Z][a-zA-Z0-9_]*)\z/,
       '',
       'cities',
      ],
 
     edgeclass => [
       'The class into which all edges defined in this group are put. This includes edges that run between two nodes belonging to the same group.',
-      undef,
+      qr/^(|[a-zA-Z][a-zA-Z0-9_]*)\z/,
       '',
       'connections',
      ],
@@ -1231,6 +1240,8 @@ sub _remap_attributes
 #      # turn "1px solid #ff0000" into "1px solid red"
 #      $val = $self->_color_remap($val) if $atr eq 'border';
       }
+
+#    print STDERR "# remapping $atr,$val to \n";
 
     # if given a code ref, call it to remap name and/or value
     if (exists $r->{$atr} || exists $ra->{$atr})

@@ -82,6 +82,7 @@ t/group/0010.txt
 t/group/0131.txt
 t/group/0230.txt
 t/group.t
+t/gv.t
 t/html.t			HTML output
 t/in/10borders.txt
 t/in/18_multiples.txt
@@ -127,6 +128,8 @@ t/in/3_empty_group.txt
 t/in/3_group_align_center.txt
 t/in/3_invisible_both.txt
 t/in/3_joining.txt
+t/in/3_joint_short.txt
+t/in/3_joint.txt
 t/in/3_list_attr.txt
 t/in/3_lists.txt
 t/in/3_nodes_5_edges.txt
@@ -144,6 +147,7 @@ t/in/4_autosplit_offset.txt
 t/in/4_bend_bug.txt
 t/in/4_comma.txt
 t/in/4_cross.txt
+t/in/4_cross_inv.txt
 t/in/4_edge_cross.txt
 t/in/4_edge_labels.txt
 t/in/4_edge_types.txt
@@ -152,6 +156,8 @@ t/in/4_endless_loop.txt
 t/in/4_flow.txt
 t/in/4groups_class.txt
 t/in/4groups.txt
+t/in/4_joint.txt
+t/in/4_joint_bug_flags.txt
 t/in/4_invisible.txt
 t/in/4_list_attr.txt
 t/in/4_lists.txt
@@ -163,7 +169,12 @@ t/in/4nodes.txt
 t/in/5_arrow_styles.txt
 t/in/5_a-star_bug.txt
 t/in/5_group_split.txt
+t/in/5_group_repair.txt
+t/in/5_joint.txt
+t/in/5_joint_bug2.txt
+t/in/5_joint_label.txt
 t/in/5_long_edge_labels.txt
+t/in/5_multicell.txt
 t/in/5_offsets_2.txt
 t/in/5_offsets.txt
 t/in/5_rounded.txt
@@ -172,6 +183,7 @@ t/in/6_autosplit_class.txt
 t/in/6_chain_10_edges.txt
 t/in/6_chained.txt
 t/in/6_fanout.txt
+t/in/6_joint.txt
 t/in/6_multicell_offset.txt
 t/in/6_multicell.txt
 t/in/7_cluster.txt
@@ -187,8 +199,11 @@ t/in/8_labels.txt
 t/in/8_points.txt
 t/in/9_chain.txt
 t/in/9_cross.txt
+t/in/9_flow_south.txt
 t/in/25_autosplit_empty.txt
 t/in/README
+t/in/graphviz/9_stacking.dot
+t/in/graphviz/9_back.dot
 t/layers.t
 t/layouter/edge_label.txt
 t/layouter/layouter_chain.txt
@@ -255,6 +270,8 @@ t/out/3_empty_group.txt
 t/out/3_group_align_center.txt
 t/out/3_invisible_both.txt
 t/out/3_joining.txt
+t/out/3_joint_short.txt
+t/out/3_joint.txt
 t/out/3_list_attr.txt
 t/out/3_lists.txt
 t/out/3_nodes_5_edges.txt
@@ -272,12 +289,15 @@ t/out/4_autosplit_offset.txt
 t/out/4_bend_bug.txt
 t/out/4_comma.txt
 t/out/4_cross.txt
+t/out/4_cross_inv.txt
 t/out/4_edge_cross.txt
 t/out/4_edge_labels.txt
 t/out/4_edge_types.txt
 t/out/4_endless_loop_2.txt
 t/out/4_endless_loop.txt
 t/out/4_flow.txt
+t/out/4_joint.txt
+t/out/4_joint_bug_flags.txt
 t/out/4groups_class.txt
 t/out/4groups.txt
 t/out/4_invisible.txt
@@ -291,7 +311,12 @@ t/out/4nodes.txt
 t/out/5_arrow_styles.txt
 t/out/5_a-star_bug.txt
 t/out/5_group_split.txt
+t/out/5_group_repair.txt
+t/out/5_joint.txt
+t/out/5_joint_bug2.txt
+t/out/5_joint_label.txt
 t/out/5_long_edge_labels.txt
+t/out/5_multicell.txt
 t/out/5_offsets_2.txt
 t/out/5_offsets.txt
 t/out/5_rounded.txt
@@ -300,6 +325,7 @@ t/out/6_autosplit_class.txt
 t/out/6_chain_10_edges.txt
 t/out/6_chained.txt
 t/out/6_fanout.txt
+t/out/6_joint.txt
 t/out/6_multicell_offset.txt
 t/out/6_multicell.txt
 t/out/7_cluster.txt
@@ -315,8 +341,11 @@ t/out/8_labels.txt
 t/out/8_points.txt
 t/out/9_chain.txt
 t/out/9_cross.txt
+t/out/9_flow_south.txt
 t/out/25_autosplit_empty.txt
 t/out/drop_result.txt
+t/out/graphviz/9_stacking.txt
+t/out/graphviz/9_back.txt
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
 t/parser.t			general Parser tests
@@ -406,6 +435,8 @@ t/txt/3_edge_start.txt
 t/txt/3_empty_group.txt
 t/txt/3_group_align_center.txt
 t/txt/3_invisible_both.txt
+t/txt/3_joint_short.txt
+t/txt/3_joint.txt
 t/txt/3_list_attr.txt
 t/txt/3_lists.txt
 t/txt/3_nodes_5_edges.txt
@@ -417,6 +448,7 @@ t/txt/4_autosplit_empty.txt
 t/txt/4_autosplit_offset.txt
 t/txt/4_comma.txt
 t/txt/4_cross.txt
+t/txt/4_cross_inv.txt
 t/txt/4_edge_cross.txt
 t/txt/4_edge_labels.txt
 t/txt/4_endless_loop_2.txt
@@ -424,6 +456,8 @@ t/txt/4_endless_loop.txt
 t/txt/4_flow.txt
 t/txt/4groups_class.txt
 t/txt/4groups.txt
+t/txt/4_joint_bug_flags.txt
+t/txt/4_joint.txt
 t/txt/4_invisible.txt
 t/txt/4_list_attr.txt
 t/txt/4_lists.txt
@@ -433,7 +467,11 @@ t/txt/4_nodes_5_edges.txt
 t/txt/4_nodes_6_edges.txt
 t/txt/5_arrow_styles.txt
 t/txt/5_group_split.txt
+t/txt/5_joint.txt
+t/txt/5_joint_bug2.txt
+t/txt/5_joint_label.txt
 t/txt/5_long_edge_labels.txt
+t/txt/5_multicell.txt
 t/txt/5_offsets_2.txt
 t/txt/5_offsets.txt
 t/txt/5_rounded.txt
@@ -442,6 +480,7 @@ t/txt/6_autosplit_class.txt
 t/txt/6_chain_10_edges.txt
 t/txt/6_chained.txt
 t/txt/6_fanout.txt
+t/txt/6_joint.txt
 t/txt/6_multicell_offset.txt
 t/txt/6_multicell.txt
 t/txt/7_cluster.txt
@@ -457,6 +496,7 @@ t/txt/8_labels.txt
 t/txt/8_points.txt
 t/txt/9_chain.txt
 t/txt/9_cross.txt
+t/txt/9_flow_south.txt
 t/txt/25_autosplit_empty.txt
 t/use_class.t			test overriding classes in the Parser
 

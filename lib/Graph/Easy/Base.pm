@@ -6,7 +6,7 @@
 
 package Graph::Easy::Base;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 use strict;
 
@@ -79,9 +79,10 @@ sub error
 
 sub warn
   {
-  my $self = shift;
+  my ($self, $msg) = @_;
 
-  warn($_[0]);
+  require Carp;
+  Carp::carp($msg);
   }
 
 #############################################################################

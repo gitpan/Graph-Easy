@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.43';
+$VERSION = '0.44';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -619,7 +619,7 @@ sub del_attribute ($$$)
 
 sub output_format
   {
-  # set the outputformat
+  # set the output format
   my $self = shift;
 
   $self->{output_format} = shift if $_[0];
@@ -725,7 +725,7 @@ sub _class_styles
       if ($c !~ /\./)					# one of our primary ones
         {
         # generate also class list 			# like: "cities,node-rivers"
-        $cls = join (",table.graph$id .$c-", sort keys %{ $class_list->{$c} });
+        $cls = join (",$base .$c-", sort keys %{ $class_list->{$c} });
         $cls = ", $base.$c-$cls" if $cls ne '';		# like: ",node-cities,node-rivers"
         }
       $css_txt .= "$indent$base.$c$cls {\n";
@@ -2023,11 +2023,12 @@ adding I<steps> via the pseudo-class C<step>:
 Here two steps are created, I<0> and I<1> and the animation will
 be going like this:
 
-	                 +-----------------------------+
-	                 v                             |
-	+--------+     +--------+     +--------+     +--------+
-	| onload | --> | step.0 | --> | step.0 | --> | step.1 |
-	+--------+     +--------+     +--------+     +--------+
+                               0.1s
+	                     +-------------------------------+
+	                     v                               |
+	+--------+  0s   +--------+  5s   +--------+  5s   +--------+
+	| onload | ----> | step.0 | ----> | step.0 | ----> | step.1 |
+	+--------+       +--------+       +--------+       +--------+
 
 You can generate a a graph with the animation flow via
 C<animation_as_graph()>.
@@ -2261,9 +2262,10 @@ This option is on by default.
 
 	$graph->layout();
 
-Creates the internal structures to layout the graph. Usually you need
-not to call this method, because it will be done automatically when you
-call any of the C<as_FOO> methods below.
+Creates the internal structures to layout the graph. 
+
+This methods will be called automatically when you call any of the
+C<as_FOO> methods or C<output()> as described below.
 
 See also: C<timeout()>.
 
@@ -2271,7 +2273,8 @@ See also: C<timeout()>.
 
 	$graph->output_format('html');
 
-Set the outputformat. One of 'html', 'ascii', 'graphviz' or 'txt'. See also C<output()>.
+Set the outputformat. One of 'html', 'ascii', 'graphviz', 'svg' or 'txt'.
+See also C<output()>.
 
 =head2 output()
 
@@ -2367,7 +2370,8 @@ Returns the group with the name C<Name> as C<Graph::Easy::Group> object.
 
 	my @groups = $graph->groups();
 
-Returns the groups of the graph as C<Graph::Easy::Group> objects.
+Returns the groups of the graph as C<Graph::Easy::Group> objects,
+in arbitrary order.
 
 =head2 del_group()
 
@@ -2379,7 +2383,8 @@ Delete the group with the given name.
 
 	my @edges = $graph->edges();
 
-Returns the edges of the graph as C<Graph::Easy::Edge> objects.
+Returns the edges of the graph as C<Graph::Easy::Edge> objects,
+in arbitrary order.
 
 =head2 is_simple_graph()
 
@@ -2399,14 +2404,14 @@ Returns the label of the graph.
 
 	my $title = $graph->title();
 
-Returns the title of the graph.
+Returns the (mouseover) title of the graph.
 
 =head2 link()
 
 	my $link = $graph->link();
 
-Return the link, build from linkbase and link (or autolink). Returns ''
-if there is no link.
+Return a potential link (for the graphs label), build from the attributes C<linkbase>
+and C<link> (or autolink). Returns '' if there is no link.
 
 =head2 as_graphviz()
 
@@ -2436,7 +2441,7 @@ and C<down> are also valid and converted to degrees.
 
 In scalar context, returns the number of nodes/vertices the graph has.
 
-In list context, returns all nodes as objects.
+In list context, returns all nodes as objects, in arbitrary order.
 
 =head2 anon_nodes()
 
@@ -2445,7 +2450,7 @@ In list context, returns all nodes as objects.
 In scalar context, returns the number of anon nodes (aka
 C<Graph::Easy::Node::Anon>) the graph has.
 
-In list context, returns all anon nodes as objects.
+In list context, returns all anon nodes as objects, in arbitrary order.
 
 =head2 html_page_header()
 

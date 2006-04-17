@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 51;
+   plan tests => 53;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -263,7 +263,6 @@ for my $c (qw/eb hat lh lv va el sh shl/)
 $graph = Graph::Easy->new();
 
 my $group = $graph->add_group('Cities');
-
 my ($A,$B) = $graph->add_edge('Krefeld', 'Düren');
 
 $group->add_nodes($A,$B);
@@ -298,4 +297,27 @@ unlike ($css, qr/table.graph\s+\{[^\}]*color: /m, "doesn't contain color");
 unlike ($css, qr/table.graph\s+\{[^\}]*background[^\}]*background/m, "doesn't contain two times background");
 unlike ($css, qr/table.graph\s+\{[^\}]*text-align/m, "doesn't contain font-size");
 unlike ($css, qr/table.graph\s+\{[^\}]*font-size/m, "doesn't contain text-align");
+
+#############################################################################
+# multiline labels with \c, \r, and \l in them
+
+$graph = Graph::Easy->new();
+
+($A,$B) = $graph->add_edge('Köln', 'Rüdesheim');
+
+$A->set_attribute('label', 'Köln\r(am Rhein)\l(NRW)\c(Deutschland)');
+$html = $graph->as_html_file();
+
+like ($html,
+  qr/class='node'>Köln<br \/><span class="r">\(am Rhein\)<\/span><br \/><span class="l">\(NRW\)<\/span><br \/>\(Deutschland\)</,
+  'Köln with multiline text');
+
+$A->set_attribute('align', 'right');
+
+$html = $graph->as_html_file();
+
+like ($html,
+  qr/class='node' style="text-align: center"><span class="r">Köln<\/span><br \/><span class="r">\(am Rhein\)<\/span><br \/><span class="l">\(NRW\)<\/span><br \/>\(Deutschland\)</,
+  'Köln with multiline text');
+
 

@@ -1,4 +1,7 @@
 
+# We need at least Perl 5.8.0 for Unicode support (probably even 5.8.1)
+require 5.8.0;
+
 # Load the Module::Install bundled in ./inc/
 use inc::Module::Install;
     
@@ -9,7 +12,6 @@ name		'Graph-Easy';
 all_from	'lib/Graph/Easy.pm';
    
 requires	'Scalar::Util'	=> 1.13;
-requires	'Heap'		=> 0.71;
 
 recommends	'Graph::Easy::As_svg'	=> 0.18;
 

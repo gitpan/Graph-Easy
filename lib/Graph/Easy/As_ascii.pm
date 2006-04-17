@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 sub _u8
   {
@@ -248,98 +248,101 @@ sub _draw_ver
 
 sub _draw_cross
   {
-  # draw a CROSS sections, or a joint (which are a 3/4 cross)
+  # draw a CROSS sections, or a joint (which is a 3/4 cross)
   my ($self, $fb) = @_;
   
   # vertical piece
   my $style = $self->_edge_style( $self->{style_ver} );
-  
-  my $h = $self->{h};
-  # '|' => '|||||', '{}' => '{}{}{}'
-  my $line = $style->[1] x (2 + $h / length($style->[1])); 
 
+  my $invisible = 0;
+  my $line;
   my $flags = $self->{type} & EDGE_FLAG_MASK;
+  my $type = $self->{type} & EDGE_TYPE_MASK;
+  my $as = $self->_arrow_style();
+  my $y = $self->{h} - 2;
 
   print STDERR "# drawing cross at $self->{x},$self->{y} with flags $flags\n" if $self->{debug};
 
-  $line = substr($line, 0, $h) if length($line) > $h;
-  
-  my $as = $self->_arrow_style();
-
-  if ($as ne 'none')
+  if ($self->{style_ver} ne 'invisible')
     {
-    substr($line,0,1) = $self->_arrow($as,ARROW_UP) 
-      if (($flags & EDGE_END_N) != 0);
-    substr($line,-1,1) = $self->_arrow($as,ARROW_DOWN) 
-      if (($flags & EDGE_END_S) != 0);
-    }
+    my $h = $self->{h};
+    # '|' => '|||||', '{}' => '{}{}{}'
+    $line = $style->[1] x (2 + $h / length($style->[1])); 
 
-  my $type = $self->{type} & EDGE_TYPE_MASK;
+    $line = substr($line, 0, $h) if length($line) > $h;
 
-  my $y = $self->{h} - 2;
+    if ($as ne 'none')
+      {
+      substr($line,0,1) = $self->_arrow($as,ARROW_UP) 
+        if (($flags & EDGE_END_N) != 0);
+      substr($line,-1,1) = $self->_arrow($as,ARROW_DOWN) 
+        if (($flags & EDGE_END_S) != 0);
+      }
 
-  if ($type == EDGE_S_E_W || $type == EDGE_N_E_W)
-    {
+    # create joints
     substr($line,0,$y) = ' ' x $y if $type == EDGE_S_E_W;
     substr($line,$y,2) = '  ' if $type == EDGE_N_E_W;
-    }
 
-  $self->_printfb_ver ($fb, 2, 0, $line);
+    $self->_printfb_ver ($fb, 2, 0, $line);
+    }
+  else { $invisible++; }
 
   # horizontal piece
   $style = $self->_edge_style();
   
-  my $w = $self->{w};
-  # '-' => '-----', '.-' => '.-.-.-'
-  my $len = length($style->[0]); 
-  $line = $style->[0] x (2 + $w / $len); 
+  if ($self->{style} ne 'invisible')
+    {
+    my $w = $self->{w};
+    # '-' => '-----', '.-' => '.-.-.-'
+    my $len = length($style->[0]); 
+    $line = $style->[0] x (2 + $w / $len); 
   
-  # '.-.-.-' => '-.-.-' if $x % $ofs == 1 (e.g. on odd positions)
-  my $ofs = $self->{rx} % $len;
-  substr($line,0,$ofs) = '' if $ofs != 0;
+    # '.-.-.-' => '-.-.-' if $x % $ofs == 1 (e.g. on odd positions)
+    my $ofs = $self->{rx} % $len;
+    substr($line,0,$ofs) = '' if $ofs != 0;
 
-  $line = substr($line, 0, $w) if length($line) > $w;
+    $line = substr($line, 0, $w) if length($line) > $w;
   
-  my $x = 0;
-  if (($flags & EDGE_START_W) != 0)
-    {
-    $x++; chop($line);			# ' ---'
-    }
-  if (($flags & EDGE_START_E) != 0)
-    {
-    chop($line);			# '--- '
-    }
-  if (($flags & EDGE_END_E) != 0)
-    {
-    # '--> '
-    chop($line);
-    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT)
-     if $as ne 'none';
-    }
-  if (($flags & EDGE_END_W) != 0)
-    {
-    # ' <--'
-    substr($line,0,1) = ' ' if $as eq 'none';
-    substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT)
-     if $as ne 'none';
-    }
+    my $x = 0;
+    if (($flags & EDGE_START_W) != 0)
+      {
+      $x++; chop($line);			# ' ---'
+      }
+    if (($flags & EDGE_START_E) != 0)
+      {
+      chop($line);			# '--- '
+      }
+    if (($flags & EDGE_END_E) != 0)
+      {
+      # '--> '
+      chop($line);
+      substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT)
+       if $as ne 'none';
+      }
+    if (($flags & EDGE_END_W) != 0)
+      {
+      # ' <--'
+      substr($line,0,1) = ' ' if $as eq 'none';
+      substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT)
+       if $as ne 'none';
+      }
 
-  if ($type == EDGE_E_N_S || $type == EDGE_W_N_S)
-    {
     substr($line,0,2) = '  ' if $type == EDGE_E_N_S;
     substr($line,2,$self->{w}-2) = ' ' x ($self->{w}-2) if $type == EDGE_W_N_S;
+
+    $self->_printfb_line ($fb, $x, $y, $line);
     }
+  else { $invisible++; }
 
-  $self->_printfb_line ($fb, $x, $y, $line);
+  if (!$invisible)
+    {
+    # draw the crossing character only if both lines are visible
+    my $cross = $style->[2];
+    my $s = $self->{style} . $self->{style_ver};
+    $cross = ($self->_cross_style($s) || $cross) if $self->{style_ver} ne $self->{style};
 
-  # the crossing character
-  my $cross = $style->[2];
- 
-  my $s = $self->{style} . $self->{style_ver};
-
-  $cross = ($self->_cross_style($s) || $cross) if $self->{style_ver} ne $self->{style};
-
-  $self->_printfb ($fb, 2, $y, $cross);
+    $self->_printfb ($fb, 2, $y, $cross);
+    }
 
   # done
   }
@@ -625,9 +628,11 @@ sub _draw_label
   # routines called below.
   my ($self, $fb, $x, $y) = @_;
 
-  return if ($self->attribute('style') || '') eq 'invisible';
-
   my $type = $self->{type} & EDGE_TYPE_MASK;
+
+  # for cross sections, we maybe need to draw one of the parts:
+  return if ($self->attribute('style') || '') eq 'invisible' && $type ne EDGE_CROSS;
+
   my $m = $draw_dispatch->{$type};
 
   $self->_croak("Unknown edge type $type") unless defined $m;

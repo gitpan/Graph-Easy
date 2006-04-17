@@ -6,7 +6,7 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 use base qw/Graph::Easy::Parser/;
 
 use strict;
@@ -53,7 +53,7 @@ sub _match_node
   # Return a regexp that matches something like '"bonn"' or 'bonn' and returns
   # the inner text without (might leave some spaces and quotes)
 
-  qr/\s*("[^"]*"|[a-zA-Z0-9]+[0-9]+)/;
+  qr/\s*("[^"]*"|[a-zA-Z0-9]+[0-9]+|[A-Z]+)/;
   }
 
 sub _match_group_start
@@ -82,22 +82,22 @@ sub _match_attributes
   {
   # return a regexp that matches something like " [ color=red; ]" and returns
   # the inner text without the []
-  qr/\s*\[\s*([^\]]+?)\s*\]/;
+  qr/\s*\[\s*([^\]]+?)\s*\];?/;
   }
 
 sub _match_optional_attributes
   {
   # return a regexp that matches something like " [ color=red; ]" and returns
   # the inner text with the []
-  qr/(\s*\[[^\]]+?\])?/;
+  qr/(\s*\[[^\]]+?\])?;?/;
   }
 
 sub _clean_attributes
   {
   my ($self,$text) = @_;
 
-  $text =~ s/^\s*\[\s*//;	# remove left-over "[" and spaces
-  $text =~ s/\s*\]\s*\z//;	# remove left-over "]" and spaces
+  $text =~ s/^\s*\[\s*//;		# remove left-over "[" and spaces
+  $text =~ s/\s*;?\s*\]\s*\z//;		# remove left-over "]" and spaces
 
   $text;
   }
@@ -153,16 +153,19 @@ sub _build_match_stack
       my $eg = $1;					# entire edge ("->" etc)
       my $n = $2;					# node name
 
+      # XXX TODO: what about "1" -- "2" [ dir: both; ]?
       my $edge_un = 0; $edge_un = 1 if $eg eq '--';	# undirected edge?
 
-      my $edge_atr = $self->_parse_attributes($3||'', 'edge');
-      return undef if $self->{error};
+      # need to defer edge attribute parsing until the edge exists
+      my $edge_atr = $3||'';
 
       # the right side node(s) (multiple in case of autosplit)
       my $nodes_b = [ $self->_new_node ($self->{graph}, $n, $self->{group_stack}) ];
 
       my $style = $self->_link_lists( $self->{stack}, $nodes_b,
 	'--', '', $edge_atr, 0, $edge_un);
+
+      return undef unless defined $style;		# error in attributes?
 
       # remember the left side
       $self->{left_edge} = [ $style, '', $edge_atr, 0, $edge_un ];
@@ -206,7 +209,7 @@ my $remap = {
     'arrow-tail' => undef,
      # important for color lists like "red:red" => double edge
 #     'color' => \&_graphviz_remap_edge_color,
-#     'dir' => \&_graphviz_remap_edge_dir,
+    'dir' => \&_from_graphviz_edge_dir,
     'decorate' => undef,
     'constraint' => undef,
     'headclip' => undef,
@@ -228,12 +231,11 @@ my $remap = {
     'len' => undef,
     'lhead' => undef,
     'ltail' => undef,
-#    'minlen' => \&_graphviz_remap_edge_minlen,
+    'minlen' => \&_from_graphviz_edge_minlen,
     'pos' => undef,
     'samehead' => undef,
     'sametail' => undef,
 #    'style' => \&_graphviz_remap_edge_style,
-
     'tailclip' => undef,
     'tailhref' => undef,
     'tailurl' => undef,
@@ -284,7 +286,7 @@ my $remap = {
     'page' => undef,
     'pencolor' => 'border-color',
     'quantum' => undef,
-    'rankdir' => undef,
+    'rankdir' => \&_from_graphviz_graph_rankdir,
     'ranksep' => undef,
     'remincross' => undef,
     'resolution' => undef,
@@ -328,6 +330,49 @@ my $remap = {
     },
   };
 
+my $rankdir = {
+  'LR' => 'east',
+  'RL' => 'west',
+  'TB' => 'south',
+  'BT' => 'north',
+  };
+
+sub _from_graphviz_graph_rankdir
+  {
+  my ($self, $name, $dir) = @_;
+
+  my $d = $rankdir->{$dir} || 'east';
+
+  ('flow', $d);
+  }
+
+sub _from_graphviz_edge_minlen
+  {
+  my ($self, $name, $len) = @_;
+
+  # 1 => 1, 2 => 3, 3 => 5 etc
+  $len = $len * 2 - 1;
+  ($name, $len);
+  }
+
+sub _from_graphviz_edge_dir
+  {
+  my ($self, $name, $dir, $edge) = @_;
+
+  # Modify the edge, depending on dir
+  if (ref($edge))
+    {
+    # "forward" is the default and ignored
+    $edge->flip() if $dir eq 'back';
+    $edge->bidirectional(1) if $dir eq 'both';
+    $edge->unidirectional(1) if $dir eq 'none';
+    }
+
+  (undef, undef);
+  }
+
+#############################################################################
+
 sub _remap_attributes
   {
   my ($self, $att, $class) = @_;
@@ -338,6 +383,8 @@ sub _remap_attributes
     $val =~ s/^"//;
     $val =~ s/"\z//;
     }
+
+  print STDERR "# remapping attributes '$att' for class $class\n" if $self->{debug};
 
   $self->{graph}->_remap_attributes($class, $att, $remap, 'noquote', undef, undef);
   }

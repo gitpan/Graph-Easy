@@ -1,1 +1,4 @@
-These files are used as input, and the ASCII output is compared to the files in out.
+These files are used as input by t/ascii.t, and the ASCII output is compared to
+the files in t/out.
+
+The subdirectory graphviz contains input files for t/gv.t. 

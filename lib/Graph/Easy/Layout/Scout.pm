@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 #############################################################################
 #############################################################################
@@ -31,7 +31,7 @@ use Graph::Easy::Edge::Cell qw/
 
   EDGE_LOOP_NORTH EDGE_LOOP_SOUTH EDGE_LOOP_WEST EDGE_LOOP_EAST
 
-  EDGE_HOR EDGE_VER
+  EDGE_HOR EDGE_VER EDGE_HOLE
 
   EDGE_S_E_W EDGE_N_E_W EDGE_E_N_S EDGE_W_N_S
 
@@ -43,9 +43,6 @@ use Graph::Easy::Edge::Cell qw/
   EDGE_END_MASK
   EDGE_NO_M_MASK
  /;
-
-# for A* pathfinding:
-use Heap::Binary;		# Binary is faster than Fibonacci
 
 #############################################################################
 
@@ -358,43 +355,82 @@ sub _find_path_loop
 #############################################################################
 #############################################################################
 
-# This package represents one element in a Heap object:
+# This package represents a simple/cheap/fast heap:
+package Graph::Easy::Heap;
 
-package Graph::Easy::Astar::Node;
+use base qw/Graph::Easy::Base/;
 
-sub new
+use strict;
+
+sub _init
   {
-  my $class = shift; $class = ref($class) || $class;
+  my ($self,$args) = @_;
 
-  # 0 for Heap, 1: value, 2,3 are x,y, 4,5 are parent's x,y, 6 is type
-  bless [ undef, @_ ], $class;
+  # the last elements guaranteed to be in order
+  $self->{_heap} = [ ];
+  $self->{_dirty} = 0;
+
+  $self;
   }
 
-sub pos
+sub add
   {
-  # return the stored ptr
-  my $self = shift;
-  $self->[2], $self->[3];
+  # add one element to the heap
+  my ($self,$elem) = @_;
+
+  my $heap = $self->{_heap};
+
+  # heap empty?
+  if (@$heap == 0)
+    {
+    push @$heap, $elem;
+    $self->{_top} = 1;
+    }
+  # smaller than first elem?
+  elsif ($elem->[0] < $heap->[0]->[0])
+    {
+    #print STDERR "# $elem->[0] is smaller then first elem $heap->[0]->[0] (with ", scalar @$heap," elems on heap)\n";
+    unshift @$heap, $elem;
+    }
+  # bigger than last elem?
+  elsif ($elem->[0] > $heap->[-1]->[0])
+    {
+    #print STDERR "# $elem->[0] is bigger then last elem $heap->[-1]->[0] (with ", scalar @$heap," elems on heap)\n";
+    push @$heap, $elem;
+    }
+  else
+    {
+    # just put it on the end and mark the heap as dirty
+    push @$heap, $elem;
+    $self->{_dirty} = 1;
+    }
+  undef;
   }
 
-sub val
+sub elements
   {
-  # get or set value slot
-  my $self = shift;
-  @_ ? ($self->[1] = shift) : $self->[1];
+  my ($self) = @_;
+
+  @{$self->{_heap}};
   }
 
-sub heap
+sub extract_top
   {
-  # get or set heap slot
-  my $self = shift;
-  @_ ? ($self->[0] = shift) : $self->[0];
-  }
+  # remove and return the top elemt
+  my ($self) = @_;
 
-sub cmp
-  {
-  # compare two elements
-  $_[0]->[1] <=> $_[1]->[1];
+  my $heap = $self->{_heap};
+
+  return undef if @$heap == 0;
+
+  if ($self->{_dirty})
+    {
+    # heap is dirty
+    @{$self->{_heap}} = sort { $a->[0] <=> $b->[0] } @{$self->{_heap}};
+    $self->{_dirty} = 0;
+    }
+
+  shift @$heap;
   }
 
 #############################################################################
@@ -477,10 +513,15 @@ sub _astar_edge_type
 
   my $dx1 = ($x1 - $x) <=> 0;
   my $dy1 = ($y1 - $y) <=> 0;
-  
+
   my $dx2 = ($x2 - $x1) <=> 0;
   my $dy2 = ($y2 - $y1) <=> 0;
-  
+
+  # in some cases we get (0,-1,0,0), so set the missing parts
+  ($dx2,$dy2) = ($dx1,$dy1) if $dx2 == 0 && $dy2 == 0;
+  # can this case happen?
+  ($dx1,$dy1) = ($dx2,$dy2) if $dx1 == 0 && $dy1 == 0;
+
   # return correct type depending on differences
   $edge_type->{"$dx1,$dy1,$dx2,$dy2"} || EDGE_HOR;
   }
@@ -488,7 +529,7 @@ sub _astar_edge_type
 sub _astar_near_nodes
   {
   # return possible next nodes from $nx,$ny
-  my ($nx, $ny, $cells, $open, $closed, $min_x, $min_y, $max_x, $max_y) = @_;
+  my ($nx, $ny, $cells, $open_by_pos, $closed, $min_x, $min_y, $max_x, $max_y) = @_;
 
   my @places = ();
 
@@ -533,7 +574,7 @@ sub _astar_near_nodes
     # If it is in open, but we reached it with a lower g(), then lower
     # the existing value.
     # already open?
-    next if exists $open->{$p};
+    next if exists $open_by_pos->{$p};
 
     if (exists $cells->{$p} && ref($cells->{$p}) && $cells->{$p}->isa('Graph::Easy::Edge'))
       {
@@ -630,7 +671,8 @@ sub _get_joints
         # don't add the field twice
 	next if exists $cells->{"$sx,$sy"};
 	$cells->{"$sx,$sy"} = [ $sx, $sy, undef, $px, $py ];
-	$types->{"$sx,$sy"} = $jt;
+	# keep eventually set start/end points on the original cell
+	$types->{"$sx,$sy"} = $jt + ($c->{type} & EDGE_FLAG_MASK);
 	} 
       }
     }
@@ -642,6 +684,69 @@ sub _get_joints
     push @R, @$s;
     }
   @R;
+  }
+
+sub _join_edge
+  {
+  # find out whether an edge sharing a ending point with the source edge
+  # runs alongside the source node, if so, convert it to a joint:
+  my ($self, $node, $edge, $shared, $end) = @_;
+
+  # we check the sides B,C,D and E for HOR and VER edge pices:
+  #   --D--
+  # | +---+ |
+  # E | A | B
+  # | +---+ |
+  #   --C--
+
+  my $flags = 
+   [ 
+      EDGE_W_N_S + EDGE_START_W,
+      EDGE_N_E_W + EDGE_START_N,
+      EDGE_E_N_S + EDGE_START_E,
+      EDGE_S_E_W + EDGE_START_S,
+   ];
+  $flags = 
+   [ 
+      EDGE_W_N_S + EDGE_END_W,
+      EDGE_N_E_W + EDGE_END_N,
+      EDGE_E_N_S + EDGE_END_E,
+      EDGE_S_E_W + EDGE_END_S,
+   ] if $end || $edge->{bidirectional};
+  
+  my $cells = $self->{cells};
+  my @places = $node->_near_places($cells, 1, # distance 1
+   $flags, 'loose'); 
+
+  my $i = 0;
+  while ($i < @places)
+    {
+    my ($x,$y) = ($places[$i], $places[$i+1]); $i += 3;
+    
+    next unless exists $cells->{"$x,$y"};		# empty space?
+    # found some cell, check that it is a EDGE_HOR or EDGE_VER
+    my $cell = $cells->{"$x,$y"};
+    next unless $cell->isa('Graph::Easy::Edge::Cell');
+
+    my $cell_type = $cell->{type} & EDGE_TYPE_MASK;
+
+    next unless $cell_type == EDGE_HOR || $cell_type == EDGE_VER;
+
+    # the cell must belong to one of the shared edges
+    my $e = $cell->{edge}; local $_;
+    next unless grep($e,@$shared);
+
+    # make the cell at the current pos a joint
+    $cell->_make_joint($edge,$places[$i-1]);
+
+    # The layouter will check that each edge has a cell, so add a dummy one to
+    # $edge to make it happy:
+    Graph::Easy::Edge::Cell->new( type => EDGE_HOLE, edge => $edge, x => $x, y => $y );
+
+    return [];					# path is empty
+    }
+
+  undef;		# did not find an edge cell that can be used as joint
   }
 
 sub _find_path_astar
@@ -670,18 +775,9 @@ sub _find_path_astar
 
   my ($s_p,@ss_p) = $edge->port('start');
   my ($e_p,@ee_p) = $edge->port('end');
-  my (@A, @B);
+  my (@A, @B);					# Start/Stop positions
   my @shared_start;
-
-  # has a starting point restriction:
-  @shared_start = $edge->{from}->edges_at_port('start', $s_p, $ss_p[0]) if defined $s_p && @ss_p == 1;
-
-  my @shared;
-  # filter out all non-placed edges (this will also filter out $edge)
-  for my $s (@shared_start)
-    {
-    push @shared, $s if @{$s->{cells}} > 0;
-    }
+  my @shared_end;
 
   my $joint_type = {};
   my $joint_type_end = {};
@@ -689,13 +785,74 @@ sub _find_path_astar
   my $start_cells = {};
   my $end_cells = {};
 
+  ###########################################################################
+  # end fields first (because maybe an edge runs alongside the node)
+
+  # has a end point restriction
+  @shared_end = $edge->{to}->edges_at_port('end', $e_p, $ee_p[0]) if defined $e_p && @ee_p == 1;
+
+  my @shared = ();
+  # filter out all non-placed edges (this will also filter out $edge)
+  for my $s (@shared_end)
+    {
+    push @shared, $s if @{$s->{cells}} > 0;
+    }
+
+  my $per_field = 5;			# for shared: x,y,undef, px,py
   if (@shared > 0)
     {
-    # more than one edge share the same start port, and one of the others was
+    # more than one edge share the same end port, and one of the others was
     # already placed
 
-    print STDERR "#  edge from $edge->{from} to $edge->{to} shares port with ",
+    print STDERR "#  edge from $edge->{from}->{name} to $edge->{to}->{name} shares port with ",
 	scalar @shared, " other edge(s)\n" if $self->{debug};
+
+    # if there is one of the already-placed edges running alongside the src
+    # node, we can just convert the field to a joint and be done
+    my $path = $self->_join_edge($src,$edge,\@shared);
+    return $path if $path;				# already done?
+
+    @B = $self->_get_joints(\@shared, EDGE_START_MASK, $joint_type_end, $end_cells, $prev_fields);
+    }
+  else
+    {
+    # potential stop positions
+    @B = $dst->_near_places($cells, 1, $end_flags, 1);	# distance = 1: slots
+
+    # the edge has a port description, limiting the end places
+    @B = $dst->_allowed_places( \@B, $dst->_allow( $e_p, @ee_p ), 3)
+      if defined $e_p;
+
+    $per_field = 3;			# x,y,type
+    }
+
+  return unless scalar @B > 0;			# no free slots on target node?
+
+  ###########################################################################
+  # start fields
+
+  # has a starting point restriction:
+  @shared_start = $edge->{from}->edges_at_port('start', $s_p, $ss_p[0]) if defined $s_p && @ss_p == 1;
+
+  @shared = ();
+  # filter out all non-placed edges (this will also filter out $edge)
+  for my $s (@shared_start)
+    {
+    push @shared, $s if @{$s->{cells}} > 0;
+    }
+
+  if (@shared > 0)
+    {
+    # More than one edge share the same start port, and one of the others was
+    # already placed, so we just run along until we catch it up with a joint:
+
+    print STDERR "#  edge from $edge->{from}->{name} to $edge->{to}->{name} shares port with ",
+	scalar @shared, " other edge(s)\n" if $self->{debug};
+
+    # if there is one of the already-placed edges running alongside the src
+    # node, we can just convert the field to a joint and be done
+    my $path = $self->_join_edge($dst, $edge, \@shared, 'end');
+    return $path if $path;				# already done?
 
     @A = $self->_get_joints(\@shared, EDGE_END_MASK, $joint_type, $start_cells, $next_fields);
     }
@@ -738,48 +895,14 @@ sub _find_path_astar
       }
     }
 
-  my @shared_end;
-
-  # has a end point restriction
-  @shared_end = $edge->{to}->edges_at_port('end', $e_p, $ee_p[0]) if defined $e_p && @ee_p == 1;
-
-  @shared = ();
-  # filter out all non-placed edges (this will also filter out $edge)
-  for my $s (@shared_end)
-    {
-    push @shared, $s if @{$s->{cells}} > 0;
-    }
-
-  my $per_field = 5;			# for shared: x,y,undef, px,py
-  if (@shared > 0)
-    {
-    # more than one edge share the same end port, and one of the others was
-    # already placed
-
-    print STDERR "#  edge from $edge->{from} to $edge->{to} shares port with ",
-	scalar @shared, " other edge(s)\n" if $self->{debug};
-
-    @B = $self->_get_joints(\@shared, EDGE_START_MASK, $joint_type_end, $end_cells, $prev_fields, 3);
-    }
-  else
-    {
-    # potential stop positions
-    @B = $dst->_near_places($cells, 1, $end_flags, 1);	# distance = 1: slots
-
-    # the edge has a port description, limiting the end places
-    @B = $dst->_allowed_places( \@B, $dst->_allow( $e_p, @ee_p ), 3)
-      if defined $e_p;
-
-    $per_field = 3;			# x,y,type
-    }
-
-  return unless scalar @B > 0;			# no free slots on target node?
+  ###########################################################################
+  # use A* to finally find the path:
 
   my $path = $self->_astar(\@A,\@B,$edge, $per_field);
 
   if (@$path > 0 && keys %$start_cells > 0)
     {
-    # convert the edge piece of the starting edge-cell to a join
+    # convert the edge piece of the starting edge-cell to a joint
     my ($x, $y) = ($path->[0],$path->[1]);
     my $xy = "$x,$y";
     my ($sx,$sy,$t,$px,$py) = @{$start_cells->{$xy}};
@@ -790,7 +913,7 @@ sub _find_path_astar
 
   if (@$path > 0 && keys %$end_cells > 0)
     {
-    # convert the edge piece of the starting edge-cell to a join
+    # convert the edge piece of the starting edge-cell to a joint
     my ($x, $y) = ($path->[-3],$path->[-2]);
     my $xy = "$x,$y";
     my ($sx,$sy,$t,$px,$py) = @{$end_cells->{$xy}};
@@ -814,7 +937,7 @@ sub _astar
   my $dst = $edge->{to};
   my $cells = $self->{cells};
 
-  my $open = Heap::Binary->new();	# to find smallest elem fast
+  my $open = Graph::Easy::Heap->new();	# to find smallest elem fast
   my $open_by_pos = {};			# to find node by pos
   my $closed = {};			# a hash, indexed by "$x,$y" to find nodes by pos
 
@@ -860,7 +983,7 @@ sub _astar
     # add a penalty for crossings
     my $malus = 0; $malus = 30 if $t != 0;
     $malus += _astar_modifier($px,$py, $sx, $sy, $sx, $sy);
-    $open->add( Graph::Easy::Astar::Node->new( $lowest, $sx, $sy, $px, $py, $type, 1 ));
+    $open->add( [ $lowest, $sx, $sy, $px, $py, $type, 1 ] );
 
     my $o = $malus + $bias + $lowest;
     print STDERR "#   adding open pos $sx,$sy ($o)\n" if $self->{debug};
@@ -882,15 +1005,16 @@ sub _astar
   my $stats = $self->{stats};
 
   STEP:
-  while( defined( $elem = $open->extract_top ) )
+  while( defined( $elem = $open->extract_top() ) )
     {
     $stats->{astar_steps}++ if $self->{debug};
 
     # hard limit on number of steps todo
     return if $tries++ > $max_tries;
 
-    print STDERR "#  Smallest elem is weight ", $elem->val, " at ", join(",", $elem->pos()),"\n" if $self->{debug};
-    my (undef, $val, $x,$y, $px,$py, $type, $do_stop) = @$elem;
+    print STDERR "#  Smallest elem is weight ", $elem->[0], " at $elem->[1],$elem->[2]\n" if $self->{debug};
+    #my (undef, $val, $x,$y, $px,$py, $type, $do_stop) = @$elem;
+    my ($val, $x,$y, $px,$py, $type, $do_stop) = @$elem;
 
     my $key = "$x,$y";
     # move node into CLOSE and remove from OPEN
@@ -905,7 +1029,16 @@ sub _astar
       if ($x == $stop[$i] && $y == $stop[$i+1])
         {
         $closed->{$key}->[4] += $stop[$i+2] if defined $stop[$i+2];
-        print STDERR "#  Reached stop position $x,$y\n" if $self->{debug};
+	# store the reached stop position if it is know
+	if ($per_field > 3)
+	  {
+	  $closed->{$key}->[6] = $stop[$i+3];
+	  $closed->{$key}->[7] = $stop[$i+4];
+          # print STDERR "#  Reached stop position $x,$y (lx,ly $stop[$i+3], $stop[$i+4])\n" if $self->{debug};
+	  }
+        elsif ($self->{debug}) {
+          print STDERR "#  Reached stop position $x,$y\n";
+          }
         last STEP;
         }
       } # end test for stop postion(s)
@@ -942,9 +1075,7 @@ sub _astar
     print STDERR "#  opening pos $x,$y ($lowest_distance + $lg)\n" if $self->{debug};
 
       # open new position into OPEN
-      $open->add( Graph::Easy::Astar::Node->new(
-        $lowest_distance + $lg,
-         $nx, $ny, $x, $y, undef ));
+      $open->add( [ $lowest_distance + $lg, $nx, $ny, $x, $y, undef ] );
       $open_by_pos->{"$nx,$ny"} = $lg;
       }
     }
@@ -956,7 +1087,9 @@ sub _astar
   return [] unless defined $elem;
 
   my $path = [];
-  my ($cx,$cy) = $elem->pos();
+  my ($cx,$cy) = ($elem->[1],$elem->[2]);
+  # the "last" cell in the path. Since we follow it backwards, it
+  # becomes actually the next cell
   my ($lx,$ly);
   my $type;
 
@@ -966,10 +1099,11 @@ sub _astar
   while (defined $cx)
     {
     last unless exists $closed->{"$cx,$cy"};
+    my $xy = "$cx,$cy";
 
-    $type = $closed->{"$cx,$cy"}->[ 4 ];
+    $type = $closed->{$xy}->[ 4 ];
 
-    my ($px,$py) = @{ $closed->{"$cx,$cy"} };	# get X,Y of parent cell
+    my ($px,$py) = @{ $closed->{$xy} };		# get X,Y of parent cell
 
     my $edge_type = ($type||0) & EDGE_TYPE_MASK;
     if ($edge_type == 0)
@@ -995,9 +1129,20 @@ sub _astar
 	$px -- if ($edge_flags & EDGE_START_W) != 0; 
 	}
 
+      # if lx, ly is undefined because px,py is a joint, get it via the stored
+      # x,y pos of the very last cell in the path
+      if (!defined $lx)
+     	{ 
+	$lx = $closed->{$xy}->[6];
+	$ly = $closed->{$xy}->[7];
+	}
+
+      # still not known?
       if (!defined $lx)
 	{
-	# We can figure out from the flag of the position of cx,cy
+
+	# If lx,ly is undefined because we are at the end of the path,
+   	# we can figure out from the flag of the position of cx,cy.
 	#       ..............
 	#       : EDGE_END_S :
 	# .................................
@@ -1013,12 +1158,13 @@ sub _astar
 	$lx ++ if ($edge_flags & EDGE_END_E) != 0; 
 	$lx -- if ($edge_flags & EDGE_END_W) != 0; 
 	}
+
       # now figure out correct type for this cell from positions of
       # parent/following cell
       $type += _astar_edge_type($px, $py, $cx, $cy, $lx,$ly);
       }
 
-    print STDERR "#  Following back from $lx,$ly to $cx,$cy to $px,$py\n" if $self->{debug};
+    print STDERR "#  Following back from $px,$py to $cx,$cy to $lx,$ly\n" if $self->{debug};
 
     if ($px == $lx && $py == $ly && ($cx != $lx || $cy != $ly))
       {
@@ -1044,7 +1190,7 @@ sub _astar
     last if $closed->{"$cx,$cy"}->[ 5 ];	# stop here?
 
     ($lx,$ly) = ($cx,$cy);
-    ($cx,$cy) = @{ $closed->{"$cx,$cy"} };	# get X,Y of parent cell
+    ($cx,$cy) = @{ $closed->{"$cx,$cy"} };	# get X,Y of next cell
     }
 
   return ($path,$closed,$open_by_pos) if wantarray;

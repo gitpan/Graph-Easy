@@ -7,7 +7,7 @@
 package Graph::Easy::Layout::Chain;
 
 use Graph::Easy::Base;
-$VERSION = '0.05';
+$VERSION = '0.06';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -132,19 +132,17 @@ sub layout
 
   # start with first node
   my $pre = $self->{start}; my $n = $pre->{_next};
-
   if (exists $pre->{_todo})
     {
     # edges with a flow attribute must be handled differently
     if ($edge && ($edge->attribute('flow') || $edge->has_ports()))
       {
-      push @TODO, [ _ACTION_CHAIN, $pre, 0, $edge->{from}, $edge ];
+      push @TODO, $g->_action( _ACTION_CHAIN, $pre, 0, $edge->{from}, $edge);
       }
     else
       {
-      push @TODO, [ _ACTION_NODE, $pre, 0, $edge ];
+      push @TODO, $g->_action( _ACTION_NODE, $pre, 0, $edge );
       }
-    delete $pre->{_todo};
     }
 
   print STDERR "# Stack after first:\n" if $g->{debug};
@@ -161,8 +159,7 @@ sub layout
       # one to determine the flow:
       my @edges = $g->edge($pre,$n);
 
-      push @TODO, [ _ACTION_CHAIN, $n, 0, $pre, $edges[0] ];
-      delete $n->{_todo};
+      push @TODO, $g->_action( _ACTION_CHAIN, $n, 0, $pre, $edges[0] );
       }
     $pre = $n;
     $n = $n->{_next};
@@ -216,6 +213,10 @@ sub layout
       {
       # skip selfloops, these will be done later
       next if $e->{to} == $n;
+
+      next if !ref($e->{to}->{_chain});
+      next if !ref($e->{from}->{_chain});
+
       next if $e->has_ports();
 
       # skip links from/to groups
@@ -224,10 +225,8 @@ sub layout
 
       print STDERR "# inter-chain link from $n->{name} to $e->{to}->{name}\n" if $g->{debug};
 
-      # leaving the chain, or incoming from a differen chain?
-##      print STDERR "$e->{to}->{_chain} $self\n";
-
-      next if $e->{to}->{_chain} != $self || $e->{to}->{_chain} != $self;
+      # leaving the chain?
+      next if $e->{to}->{_chain} != $self;
 
 #      print STDERR "#    trying for $n->{name}:\t $e->{from}->{name} to $e->{to}->{name}\n";
       next unless exists $e->{_todo};
@@ -306,7 +305,9 @@ sub layout
       # skip links to groups
       next if $to->isa('Graph::Easy::Group');
 
-      next unless exists $to->{_chain};
+#      print STDERR "# chain-tracking to: $to->{name} $to->{_chain}\n";
+
+      next unless exists $to->{_chain} && ref($to->{_chain}) =~ /Chain/;
       my $chain = $to->{_chain};
       next if $chain->{_done};
 

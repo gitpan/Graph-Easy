@@ -12,7 +12,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 use Scalar::Util qw/weaken/;
 
@@ -78,6 +78,11 @@ use constant {
   ARROW_DOWN	=> 3,
 
  };
+
+use constant EDGE_ARROW_HOR	=> 
+  EDGE_END_E() + EDGE_END_W();
+use constant EDGE_ARROW_VER	=> 
+  EDGE_END_N() + EDGE_END_S();
 
 # shortcuts to not need to write EDGE_HOR + EDGE_START_W + EDGE_END_E
 use constant EDGE_SHORT_E => EDGE_HOR + EDGE_END_E + EDGE_START_W; # |-> start/end at this cell
@@ -273,12 +278,21 @@ sub arrow_count
   # return 0, 1 or 2, depending on the number of end points
   my $self = shift;
 
+  return 0 if $self->{edge}->{undirected};
+
   my $count = 0;
   my $type = $self->{type};
   $count ++ if ($type & EDGE_END_N) != 0;
   $count ++ if ($type & EDGE_END_S) != 0;
   $count ++ if ($type & EDGE_END_W) != 0;
   $count ++ if ($type & EDGE_END_E) != 0;
+  if ($self->{edge}->{bidirectional})
+    {
+    $count ++ if ($type & EDGE_START_N) != 0;
+    $count ++ if ($type & EDGE_START_S) != 0;
+    $count ++ if ($type & EDGE_START_W) != 0;
+    $count ++ if ($type & EDGE_START_E) != 0;
+    }
   $count;
   }
 
@@ -289,7 +303,8 @@ sub _make_cross
   
   my $type = $self->{type} & EDGE_TYPE_MASK;
     
-  return undef if (($type != EDGE_HOR) && ($type != EDGE_VER));
+  $self->_croak("Trying to cross non hor/ver piece at $self->{x},$self->{y}")
+    if (($type != EDGE_HOR) && ($type != EDGE_VER));
 
   $self->{color} = $self->attribute('color');
   $self->{style_ver} = $edge->style();
@@ -313,7 +328,10 @@ sub _make_joint
   my ($self, $edge, $new_type) = @_;
   
   my $type = $self->{type} & EDGE_TYPE_MASK;
-    
+
+  $self->_croak("Trying to join non hor/ver piece (type: $type) at $self->{x},$self->{y}")
+     if $type >= EDGE_S_E_W;
+
   $self->{color} = $self->attribute('color');
   $self->{style_ver} = $edge->style();
   $self->{color_ver} = $edge->attribute('color');
@@ -325,6 +343,9 @@ sub _make_joint
     ($self->{color_ver}, $self->{color}) = ($self->{color},$self->{color});
     }
 
+  print STDERR "# creating joint at $self->{x}, $self->{y} with new type $new_type (old $type)\n"
+    if $self->{graph}->{debug};
+
   $self->{type} = $new_type;
 
   $self;
@@ -332,6 +353,8 @@ sub _make_joint
 
 #############################################################################
 # conversion to HTML
+
+# XXX TOD: pack the common strings by defining them beforehand
 
 my $edge_html = {
 
@@ -669,52 +692,103 @@ my $edge_html = {
   ###########################################################################
   # joints
 
-  EDGE_E_N_S() => [
+  ###########################################################################
+  # E_N_S
 
+  EDGE_E_N_S() => [
     '<td colspan=2 rowspan=2 class="##class## eb " style="##bg##">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##borderv##; border-bottom: ##border##;##bg##">&nbsp;</td>',
-
     '',
-
     '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' ."\n".
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
-   
     '',
    ],
+
+  EDGE_E_N_S() + EDGE_END_E() => [
+    '<td colspan=2 rowspan=2 class="##class## eb " style="##bg##">&nbsp;</td>' . "\n" .
+    ' <td rowspan=2 class="##class## eb" style="border-left: ##borderv##; border-bottom: ##border##;##bg##">&nbsp;</td>' . "\n" .
+    ' <td rowspan=4 class="##class## va"##edgecolor##>&gt;</td>',
+    '',
+    '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' ."\n".
+    ' <td rowspan=2 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
+    '',
+   ],
+
+  ###########################################################################
+  # W_N_S
 
   EDGE_W_N_S() => [
 
     '<td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>',
     '<td colspan=2 rowspan=4 class="##class## eb " style="##bg##">&nbsp;</td>',
-
     '',
-
     '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
-   
     '',
    ],
+
+  ###########################################################################
+  # S_E_W
 
   EDGE_S_E_W() => [
-
     '<td colspan=4 rowspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>',
-
     '',
-
     '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' ."\n".
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
-   
     '',
    ],
 
-  EDGE_N_E_W() => [
+  EDGE_S_E_W() + EDGE_END_S() => [
+    '<td colspan=4 rowspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>',
+    '',
+    '<td colspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' ."\n".
+    ' <td colspan=2 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
+    ' <td colspan=4 class="##class## v"##edgecolor##>&nbsp;v</td>',
+   ],
 
+  EDGE_S_E_W() + EDGE_START_S() => [
+    '<td colspan=4 rowspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>',
+    '',
+    '<td colspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' ."\n".
+    ' <td colspan=2 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
+    ' <td colspan=4 class="##class## eb"></td>',
+   ],
+
+  EDGE_S_E_W() + EDGE_END_E() => [
+    '<td colspan=3 rowspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>' . "\n" .
+    ' <td rowspan=4 class="##class## va"##edgecolor##>&gt;</td>',
+    '',
+    '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' ."\n".
+    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
+    '',
+   ],
+
+
+  ###########################################################################
+  # N_E_W
+
+  EDGE_N_E_W() => [
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##borderv##;##bg##">&nbsp;</td>' ."\n".
     '<td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##borderv##; border-bottom: ##border##;##bg##">&nbsp;</td>',
-
     '',
-
     '<td colspan=4 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
-   
+    '',
+   ],
+
+  EDGE_N_E_W() + EDGE_END_N() => [
+    ' <td colspan=4 class="##class## hat"##edgecolor##>&nbsp;^</td>' . "\n",
+    ' <td colspan=2 class="##class## eb" style="border-bottom: ##borderv##;##bg##">&nbsp;</td>' ."\n".
+    '<td colspan=2 class="##class## eb" style="border-left: ##borderv##; border-bottom: ##border##;##bg##">&nbsp;</td>',
+    '',
+    '<td colspan=4 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
+    '',
+   ],
+
+  EDGE_N_E_W() + EDGE_START_N() => [
+    ' <td colspan=4 class="##class## eb"></td>' . "\n",
+    ' <td colspan=2 class="##class## eb" style="border-bottom: ##borderv##;##bg##">&nbsp;</td>' ."\n".
+    '<td colspan=2 class="##class## eb" style="border-left: ##borderv##; border-bottom: ##border##;##bg##">&nbsp;</td>',
+    '',
+    '<td colspan=4 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
     '',
    ],
 
@@ -1081,6 +1155,12 @@ sub _correct_size
     $self->{w}++ if $type == EDGE_HOR;
     $self->{h}++ if $type == EDGE_VER;
     }
+
+  # make joints bigger if they got arrows
+  my $ah = $self->{type} & EDGE_ARROW_HOR;
+  my $av = $self->{type} & EDGE_ARROW_VER;
+  $self->{w}++ if $ah && ($type == EDGE_S_E_W || $type == EDGE_N_E_W);
+  $self->{h}++ if $av && ($type == EDGE_E_N_S || $type == EDGE_W_N_S);
 
   my $style = $self->{edge}->attribute('style') || 'solid';
 

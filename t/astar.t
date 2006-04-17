@@ -19,11 +19,10 @@ can_ok ("Graph::Easy", qw/
   _astar_edge_type
   /);
 
-can_ok ("Graph::Easy::Astar::Node", qw/
+can_ok ("Graph::Easy::Heap", qw/
   new
-  cmp
-  val
-  heap
+  extract_top
+  add
   /);
 
 use Graph::Easy::Edge::Cell qw/  
@@ -65,9 +64,9 @@ is (&$typ( 2,0, 1,0, 1,1 ), EDGE_S_E, 'EDGE_S_E');
 is (&$typ( 0,0, 1,0, 1,-1 ), EDGE_N_W, 'EDGE_N_W');
 is (&$typ( 1,-1, 1,0, 0,0 ), EDGE_N_W, 'EDGE_N_W');
 
-print &$typ( 1,2, 2,2, 2,1),"\n";
-print &$typ( 0,2, 1,2, 2,2),"\n";
-print &$typ( 0,1, 0,2, 1,2),"\n";
+#print &$typ( 1,2, 2,2, 2,1),"\n";
+#print &$typ( 0,2, 1,2, 2,2),"\n";
+#print &$typ( 0,1, 0,2, 1,2),"\n";
 
 }
 

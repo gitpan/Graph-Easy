@@ -528,11 +528,24 @@ sub _link_lists
     for my $node_b (@$right)
       {
       my $edge = $e->new( { style => $style, name => $label } );
-      $edge->set_attributes($edge_atr);
+
+      $graph->add_edge ( $node, $node_b, $edge );
+
+      if (!ref($edge_atr))
+	{
+	# deferred parsing with the object as param:
+        my $out = $self->_parse_attributes($edge_atr, $edge);
+        return undef if $self->{error};
+        $edge->set_attributes($out);
+        }
+      else
+        {
+        $edge->set_attributes($edge_atr);
+        }
+
       # "<--->": bidirectional
       $edge->bidirectional(1) if $edge_bd;
       $edge->undirected(1) if $edge_un;
-      $graph->add_edge ( $node, $node_b, $edge );
       }
     }
 
@@ -866,6 +879,8 @@ sub _parse_attributes
 
   $text = $self->_clean_attributes($text);
   my $qr_att = $self->_match_single_attribute();
+
+  return {} if $text eq '';
 
   while ($text ne '')
     {

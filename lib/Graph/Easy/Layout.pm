@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 #############################################################################
 #############################################################################
@@ -238,7 +238,7 @@ sub _follow_chain
 sub _find_chains
   {
   # Track all node chains (A->B->C etc), trying to find the longest possible
-  # node chain.
+  # node chain. Returns (one of) the root node(s) of the graph.
   my $self = shift;
 
   print STDERR "# Tracking chains\n" if $self->{debug};
@@ -257,21 +257,34 @@ sub _find_chains
     $n->{_chain} = undef;				# reset chain info
     $has_origin = 0;
     $has_origin = 1 if defined $n->{origin} && $n->{origin} != $n;
+#    $p->{$n->{name}} = [ $n->has_predecessors(), $has_origin, keys %{$n->{children}} || 0];
     $p->{$n->{name}} = [ $n->has_predecessors(), $has_origin ];
     }
 
   my $done = 0; my $todo = scalar keys %{$self->{nodes}};
 
+  # the node where the layout should start
+  my $root;
+
   # Start at nodes with no predecessors (starting points) and then do the rest:
   for my $name (sort {
-    # nodes that have an origin come last
     my $aa = $p->{$a};
     my $bb = $p->{$b};
+    # nodes that have an origin come last
     $aa->[1] <=> $bb->[1] ||
-    $aa->[0] <=> $bb->[0] || $a cmp $b 
+#    # nodes with children come first
+#    $aa->[2] <=> $bb->[2] ||
+    # nodes with no predecessorts are to be prefered 
+    $aa->[0] <=> $bb->[0] ||
+    # last resort, alphabetically sorted
+    $a cmp $b 
    } keys %$p)
     {
     my $n = $self->{nodes}->{$name};
+
+#    print STDERR "# tracing chain from $name (", join(", ", @{$p->{$name}}),")\n";
+
+    $root = $n unless defined $root;
 
     last if $done == $todo;			# already processed all nodes?
 
@@ -281,7 +294,7 @@ sub _find_chains
 
   print STDERR "# Done all $todo nodes\n" if $done == $todo && $self->{debug};
 
-  $self;
+  $root;
   }
 
 #############################################################################
@@ -331,6 +344,21 @@ sub _dump_stack
     }
   }
 
+sub _action
+  {
+  # generate an action for the action stack toplace a node
+  my ($self, $action, $node, @params) = @_;
+
+  # mark the node as already done
+  delete $node->{_todo};
+
+  # mark all children of $node as processed, too, because they will be
+  # placed at the same time:
+  $node->_mark_as_placed() if keys %{$node->{children}} > 0;
+
+  [ $action, $node, @params ];
+  }
+
 #############################################################################
 # layout the graph
 
@@ -365,18 +393,18 @@ sub layout
     }
 
   # find (longest possible) chains of nodes to "straighten" graph
-  $self->_find_chains();
+  my $root = $self->_find_chains();
 
   ###########################################################################
   # prepare our stack of things we need to do before we are finished
 
-  my @todo;				# action stack
+  # action stack, place root 1st if it is known
+  my @todo = $self->_action( ACTION_NODE, $root, 0 ) if ref $root;
 
   if ($self->{debug})
     {
     print STDERR "#  Generated the following chains:\n";
-
-  for my $chain (sort { $a->{len} <=> $b->{len} } values %{$self->{chains}})
+    for my $chain (sort { $a->{len} <=> $b->{len} } values %{$self->{chains}})
       {
       $chain->dump('  ');
       }
@@ -394,8 +422,15 @@ sub layout
   # take longest chain, resolve it and all "connected" chains, repeat until
   # heap is empty
 
-  for my $chain (sort { $b->{len} <=> $a->{len} || $a->{start}->{name} cmp $b->{start}->{name} } 
-     values %{$self->{chains}})
+  for my $chain (sort { 
+
+     # longest chains first
+     $b->{len} <=> $a->{len} ||
+     # chains on nodes that do have an origin come later
+     (defined($a->{start}->{origin}) <=> defined ($b->{start}->{origin})) ||
+     $a->{start}->{name} cmp $b->{start}->{name} 
+
+     } values %{$self->{chains}})
     {
     print STDERR "# laying out chain $chain->{id} (len $chain->{len})\n" if $self->{debug};
 

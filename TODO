@@ -12,22 +12,40 @@ Important short-term TODO:
   + don't build chains across groups
   + when having edges with and without flow, track chains only for these with
     a flow (to stop non-flow edges taking the space first and blocking it)
+  + route multiple edges to/from a node in the proper order (shortest first)
+  + edges with no specific start/end port should not block ports that
+    are reserved for edges with a start/end port number
+  + placing a node with an origin/offset inside another node results in
+    endless loops as this condition is not checked and the placement
+    of the grandparent node will fail, always
+
+* classnames: "Second" and "second" are the same class, but as_txt output
+               should output the class as it was input.
+
+* it seems not possible to set class-styles on anon nodes:
+  node.anon { fill: red; } [ ] --> [ A ]
 
 * v-- and --^ edges in HTML (mis-aligned arrows)
   (complete edge-arrow alignment in HTML)
 
+* joints + labels on edges
+
 * as_ascii: use custom text-wrap (Text::Wrap is well, buggy)
 
-* as_html: handle multi-celled vertical edges with groups correctly
-* as_html: shift arrows on hor edge end/starts (non-short) left/right, too
+* as_html: 
+  + handle multi-celled vertical edges with groups correctly
+  + shift arrows on hor edge end/starts (non-short) left/right, too
+  + output of node-clusters is slightly wrong
+  + there is no space between two nodes placed next (with filler
+    cell) to each other. Make filler cells output a &nbsp;?
+  + bidir. self-loops are rendered with only one arrow: [A] <--> [A]
+  + define missing HTML edge pieces: CROSS sections with end/start points
+  + define JOINTs with start/end pieces (6 for each joints, making 24 types)
+  + implement HTML nodes as triangles, house, etc. using slanted edges
 
 * fix nesting with pod-formatted labels
 * as_ascii: implement pod-formatted labels (*bold*, /italic/,
   _underline_, -l-i-n-e-t-h-r-o-u-g-h-, ~overline~, "code")
-
-* if a "shared start point" edge is leading past a node where another, also
-  shared edge leads, a joint should be created right-away next to the
-  target node (see "A23" in todo/tree2.txt)
 
 * edges between groups (ala "( 1 [A ]) -> ( 2 [B] )") or between a node
   and a group are missing in HTML, ASCII and SVG.
@@ -36,17 +54,6 @@ Important short-term TODO:
   just to draw the right/bottom border pieces)
   (we might put these "invisible" nodes into a different "cells" field,
    which will be rendered, but not queried for path finding etc)
-
-* implement HTML nodes as triangles, house, etc. using slanted edges
-
-* define missing HTML edge pieces: CROSS/JOINT sections w/ end/start points
-
-* as_html(): output of node-clusters is slightly wrong
-
-* as_html(): there is no space between two nodes placed next (with filler
-	     cell) to each other. Make filler cells output a &nbsp;?
-
-* as_html(): bidir. self-loops are rendered with only one arrow: [A] <--> [A]
 
 * as_txt(): the following are wrong as txt:
   + 3_autosplit_hang.txt
@@ -70,7 +77,6 @@ Important short-term TODO:
 Tests:
 
 * test the new graphviz output (inter-group links and joints)
-* test \r, \l and \c in HTML output
 
 Parser:
 
@@ -87,6 +93,10 @@ Parser:
 * quoting of "[" and "{" inside edge labels ala:
 
   [ A ] -- label \[ 8 ] --> [ B ]
+
+* graphviz parsing of lingering attributes:
+  [ label="Berlin" ]
+  "Bonn"	// should be shown as "Berlin"
 
 Output:
 
@@ -114,6 +124,7 @@ Output:
 
 * as_txt(): 
   + output of node clusters and node chains is not optimal
+* as_ascii()/as_boxart(): 
   + better support for different shapes (circle, box, polygon etc)
   + text-styles: underline, overline, strike-through, italic and bold
 * as_graphviz(): (these things seem to be actually not possible in Graphviz)
@@ -159,7 +170,7 @@ Layout:
 Rendering/Layout:
 
 * allow "align: center, middle|top|bottom" for vertical alignment of labels.
-* add padding attributes (especially usefull for HTML output)
+* add padding attributes (especially usefull for HTML/SVG output)
 * add "shape" for groups:
   + rect
   + compact (the default, what it is now)
@@ -174,7 +185,9 @@ General:
 
 	[ Red ] { class: red green; } -> [ Green ] { class: green red; }
 
-* add pseudo-class "any { color: red; }"
+* add pseudo-class "any { color: red; }"? Better allow class selectors.
+  + .cities (all objects of class cities)
+  + #id (object with ID id)
 
 * implement pseudo-class "step" for animations (see POD)
 
@@ -184,34 +197,7 @@ Optimizing:
   to avoid the dilemma that we need them from both Node and Graph.
   Likewise, some routines used by objects (e.g. graph, node etc) should
   be in a super-package and inherited)
-* write an optimizer for already laid out graphs to optimize layout
+* improve the after-layout optimizer
 * less memory: store border and edge styles as ints instead of "solid" etc
 * use AUTOLOAD for accessors in Node.pm: most are never used by normal code
 
-* write our own Heap (which doesn't need objects) or use Heap::Simple:
-  timing from todos/big.txt:
- Total Elapsed Time = 2.845439 Seconds
-   User+System Time = 2.845439 Seconds
- Exclusive Times
- %Time ExclSec CumulS #Calls sec/call Csec/c  Name
-  27.4   0.782  3.392     62   0.0126 0.0547  Graph::Easy::_find_path_astar  
-  15.1   0.430  0.430 179301   0.0000 0.0000  Graph::Easy::Astar::Node::cmp  *
-  14.8   0.423  1.042  15380   0.0000 0.0001  Heap::Binary::heapdown         *
-  14.2   0.406  0.411  15327   0.0000 0.0000  Graph::Easy::_astar_near_nodes
-  11.1   0.317  0.486 122985   0.0000 0.0000  Heap::Binary::moveto           *
-  7.91   0.225  0.225  89840   0.0000 0.0000  Graph::Easy::_astar_distance
-  7.77   0.221  0.221 138373   0.0000 0.0000  Graph::Easy::Astar::Node::heap *
-  4.92   0.140  0.436  17788   0.0000 0.0000  Heap::Binary::heapup           *
-  4.25   0.121  0.121  17788   0.0000 0.0000  Graph::Easy::Astar::Node::new  *
-  4.22   0.120  0.120     62   0.0019 0.0019  Graph::Easy::_astar_boundaries
-  2.78   0.079  0.384      1   0.0792 0.3837  Graph::Easy::_as_ascii
-  2.53   0.072  0.072  15957   0.0000 0.0000  Graph::Easy::get_attribute
-  2.39   0.068  0.086  17788   0.0000 0.0000  Graph::Easy::_astar_modifier
-  2.07   0.059  0.058    464   0.0001 0.0001  Graph::Easy::Node::_near_places
-  2.04   0.058  0.130   9028   0.0000 0.0000  Graph::Easy::Node::attribute
-  1.83   0.052  0.488  17788   0.0000 0.0000  Heap::Binary::add
-  1.41   0.040  0.070     34   0.0012 0.0021  Graph::Easy::BEGIN
-  1.02   0.029  0.072      1   0.0287 0.0721  Graph::Easy::_prepare_layout
-  0.98   0.028  0.032   1217   0.0000 0.0000  Graph::Easy::Edge::Cell::_init
-  0.95   0.027  1.122  15389   0.0000 0.0001  Heap::Binary::extract_top
-  0.74   0.021  0.021  17365   0.0000 0.0000  UNIVERSAL::isa

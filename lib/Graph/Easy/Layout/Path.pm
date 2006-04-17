@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 #############################################################################
 #############################################################################
@@ -407,12 +407,20 @@ sub _find_node_place
   # minlen = 2 => min_dist = 3, etc
   $min_dist = ($edge->attribute('minlen')||1) + 1 if ref($edge);
 
-  my @tries;
-  if (ref($parent) && defined $parent->{x})
+  # if the node has outgoing edges (which might be shared)
+  if (!ref($edge))
     {
-    my $dir = undef; $dir = $edge->flow() if ref($edge);
+    (undef,$edge) = each %{$node->{edges}} if keys %{$node->{edges}} > 0;
+    }
 
-    print STDERR " from $parent->{name} to $node->{name}: edge $edge dir $dir\n" if $self->{debug};
+  my $dir = undef; $dir = $edge->flow() if ref($edge);
+
+  my @tries;
+#  if (ref($parent) && defined $parent->{x})
+  if (keys %{$node->{edges}} > 0)
+    {
+    my $src_node = $parent; $src_node = $edge->{from} if ref($edge) && !ref($parent);
+    print STDERR "#  from $src_node->{name} to $node->{name}: edge $edge dir $dir\n" if $self->{debug};
 
     # if there are more than one edge to this node, and they share a start point,
     # move the node at least 3 cells away to create space for the joints
@@ -429,12 +437,13 @@ sub _find_node_place
     my @shared_nodes;
     @shared_nodes = $from->nodes_sharing_start($s_p,@ss_p) if defined $s_p && @ss_p > 0;
 
-    print STDERR "# $parent->{name} shares an edge start with ", scalar @shared_nodes, " other nodes\n"
+    print STDERR "# $src_node->{name} shares an edge start with ", scalar @shared_nodes, " other nodes\n"
 	if $self->{debug};
 
     if (@shared_nodes > 1)
       {
       $min_dist = 3 if $min_dist < 3;				# make space
+      $min_dist++ if $edge->label() ne '';			# make more space for the label
 
       # if we are the first shared node to be placed
       my $placed = $self->_placed_shared(@shared_nodes);
@@ -475,18 +484,23 @@ sub _find_node_place
 
     @shared_nodes = $to->nodes_sharing_end($s_p,@ss_p) if defined $s_p && @ss_p > 0;
 
-    print STDERR "# $parent->{name} shares an edge end with ", scalar @shared_nodes, " other nodes\n"
+    print STDERR "# $src_node->{name} shares an edge end with ", scalar @shared_nodes, " other nodes\n"
 	if $self->{debug};
 
     if (@shared_nodes > 1)
       {
       $min_dist = 3 if $min_dist < 3;
+      $min_dist++ if $edge->label() ne '';			# make more space for the label
 
-      # if we are the first shared node to be placed
+      # if the node to be placed is not in the list to be placed, it is the end-point
+      
+      # see if we are the first shared node to be placed
       my $placed = $self->_placed_shared(@shared_nodes);
 
-      if (defined $placed)
-        {
+#      print STDERR "# "; for (@shared_nodes) { print $_->{name}, " "; } print "\n";
+
+      if ((grep( $_ == $node, @shared_nodes)) && defined $placed)
+	{
         # we are not the first, so skip the placement below
 	# instead place on the same column/row as already placed node(s)
         my ($bx, $by) = @$placed;
@@ -515,7 +529,10 @@ sub _find_node_place
         return 0;			# found place already
 	} # end we-are-the-first-to-be-placed
       }
+    }
 
+  if (ref($parent) && defined $parent->{x})
+    {
     @tries = $parent->_near_places($cells, $min_dist, undef, 0, $dir);
 
     print STDERR "# Trying chained placement of $node->{name} with min distance $min_dist\n" if $self->{debug};
@@ -689,11 +706,14 @@ sub _trace_path
   my $coords = $self->_find_path ($src, $dst, $edge);
 
   # found no path?
-  if (!defined $coords || scalar @$coords == 0)
+  if (!defined $coords)
     {
     print STDERR "# Unable to find path from $src->{name} ($src->{x},$src->{y}) to $dst->{name} ($dst->{x},$dst->{y})\n" if $self->{debug};
     return undef;
     }
+
+  # path is empty, happens for sharing edges with only a joint
+  return 1 if scalar @$coords == 0;
 
   # Create all cells from the returned list and score path (lower score: better)
   my $i = 0;

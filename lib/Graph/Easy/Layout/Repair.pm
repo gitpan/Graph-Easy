@@ -10,7 +10,7 @@ package Graph::Easy::Layout::Repair;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 #############################################################################
 #############################################################################
@@ -36,7 +36,7 @@ sub _edges_into_groups
   $self;
   }
 
-sub _splice_nodes
+sub _repair_nodes
   {
   # Splicing the rows/columns to add filler cells will have torn holes into
   # multi-edges nodes, so we insert additional filler cells.
@@ -57,9 +57,8 @@ sub _splice_nodes
       my $x = $cell->{x} - 1; my $y = $cell->{y}; 
 
 #      print STDERR "# inserting filler at $x,$y for $cell->{node}->{name}\n";
-      my $filler = Graph::Easy::Node::Cell->new( 
-	    node => $cell->{node}, x => $x, y => $y );
-      $cells->{"$x,$y"} = $filler;
+      $cells->{"$x,$y"} = 
+        Graph::Easy::Node::Cell->new(node => $cell->{node}, x => $x, y => $y );
       }
 
     # we have " [ empty ]  "
@@ -69,9 +68,8 @@ sub _splice_nodes
       my $x = $cell->{x}; my $y = $cell->{y} - 1;
 
 #      print STDERR "# inserting filler at $x,$y for $cell->{node}->{name}\n";
-      my $filler = Graph::Easy::Node::Cell->new( 
-	    node => $cell->{node}, x => $x, y => $y );
-      $cells->{"$x,$y"} = $filler;
+      $cells->{"$x,$y"} = 
+        Graph::Easy::Node::Cell->new(node => $cell->{node}, x => $x, y => $y );
       }
     }
   }
@@ -87,6 +85,7 @@ sub _repair_cell
     Graph::Easy::Edge::Cell->new( 
       type => $type, 
       edge => $edge, x => $x, y => $y, after => $after );
+
   }
 
 sub _splice_edges
@@ -99,16 +98,16 @@ sub _splice_edges
 
   print STDERR "# Reparing spliced layout\n" if $self->{debug};
 
+  # Edge end/start points inside groups are not handled here, but in
+  # _repair_group_edge()
+
   # go over the old layout, because the new cells were inserted into odd
   # rows/columns and we do not care for these:
   for my $cell (sort { $a->{x} <=> $b->{x} || $a->{y} <=> $b->{y} } values %$cells)
     {
     next unless $cell->isa('Graph::Easy::Edge::Cell');
-  
-    #EDGE_S_E_W	=> 7,		# -,-	three-sided corner (S to W/E)
-    #EDGE_N_E_W	=> 8,		# -'-	three-sided corner (N to W/E)
-    #EDGE_E_N_S	=> 9,		#  |-   three-sided corner (E to S/N)
-    #EDGE_W_N_S	=> 10,		# -|	three-sided corner (W to S/N)
+ 
+    my $edge = $cell->{edge}; 
 
     #########################################################################
     # check for "[ JOINT ] [ empty  ] [ edge ]"
@@ -131,7 +130,7 @@ sub _splice_edges
 
       # insert the new piece before the first part of the edge after the joint
       $self->_repair_cell(EDGE_HOR(), $right->{edge},$cell->{x}+1,$y,0)
-        if $cell->{edge} != $right->{edge};
+        if $edge != $right->{edge};
       }
 
     #########################################################################
@@ -150,8 +149,8 @@ sub _splice_edges
         unless $left->isa('Graph::Easy::Edge::Cell');
 
       # insert the new piece before the joint
-      $self->_repair_cell(EDGE_HOR(), $cell->{edge},$cell->{x}+1,$y,$cell)
-        if $cell->{edge} != $left->{edge};
+      $self->_repair_cell(EDGE_HOR(), $edge, $cell->{x}+1,$y,$cell)
+        if $edge != $left->{edge};
       }
 
     #########################################################################
@@ -173,15 +172,10 @@ sub _splice_edges
 
 #      print STDERR "splicing in VER piece below joint at $x, $y\n";
 
-#      for my $c (@{$bottom->{edge}->{cells}})
-#	{
-#	print STDERR $c," ", $c->{type},"\n";
-#	}
-
 	# XXX TODO
       # insert the new piece after the joint
 #      $self->_repair_cell(EDGE_VER(), $bottom->{edge},$x,$cell->{y}+1,0)
-#        if $cell->{edge} != $bottom->{edge}; 
+#        if $edge != $bottom->{edge}; 
       }
 
     #########################################################################
@@ -194,8 +188,8 @@ sub _splice_edges
       my $right = $cells->{"$x,$y"};
 
       # check that both cells belong to the same edge
-      $self->_repair_cell(EDGE_HOR(), $cell->{edge},$cell->{x}+1,$y,$cell)
-        if ($right->isa('Graph::Easy::Edge::Cell') && $cell->{edge} == $right->{edge});
+      $self->_repair_cell(EDGE_HOR(), $edge, $cell->{x}+1,$y,$cell)
+        if ($right->isa('Graph::Easy::Edge::Cell') && $edge == $right->{edge});
       }
     
     #########################################################################
@@ -204,15 +198,18 @@ sub _splice_edges
     #		[ | ]
     $x = $cell->{x}; $y = $cell->{y}+2; 
 
-    next unless exists $cells->{"$x,$y"};
+    if (exists $cells->{"$x,$y"})
+      {
 
-    my $below = $cells->{"$x,$y"};
-    # check that both cells belong to the same edge
-    next unless $below->isa('Graph::Easy::Edge::Cell') && $cell->{edge} == $below->{edge};
+      my $below = $cells->{"$x,$y"};
+      # check that both cells belong to the same edge
+      $self->_repair_cell(EDGE_VER(),$edge,$x,$cell->{y}+1,$cell)
+	if $below->isa('Graph::Easy::Edge::Cell') && $edge == $below->{edge};
+      }
 
-    $self->_repair_cell(EDGE_VER(),$cell->{edge},$x,$cell->{y}+1,$cell)
+    } # end for all cells
 
-    } # for all cells
+  $self;
   }
 
 sub _new_edge_cell
@@ -220,162 +217,126 @@ sub _new_edge_cell
   # create a new edge cell to be spliced into the layout for repairs
   my ($self, $cells, $group, $edge, $x, $y, $after, $type) = @_;
 
-  my $e_cell = Graph::Easy::Edge::Cell->new( 
-	  type => $type + EDGE_SHORT_CELL(), 
-          edge => $edge, x => $x, y => $y, after => $after);
-  $group->del_cell($e_cell);
-  $cells->{"$x,$y"} = $e_cell;
-  }
-
-sub _new_edge_no_group_cell
-  {
-  # create a new edge cell to be spliced into the layout for repairs
-  my ($self, $cells, $edge, $x, $y, $after, $type) = @_;
+  $type += EDGE_SHORT_CELL() if defined $group;
 
   my $e_cell = Graph::Easy::Edge::Cell->new( 
 	  type => $type, edge => $edge, x => $x, y => $y, after => $after);
+  $group->del_cell($e_cell) if defined $group;
   $cells->{"$x,$y"} = $e_cell;
+  }
+
+sub _check_edge_cell
+  {
+  # check a start/end edge cell and if nec. repair it
+  my ($self, $cell, $x, $y, $flag, $type, $match, $check, $where) = @_;
+
+  if (grep { exists $_->{cell_class} && $_->{cell_class} =~ $match } values %$check)
+    {
+    $cell->{type} &= ~ $flag;		# delete the flag
+
+    $self->_new_edge_cell(
+	$self->{cells}, $cell->{edge}->{group}, $cell->{edge}, $x, $y, $where, $type + $flag);
+    }
   }
 
 sub _repair_group_edge
   {
+  # repair an edges inside a group
   my ($self, $cell, $rows, $cols, $group) = @_;
 
   my $cells = $self->{cells};
   my ($x,$y,$doit);
 
-  # repair an edge inside a group
-
   #########################################################################
   # check for " [ empty ] [ |---> ]"
   $x = $cell->{x} - 1; $y = $cell->{y};
 
-  # go over all cells in the "empty" col and check whether there are group
-  # fillers in it that are not "gt" or "gb"
-  $doit = 0;
-  for my $r (values %{$cols->{$x}})
-    {
-    $doit = 1, last if exists $r->{cell_class} && $r->{cell_class} =~ /g. g/;	# "gt gr" etc
-    }
+  $self->_check_edge_cell($cell, $x, $y, EDGE_START_W, EDGE_HOR, qr/g[rl]/, $cols->{$x}, 0)
+    if (($cell->{type} & EDGE_START_MASK) == EDGE_START_W);
 
-  # has start flag and is hor edge piece
-  if ( $doit &&
-	(($cell->{type} & EDGE_START_MASK) == EDGE_START_W))
-    {
-    # delete the start flag on the edge pice
-    $cell->{type} &= ~ EDGE_START_MASK;
+  #########################################################################
+  # check for " [ <--- ] [ empty ]"
+  $x = $cell->{x} + 1;
 
-    $self->_new_edge_cell($cells, $group, $cell->{edge}, $x, $y, 0, 
-	EDGE_HOR() + EDGE_START_W() ); 
-    }
+  $self->_check_edge_cell($cell, $x, $y, EDGE_START_E, EDGE_HOR, qr/g[rl]/, $cols->{$x}, 0)
+    if (($cell->{type} & EDGE_START_MASK) == EDGE_START_E);
 
   #########################################################################
   # check for " [ --> ] [ empty ]"
   $x = $cell->{x} + 1;
 
-  # go over all cells in the "empty" col and check whether there are group
-  # fillers in it that are not "gt" or "gb"
-  $doit = 0;
-  for my $r (values %{$cols->{$x}})
-    {
-    $doit = 1, last if exists $r->{cell_class} && $r->{cell_class} =~ /g. g/;	# "gt gr" etc
-    }
+  $self->_check_edge_cell($cell, $x, $y, EDGE_END_E, EDGE_HOR, qr/g[rl]/, $cols->{$x}, -1)
+    if (($cell->{type} & EDGE_END_MASK) == EDGE_END_E);
 
-  # has end flag and is hor edge piece
-  if ( $doit &&
-	(($cell->{type} & EDGE_END_MASK) == EDGE_END_E))
-    {
-    # delete the end flag on the edge pice
-    $cell->{type} &= ~ EDGE_END_MASK;
+  #########################################################################
+  # check for " [ empty ] [ <-- ]"
+  $x = $cell->{x} - 1;
 
-    $self->_new_edge_cell($cells, $group, $cell->{edge}, $x, $y, -1, 
-	EDGE_HOR() + EDGE_END_E() ); 
-    }
+  $self->_check_edge_cell($cell, $x, $y, EDGE_END_W, EDGE_HOR, qr/g[rl]/, $cols->{$x}, -1)
+    if (($cell->{type} & EDGE_END_MASK) == EDGE_END_W);
+
+  #########################################################################
+  #########################################################################
+  # vertical cases
 
   #########################################################################
   # check for [empty] 
-  #           [ |\n|\n ]
+  #           [ | ]
   $x = $cell->{x}; $y = $cell->{y} - 1;
 
-  # go over all cells in the "empty" row and check whether there are group
-  # fillers in it that are not "gt" or "gb"
-  $doit = 0;
-  for my $r (values %{$rows->{$y}})
-    {
-    $doit = 1, last if exists $r->{cell_class} && $r->{cell_class} =~ /g. g/;	# "gt gr" etc
-    }
-
-  # has start flag and is ver edge piece
-  if ( $doit &&
-	(($cell->{type} & EDGE_START_MASK) == EDGE_START_N))
-    {
-    # delete the start flag on the edge pice
-    $cell->{type} &= ~ EDGE_START_MASK;
-
-    $self->_new_edge_cell($cells, $group, $cell->{edge}, $x, $y, 0, 
-	EDGE_VER() + EDGE_START_N() );
-    }
+  $self->_check_edge_cell($cell, $x, $y, EDGE_START_N, EDGE_VER, qr/g[tb]/, $rows->{$y}, 0)
+    if (($cell->{type} & EDGE_START_MASK) == EDGE_START_N);
 
   #########################################################################
-  # check for [ |\n|\nv ]
+  # check for [ |] 
+  #           [ empty ]
+  $y = $cell->{y} + 1;
+
+  $self->_check_edge_cell($cell, $x, $y, EDGE_START_S, EDGE_VER, qr/g[tb]/, $rows->{$y}, 0)
+    if (($cell->{type} & EDGE_START_MASK) == EDGE_START_S);
+
+  #########################################################################
+  # check for [ v ]
   #           [empty] 
-  $x = $cell->{x}; $y = $cell->{y} + 1;
+  $y = $cell->{y} + 1;
 
-  # go over all cells in the "empty" row and check whether there are group
-  # fillers in it that are not "gt" or "gb"
-  $doit = 0;
-  for my $r (values %{$rows->{$y}})
-    {
-    $doit = 1, last if exists $r->{cell_class} && $r->{cell_class} =~ /g. g/;	# "gt gr" etc
-    }
+  $self->_check_edge_cell($cell, $x, $y, EDGE_END_S, EDGE_VER, qr/g[tb]/, $rows->{$y}, -1)
+    if (($cell->{type} & EDGE_END_MASK) == EDGE_END_S);
 
-  # has end flag and is hor edge piece
-  if ( $doit &&
-	(($cell->{type} & EDGE_END_MASK) == EDGE_END_S))
-    {
-    # delete the start flag on the edge pice
-    $cell->{type} &= ~ EDGE_END_MASK;
+  #########################################################################
+  # check for [ empty ]
+  #           [ ^     ] 
+  $y = $cell->{y} - 1;
 
-    $self->_new_edge_cell($cells, $group, $cell->{edge}, $x, $y, -1, 
-	EDGE_VER() + EDGE_END_S() ); 
-    }
+  $self->_check_edge_cell($cell, $x, $y, EDGE_END_N, EDGE_VER, qr/g[tb]/, $rows->{$y}, -1)
+    if (($cell->{type} & EDGE_END_MASK) == EDGE_END_N);
 
   }
 
 sub _repair_edge
   {
-  # repair a edge outside a group
+  # repair an edge outside a group
   my ($self, $cell, $rows, $cols) = @_;
 
   my $cells = $self->{cells};
-  my ($x,$y,$doit);
 
   #########################################################################
   # check for [ |\n|\nv ]
   #	        [empty]	... [non-empty]
   #	        [node]
 
-  $x = $cell->{x}; $y = $cell->{y} + 1;
+  my $x = $cell->{x}; my $y = $cell->{y} + 1;
 
   my $below = $cells->{"$x,$y"}; 		# must be empty
 
   if  (!ref($below) && (($cell->{type} & EDGE_END_MASK) == EDGE_END_S))
     {
-    # go over all cells in the "empty" row and check whether there are any
-    # cells in it
-    $doit = 0;
-    for my $r (values %{$rows->{$y}})
+    if (grep { exists $_->{cell_class} && $_->{cell_class} =~ /g[tb]/ } values %{$rows->{$y}})
       {
-      $doit = 1, last if exists $r->{cell_class} && $r->{cell_class} =~ /g. g/;	# "gt gr" etc
-      }
+      # delete the start flag
+      $cell->{type} &= ~ EDGE_END_S;
 
-    # has end flag and is ver edge piece
-    if ($doit)
-      {
-      # delete the start flag on the edge pice
-      $cell->{type} &= ~ EDGE_END_MASK;
-
-      $self->_new_edge_no_group_cell($cells, $cell->{edge}, $x, $y, -1, 
+      $self->_new_edge_cell($cells, undef, $cell->{edge}, $x, $y, -1, 
           EDGE_VER() + EDGE_END_S() );
       }
     }
@@ -394,6 +355,9 @@ sub _repair_edges
   for my $cell (sort { $a->{x} <=> $b->{x} || $a->{y} <=> $b->{y} } values %$cells)
     {
     next unless $cell->isa('Graph::Easy::Edge::Cell');
+
+    # skip odd positions
+    next unless ($cell->{x} & 1) == 0 && ($cell->{y} & 1) == 0; 
 
     my $group = $cell->group();
 
@@ -441,7 +405,7 @@ sub _fill_group_cells
   $self->{cells} = $cells;		# override with new cell layout
 
   $self->_splice_edges();		# repair edges
-  $self->_splice_nodes();		# repair multi-celled nodes
+  $self->_repair_nodes();		# repair multi-celled nodes
 
   my $c = 'Graph::Easy::Group::Cell';
   for my $cell (values %{$self->{cells}})
@@ -610,7 +574,7 @@ Put the edges into the appropriate group and class.
 
 	$graph->_assign_ranks();
 
-=head2 _splice_nodes()
+=head2 _repair_nodes()
 
 Splicing the rows/columns to add filler cells will have torn holes into
 multi-edges nodes, so we insert additional filler cells to repair this.

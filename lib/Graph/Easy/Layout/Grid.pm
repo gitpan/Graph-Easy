@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Grid;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 #############################################################################
@@ -184,9 +184,7 @@ sub _prepare_layout
 #        print STDERR "# store back $sizes[$i] to row ", $i+$y,"\n";
         $rows->{$i+$y} = $sizes[$i];
 	}
-	 
       }
-
     } 
 
   # Now run through all rows/columns and get their absolute pos by taking all

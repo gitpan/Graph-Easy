@@ -183,6 +183,23 @@ sub _unplace
   $self;
   }
 
+sub _mark_as_placed
+  {
+  # for creating an action on the action stack we also need to recursively
+  # mark all our children as already placed:
+  my ($self) = @_;
+
+  no warnings 'recursion';
+
+  delete $self->{_todo};
+
+  for my $child (values %{$self->{children}})
+    {
+    $child->_mark_as_placed();
+    }
+  $self;
+  }
+
 sub _place_children
   {
   # recursively place node and its children
@@ -345,14 +362,14 @@ sub _wrapped_label
     $cols = int(sqrt(length($name)) * 1.4);
     $cols = 2 if $cols < 2;
 
-    print STDERR "# Wrapping: min-columns is $cols\n";
+    # print STDERR "# Wrapping: min-columns is $cols\n";
  
     # find longest word, and set columns to it if longer
     my $l;
 
     $name =~ s/([^-\s]+)/ $l = $1, $cols = length($1)+2 if length($1)+2 > $cols; $1; /eg;
 
-    print STDERR "# longest word is '$l'\n";
+    # print STDERR "# longest word is '$l'\n";
     }
   else
     {
@@ -494,7 +511,6 @@ sub _label_as_html
   my ($self) = @_;
 
   my $align = $self->attribute('align') || $self->default_attribute('align') || 'center';
-
   my $text_wrap = $self->attribute('text-wrap') || 'none';
 
   my ($lines,$aligns);
@@ -1698,13 +1714,12 @@ sub set_attribute
     $self->sub_class($val);
     return $val;
     }
-  if ($name eq 'group')
+  elsif ($name eq 'group')
     {
-    $self->add_to_groups($val);
+    $self->add_to_group($val);
     return $val;
     }
-
-  if ($name eq 'border')
+  elsif ($name eq 'border')
     {
     my $c = $self->{att};
 

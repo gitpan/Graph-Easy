@@ -1,5 +1,43 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-04-17 v0.44 Tels 1801 tests
+  * new/changed attribute:
+    + add 'group' for nodes
+    + only allow /[a-z][a-z0-9_]+/ for classnames as documented
+  * Base: warn() uses Carp::carp instead of plain warn()
+  * we no longer need Heap: we have our own el-cheapo Heap class. And it is
+    faster, too, todos/big.txt takes 3.6s vs. 4.2s with v0.43 and Heap::Binary
+  * Layouter fixes:
+    + a short vertical edge starting from a multicell node was rendered as
+      horizontal instead
+    + an edge sharing an end point with another was generated incorrectly if
+      (one of) the other edge(s) was running alongside the starting node (e.g.
+      where we could immidiately create a joint and be done)
+    + likewise for edges splitting up, if a shared edge runs alongside a node,
+      then a joint will be created there immidiately
+    + fix bidiectional edges with a joint as start piece
+    + Don't warn on edges with no cells (on joints, under debug) about being
+      unable to find path
+    + improve placement for nodes where their edges share an end point
+    + improve placement of nodes for shared edges with labels
+  * cleaned up the POD a bit and added a few remarks and notes
+  * as_ascii:
+    + deal with invisible edges at cross sections
+  * as_html:
+    + implement join types with start or end points
+  * fix the repair code that handles edges inside groups:
+    + repairs more cases
+    + is faster by reversing the checks and using grep
+    + cut down on copy&paste code
+  * Edge/Cell: fix arrow_count() for undirected and bidirectional edges
+  * Easy.pm:
+    + fix bug in class_styles() ignoring base class name for multiple
+      classes, affected SVG output
+  * Parser/Graphviz:
+    + relax parsing of node names (G, GROOVY etc are valid w/o quotes) 
+    + allow "graph [ ... ];" (semicolon after attribute section)
+    + remap attributes: graph: rankdir; edge: minlen, dir
+
 2006-03-19 v0.43 Tels 1755 tests
   * add attributes:
     + text-wrap: 'auto': auto wrap label, 'none' is the default

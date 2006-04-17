@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 319;
+   plan tests => 355;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -24,6 +24,8 @@ is ($parser->error(), '', 'no error yet');
 
 opendir DIR, "in" or die ("Cannot read dir 'in': $!");
 my @files = readdir(DIR); closedir(DIR);
+
+my @failures;
 
 eval { require Test::Differences; };
 
@@ -46,6 +48,7 @@ foreach my $f (sort @files)
   if (!defined $graph)
     {
     warn ("Graph input was invalid: " . $parser->error());
+    push @failures, $f;
     next;
     }
   is (scalar $graph->nodes(), $nodes, "$nodes nodes");
@@ -64,6 +67,7 @@ foreach my $f (sort @files)
   if (!
     is ($ascii, $out, "from $f"))
     {
+    push @failures, $f;
     if (defined $Test::Differences::VERSION)
       {
       Test::Differences::eq_or_diff ($ascii, $out);
@@ -79,15 +83,16 @@ foreach my $f (sort @files)
     {
     $txt = readfile("txt/$f");
     }
-  else
-    {
-    # input might have whitespace at front, remove it because output doesn't
-    $txt =~ s/(^|\n)\x20+/$1/g;
-    }
+#  else
+#    {
+#    # input might have whitespace at front, remove it because output doesn't
+#    $txt =~ s/(^|\n)\x20+/$1/g;
+#    }
 
   if (!
     is ($graph->as_txt(), $txt, "$f as_txt"))
     {
+    push @failures, $f;
     if (defined $Test::Differences::VERSION)
       {
       Test::Differences::eq_or_diff ($graph->as_txt(), $txt);
@@ -102,6 +107,16 @@ foreach my $f (sort @files)
   my $debug = $ascii;
   $debug =~ s/\n/\n# /g;
   print "# Generated:\n#\n# $debug\n";
+  }
+
+if (@failures)
+  {
+  print "# !!! Failed the following tests:\n";
+  for my $f (@failures)
+    {
+    print "#      $f\n";
+    }
+  print "# !!!\n\n";
   }
 
 1;
