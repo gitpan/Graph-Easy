@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 
 #############################################################################
 #############################################################################
@@ -734,7 +734,7 @@ sub _join_edge
 
     # the cell must belong to one of the shared edges
     my $e = $cell->{edge}; local $_;
-    next unless grep($e,@$shared);
+    next unless scalar grep { $e == $_ } @$shared;
 
     # make the cell at the current pos a joint
     $cell->_make_joint($edge,$places[$i-1]);
@@ -804,7 +804,7 @@ sub _find_path_astar
     # more than one edge share the same end port, and one of the others was
     # already placed
 
-    print STDERR "#  edge from $edge->{from}->{name} to $edge->{to}->{name} shares port with ",
+    print STDERR "#  edge from $edge->{from}->{name} to $edge->{to}->{name} shares end port with ",
 	scalar @shared, " other edge(s)\n" if $self->{debug};
 
     # if there is one of the already-placed edges running alongside the src
@@ -846,7 +846,7 @@ sub _find_path_astar
     # More than one edge share the same start port, and one of the others was
     # already placed, so we just run along until we catch it up with a joint:
 
-    print STDERR "#  edge from $edge->{from}->{name} to $edge->{to}->{name} shares port with ",
+    print STDERR "#  edge from $edge->{from}->{name} to $edge->{to}->{name} shares start port with ",
 	scalar @shared, " other edge(s)\n" if $self->{debug};
 
     # if there is one of the already-placed edges running alongside the src

@@ -1,9 +1,28 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-07-23 v0.45 Tels 1811 tests
+  * we dont need inc/Module/AutoInstall.pm (this dist has no dependencies)
+  * require at least Perl 5.8.1 for proper Unicode support
+  * add a Build.PL file
+  * fix bug with shared edges and joints (Thanx Florian Lindner!)
+  * fix reparing of edge joints that are next to a node inside a group
+  * add attribute 'root' for graphs
+  * Layouter: if given root node, start there
+  * fix "no_index" in Makefile.PL to not include spurious "directory"'s
+  * Node: fix flow()
+  * as_ascii: fix corners with start/end pieces (add spacing, to make
+	      consistent with all other start/end pieces)
+  * as_boxart: fix rendering of corner pieces (especially for joints)
+  * as_html: render invisible edges truly invisible
+  * adding a node with the name '0' and retrieving it via node('0') works now
+  * Parser/Graphviz: 
+    + 'Bonn' is a valid node name, too ([A-Z][a-z]+) 
+    + handle /* style comments */
+
 2006-04-17 v0.44 Tels 1801 tests
   * new/changed attribute:
     + add 'group' for nodes
-    + only allow /[a-z][a-z0-9_]+/ for classnames as documented
+    + only allow /[a-z][a-z0-9_]+/i for classnames as documented
   * Base: warn() uses Carp::carp instead of plain warn()
   * we no longer need Heap: we have our own el-cheapo Heap class. And it is
     faster, too, todos/big.txt takes 3.6s vs. 4.2s with v0.43 and Heap::Binary

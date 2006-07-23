@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 36;
+   plan tests => 39;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser::Graphviz") or die($@);
@@ -149,10 +149,13 @@ __DATA__
 "Bonn"[color=red]\n"Berlin"->"Frankfurt"|3,Berlin,Bonn,Frankfurt
 " Bonn " -> " Berlin "\n"Berlin" -> "Frankfurt"|3,Berlin,Bonn,Frankfurt
 " Bonn " -> "Berlin" [color=blue] \n"Berlin" -> "Frankfurt"|3,Berlin,Bonn,Frankfurt
+Bonn -> Berlin [color=blue] \nBerlin -> Frankfurt|3,Berlin,Bonn,Frankfurt
 # comments
 " Bonn " -> " Berlin " [ color="#A0a0A0" ] // failed " Bonn " -> [ Ulm ]|2,Berlin,Bonn
 " Bonn " -> " Berlin " [ color="#A0a0A0" ] //80808080 failed [ Bonn ] -> [ Ulm ]|2,Berlin,Bonn
 " Bonn " -> " Berlin " [ color="#A0a0A0" ] //808080 failed [ Bonn ] -> [ Ulm ]|2,Berlin,Bonn
+" Bonn " -> " Berlin " [ color="#A0a0A0" ] /*808080 failed [ Bonn ] -> [ Ulm ]*/|2,Berlin,Bonn
+" Bonn " -> " Berlin " [ color="#A0a0A0" ] /*808080 failed\n [ Bonn ] -> [ Ulm ]*/|2,Berlin,Bonn
 # node chains
 " Bonn " -> " Berlin "\n -> " Kassel "|3,Berlin,Bonn,Kassel
 

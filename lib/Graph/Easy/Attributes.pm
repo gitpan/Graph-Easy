@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 package Graph::Easy;
 
@@ -962,31 +962,40 @@ EOF
   graph => {
 
     flow => [
-      "The graph's general flow direction. Please see the section about <a href='hinting.html#flow'>flow control</a> for reference.",
-      '_direction',
-      'east',
-      'south',
+	"The graph's general flow direction. Please see the section about <a href='hinting.html#flow'>flow control</a> for reference.",
+	'_direction',
+	'east',
+	'south',
      ],
 
     gid => [
-      "A unique ID for the graph. Usefull if you want to include two graphs into one HTML page.",
-      qr/^\d+\z/,
-      '',
-      '123',
+	"A unique ID for the graph. Usefull if you want to include two graphs into one HTML page.",
+	qr/^\d+\z/,
+	'',
+	'123',
      ],
 
     output => [
-      "The desired output format. Only used when calling Graph::Easy::output(), or by mediawiki-graph.",
-      [ qw/ascii html svg graphviz boxart/ ],
-      '',
-      'ascii',
+	"The desired output format. Only used when calling Graph::Easy::output(), or by mediawiki-graph.",
+	[ qw/ascii html svg graphviz boxart/ ],
+	'',
+	'ascii',
      ],
 
     "label-pos" => [
-      "The position of the graph label.",
-      [ qw/top bottom/ ],
-      'top',
-      'bottom',
+	"The position of the graph label.",
+	[ qw/top bottom/ ],
+	'top',
+	'bottom',
+     ],
+
+    "root" => [
+	"The name of the root node, given as hint to the layouter to start the layout there. When not set, the layouter will pick a node at semi-random.",
+	undef,
+	'',
+	'My Node',
+	ATTR_TEXT,
+	"graph { root: B; }\n # B will be at the left-most place\n [ A ] --> [ B ] --> [ C ] --> [ D ] --> [ A ]",
      ],
 
   }, # graph

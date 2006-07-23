@@ -1,23 +1,21 @@
-abstract: 'Render graphs as ASCII, HTML, SVG or Graphviz'
-author: 'Tels <nospam-abuse@bloodgate.com>'
-build_requires:
+abstract: Render graphs as ASCII, HTML, SVG or via Graphviz
+author: Tels <nospam-abuse@bloodgate.com>
+build_requires: 
   Test::More: 0.42
 distribution_type: module
-generated_by: Module::Install version 0.61
+generated_by: Module::Install version 0.63
 license: gpl
 name: Graph-Easy
-no_index:
-  directory:
+no_index: 
+  directory: 
     - examples
-    - directory
     - bench
-    - directory
     - todos
     - inc
     - t
-recommends:
+recommends: 
   Graph::Easy::As_svg: 0.18
-requires:
+requires: 
   Scalar::Util: 1.13
-  perl: 5.8.0
-version: 0.44
+  perl: 5.8.1
+version: 0.45

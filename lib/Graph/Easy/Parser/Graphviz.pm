@@ -6,7 +6,7 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 use base qw/Graph::Easy::Parser/;
 
 use strict;
@@ -45,7 +45,10 @@ sub _unquote
 sub _match_comment
   {
   # match the start of a comment
-  qr/(^|[^\\])\/\//;
+
+  # /* comment */
+  # // comment
+  qr/(\/\*[^\*]*\*\/|(^|[^\\])\/\/)/;
   }
 
 sub _match_node
@@ -53,7 +56,7 @@ sub _match_node
   # Return a regexp that matches something like '"bonn"' or 'bonn' and returns
   # the inner text without (might leave some spaces and quotes)
 
-  qr/\s*("[^"]*"|[a-zA-Z0-9]+[0-9]+|[A-Z]+)/;
+  qr/\s*("[^"]*"|[a-zA-Z0-9]+[0-9]+|[A-Z][a-z]+|[A-Z]+)/;
   }
 
 sub _match_group_start

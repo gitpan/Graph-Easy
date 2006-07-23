@@ -19,20 +19,23 @@ Important short-term TODO:
     endless loops as this condition is not checked and the placement
     of the grandparent node will fail, always
 
+* graphviz: output root property and tests for that
+
 * classnames: "Second" and "second" are the same class, but as_txt output
                should output the class as it was input.
 
 * it seems not possible to set class-styles on anon nodes:
   node.anon { fill: red; } [ ] --> [ A ]
 
-* v-- and --^ edges in HTML (mis-aligned arrows)
-  (complete edge-arrow alignment in HTML)
-
 * joints + labels on edges
 
-* as_ascii: use custom text-wrap (Text::Wrap is well, buggy)
+* as_ascii:
+  + use custom text-wrap (Text::Wrap is well, buggy)
+  + implement shape diamond
 
 * as_html: 
+  + v-- and --^ edges (mis-aligned arrows)
+    (complete edge-arrow alignment in HTML)
   + handle multi-celled vertical edges with groups correctly
   + shift arrows on hor edge end/starts (non-short) left/right, too
   + output of node-clusters is slightly wrong
@@ -95,7 +98,7 @@ Parser:
   [ A ] -- label \[ 8 ] --> [ B ]
 
 * graphviz parsing of lingering attributes:
-  [ label="Berlin" ]
+  node [ label="Berlin" ]
   "Bonn"	// should be shown as "Berlin"
 
 Output:
@@ -152,12 +155,11 @@ Output:
    │ D │
    └───┘
    echo "[A| |C||D| |E]" |perl examples/as_boxart
-   ┌───┬  │───┐
-   │ A │  │ C │
-   └───┼   ───┤
-   │   │  │   │
-   │ D │  │ E │
-   └───┘   ───┘
+   ┌───┤ │───┐
+   │ A │ │ C │
+   └───┼  ───┤
+   │ D │ │ E │
+   └───┘  ───┘
 
 Layout:
 
@@ -199,5 +201,4 @@ Optimizing:
   be in a super-package and inherited)
 * improve the after-layout optimizer
 * less memory: store border and edge styles as ints instead of "solid" etc
-* use AUTOLOAD for accessors in Node.pm: most are never used by normal code
 

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 53;
+   plan tests => 56;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -320,4 +320,20 @@ like ($html,
   qr/class='node' style="text-align: center"><span class="r">Köln<\/span><br \/><span class="r">\(am Rhein\)<\/span><br \/><span class="l">\(NRW\)<\/span><br \/>\(Deutschland\)</,
   'Köln with multiline text');
 
+#############################################################################
+# invisible edges
+
+$graph = Graph::Easy->new();
+
+($A,$B,$edge) = $graph->add_edge('Hamm', 'Hagen');
+
+$edge->set_attribute('style','invisible');
+$edge->set_attribute('label','foobarbaz');
+$edge->set_attribute('color','red');
+
+$html = $graph->as_html_file();
+
+unlike ($html, qr/invisible/, 'no border on invisible edges');
+unlike ($html, qr/#ff0000/, 'no color on invisible edges');
+unlike ($html, qr/foobarbaz/, 'no label on invisible edges');
 

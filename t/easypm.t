@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 110;
+   plan tests => 111;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -319,6 +319,8 @@ $node = $graph->add_node($node);
 is ($graph->nodes(), '1', 'one node');
 
 is ($graph->{nodes}->{0}, $node, 'got inserted with name 0');
+
+is ($graph->node('0'), $node, 'found node 0 again');
 
 1; # all tests done
 

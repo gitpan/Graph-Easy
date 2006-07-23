@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.25';
+$VERSION = '0.26';
 
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
@@ -43,6 +43,7 @@ sub _init
   # $self->{dx} = 0;		# relative to no other node
   # $self->{dy} = 0;
   # $self->{origin} = 0;
+  # $self->{group} = undef;
   
   $self;
   }
@@ -837,7 +838,7 @@ sub flow
   # if flow is absolute, return it early
   return $flow if defined $flow && $flow =~ /^(0|90|180|270)\z/;
   return Graph::Easy->_direction_as_number($flow)
-    if defined $flow && $flow =~ /^(south|north|up|down|east|west|0|90|180|270)\z/;
+    if defined $flow && $flow =~ /^(south|north|east|west|up|down|left|right)\z/;
 
   # for relative flows, compute the incoming flow as base flow
 
@@ -1199,20 +1200,6 @@ sub y
   $self->{y};
   }
 
-sub pos
-  {
-  my $self = shift;
-
-  ($self->{x}, $self->{y});
-  }
-
-sub offset
-  {
-  my $self = shift;
-
-  ($self->{dx} || 0, $self->{dy} || 0);
-  }
-
 sub width
   {
   my $self = shift;
@@ -1225,6 +1212,28 @@ sub height
   my $self = shift;
 
   $self->{h};
+  }
+
+sub origin
+  {
+  # Returns node that this node is relative to or undef, if not.
+  my $self = shift;
+
+  $self->{origin};
+  }
+
+sub pos
+  {
+  my $self = shift;
+
+  ($self->{x}, $self->{y});
+  }
+
+sub offset
+  {
+  my $self = shift;
+
+  ($self->{dx} || 0, $self->{dy} || 0);
   }
 
 sub columns
@@ -1258,7 +1267,9 @@ sub shape
   {
   my $self = shift;
 
-  my $shape = $self->attribute('shape') || 'rect';
+  my $shape;
+  $shape = $self->{att}->{shape} if exists $self->{att}->{shape};
+  $shape = $self->attribute('shape') || 'rect' unless defined $shape;
   $shape;
   }
 
@@ -1518,14 +1529,6 @@ sub has_predecessors
 
 #############################################################################
 # relatively placed nodes
-
-sub origin
-  {
-  # Returns node that this node is relative to or undef, if not.
-  my $self = shift;
-
-  $self->{origin};
-  }
 
 sub relative_to
   {

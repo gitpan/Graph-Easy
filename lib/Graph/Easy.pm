@@ -6,7 +6,7 @@
 
 package Graph::Easy;
 
-use 5.008000;
+use 5.008001;
 use Graph::Easy::Base;
 use Graph::Easy::Attributes;
 use Graph::Easy::Edge;
@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.44';
+$VERSION = '0.45';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -470,8 +470,8 @@ sub edge
 sub node
   {
   # return node by name
-  my $self = shift;
-  my $name = shift || '';
+  my ($self,$name) = @_;
+  $name = '' unless defined $name;
 
   $self->{nodes}->{$name};
   }
@@ -769,7 +769,7 @@ sub _skip
   my ($self) = shift;
 
   # skip these for CSS
-  qr/^(basename|columns|flow|format|rows|size|offset|origin|label|link|linkbase|(auto)?(link|title)|(node|edge)class|shape|arrow-style|label-color|point-style|text-style|style)\z/;
+  qr/^(basename|columns|flow|format|rows|root|size|offset|origin|label|link|linkbase|(auto)?(link|title)|(node|edge)class|shape|arrow-style|label-color|point-style|text-style|style)\z/;
   }
 
 sub _remap_text_wrap
@@ -1719,7 +1719,7 @@ __END__
 
 =head1 NAME
 
-Graph::Easy - Render graphs as ASCII, HTML, SVG or Graphviz
+Graph::Easy - Render graphs as ASCII, HTML, SVG or via Graphviz
 
 =head1 SYNOPSIS
 
@@ -2526,13 +2526,6 @@ The following fields are set:
 
 	width		width of the SVG in pixels
 	height		height of the SVG in pixels
-
-=head2 nodes()
-
-	my $nodes = $graph->nodes();
-
-In scalar context, returns the number of nodes/vertices the graph has.
-In list context returns a list of all the node objects (as reference).
 
 =head2 sorted_nodes()
 

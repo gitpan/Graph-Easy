@@ -958,9 +958,16 @@ sub as_html
     {
     my $t = $self->{type} & EDGE_TYPE_MASK;
 
-    $code = $self->_html_edge_hor($as) if $t == EDGE_HOR;
-    $code = $self->_html_edge_ver($as) if $t == EDGE_VER;
-    $code = $self->_html_edge_cross($as) if $t == EDGE_CROSS;
+    if ($style ne 'invisible')
+      {
+      $code = $self->_html_edge_hor($as) if $t == EDGE_HOR;
+      $code = $self->_html_edge_ver($as) if $t == EDGE_VER;
+      $code = $self->_html_edge_cross($as) if $t == EDGE_CROSS;
+      }
+    else
+      {
+      $code = [ ' <td colspan=4 rowspan=4 class="##class##">&nbsp;</td>' ];
+      }
 
     if (!defined $code)
       {
@@ -977,7 +984,7 @@ sub as_html
   my $label_style = '';
 
   # only include the label if we are the label cell
-  if ($self->{type} & EDGE_LABEL_CELL)
+  if ($style ne 'invisible' && ($self->{type} & EDGE_LABEL_CELL))
     {
     my $switch_to_center;
     ($label,$switch_to_center) = $self->_label_as_html();

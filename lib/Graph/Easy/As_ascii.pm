@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 sub _u8
   {
@@ -88,7 +88,19 @@ sub _edge_style
   # ===+=== ###+### ....!.... ~~~+~~~ ----+---  ...+... .-.+.-.-
   #    |       |        |        |        :        {       |   
 
-  my $cross_styles = [
+my $cross_styles = [
+  # normal cross 
+  [
+    {
+    'boldsolid' 	=> _u8('3f'),
+    'solidbold' 	=> _u8('42'),
+    'doublesolid' 	=> _u8('6a'),
+    'soliddouble' 	=> _u8('6b'),
+    'dashedsolid' 	=> _u8('24'),
+    'soliddashed' 	=> _u8('34'),
+    'doubledashed' 	=> _u8('67'),
+    'dasheddouble' 	=> _u8('62'),
+    },
     {
     'boldsolid'		=> '+',  
     'dashedsolid'	=> '+',  
@@ -103,17 +115,56 @@ sub _edge_style
     'soliddouble'	=> 'H',  
     'wavesolid'		=> '+',
     },
+  ],
+  undef,	# HOR, cannot happen
+  undef,	# VER, cannot happen
+  undef,
+  undef,
+  undef,
+  undef,
+  # S_E_W -+-
+  #        |
+  [
     {
-    'boldsolid' 	=> _u8('3f'),
-    'solidbold' 	=> _u8('42'),
-    'doublesolid' 	=> _u8('6a'),
-    'soliddouble' 	=> _u8('6b'),
-    'dashedsolid' 	=> _u8('24'),
-    'soliddashed' 	=> _u8('34'),
-    'doubledashed' 	=> _u8('67'),
-    'dasheddouble' 	=> _u8('62'),
+    'solidsolid'		=> _u8('2c'),  
+    'boldbold'			=> _u8('33'),  
+    'doubledouble'		=> _u8('66'),  
+    'dasheddashed'		=> _u8('74'),  
+    'dotteddotted'		=> _u8('00b7'),  
     },
-  ];
+  ],
+  # N_E_W  |
+  #       -+-
+  [ 
+    {
+    'solidsolid'		=> _u8('34'),  
+    'boldbold'			=> _u8('3b'),  
+    'doubledouble'		=> _u8('69'),  
+    'dotteddotted'		=> _u8('00b7'),  
+    },
+  ],
+  # E_N_S  |
+  #        +-
+  #        |
+  [ 
+    {
+    'solidsolid'		=> _u8('1c'),  
+    'boldbold'			=> _u8('23'),  
+    'doubledouble'		=> _u8('60'),  
+    'dotteddotted'		=> ':',  
+    },
+  ],
+  # W_N_S  |
+  #       -+
+  #        |
+  [ 
+    {
+    'solidsolid'		=> _u8('24'),  
+    'boldbold'			=> _u8('2b'),  
+    'doubledouble'		=> _u8('63'),  
+    'dotteddotted'		=> ':',  
+    },
+  ] ];
 
 sub _arrow_style
   {
@@ -128,11 +179,18 @@ sub _arrow_style
 
 sub _cross_style
   {
-  my ($self, $st) = @_;
+  my ($self, $st, $corner_type) = @_;
 
   my $g = $self->{graph}->{_ascii_style} || 0;
 
-  $cross_styles->[$g]->{ $st };
+  # 0 => 1, 1 => 0
+  $g = 1 - $g;
+
+  # for ASCII, one style fist all (e.g a joint has still "+" as corner)
+  $corner_type = 0 unless defined $corner_type;
+  $corner_type = 0 if $g == 1;
+
+  $cross_styles->[$corner_type]->[$g]->{ $st };
   }
 
 sub _insert_label
@@ -339,7 +397,7 @@ sub _draw_cross
     # draw the crossing character only if both lines are visible
     my $cross = $style->[2];
     my $s = $self->{style} . $self->{style_ver};
-    $cross = ($self->_cross_style($s) || $cross) if $self->{style_ver} ne $self->{style};
+    $cross = ($self->_cross_style($s,$type) || $cross); # if $self->{style_ver} ne $self->{style};
 
     $self->_printfb ($fb, 2, $y, $cross);
     }
@@ -386,7 +444,6 @@ sub _draw_corner
     substr($line,-1,1) = $self->_arrow($as, ARROW_DOWN)
       if (($flags & EDGE_END_S) != 0);
     }
-
   $self->_printfb_ver ($fb, 2, $y, $line);
 
   # horizontal piece
@@ -406,9 +463,13 @@ sub _draw_corner
 
   $line = substr($line, 0, $w) if length($line) > $w;
   
-  if ((($flags & EDGE_END_E) != 0) && ($as ne 'none'))
+  substr($line,-1,1) = ' ' if ($flags & EDGE_START_E) != 0;
+  substr($line,0,1) = ' '  if ($flags & EDGE_START_W) != 0;
+
+  if (($flags & EDGE_END_E) != 0)
     {
-    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT);
+    substr($line,-1,1) = ' ' if $as eq 'none';
+    substr($line,-2,2) = $self->_arrow($as, ARROW_RIGHT) . ' ' if $as ne 'none';
     }
   if (($flags & EDGE_END_W) != 0)
     {

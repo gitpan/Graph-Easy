@@ -4,6 +4,7 @@ bench/stress.pl
 bench/test.dot
 bench/test.txt
 CHANGES
+Build.PL
 examples/as_ascii		parse text and output it as ASCII art
 examples/as_boxart_html		parse text and output it as standalone HTML page with box drawing
 examples/as_boxart		parse text and output it as box drawing using unicode
@@ -145,6 +146,7 @@ t/in/4_autosplit_class.txt
 t/in/4_autosplit_empty.txt
 t/in/4_autosplit_offset.txt
 t/in/4_bend_bug.txt
+t/in/4_bug_joint_2.txt
 t/in/4_comma.txt
 t/in/4_cross.txt
 t/in/4_cross_inv.txt
@@ -287,6 +289,7 @@ t/out/4_autosplit_class.txt
 t/out/4_autosplit_empty.txt
 t/out/4_autosplit_offset.txt
 t/out/4_bend_bug.txt
+t/out/4_bug_joint_2.txt
 t/out/4_comma.txt
 t/out/4_cross.txt
 t/out/4_cross_inv.txt
@@ -446,6 +449,7 @@ t/txt/4_2x2nodes.txt
 t/txt/4_autosplit_class.txt
 t/txt/4_autosplit_empty.txt
 t/txt/4_autosplit_offset.txt
+t/txt/4_bug_joint_2.txt
 t/txt/4_comma.txt
 t/txt/4_cross.txt
 t/txt/4_cross_inv.txt
@@ -500,13 +504,11 @@ t/txt/9_flow_south.txt
 t/txt/25_autosplit_empty.txt
 t/use_class.t			test overriding classes in the Parser
 
-inc/Module/AutoInstall.pm
 inc/Module/Install.pm
-inc/Module/Install/AutoInstall.pm
 inc/Module/Install/Base.pm
+inc/Module/Install/Build.pm
 inc/Module/Install/Can.pm
 inc/Module/Install/Fetch.pm
-inc/Module/Install/Include.pm
 inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm

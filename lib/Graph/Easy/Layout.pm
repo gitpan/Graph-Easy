@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.21';
+$VERSION = '0.22';
 
 #############################################################################
 #############################################################################
@@ -263,11 +263,12 @@ sub _find_chains
 
   my $done = 0; my $todo = scalar keys %{$self->{nodes}};
 
-  # the node where the layout should start
-  my $root;
+  # the node where the layout should start, as name
+  my $root_name = $self->attribute('root');
+  my $root;					# as ref to a Node object
 
   # Start at nodes with no predecessors (starting points) and then do the rest:
-  for my $name (sort {
+  for my $name ($root_name, sort {
     my $aa = $p->{$a};
     my $bb = $p->{$b};
     # nodes that have an origin come last
@@ -280,6 +281,8 @@ sub _find_chains
     $a cmp $b 
    } keys %$p)
     {
+    next unless defined $name;		# in case no root was set, first entry
+					# will be undef and must be skipped
     my $n = $self->{nodes}->{$name};
 
 #    print STDERR "# tracing chain from $name (", join(", ", @{$p->{$name}}),")\n";

@@ -122,15 +122,21 @@ sub _splice_edges
       {
       my $right = $cells->{"$x,$y"};
 
-      # when the left one is a joint, the right one must be an edge
-      $self->error('Found non-edge piece right to a joint') 
-        unless $right->isa('Graph::Easy::Edge::Cell');
+      #print STDERR "# at $x,$y\n";
 
-      #print STDERR "splicing in HOR piece to the right of joint at $x, $y\n";
+      # |-> [ empty ] [ node ]
+      if (!$right->isa('Graph::Easy::Node'))
+	{
+        # when the left one is a joint, the right one must be an edge
+        $self->error("Found non-edge piece ($right->{type} $right) right to a joint ($type)") 
+          unless $right->isa('Graph::Easy::Edge::Cell');
 
-      # insert the new piece before the first part of the edge after the joint
-      $self->_repair_cell(EDGE_HOR(), $right->{edge},$cell->{x}+1,$y,0)
-        if $edge != $right->{edge};
+        #print STDERR "splicing in HOR piece to the right of joint at $x, $y\n";
+
+        # insert the new piece before the first part of the edge after the joint
+        $self->_repair_cell(EDGE_HOR(), $right->{edge},$cell->{x}+1,$y,0)
+          if $edge != $right->{edge};
+        }
       }
 
     #########################################################################
@@ -144,13 +150,17 @@ sub _splice_edges
      {
       my $left = $cells->{"$x,$y"};
 
-      # when the left one is a joint, the right one must be an edge
-      $self->error('Found non-edge piece right to a joint') 
-        unless $left->isa('Graph::Easy::Edge::Cell');
+      # [ node ] [ empty ] [ <-| ]
+      if (!$left->isa('Graph::Easy::Node'))
+	{
+        # when the left one is a joint, the right one must be an edge
+        $self->error('Found non-edge piece right to a joint') 
+          unless $left->isa('Graph::Easy::Edge::Cell');
 
-      # insert the new piece before the joint
-      $self->_repair_cell(EDGE_HOR(), $edge, $cell->{x}+1,$y,$cell)
-        if $edge != $left->{edge};
+        # insert the new piece before the joint
+        $self->_repair_cell(EDGE_HOR(), $edge, $cell->{x}+1,$y,$cell)
+          if $edge != $left->{edge};
+	}
       }
 
     #########################################################################
@@ -267,6 +277,9 @@ sub _repair_group_edge
 
   $self->_check_edge_cell($cell, $x, $y, EDGE_END_E, EDGE_HOR, qr/g[rl]/, $cols->{$x}, -1)
     if (($cell->{type} & EDGE_END_MASK) == EDGE_END_E);
+
+#  $self->_check_edge_cell($cell, $x, $y, EDGE_END_E, EDGE_E_N_S, qr/g[rl]/, $cols->{$x}, -1)
+#    if (($cell->{type} & EDGE_END_MASK) == EDGE_END_E);
 
   #########################################################################
   # check for " [ empty ] [ <-- ]"
