@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 358;
+   plan tests => 367;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -125,10 +125,11 @@ sub readfile
   {
   my ($file) = @_;
 
-  open FILE, $file or die ("Cannot read file $file: $!");
+  open my $FILE, $file or die ("Cannot read file $file: $!");
+  binmode ($FILE, ':utf8') or die ("Cannot do binmode(':utf8') on $FILE: $!");
   local $/ = undef;				# slurp mode
-  my $doc = <FILE>;
-  close FILE;
+  my $doc = <$FILE>;
+  close $FILE;
 
   $doc;
   }

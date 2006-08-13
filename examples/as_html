@@ -24,6 +24,7 @@ if (!defined $file)
   $file = \*STDIN;
   binmode STDIN, ':utf8' or die ("binmode STDIN, ':utf8' failed: $!");
   }
+binmode STDERR, ':utf8' or die ("binmode STDERR, ':utf8' failed: $!");
 my $graph = $parser->from_file( $file );
 
 die ($parser->error()) unless defined $graph;

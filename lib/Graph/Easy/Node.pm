@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.26';
+$VERSION = '0.27';
 
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
@@ -55,7 +55,7 @@ sub _border_styles
 
   my $border = $self->attribute('border-style') || 'none';
   my $width = $self->attribute('border-width') || '1';
-  my $color = $self->attribute('border-color') || 'black';
+  my $color = $self->color_attribute('border-color') || '#000000';
 
   # XXX TODO:
   ($border, $width, $color, 
@@ -641,7 +641,7 @@ sub as_html
     ($name,$switch_to_center) = $self->_label_as_html(); 
     }
 
-  my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'encode');
+  my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'encode', 'remap_colors');
 
   $out->{'text-align'} = 'center' if $switch_to_center;
 
@@ -706,7 +706,7 @@ sub as_html
   # "shape: none;" or point means no border, and background instead fill color
   if ($shape =~ /^(point|none)\z/)
     {
-    my $bg = $self->attribute('background') || 'inherit'; 
+    my $bg = $self->color_attribute('background') || 'inherit'; 
     $out->{background} = $bg;
     $out->{border} = 'none';
     }
@@ -789,10 +789,43 @@ sub angle
   $angle;
   }
 
+# for determining the absolute parent flow
+my $p_flow =
+  {
+  'east' => 90,
+  'west' => 270,
+  'north' => 0,
+  'south' => 180,
+  'up' => 0,
+  'down' => 180,
+  'back' => 270,
+  'left' => 270,
+  'right' => 90,
+  'front' => 90,
+  'forward' => 90,
+  };
+
+sub _parent_flow_absolute
+  {
+  # make parent flow absolute
+  my ($self, $def)  = @_;
+
+  return '90' if ref($self) eq 'Graph::Easy';
+
+  my $flow = $self->parent()->attribute('flow') || $def;
+
+  return unless defined $flow;
+
+  # in case of relative flow at parent, convert to absolute (right: east, left: west etc) 
+  # so that "graph { flow: left; }" results in a westward flow
+  my $f = $p_flow->{$flow}; $f = $flow unless defined $f;
+  $f;
+  }
+
 sub flow
   {
-  # calculate the outgoing flow from the incoming flow and the flow at this
-  # node (either from edge(s) or general flow).
+  # Calculate the outgoing flow from the incoming flow and the flow at this
+  # node (either from edge(s) or general flow). Returns an absolute flow:
   # See the online manual about flow for a reference and details.
   my $self = shift;
 
@@ -800,46 +833,21 @@ sub flow
 
   return $self->{_cached_flow} if exists $self->{_cached_flow};
 
-  my $in;
-
-  if (exists $self->{_flow})
-    {
-    # detected cycle, so break it
-    my $f = $self->parent()->attribute('flow'); $f = 'east' unless defined $f;
-    return $f;
-    }
+  # detected cycle, so break it
+  return $self->{_cached_flow} = $self->_parent_flow_absolute('90') if exists $self->{_flow};
 
   local $self->{_flow} = undef;		# endless loops really ruin our day
 
+  my $in;
   my $flow = $self->{att}->{flow};
- 
-  if (!defined $flow)
-    {
-    return 'left' if ref($self) eq 'Graph::Easy';
 
-    my $parent = $self->parent();
-    $flow = $parent->attribute('flow');
-
-    # in case of relative flow at parent, convert to absolute (right: east, left: west etc) 
-    # sp that "graph { flow: left; }" results in a westward flow
-    if (defined $flow)
-      {
-      if ($flow =~ /^(back|left)\z/)
-        {
-        $flow = 270;
-        }
-      elsif ($flow =~ /^(right|front|forward)\z/)
-        {
-        $flow = 90;
-        }
-      }
-    }
+  $flow = $self->_parent_flow_absolute() unless defined $flow;
 
   # if flow is absolute, return it early
-  return $flow if defined $flow && $flow =~ /^(0|90|180|270)\z/;
-  return Graph::Easy->_direction_as_number($flow)
-    if defined $flow && $flow =~ /^(south|north|east|west|up|down|left|right)\z/;
-
+  return $self->{_cached_flow} = $flow if defined $flow && $flow =~ /^(0|90|180|270)\z/;
+  return $self->{_cached_flow} = Graph::Easy->_direction_as_number($flow)
+    if defined $flow && $flow =~ /^(south|north|east|west|up|down)\z/;
+  
   # for relative flows, compute the incoming flow as base flow
 
   # check all edges
@@ -870,15 +878,17 @@ sub flow
       }
     }
 
-  if (!defined $in)
-    {
-    my $parent = $self->parent();
-    $in = $parent->attribute('flow'); $in = 'east' unless defined $in; 
-    }
+  $in = $self->_parent_flow_absolute('90') unless defined $in;
 
   $flow = Graph::Easy->_direction_as_number($in) unless defined $flow;
 
+#  print STDERR "# flow for $self->{name}: $in $flow\n";
+
   $self->{_cached_flow} = Graph::Easy->_flow_as_direction($in,$flow);
+
+#  print STDERR " result $self->{_cached_flow}\n";
+
+  $self->{_cached_flow};
   }
 
 #############################################################################
@@ -1135,14 +1145,14 @@ sub background
   # get the background for this group/edge cell, honouring group membership.
   my $self = shift;
 
-  my $bg = $self->attribute('background') || 'inherit';
+  my $bg = $self->color_attribute('background') || 'inherit';
 
   if ($bg eq 'inherit')
     {
     # if part of a group, the groups fill is the members background.
-    $bg = ($self->{group}->attribute('fill')||'inherit')
+    $bg = ($self->{group}->color_attribute('fill')||'inherit')
       if ref $self->{group};
-    $bg = '' if $bg eq 'inherit';
+    return '' if $bg eq 'inherit';
     }
 
   $bg;
@@ -1596,20 +1606,22 @@ sub find_grandparent
 #############################################################################
 # attributes
 
-sub border_attribute
+sub color_attribute
   {
-  # Return "solid 1px red" from the individual border-(style|color|width)
-  # attributes, mainly for HTML output.
-  my ($self) = @_;
+  # Just like get_attribute(), but for colors, and returns them as hex,
+  # using the current colorscheme.
+  my ($self, $att) = @_;
 
-  my $style = $self->{att}->{'border-style'} || '';
+  my $color = $self->attribute($att); $color = '' unless defined $color;
 
-  return $style if $style =~ /^(none|)\z/;
+  if ($color ne '' && $color !~ /^#/)
+    {
+    my $scheme = $self->attribute('colorscheme') || 'w3c';
+    $scheme = $self->{graph}->attribute('graph','colorscheme') if $scheme eq 'inherit';
 
-  my $width = $self->{att}->{'border-width'} || '';
-  my $color = $self->{att}->{'border-color'} || '';
-
-  Graph::Easy::_border_attribute($style, $width, $color);
+    $color = Graph::Easy->color_as_hex($color, $scheme);
+    }
+  $color;
   }
 
 sub attribute
@@ -1785,7 +1797,7 @@ sub set_attribute
 sub set_attributes
   {
   my ($self, $atr, $index) = @_;
- 
+
   foreach my $n (keys %$atr)
     {
     my $val = $atr->{$n};
@@ -1803,7 +1815,9 @@ BEGIN
   *text_styles_as_css = \&Graph::Easy::text_styles_as_css;
   *text_styles = \&Graph::Easy::text_styles;
   *_font_size_in_pixels = \&Graph::Easy::_font_size_in_pixels;
+  *get_color_attribute = \&color_attribute;
   *link = \&Graph::Easy::link;
+  *border_attribute = \&Graph::Easy::border_attribute;
   }
 
 #############################################################################
@@ -1972,6 +1986,18 @@ Sets all attributes specified in C<$hash> as key => value pairs in this
 
 Assembles the C<border-width>, C<border-color> and C<border-style> attributes
 into a string like "solid 1px red".
+
+=head2 color_attribute()
+
+	# returns f.i. #ff0000
+	my $color = $node->get_color_attribute( 'fill' );
+
+Just like get_attribute(), but only for colors, and returns them as hex,
+using the current colorscheme.
+
+=head2 get_color_attribute()
+
+Is an alias to C<color_attribute()>.
 
 =head2 text_styles()
 

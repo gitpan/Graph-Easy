@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 123;
+   plan tests => 131;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -456,5 +456,50 @@ $grviz = $graph->as_graphviz();
 like ($grviz, qr/[^"]Bonn[^"].*color="black:black/, 'contains Bonn and black:black');
 unlike ($grviz, qr/style="?solid/, "doesn't contain solid");
 like ($grviz, qr/style="?dashed/, 'contains solid');
+
+#############################################################################
+# root node (also testing that a root of '0' actually works)
+
+$graph = Graph::Easy->new();
+
+($bonn,$berlin,$edge) = $graph->add_edge ('0','1');
+$graph->set_attribute('root','0');
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/root=0/, 'contains root=0');
+like ($grviz, qr/0.*rank=0/, 'contains rank=0');
+
+$graph = Graph::Easy->new();
+
+($bonn,$berlin,$edge) = $graph->add_edge ('a','b');
+$graph->set_attribute('root','b');
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/root=b/, 'contains root=0');
+like ($grviz, qr/b.*rank=0/, 'contains rank=0');
+
+#############################################################################
+# headport/tailport
+
+$graph = Graph::Easy->new();
+
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+$edge->set_attribute('start','west');
+$edge->set_attribute('end','east');
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/tailport=w/, 'contains tailport=w');
+like ($grviz, qr/headport=e/, 'contains headport=e');
+
+# headport/tailport with relative flow
+
+$edge->set_attribute('start','right');
+$edge->set_attribute('end','left');
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/tailport=s/, 'contains tailport=s');
+like ($grviz, qr/headport=n/, 'contains headport=n');
+
+
 
 

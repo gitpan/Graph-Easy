@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.22';
+$VERSION = '0.23';
 
 #############################################################################
 #############################################################################
@@ -184,7 +184,7 @@ sub _follow_chain
 
     for my $s (values %suc)		# for all successors
       {
-      print STDERR "# suc $s->{name} chain $s->{_chain}\n" if $self->{debug};
+      print STDERR "# suc $s->{name} chain ", $s->{_chain} || 'undef',"\n" if $self->{debug};
 
       $done += _follow_chain($s) 	# track chain
        if !defined $s->{_chain};	# if not already done
@@ -222,7 +222,9 @@ sub _follow_chain
 	$c->dump(); $next_chain->dump();
 	}
 
-      $c->merge($next_chain, $next);		# merge the two chains
+      $c->merge($next_chain, $next)		# merge the two chains
+	unless $next == $self->{_root};		# except if the next chain starts with
+						# the root node (bug until v0.46)
 
       delete $self->{chains}->{$next_chain->{id}} if $next_chain->{len} == 0;
       }
@@ -265,7 +267,7 @@ sub _find_chains
 
   # the node where the layout should start, as name
   my $root_name = $self->attribute('root');
-  my $root;					# as ref to a Node object
+  $self->{_root} = undef;				# as ref to a Node object
 
   # Start at nodes with no predecessors (starting points) and then do the rest:
   for my $name ($root_name, sort {
@@ -287,7 +289,8 @@ sub _find_chains
 
 #    print STDERR "# tracing chain from $name (", join(", ", @{$p->{$name}}),")\n";
 
-    $root = $n unless defined $root;
+    # store root node unless already found, is accessed in _follow_chain()
+    $self->{_root} = $n unless defined $self->{_root};
 
     last if $done == $todo;			# already processed all nodes?
 
@@ -297,7 +300,7 @@ sub _find_chains
 
   print STDERR "# Done all $todo nodes\n" if $done == $todo && $self->{debug};
 
-  $root;
+  $self->{_root};
   }
 
 #############################################################################
@@ -674,8 +677,9 @@ sub layout
     delete $n->{_c};
     }
 
-  die $@ if $@;				# propagate errors
+  delete $self->{_root};
 
+  die $@ if $@;				# propagate errors
   }
 
 my $size_name = {

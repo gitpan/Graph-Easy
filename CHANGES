@@ -1,5 +1,65 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-08-13 v0.46 Tels 1943 tests
+  * Output:
+    + add as_debug() and "output: debug"
+  * Layouter:
+    + fix layout with loops where the root node is part of the loop
+      (see t/in/6_split_join_loop.txt for an example)
+    + fix warning about uninitialized in Chain.pm line 423
+  * Parser:
+    + '\[', '\{', '\>' etc inside an edge label work now:
+    [ A ] -- \[ A \ ] \<\> --> [ B ]
+    + use _unquote() in more places instead of duplicated code
+    + allow rgb(10%,0,0.5) for colors, e.g. fractions and mixes
+    + allow \" in attributes ala 'label: "\"hello\"";'
+    + a comment inside attributes caused the parsing to fail:
+	{
+	color: 3; # this didn't work
+	}
+  * Parser/Graphviz handles the following:
+    + "root" on a graph 
+    + "graph G { init -- _run }" (graph vs digraph, \w+ as node)
+    + funky node names: node_0, Köln, "node" etc
+    + "subgraph G { .. }"
+    + scopes as in "{ node [ color=red ] Bonn -> Berlin }"
+    + node list as in "{ a b c } -> u; i -> { j k l }"
+    + digraph/subgraph attributes: "subgraph G { style=filled; }"
+    + node attribute 'label' no longer crashes the parser
+    + attributes without a value ("center truecolor")
+    + attributes w/ or w/o ";" at end, w/ or w/o "quotes"
+    + "subgraph test { } abc -- test" shouldn't add a spurious node "test"
+    + per default, the color scheme is x11 and the graph flows south
+    + "a1 -> a2\na2 -> a3" (no ";" at end of line and no spaces in between)
+    + undirected edges
+    + /* * style * / comments almost everywhere
+  * Parser/Graphviz maps/handles/ignores now the following attributes:
+    + nodes: shape, peripheries, z
+    + graph: ratio, labelloc
+    + edge: f, group, style
+    + all: style, fontsize, color ("0.99 0.8 0.24", #ff00ff00 etc)
+  * as_graphviz():
+    + output "rank=0" for root node
+    + fix output of headport/tailport for start/end attribute
+    + fix the creation of "invisible" joints to joining/splitting edges:
+      + created helper nodes no longer conflict with existing node names
+      + works for joints as well as splits
+      + suppress arrow heads leading to joint
+      + works in both east and west direction (aka with flipped edges)
+    + start/end: left; (aka relative starting/end side) results in correct
+      tail/headport attribute, too
+  * as_ascii():
+    + fix rendering of graph labels at bottom
+    + graph labels wider than the graph make output bigger and work now
+  * Attributes:
+    + support for different color schemes
+      + add X11 and ColorBrewer color definitions
+      + add attribute 'colorscheme' for all classes
+    + colors are now stored internally as they were written in the input
+  * License: include apache-style license for Brewer color schemes
+  * Misc: fatal errors produce a stack backtrace only under debug
+  * Node: further fixes flow(): properly cache the return value, reduce C&P
+
 2006-07-23 v0.45 Tels 1811 tests
   * we dont need inc/Module/AutoInstall.pm (this dist has no dependencies)
   * require at least Perl 5.8.1 for proper Unicode support

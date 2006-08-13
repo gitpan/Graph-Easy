@@ -14,8 +14,8 @@ no_index:
     - inc
     - t
 recommends: 
-  Graph::Easy::As_svg: 0.18
+  Graph::Easy::As_svg: 0.19
 requires: 
   Scalar::Util: 1.13
   perl: 5.8.1
-version: 0.45
+version: 0.46

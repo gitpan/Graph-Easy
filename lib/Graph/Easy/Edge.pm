@@ -364,7 +364,7 @@ sub flow
   # our flow comes from ourselves
   my $flow = $self->{att}->{flow};
 
-  # if the edge doesn't have a flwow, maybe the node has a default out flow
+  # if the edge doesn't have a flow, maybe the node has a default out flow
   $flow = $self->{from}->{att}->{flow} if !defined $flow;
 
   # if that didn't work out either, use the parents flows
@@ -378,7 +378,7 @@ sub flow
   # in-flow comes from our "from" node
   my $in = $self->{from}->flow();
 
-#  print STDERR "in $in out $flow\n";
+# print STDERR "# in: $self->{from}->{name} = $in\n";
 
   my $out = $self->{graph}->_flow_as_direction($in,$flow);
   $out;

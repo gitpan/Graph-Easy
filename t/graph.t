@@ -41,8 +41,8 @@ is ($graph->strict(), 1, 'is strict');
 is ($graph->nodes(), 0, '0 nodes');
 is ($graph->edges(), 0, '0 edges');
 is ($graph->border_attribute('graph'), '', 'graph border is none');
-is ($graph->border_attribute('group'), 'dashed 1px black', 'group border is dashed 1px black');
-is ($graph->border_attribute('node'), 'solid 1px black', 'node border is solid 1px black');
+is ($graph->border_attribute('group'), 'dashed 1px #000000', 'group border is dashed 1px black');
+is ($graph->border_attribute('node'), 'solid 1px #000000', 'node border is solid 1px black');
 is ($graph->border_attribute('edge'), 'none', 'edge border is none');
 
 is (join (',', $graph->edges()), '', '0 edges');
@@ -208,8 +208,6 @@ $graph->layout();
 
 # the edge is only added in the layout stage
 is (scalar $group->edges(), 1, 'one edge in group');
-
-diag("merging $A->{name} and $B->{name}\n");
 
 $graph->merge_nodes($A,$B);
 

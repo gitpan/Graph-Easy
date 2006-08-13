@@ -121,11 +121,13 @@ t/in/2_group_multicell.txt
 t/in/3_autosplit_hang.txt
 t/in/3_bend_bug.txt
 t/in/3_cluster.txt
+t/in/3_colors.txt
 t/in/3_corrupt.txt
 t/in/3_edge_labels_from_class.txt
 t/in/3_edge_repair.txt
 t/in/3_edge_start.txt
 t/in/3_empty_group.txt
+t/in/3_flow.txt
 t/in/3_group_align_center.txt
 t/in/3_invisible_both.txt
 t/in/3_joining.txt
@@ -188,6 +190,7 @@ t/in/6_fanout.txt
 t/in/6_joint.txt
 t/in/6_multicell_offset.txt
 t/in/6_multicell.txt
+t/in/6_split_join_loop.txt
 t/in/7_cluster.txt
 t/in/7_star.txt
 t/in/7_tree.txt
@@ -204,8 +207,16 @@ t/in/9_cross.txt
 t/in/9_flow_south.txt
 t/in/25_autosplit_empty.txt
 t/in/README
-t/in/graphviz/9_stacking.dot
-t/in/graphviz/9_back.dot
+t/in/dot/2_nospace.dot
+t/in/dot/2_graph_label_bottom.dot
+t/in/dot/2_strict.dot
+t/in/dot/3_graph_label_long.dot
+t/in/dot/5_scopes.dot
+t/in/dot/5_scopes_chain.dot
+t/in/dot/5_scopes_uni.dot
+t/in/dot/6_comments.dot
+t/in/dot/9_stacking.dot
+t/in/dot/9_back.dot
 t/layers.t
 t/layouter/edge_label.txt
 t/layouter/layouter_chain.txt
@@ -264,11 +275,13 @@ t/out/2_group_multicell.txt
 t/out/3_autosplit_hang.txt
 t/out/3_bend_bug.txt
 t/out/3_cluster.txt
+t/out/3_colors.txt
 t/out/3_corrupt.txt
 t/out/3_edge_labels_from_class.txt
 t/out/3_edge_repair.txt
 t/out/3_edge_start.txt
 t/out/3_empty_group.txt
+t/out/3_flow.txt
 t/out/3_group_align_center.txt
 t/out/3_invisible_both.txt
 t/out/3_joining.txt
@@ -331,6 +344,7 @@ t/out/6_fanout.txt
 t/out/6_joint.txt
 t/out/6_multicell_offset.txt
 t/out/6_multicell.txt
+t/out/6_split_join_loop.txt
 t/out/7_cluster.txt
 t/out/7_star.txt
 t/out/7_tree.txt
@@ -347,8 +361,16 @@ t/out/9_cross.txt
 t/out/9_flow_south.txt
 t/out/25_autosplit_empty.txt
 t/out/drop_result.txt
-t/out/graphviz/9_stacking.txt
-t/out/graphviz/9_back.txt
+t/out/dot/2_nospace.txt
+t/out/dot/2_graph_label_bottom.txt
+t/out/dot/2_strict.txt
+t/out/dot/3_graph_label_long.txt
+t/out/dot/5_scopes.txt
+t/out/dot/5_scopes_chain.txt
+t/out/dot/5_scopes_uni.txt
+t/out/dot/6_comments.txt
+t/out/dot/9_stacking.txt
+t/out/dot/9_back.txt
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
 t/parser.t			general Parser tests
@@ -432,6 +454,7 @@ t/txt/2_group_multicell.txt
 t/txt/3_autosplit_hang.txt
 t/txt/3_cluster.txt
 t/txt/3_corrupt.txt
+t/txt/3_colors.txt
 t/txt/3_edge_labels_from_class.txt
 t/txt/3_edge_repair.txt
 t/txt/3_edge_start.txt
@@ -445,6 +468,7 @@ t/txt/3_lists.txt
 t/txt/3_nodes_5_edges.txt
 t/txt/3_selfloop_flip.txt
 t/txt/3_selfloop.txt
+t/txt/4_att.txt
 t/txt/4_2x2nodes.txt
 t/txt/4_autosplit_class.txt
 t/txt/4_autosplit_empty.txt
@@ -487,6 +511,7 @@ t/txt/6_fanout.txt
 t/txt/6_joint.txt
 t/txt/6_multicell_offset.txt
 t/txt/6_multicell.txt
+t/txt/6_split_join_loop.txt
 t/txt/7_cluster.txt
 t/txt/7_star.txt
 t/txt/7_tree.txt
@@ -502,6 +527,16 @@ t/txt/9_chain.txt
 t/txt/9_cross.txt
 t/txt/9_flow_south.txt
 t/txt/25_autosplit_empty.txt
+t/txt/dot/2_nospace.txt
+t/txt/dot/2_graph_label_bottom.txt
+t/txt/dot/2_strict.txt
+t/txt/dot/3_graph_label_long.txt
+t/txt/dot/5_scopes.txt
+t/txt/dot/5_scopes_chain.txt
+t/txt/dot/5_scopes_uni.txt
+t/txt/dot/6_comments.txt
+t/txt/dot/9_stacking.txt
+t/txt/dot/9_back.txt
 t/use_class.t			test overriding classes in the Parser
 
 inc/Module/Install.pm

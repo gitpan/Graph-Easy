@@ -1,4 +1,4 @@
-#############################################################################
+############################################################################
 # Layout directed graphs as 2D boxes on a flat plane
 #
 # (c) by Tels 2004-2006.
@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.45';
+$VERSION = '0.46';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -35,6 +35,7 @@ BEGIN
   *_convert_pod = \&Graph::Easy::Node::_convert_pod;
   *_label_as_html = \&Graph::Easy::Node::_label_as_html;
   *default_attribute = \&Graph::Easy::Node::default_attribute; 
+  *get_color_attribute = \&color_attribute;
   }
 
 #############################################################################
@@ -96,6 +97,7 @@ sub _init
   $self->{timeout} = 5;			# in seconds
   $self->{strict} = 1;			# check attributes strict?
   
+  $self->{class} = 'graph';
   $self->{id} = '';
   $self->{groups} = {};
 
@@ -118,16 +120,17 @@ sub _init
   $self->{att} = {
   node => {
     align => 'center',
-    'border' => 'solid 1px black',
+    'border' => 'solid 1px #000000',
     'border-style' => 'solid',
     'border-width' => '1',
-    'border-color' => 'black',
+    'border-color' => '#000000',
     fill => 'white',
     padding => '0.2em',
     'padding-left' => '0.3em',
     'padding-right' => '0.3em',
     margin => '0.1em',
-    color => 'black',
+    color => '#000000',
+    colorscheme => 'inherit',
     },
   graph => {
     'align' => 'center',
@@ -136,6 +139,7 @@ sub _init
     margin => '0.5em',
     padding => '0.5em',
     linkbase => '/wiki/index.php/',
+    colorscheme => 'w3c',
     },
   edge => { 
     border => 'none',
@@ -143,19 +147,19 @@ sub _init
     background => 'inherit',
     padding => '0.2em',
     margin => '0.1em',
-    color => 'black',
+    color => '#000000',
     'font' => 'monospaced, courier-new, courier, sans-serif',
     },
   group => { 
-    'border' => 'dashed 1px black',
+    'border' => 'dashed 1px #000000',
     'border-style' => 'dashed',
     'border-width' => '1',
-    'border-color' => 'black',
+    'border-color' => '#000000',
     'font-size' => '0.8em',
     fill => '#a0d0ff',
     padding => '0.2em',
     align => 'left',
-    color => 'black',
+    color => '#000000',
     },
   };
 
@@ -481,16 +485,50 @@ sub node
 
 sub border_attribute
   {
-  # return "1px solid red" from the border-(style|color|width) attributes
+  # Return "1px solid red" from the border-(style|color|width) attributes,
+  # mainly used by as_txt() output. Does not use colorscheme!
   my ($self, $class) = @_;
 
-  my $style = $self->attribute($class, 'border-style') || '';
-  return $style if $style eq 'none';
+  my ($style,$width,$color);
 
-  my $width = $self->attribute($class, 'border-width') || '';
-  my $color = $self->attribute($class, 'border-color') || '';
+  if (defined $class)
+    {
+    $style = $self->attribute($class, 'border-style') || '';
+    return $style if $style eq 'none';
 
+    $width = $self->attribute($class, 'border-width') || '';
+    $color = $self->attribute($class, 'border-color') || '';
+    }
+  else 
+    {
+    $style = $self->{att}->{'border-style'} || '';
+    return $style if $style =~ /^(none|)\z/;
+    $width = $self->{att}->{'border-width'} || '';
+    $color = $self->{att}->{'border-color'} || '';
+    }
   Graph::Easy::_border_attribute($style, $width, $color);
+  }
+
+sub color_attribute
+  {
+  # Just like get_attribute(), but for colors, and returns them as hex,
+  # using the current colorscheme.
+  my ($self, $class, $att) = @_;
+
+  # allow calls of $self->color_attribute('fill') on Graph::Easy:
+  ($class,$att) = ('graph',$class) unless defined $att;
+
+  my $color = $self->get_attribute($class,$att);
+
+  return $color unless defined $color;
+
+  if ($color !~ /^#/ && $color ne '')
+    {
+    my $scheme = $self->attribute('colorscheme') || 'w3c';
+    $color = Graph::Easy->color_as_hex($color, $scheme);
+    }
+
+  $color;
   }
 
 sub get_attribute
@@ -588,6 +626,14 @@ sub set_attribute
 sub set_attributes
   {
   my ($self, $class, $att) = @_;
+
+  # if called as $graph->set_attributes( { color => blue } ), assume
+  # class eq 'graph'
+
+  if (defined $class && !defined $att)
+    {
+    $att = $class; $class = 'graph';
+    }
 
   # allowed classes and subclasses (except graph)
   if ($class !~ /^(node|group|edge|graph\z)/)
@@ -769,7 +815,7 @@ sub _skip
   my ($self) = shift;
 
   # skip these for CSS
-  qr/^(basename|columns|flow|format|rows|root|size|offset|origin|label|link|linkbase|(auto)?(link|title)|(node|edge)class|shape|arrow-style|label-color|point-style|text-style|style)\z/;
+  qr/^(basename|columns|colorscheme|flow|format|rows|root|size|offset|origin|label|link|linkbase|(auto)?(link|title)|(node|edge)class|shape|arrow-style|label-color|point-style|text-style|style)\z/;
   }
 
 sub _remap_text_wrap
@@ -986,7 +1032,7 @@ sub _caption
 
   return ('','') unless defined $caption && $caption ne '';
 
-  my $bg = $self->attribute('graph','fill') || '';
+  my $bg = $self->color_attribute('graph','fill') || '';
 
   my $style = ' style="';
   $style .= "background: $bg;" if $bg ne '';
@@ -996,7 +1042,7 @@ sub _caption
   $style .= "font-family: $f;" if $f ne '';
 
   # the text color
-  my $c = $self->attribute('graph','color') || '';
+  my $c = $self->color_attribute('graph','color') || '';
   $style .= "color: $c;" if $c ne '';
 
   # bold, italic, underline, incl. fontsize and align
@@ -1269,7 +1315,9 @@ sub _as_ascii
   my ($rows,$cols,$max_x,$max_y) = $self->_prepare_layout('ascii');
   my $cells = $self->{cells};
 
+  # offset where to draw the graph (non-zero if graph has label)
   my $y_start = 0;
+  my $x_start = 0;
 
   my $align = $self->attribute('align') || 'center';
 
@@ -1288,6 +1336,14 @@ sub _as_ascii
     $y_start += scalar @$label if $label_pos eq 'top';
     $max_y += scalar @$label + 1;
     print STDERR "# Graph with label, position $label_pos\n" if $self->{debug};
+
+    my $old_max_x = $max_x;
+    # find out the dimensions of the label and make sure max_x is big enough
+    for my $l (@$label)
+      {
+      $max_x = length($l)+2 if (length($l) > $max_x+2);
+      }
+    $x_start = int(($max_x - $old_max_x) / 2);
     }
 
   print STDERR "# Allocating framebuffer $max_x x $max_y\n" if $self->{debug};
@@ -1299,7 +1355,7 @@ sub _as_ascii
   if (@$label > 0)
     {
     my $y = 0; $y = $max_y - scalar @$label if $label_pos eq 'bottom';
-    Graph::Easy::Node->_printfb_aligned($fb, 0, $y, $max_x, scalar @$label, $label, $aligns, 'middle');
+    Graph::Easy::Node->_printfb_aligned($fb, 0, $y, $max_x, $max_y, $label, $aligns, 'top');
     }
 
   # draw all cells into framebuffer
@@ -1308,7 +1364,7 @@ sub _as_ascii
     next if $v->isa('Graph::Easy::Node::Cell');		# skip empty cells
 
     # get as ASCII box
-    my $x = $cols->{ $v->{x} };
+    my $x = $cols->{ $v->{x} } + $x_start;
     my $y = $rows->{ $v->{y} } + $y_start;
  
     my @lines = split /\n/, $v->as_ascii($x,$y);
@@ -1357,6 +1413,25 @@ sub as_graphviz
   require Graph::Easy::As_graphviz;
 
   _as_graphviz(@_);
+  }
+
+sub as_debug
+  {
+  require Graph::Easy::As_txt;
+  eval { require Graph::Easy::As_svg; };
+
+  my $self = shift;
+
+  my $output = '';
+ 
+  $output .= '# Using Graph::Easy v' . $Graph::Easy::VERSION . "\n";
+  if ($Graph::Easy::As_svg::VERSION)
+    {
+    $output .= '# Using Graph::Easy::As_svg v' . $Graph::Easy::As_svg::VERSION . "\n";
+    }
+  $output .= '# Running Perl v' . $] . " under $^O\n";
+
+  $output . "\n# Input normalized as_txt:\n\n" . $self->_as_txt(@_);
   }
 
 sub as_svg
@@ -2159,6 +2234,18 @@ Example:
 
 C<attribute> is an alias for L<get_attribute>.
 
+=head2 color_attribute()
+
+	# returns f.i. #ff0000
+	my $color = $graph->get_color_attribute( 'node', 'color' );
+
+Just like get_attribute(), but only for colors, and returns them as hex,
+using the current colorscheme.
+
+=head2 get_color_attribute()
+
+Is an alias to C<color_attribute()>.
+
 =head2 set_attribute()
 
 	$graph->set_attribute( $class, $name, $val );
@@ -2546,6 +2633,16 @@ This routine will sort the nodes by their group first, so the requested
 sort order will be only valid if there are no groups or inside each
 group.
 
+=head2 as_debug()
+
+	print $graph->as_debug();
+
+Return debugging information like version numbers of used modules,
+and a textual representation of the graph.
+
+This does not call L<layout()> since the actual text representation
+is more a dump of the graph, than a certain layout.
+
 =head2 node()
 
 	my $node = $graph->node('node name');
@@ -2678,12 +2775,99 @@ value is invalid.
 Takes a valid color name or definition (hex, short hex, or RGB) and returns the
 color in hex like C<#ff00ff>.
 
-=head2 color_name()
+=head2 color_value($color_name, $color_scheme)
+
+	my $color = Graph::Easy->color_name( 'red' );	# #ff0000
+	print Graph::Easy->color_name( '#ff0000' );	# #ff0000
+
+	print Graph::Easy->color_name( 'snow', 'x11' );
+
+Given a color name, returns the color in hex. See L<color_name>
+for a list of possible values for the optional C<$color_scheme>
+parameter.
+
+=head2 color_name($color_value, $color_scheme)
 
 	my $color = Graph::Easy->color_name( 'red' );	# red
 	print Graph::Easy->color_name( '#ff0000' );	# red
 
+	print Graph::Easy->color_name( 'snow', 'x11' );
+
 Takes a hex color value and returns the name of the color.
+
+The optional parameter is the color scheme, where the following
+values are possible:
+
+ w3c			(the default)
+ x11			(what graphviz uses as default)
+
+Plus the following ColorBrewer schemes are supported, see the
+online manual for examples and their usage:
+
+ accent3 accent4 accent5 accent6 accent7 accent8
+
+ blues3 blues4 blues5 blues6 blues7 blues8 blues9
+
+ brbg3 brbg4 brbg5 brbg6 brbg7 brbg8 brbg9 brbg10 brbg11
+
+ bugn3 bugn4 bugn5 bugn6 bugn7 bugn8 bugn9 bupu3 bupu4 bupu5 bupu6 bupu7
+ bupu8 bupu9
+
+ dark23 dark24 dark25 dark26 dark27 dark28
+
+ gnbu3 gnbu4 gnbu5 gnbu6 gnbu7 gnbu8 gnbu9
+
+ greens3 greens4 greens5 greens6 greens7 greens8 greens9
+
+ greys3 greys4 greys5 greys6 greys7 greys8 greys9
+
+ oranges3 oranges4 oranges5 oranges6 oranges7 oranges8 oranges9
+
+ orrd3 orrd4 orrd5 orrd6 orrd7 orrd8 orrd9
+
+ paired3 paired4 paired5 paired6 paired7 paired8 paired9 paired10 paired11
+ paired12 pastel13 pastel14 pastel15 pastel16 pastel17 pastel18 pastel19
+
+ pastel23 pastel24 pastel25 pastel26 pastel27 pastel28
+
+ piyg3 piyg4 piyg5 piyg6 piyg7 piyg8 piyg9 piyg10 piyg11
+
+ prgn3 prgn4 prgn5 prgn6 prgn7 prgn8 prgn9 prgn10 prgn11
+
+ pubu3 pubu4 pubu5 pubu6 pubu7 pubu8 pubu9
+
+ pubugn3 pubugn4 pubugn5 pubugn6 pubugn7 pubugn8 pubugn9
+
+ puor3 puor4 puor5 puor6 puor7 puor8 puor9 purd3 purd4 purd5 purd6 purd7 purd8
+ purd9 puor10 puor11
+
+ purples3 purples4 purples5 purples6 purples7 purples8 purples9
+
+ rdbu10 rdbu11 rdbu3 rdbu4 rdbu5 rdbu6 rdbu7 rdbu8 rdbu9 rdgy3 rdgy4 rdgy5 rdgy6
+
+ rdgy7 rdgy8 rdgy9 rdpu3 rdpu4 rdpu5 rdpu6 rdpu7 rdpu8 rdpu9 rdgy10 rdgy11
+
+ rdylbu3 rdylbu4 rdylbu5 rdylbu6 rdylbu7 rdylbu8 rdylbu9 rdylbu10 rdylbu11
+
+ rdylgn3 rdylgn4 rdylgn5 rdylgn6 rdylgn7 rdylgn8 rdylgn9 rdylgn10 rdylgn11
+
+ reds3 reds4 reds5 reds6 reds7 reds8 reds9
+
+ set13 set14 set15 set16 set17 set18 set19 set23 set24 set25 set26 set27 set28
+ set33 set34 set35 set36 set37 set38 set39
+
+ set310 set311 set312
+
+ spectral3 spectral4 spectral5 spectral6 spectral7 spectral8 spectral9
+ spectral10spectral11
+
+ ylgn3 ylgn4 ylgn5 ylgn6 ylgn7 ylgn8 ylgn9
+
+ ylgnbu3 ylgnbu4 ylgnbu5 ylgnbu6 ylgnbu7 ylgnbu8 ylgnbu9
+
+ ylorbr3 ylorbr4 ylorbr5 ylorbr6 ylorbr7 ylorbr8 ylorbr9
+
+ ylorrd3 ylorrd4 ylorrd5 ylorrd6 ylorrd7 ylorrd8 ylorrd9
 
 =head2 color_names()
 
@@ -2840,9 +3024,17 @@ X<online>
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GPL version 2.
 
-See the LICENSE file for information for a copy of the GPL.
+See the LICENSE file for a copy of the GPL.
+
+This product includes color specifications and designs developed by Cynthia
+Brewer (http://colorbrewer.org/). See the LICENSE file for the full license
+text that applies to these color schemes.
 
 X<gpl>
+X<apache-style>
+X<cynthia>
+X<brewer>
+X<colorscheme>
 X<license>
 
 =head1 NAME CHANGE

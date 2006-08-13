@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.17';
+$VERSION = '0.18';
 
 #############################################################################
 #############################################################################
@@ -1043,11 +1043,9 @@ sub _astar
         }
       } # end test for stop postion(s)
 
-    if (!defined $x || !defined $y)
-      {
-      require Carp;
-      Carp::confess("On of '$x,$y' is not defined");
-      }
+    $self->_croak("On of '$x,$y' is not defined")
+      unless defined $x && defined $y;
+      
     # get list of potential positions we need to explore from the current one
     my @p = _astar_near_nodes($x,$y, $cells, $open_by_pos, $closed, $min_x, $min_y, $max_x, $max_y);
     my $n = 0;

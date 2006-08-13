@@ -306,7 +306,7 @@ sub _make_cross
   $self->_croak("Trying to cross non hor/ver piece at $self->{x},$self->{y}")
     if (($type != EDGE_HOR) && ($type != EDGE_VER));
 
-  $self->{color} = $self->attribute('color');
+  $self->{color} = $self->get_color_attribute('color');
   $self->{style_ver} = $edge->style();
   $self->{color_ver} = $edge->attribute('color');
 
@@ -332,9 +332,9 @@ sub _make_joint
   $self->_croak("Trying to join non hor/ver piece (type: $type) at $self->{x},$self->{y}")
      if $type >= EDGE_S_E_W;
 
-  $self->{color} = $self->attribute('color');
+  $self->{color} = $self->get_color_attribute('color');
   $self->{style_ver} = $edge->style();
-  $self->{color_ver} = $edge->attribute('color');
+  $self->{color_ver} = $edge->get_color_attribute('color');
 
   # if we are the VER piece, switch styles around
   if ($type == EDGE_VER)
@@ -979,7 +979,7 @@ sub as_html
   my $id = $self->{graph}->{id};
 
   # || 'black' to set a black border if "label-color" is set
-  my $color = $self->attribute('color') || 'black';
+  my $color = $self->get_color_attribute('color') || '#000000';
   my $label = '';
   my $label_style = '';
 
@@ -994,8 +994,8 @@ sub as_html
     # replace linebreaks by <br>, but remove extra spaces 
     $label =~ s/\s*\\n\s*/<br \/>/g;
 
-    my $label_color = $self->attribute('label-color') || $color;
-    $label_color = '' if $label_color eq 'black';
+    my $label_color = $self->get_color_attribute('label-color') || $color;
+    $label_color = '' if $label_color eq '#000000';
     $label_style = "color: $label_color;" if $label_color;
 
     my $font = $self->attribute('font') || '';

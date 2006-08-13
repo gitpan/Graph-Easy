@@ -188,7 +188,7 @@ EDGE_2
 is ($edge->as_html(), $edge_html, 'edge->as_html()');
 
 $edge_html = <<EDGE_CELL
-<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double black;">&nbsp;</td>
+<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double #000000;">&nbsp;</td>
 EDGE_CELL
 ;
 
@@ -199,7 +199,7 @@ like ($html, qr/$like/, 'edge->as_html()');
 $edge->set_attribute('style', 'double-dash');
 
 $edge_html = <<EDGE_CELL
-<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double black;">&nbsp;</td>
+<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double #000000;">&nbsp;</td>
 EDGE_CELL
 ;
 
@@ -213,7 +213,7 @@ like ($html, qr/$like/, 'edge->as_html()');
 $edge->set_attribute('label-color', 'blue');
 
 $edge_html = <<EDGE_CELL
-<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double black;color: #0000ff;">&nbsp;</td>
+<td colspan=2 rowspan=2 class="edge lh" style="border-bottom: double #000000;color: #0000ff;">&nbsp;</td>
 EDGE_CELL
 ;
 
@@ -279,7 +279,7 @@ $css = $graph->css();
 
 for my $e (qw/node edge group/)
   {
-  like ($css, qr/table.graph\s+\.$e\s+\{[^\}]*[^-]color: black;/m, "contains $e color black");
+  like ($css, qr/table.graph\s+\.$e\s+\{[^\}]*[^-]color: #000000;/m, "contains $e color black");
   }
 
 #############################################################################

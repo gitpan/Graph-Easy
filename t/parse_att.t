@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 65;
+   plan tests => 76;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -71,11 +71,19 @@ foreach (<DATA>)
     {
     if (ref($att->{$k}) eq 'ARRAY')
       {
-      $exp .= "$k=" . join(",", @{$att->{$k}}) . ';';    
+      $exp .= "$k=";
+      for my $k1 (@{$att->{$k}})
+        {
+        my $v = $parser->{graph}->unquote_attribute('graph',$k,$k1);
+        $exp .= "$v,";    
+        }
+      $exp =~ s/,\z//;
+      $exp .= ";";
       }
     else
       {
-      $exp .= "$k=$att->{$k};";
+      my $v = $parser->{graph}->unquote_attribute('graph',$k,$att->{$k});
+      $exp .= "$k=$v;";
       }
     }
 
@@ -84,26 +92,32 @@ foreach (<DATA>)
 
 __DATA__
 |
-color: red;|color=#ff0000;
-color : red;|color=#ff0000;
- color : lime ; |color=#00ff00;
- color : yellow  |color=#ffff00;
-color: rgb(1,1,1);|color=#010101;
-color: rgb(255,1,1);|color=#ff0101;
-color: rgb(255,255,1);|color=#ffff01;
-color: rgb(255,255,255);|color=#ffffff;
-color: #ff0;|color=#ffff00;
-color: #0f0;|color=#00ff00;
-color: slategrey;|color=#708090;
-color: slategrey;|color=#708090;
-color: gray;|color=#808080;
-color: gray;|color=#808080;
-# attribute with a ";" inside quotes
-label: "baz;bar"; color: red;|color=#ff0000;label="baz;bar";
+color: red;|color=red;
+color : red;|color=red;
+ color : lime ; |color=lime;
+ color : yellow  |color=yellow;
+color: rgb(1,1,1);|color=rgb(1,1,1);
+color: rgb(255,1,1);|color=rgb(255,1,1);
+color: rgb(255,255,1);|color=rgb(255,255,1);
+color: rgb(255,255,255);|color=rgb(255,255,255);
+color: #ff0;|color=#ff0;
+color: #0f0;|color=#0f0;
+color: slategrey;|color=slategrey;
+color: slategrey;|color=slategrey;
+color: gray;|color=gray;
+color: gray;|color=gray;
+# color names are case-insensitive
+color: Slategrey;|color=slategrey;
+color: SlateGrey;|color=slategrey;
+color: SLATEGREY;|color=slategrey;
+colorscheme: w3c;|colorscheme=w3c;
+colorscheme: x11;|colorscheme=x11;
+colorscheme: puor6;|colorscheme=puor6;
+colorscheme: puor16|error=Error in attribute: 'puor16' is not a valid colorscheme for a node
 border-style: double;|border-style=double;
 border-width: 1;|border-width=1;
-border-color: red;|border-color=#ff0000;
-color: red; border: none; |border=none;color=#ff0000;
+border-color: red;|border-color=red;
+color: red; border: none; |border=none;color=red;
 color:|error=Error in attribute: 'color:' doesn't look valid
 : red;|error=Error in attribute: ': red;' doesn't look valid
 : red|error=Error in attribute: ': red' doesn't look valid
@@ -121,7 +135,7 @@ offset: 2, 0;|offset=2, 0;
 offset:  2 , 0;|offset=2 , 0;
 offset:  2  ,  0;|offset=2  ,  0;
 offset:  2  ,  0 ;|offset=2  ,  0;
-fill: brown;|fill=#a52a2a;
+fill: brown;|fill=brown;
 point-style: qiggle;|error=Error in attribute: 'qiggle' is not a valid point-style for a node
 toint-shape: qiggle;|error=Error in attribute: 'toint-shape' is not a valid attribute name for a node
 autolink: qiggle;|error=Error in attribute: 'qiggle' is not a valid autolink for a node
@@ -140,7 +154,13 @@ autolabel: name,10;|autolabel=name,10;
 autolabel: name, 10;|autolabel=name, 10;
 autolabel: name ,10;|autolabel=name ,10;
 autolabel: name , 10;|autolabel=name , 10;
-fill: red^green^yellow;|fill=#ff0000,#008000,#ffff00;
+fill: red^green^yellow;|fill=red,green,yellow;
 link: http://bloodgate.com/^index.html^/test;|link=http://bloodgate.com/,index.html,/test;
 link: http://bloodgate.com/ ^ index.html^/test;|link=http://bloodgate.com/,index.html,/test;
 shape: rect^img^rect;|shape=rect,img,rect;
+# attribute with a ";" inside quotes, and escaped quotes
+label: "baz;bar"; color: red;|color=red;label=baz;bar;
+label: "test";|label=test;
+label: "test;";|label=test;;
+label: "\"test\"";|label="test";
+label: "\"test;\"";|label="test;";

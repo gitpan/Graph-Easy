@@ -1,0 +1,8 @@
+graph {
+  colorscheme: x11;
+  flow: south;
+  label: Deutsche Städte;
+  label-pos: bottom;
+}
+
+[ Köln ] --> [ Stralsund ]

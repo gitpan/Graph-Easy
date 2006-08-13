@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 48;
+   plan tests => 81;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Attributes") or die($@);
@@ -15,6 +15,7 @@ BEGIN
 can_ok ("Graph::Easy", qw/
   color_as_hex
   color_name
+  color_value
   _remap_attributes
   valid_attribute
   /);
@@ -38,23 +39,35 @@ is ($att->color_as_hex('lavenderbush'), undef, 'color lavenderbush does not exis
 is ($att->color_name('red'), 'red', 'red => red');
 is ($att->color_name('#ff0000'), 'red', '#ff0000 => red');
 is ($att->color_name('#ffffff'), 'white', '#ffffff => white');
-is ($att->color_name('#808080'), 'grey', '#808080 => grey');
+is ($att->color_name('#808080'), 'gray', '#808080 => gray');
+
+#############################################################################
+# color scheme support:
+
+is ($att->color_name('grey', 'x11'), 'grey', 'grey => grey');
+is ($att->color_name('#c0c0c0','x11'), 'gray', '#c0c0c0 => gray');
+is ($att->color_name('#ffffff','x11'), 'white', '#ffffff => white');
+is ($att->color_name('grey23','x11'), 'grey23', 'grey23 => grey23');
+    
+# 1  => '#ca0020', 2  => '#f4a582', 3  => '#bababa', 4  => '#404040', 
+is ($att->color_name('1','rdgy4'), '1', '1 => 1 under rdgy4');
+
+#############################################################################
+# color_value:
+
+is ($att->color_value('red'), '#ff0000', 'red => #ff0000');
+is ($att->color_value('grey'), '#808080', 'grey => #808080');
+is ($att->color_value('grey','x11'), '#c0c0c0', 'grey => #c0c0c0 under x11');
+is ($att->color_value('grey23','x11'), '#3b3b3b', 'grey23 => #3b3b3b under x11');
+
+# 1  => '#ca0020', 2  => '#f4a582', 3  => '#bababa', 4  => '#404040', 
+is ($att->color_value('1','rdgy4'), '#ca0020', '1 => #ca0020 under rdgy4');
+is ($att->color_value('4','rdgy4'), '#404040', '4 => #404040 under rdgy4');
 
 #############################################################################
 # valid_attribute:
 
-# no class name: 'all' will be tested
-
-my $new_value = $att->valid_attribute( 'color', 'red' );
-is ($new_value, '#ff0000', 'color red is valid');
-
-$new_value = $att->valid_attribute( 'color', 'red', 'node' );
-is ($new_value, '#ff0000', 'color red is valid for nodes');
-
-$new_value = $att->valid_attribute( 'color', 'red', 'node.subclass' );
-is ($new_value, '#ff0000', 'color red is valid for node.subclass');
-
-$new_value = $att->valid_attribute( 'color', 'redbrownish' );
+my $new_value = $att->valid_attribute( 'color', 'redbrownish' );
 is ($new_value, undef, 'color redbrownish is not valid');
 
 $new_value = $att->valid_attribute( 'border-color', 'redbrownish' );
@@ -62,6 +75,26 @@ is ($new_value, undef, 'border-color redbrownish is not valid');
 
 $new_value = $att->valid_attribute( 'border-shape', 'double' );
 is (ref($new_value), 'ARRAY', 'border-shape is not valied');
+
+# no class name: 'all' will be tested
+
+for my $name (
+    'red','w3c/red','x11/red', 'chocolate4', 'rgb(1,2,3)', 
+    'rgb(10%,1%,2%)', 'rgb(8,1%,0.2)', 'w3c/grey',
+   )
+  {
+  for my $class ( undef, 'node', 'node.subclass')
+    {
+    my $new_value = $att->valid_attribute( 'color', $name, $class );
+    is ($new_value, $name, "color $name is valid");
+    }
+  }
+
+#############################################################################
+# fallback to color scheme 'x11'
+
+$new_value = $att->valid_attribute( 'color', 'chocolate4' );
+is ($new_value, 'chocolate4', 'color chocolate4 is valid');
 
 #############################################################################
 # valid_attribute for graph only:

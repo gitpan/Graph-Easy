@@ -1,0 +1,12 @@
+graph {
+  colorscheme: x11;
+  flow: south;
+}
+
+[ a ] --> [ b ]
+[ a ] --> [ c ]
+[ a ] --> [ d ]
+[ my node /* comment */ ] --> [ b ]
+[ b ] --> [ u ]
+[ c ] --> [ u ]
+[ d ] --> [ u ]

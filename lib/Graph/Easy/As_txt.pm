@@ -8,7 +8,7 @@ package Graph::Easy::As_txt;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 #############################################################################
 #############################################################################
@@ -33,7 +33,7 @@ sub _as_txt
     {
 
     my $out = $self->_remap_attributes(
-     $class, $att->{$class}, {}, 'noquote', 'encode', 'remap_colors' );
+     $class, $att->{$class}, {}, 'noquote', 'encode' );
 
     my $att = '';
     for my $atr (sort keys %$out)
@@ -185,7 +185,7 @@ sub attributes_as_txt
   my $class = $self->class();
   my $g = $self->{graph};
 
-  my $new = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'encode', 'remap_colors');
+  my $new = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'encode' );
 
   if (defined $self->{origin})
     {

@@ -7,7 +7,7 @@ my $tests;
 
 BEGIN
    {
-   $tests = 15;
+   $tests = 16;
    plan tests => $tests;
    chdir 't' if -d 't';
    use lib '../lib';
@@ -21,6 +21,7 @@ SKIP:
     $@ ? 0 : 1;
     };
   for my $m (qw/
+    Graph::Easy
     Graph::Easy::Node
     Graph::Easy::Group
     Graph::Easy::Edge

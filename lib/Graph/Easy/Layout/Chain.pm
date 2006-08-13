@@ -7,7 +7,7 @@
 package Graph::Easy::Layout::Chain;
 
 use Graph::Easy::Base;
-$VERSION = '0.06';
+$VERSION = '0.07';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -420,7 +420,7 @@ sub merge
 #  print "done merging, dumping result:\n";
 #  $self->dump(); sleep(10);
 
-  if ($where == $other->{start})
+  if (defined $other->{start} && $where == $other->{start})
     {
     # we absorbed the other chain completely, so drop it
     $other->{end} = undef;

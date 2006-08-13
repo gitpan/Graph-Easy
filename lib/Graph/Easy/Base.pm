@@ -6,7 +6,7 @@
 
 package Graph::Easy::Base;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 use strict;
 
@@ -68,6 +68,10 @@ sub error
   {
   my $self = shift;
 
+  # If we switched to a temp. Graphviz parser, then set the error on the
+  # original parser object instead:
+  $self->{_old_self}->error(@_) if ref($self->{_old_self});
+
   if (defined $_[0])
     {
     $self->{error} = $_[0];
@@ -123,10 +127,17 @@ sub _croak
   {
   my ($self, $msg, $level) = @_;
   $level = 1 unless defined $level;
-  
+
   require Carp;
-  $Carp::CarpLevel = $level;			# don't report Base itself
-  Carp::confess($msg);
+  if (ref($self) && $self->{debug})
+    {
+    $Carp::CarpLevel = $level;			# don't report Base itself
+    Carp::confess($msg);
+    }
+  else
+    {
+    Carp::croak($msg);
+    }
   }
  
 1;
@@ -161,9 +172,8 @@ Create a new object, and call C<_init()> on it.
 
 Returns the last error message, or '' for no error.
 
-When setting a new error message, 
-C<$self->_croak($error)> will be called unless C<$object->no_fatal_errors()>
-is true.
+When setting a new error message, C<$self->_croak($error)> will be called
+unless C<$object->no_fatal_errors()> is true.
 
 =head2 warn()
 

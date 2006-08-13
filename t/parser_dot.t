@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 39;
+   plan tests => 78;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser::Graphviz") or die($@);
@@ -44,10 +44,14 @@ my $graph = Graph::Easy::Parser::Graphviz->from_text('digraph G1 { "A" }');
 is (ref($graph), 'Graph::Easy');
 is ($graph->nodes(), 1, 'one node');
 
-#$graph = Graph::Easy::Parser::Graphviz->from_file('in/1node.txt');
-#
-#is (ref($graph), 'Graph::Easy');
-#is ($graph->nodes(), 1, 'one node');
+$graph = Graph::Easy::Parser::Graphviz->from_text('graph G { run -- init }');
+
+is (ref($graph), 'Graph::Easy');
+is ($graph->nodes(), 2, 'two nodes');
+is ($graph->edges(), 1, 'one edge');
+
+my @a = $graph->nodes(); for (@a) { $_ = $_->{name}; }
+is (join (",", sort @a), 'init,run', 'two nodes');
 
 #############################################################################
 # matching nodes
@@ -58,6 +62,76 @@ like ('"A"', $node_qr, '"A" is a node');
 like ('Bonn12', $node_qr, 'Bonn12 is a node');
 like ('"Bonn"', $node_qr, '"Bonn" is a node');
 
+#############################################################################
+# scopes and scope attributes
+
+$graph = Graph::Easy::Parser::Graphviz->from_text( <<EOG
+ digraph GRAPH_0 {
+  node [ color=red ]
+  Red
+  node [ color=green ]
+  Green
+  { node [ color=blue ] Blue }
+  Green2
+EOG
+  );
+
+is (scalar $graph->nodes(), 4, 'scopes: four nodes');
+
+for my $n (qw/Red Green Green2 Blue/)
+  {
+  my $node = $graph->node($n);
+  my $color = lc($node->{name});
+  $color =~ s/\d//g;
+  is ($node->attribute('color'), $color, 'scopes: $n => $color');
+  }
+
+#############################################################################
+# test new scope only overriding new attributes plus one source attribute
+# mapping to two target attributes (shape=doublecircle => shape: circle,
+# border-style: double)
+
+$graph = Graph::Easy::Parser::Graphviz->from_text( <<EOG1
+ digraph GRAPH_0 {
+  node [ color=red, shape=doublecircle ]
+  Red
+  node [ color=green ]
+  Green
+  { node [ color=blue ] Blue }
+  Green2
+EOG1
+  );
+
+is (scalar $graph->nodes(), 4, 'scopes: four nodes');
+
+for my $n (qw/Red Green Green2 Blue/)
+  {
+  my $node = $graph->node($n);
+  my $color = lc($node->{name});
+  $color =~ s/\d//g;
+  is ($node->attribute('color'), $color, 
+    "scopes: $n => $color");
+  is ($node->attribute('shape'), 'circle', 
+    "scopes: ${n}'s shope is 'circle'");
+  is ($node->attribute('border-style'), 'double',
+    "scopes: ${n}'s border-style is 'doube'");
+  }
+
+#############################################################################
+# test "a -> { b c d }
+
+$graph = Graph::Easy::Parser::Graphviz->from_text( <<EOG2
+digraph GRAPH_0 {
+
+  a -> { b c d }
+}
+EOG2
+);
+
+is (scalar $graph->nodes(), 4, 'scopes: four nodes');
+is (scalar $graph->edges(), 3, 'scopes: three egdes');
+
+#############################################################################
 #############################################################################
 # general pattern tests
 
@@ -72,11 +146,10 @@ foreach (<DATA>)
   die ("Illegal line $line in testdata") unless $_ =~ /^(.*)\|([^\|]*)$/;
   my ($in,$result) = ($1,$2);
 
-  my $txt = $in;
+  my $txt = "digraph G {\n" . $in . "\n}";
   $txt =~ s/\\n/\n/g;				# insert real newlines
 
-#  Graph::Easy::Node->_reset_id();		# to get "#0" for each test
-  my $graph = $parser->from_text($txt);		# reuse parser object
+  $graph = $parser->from_text($txt);		# reuse parser object
 
   if (!defined $graph)
     {
@@ -131,6 +204,8 @@ __DATA__
 # then "#3" is created, and ID 4 goes to the second edge. Therefore
 # "#0" and "#3" are the two anon nodes.
 ""->"Bonn"->""|3,#0,#3,Bonn
+# nodes with _ and reserved text "node"
+node_1 -> node_2 |2,node_1,node_2
 # multiple spaces in nodes
 " Bonn and Berlin "|1,Bonn and Berlin
 " Bonn  and  Berlin  "|1,Bonn and Berlin
@@ -150,12 +225,28 @@ __DATA__
 " Bonn " -> " Berlin "\n"Berlin" -> "Frankfurt"|3,Berlin,Bonn,Frankfurt
 " Bonn " -> "Berlin" [color=blue] \n"Berlin" -> "Frankfurt"|3,Berlin,Bonn,Frankfurt
 Bonn -> Berlin [color=blue] \nBerlin -> Frankfurt|3,Berlin,Bonn,Frankfurt
+# funky node names and colors
+_exit -- run [ color = "0.001 0.002 0.4" ]|2,_exit,run
 # comments
 " Bonn " -> " Berlin " [ color="#A0a0A0" ] // failed " Bonn " -> [ Ulm ]|2,Berlin,Bonn
 " Bonn " -> " Berlin " [ color="#A0a0A0" ] //80808080 failed [ Bonn ] -> [ Ulm ]|2,Berlin,Bonn
 " Bonn " -> " Berlin " [ color="#A0a0A0" ] //808080 failed [ Bonn ] -> [ Ulm ]|2,Berlin,Bonn
 " Bonn " -> " Berlin " [ color="#A0a0A0" ] /*808080 failed [ Bonn ] -> [ Ulm ]*/|2,Berlin,Bonn
 " Bonn " -> " Berlin " [ color="#A0a0A0" ] /*808080 failed\n [ Bonn ] -> [ Ulm ]*/|2,Berlin,Bonn
+" Bonn /* * comment * */ " -> " Berlin " /*808080 failed\n [ Bonn ] -> [ Ulm ]*/|2,Berlin,Bonn /* * comment * */
 # node chains
 " Bonn " -> " Berlin "\n -> " Kassel "|3,Berlin,Bonn,Kassel
-
+# node chains across line-endings
+a1 -> a2\na2 -> a3|3,a1,a2,a3
+# attributes w/ and w/o value
+graph [ center ]|0
+graph [ center=1 ]|0
+graph [ center="" ]|0
+graph [ center="1" ]|0
+graph [ center, truecolor ]|0
+graph [ center=1, truecolor ]|0
+graph [ center="", truecolor ]|0
+graph [ center="1", truecolor ]|0
+edge [ ]|0
+edge [\n ]|0
+edge [ f=1 ]|0

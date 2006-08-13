@@ -16,6 +16,7 @@ can_ok ("Graph::Easy", qw/
   css as_html as_html_page as_txt
   as_ascii as_ascii_html
   as_graphviz as_svg
+  as_debug
   html_page_header
   html_page_footer
   error
@@ -32,6 +33,8 @@ can_ok ("Graph::Easy", qw/
   set_attributes
   set_attribute
   get_attribute
+  get_color_attribute
+  color_attribute
   attribute
   del_attribute
   score
@@ -115,10 +118,10 @@ is ($graph->attribute('graph', 'border'), '',
 
 $graph->set_attributes ('graph', { color => 'white', background => 'red' });
 
-is ($graph->attribute('graph', 'background'), '#ff0000', 
-	'now: graph { background: #ff0000 }');
-is ($graph->attribute('graph', 'color'), '#ffffff', 
-	'now: graph { color: #ffffff }');
+is ($graph->attribute('graph', 'background'), 'red', 
+	'now: graph { background: red }');
+is ($graph->attribute('graph', 'color'), 'white', 
+	'now: graph { color: white }');
 
 good_css ($graph);
 
@@ -134,7 +137,7 @@ good_css($graph);
 #############################################################################
 # ID tests with sub-classes
 
-$graph->set_attributes ('node.cities', { color => '#808080' } );
+$graph->set_attributes ('node.cities', { color => '#0000ff' } );
 
 good_css($graph, 
   'table.graph42 .node-cities',
@@ -162,7 +165,7 @@ graph {
   background: red;
   color: white;
 }
-node.cities { color: grey; }
+node.cities { color: #0000ff; }
 
 ( Cities
 )
@@ -182,7 +185,7 @@ graph {
   background: red;
   color: white;
 }
-node.cities { color: grey; }
+node.cities { color: #0000ff; }
 
 ( Cities
   [ Bonn ]

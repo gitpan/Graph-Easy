@@ -1,13 +1,12 @@
 Graph-Easy
 ==========
 
-See Graph::Easy under LIMITATIONS for some hot topics.
-
-In addition:
+See Graph::Easy under LIMITATIONS for some hot topics. In addition:
 
 Important short-term TODO:
 
-* layouter: 
+* layouter:
+  + todos/big.txt is 3.6s vs. 3.0 in 0.45 - find out why 
   + honor flow on an edge
   + don't build chains across groups
   + when having edges with and without flow, track chains only for these with
@@ -18,20 +17,27 @@ Important short-term TODO:
   + placing a node with an origin/offset inside another node results in
     endless loops as this condition is not checked and the placement
     of the grandparent node will fail, always
-
-* graphviz: output root property and tests for that
+  + last-resort placing of node should first try to place it more near
+    to where the edge(s) are connected
 
 * classnames: "Second" and "second" are the same class, but as_txt output
                should output the class as it was input.
 
+* Parser/Graphviz:
+  + style=filled should result in color => fillcolor, not color=>fontcolor
+  + "Bonn":f1 => autosplit node
+  + parse input in Latin1 charset
+
+* repair splits when left/right side is a CROSS
+
 * it seems not possible to set class-styles on anon nodes:
   node.anon { fill: red; } [ ] --> [ A ]
 
-* joints + labels on edges
-
 * as_ascii:
   + use custom text-wrap (Text::Wrap is well, buggy)
-  + implement shape diamond
+  + better support for different shapes (circle, box, polygon etc)
+  + implement pod-formatted labels (*bold*, /italic/,
+    _underline_, -l-i-n-e-t-h-r-o-u-g-h-, ~overline~, "code")
 
 * as_html: 
   + v-- and --^ edges (mis-aligned arrows)
@@ -47,11 +53,9 @@ Important short-term TODO:
   + implement HTML nodes as triangles, house, etc. using slanted edges
 
 * fix nesting with pod-formatted labels
-* as_ascii: implement pod-formatted labels (*bold*, /italic/,
-  _underline_, -l-i-n-e-t-h-r-o-u-g-h-, ~overline~, "code")
 
 * edges between groups (ala "( 1 [A ]) -> ( 2 [B] )") or between a node
-  and a group are missing in HTML, ASCII and SVG.
+  and a group are missing in HTML, ASCII, BOXART and SVG.
 
 * It would be good if we could remove Node::Empty (it blocks a cell
   just to draw the right/bottom border pieces)
@@ -65,61 +69,36 @@ Important short-term TODO:
   implement auto-split nodes in graphviz (including <port>'s and rerouting
   edges to the ports), or use HTML labels
 
-* joints in as_boxart() have problems with the joint character:
-  "[ A ] --> { start: south, 0; } [ A1 ], [ A2 ]" produces
-	┌───┐
-	│ A │
-	└───┘
-	  │       ┌────┐
-	  ┼─────> │ A1 │
-	  │       └────┘
-	  │       ┌────┐
-	  └─────> │ A2 │
-                  └────┘
-
-Tests:
-
-* test the new graphviz output (inter-group links and joints)
-
 Parser:
 
-* edge parsing " -- test \>-->" => "test >" as edge label
 * be truly recursive: parse nested graphs/groups/nodes
 * support for node splitting ala:
 
     "[ A ] | [ B | C ] || [ D | E ]"
 
 * Nodes with both "|" and "\|" in their name are not parsed correctly
-* handle RGB colors with percentages or fractions like: rgb(100%,50%,0.5)
 * handle RGBA colors (with an alpha channel component, making transparency
-  possible, especially important for animations)
-* quoting of "[" and "{" inside edge labels ala:
-
-  [ A ] -- label \[ 8 ] --> [ B ]
-
-* graphviz parsing of lingering attributes:
-  node [ label="Berlin" ]
-  "Bonn"	// should be shown as "Berlin"
+  possible, especially important for animations and graphviz)
 
 Output:
 
 * selfloop edges should counter the general flow:
 
-                    Until not done
-                  +----------------+
-                  v                |
-  +-------+     +--------------------+     +-----+
-  | Start | --> | Main               | --> | End |
-  +-------+     +--------------------+     +-----+
+                     Until done
+                   +------------+
+                   v            |
+   +-------+     +----------------+     +-----+
+   | Start | --> |      Main      | --> | End |
+   +-------+     +----------------+     +-----+
 
   versus (loop still going left):
 
-                  Until not done
-                +----------------+
-                v                |
-  +-----+     +--------------------+     +-------+
-  | End | <-- | Main               | <-- | Start |
-  +-----+     +--------------------+     +-------+
+                   Until done
+                 +------------+
+                 v            |
+   +-----+     +----------------+     +-------+
+   | End | <-- |      Main      | <-- | Start |
+   +-----+     +----------------+     +-------+
 
 * support different edge starting point styles ala:
 
@@ -127,9 +106,6 @@ Output:
 
 * as_txt(): 
   + output of node clusters and node chains is not optimal
-* as_ascii()/as_boxart(): 
-  + better support for different shapes (circle, box, polygon etc)
-  + text-styles: underline, overline, strike-through, italic and bold
 * as_graphviz(): (these things seem to be actually not possible in Graphviz)
   + border-styles: wave, dot-dot-dash and dot-dash
   + edge-styles: wave, dot-dot-dash and dot-dash

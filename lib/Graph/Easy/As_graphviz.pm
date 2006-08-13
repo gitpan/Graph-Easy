@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.17';
+$VERSION = '0.18';
 
 #############################################################################
 #############################################################################
@@ -168,22 +168,24 @@ sub _graphviz_remap_node_rotate
 
 sub _graphviz_remap_port
   {
-  my ($graph, $name, $port, $self) = @_;
+  my ($graph, $name, $side, $self) = @_;
 
   # do this only for objects, not classes 
-  return (undef,undef) unless ref($self) && defined $port;
+  return (undef,undef) unless ref($self) && defined $side;
 
   # XXX TODO
   # remap relative ports (front etc) to "south" etc
 
   # has a specific port, aka shared a port with another edge
-  return (undef, undef) if $port =~ /,/;
+  return (undef, undef) if $side =~ /,/;
 
-  $port = substr($port,0,1);	# "south,0" => "s"
+  $side = $graph->_flow_as_side($self->flow(),$side);
 
-  my $n = 'tailport'; $n = 'headport' if $name eq 'start';
+  $side = substr($side,0,1);	# "south" => "s"
 
-  ($n, $port);
+  my $n = 'tailport'; $n = 'headport' if $name eq 'end';
+
+  ($n, $side);
   }
 
 sub _graphviz_remap_font
@@ -232,7 +234,7 @@ sub _graphviz_remap_border_style
   my $shape = '';
   $shape = ($node->attribute('shape') || '') if ref($node);
  
-  # shape "none" or plaintext don't need a border
+  # some shapes don't need a border:
   return (undef,undef) if $shape =~ /^(none|invisible|img|point)\z/;
 
   # valid styles are: solid dashed dotted bold invis
@@ -288,6 +290,10 @@ sub _graphviz_remap_label_color
 
   # the label color falls back to the edge color
   $color = $self->attribute('color') unless defined $color;
+
+  # red => hex
+  $color = $graph->color_as_hex($color, $self->attribute('colorscheme'))
+    unless $color =~ /^#/;
 
   ('fontcolor', $color);
   }
@@ -349,6 +355,7 @@ sub _graphviz_remap_label
 
 sub _att_as_graphviz
   {
+  # convert a hash with attribute => value mappings to a string
   my ($self, $out) = @_;
  
   my $att = '';
@@ -430,6 +437,26 @@ sub _generate_group_edge
   "$indent$first -> $other$edge_att\n";		# return edge text
   }
 
+sub _insert_edge_attribute
+  {
+  # insert an additional attribute into an edge attribute string
+  my ($self, $att, $new_att) = @_;
+
+  return '[ $new_att ]' if $att eq '';		# '' => '[ ]'
+
+  $att =~ s/\s?\]/,$new_att ]/;
+  $att;
+  }
+
+sub _suppress_edge_attribute
+  {
+  # remove the named attribute from the edge attribute string
+  my ($self, $att, $sup_att) = @_;
+
+  $att =~ s/$sup_att=("(\\"|[^"])*"|[^\s\n,;])//;
+  $att;
+  }
+
 sub _generate_edge
   {
   # Given an edge, generate the graphviz code for it
@@ -443,7 +470,7 @@ sub _generate_edge
   my $invis = $self->{_graphviz_invis};
 
   # attributes for invisible helper nodes
-  my $inv = ' [ label="", shape=none, style=filled, height=0, width=0 ]';
+  my $inv = ' [ label="",shape=none,style=filled,height=0,width=0 ]';
 
   my $other = $e->{to}->as_graphviz_txt();
   my $first = $e->{from}->as_graphviz_txt();
@@ -451,66 +478,88 @@ sub _generate_edge
   my $edge_att = $e->attributes_as_graphviz();
   my $txt = '';
 
+  my $modify_edge = 0;
+  my $suppress = ($self->{_flip_edges} ? 'arrowtail=none' : 'arrowhead=none');;
+
   # if the edge has a shared start/end port
   if ($e->has_ports())
     {
     my @edges = ();
 
     my ($side,@port) = $e->port('start');
-    @edges = $e->{from}->edges_at_port('start',$side,@port) if defined $side;
+    @edges = $e->{from}->edges_at_port('start',$side,@port) if defined $side && @port > 0;
 
     if (@edges > 1)					# has strict port
       {
       # access the invisible node
       my $sp = $e->port('start');
-      my $key = "\"invis,$e->{from}->{name},$sp\"";
-      if (!exists $invis->{$key})
+      my $key = "$e->{from}->{name},start,$sp";
+      my $invis_id = $invis->{$key};
+      if (!defined $invis_id)
 	{
 	# create the invisible helper node
-	$txt .= $indent . "$key$inv\n";
+	# find a name for it, carefully avoiding names of other nodes: 
+	$self->{_graphviz_invis_id}++ while (defined $self->node($self->{_graphviz_invis_id}));
+	$invis_id = $self->{_graphviz_invis_id}++;
+
+	# output the helper node
+	$txt .= $indent . "$invis_id$inv\n";
+        my $e_att = $self->_insert_edge_attribute($edge_att,$suppress);
+        $e_att = $self->_suppress_edge_attribute($e_att,'label');
 	if ($self->{_flip_edges})
 	  {
-	  $txt .= $indent . "$key -> $first$edge_att\n";
+	  $txt .= $indent . "$invis_id -> $first$e_att\n";
 	  }
 	else
 	  {
-	  $txt .= $indent . "$first -> $key$edge_att\n";
+	  $txt .= $indent . "$first -> $invis_id$e_att\n";
 	  }
-	$invis->{$key} = undef;			# mark as output
+	$invis->{$key} = $invis_id;		# mark as created
 	}
-      # "Bonn,south,0"
-      $first = $key;
+      # "joint0" etc
+      $first = $invis_id;
       }
 
     ($side,@port) = $e->port('end');
     @edges = ();
-    @edges = $e->{from}->edges_at_port('end',$side,@port) if defined $side;
+    @edges = $e->{to}->edges_at_port('end',$side,@port) if defined $side && @port > 0;
     if (@edges > 1)
       {
       my $ep = $e->port('end');
-      my $key = "\"invis,$e->{to}->{name},$ep\"";
-      if (!exists $invis->{$key})
+      my $key = "$e->{to}->{name},end,$ep";
+      my $invis_id = $invis->{$key};
+
+      if (!defined $invis_id)
 	{
 	# create the invisible helper node
-	$txt .= $indent . "$key$inv\n";
+	# find a name for it, carefully avoiding names of other nodes:
+	$self->{_graphviz_invis_id}++ while (defined $self->node($self->{_graphviz_invis_id}));
+	$invis_id = $self->{_graphviz_invis_id}++;
+
+	# output the helper node
+	$txt .= $indent . "$invis_id$inv\n";
 	if ($self->{_flip_edges})
 	  {
-	  $txt .= $indent . "$other -> $key$edge_att\n";
+	  $txt .= $indent . "$other -> $invis_id$edge_att\n";
 	  }
 	else
 	  {
-	  $txt .= $indent . "$key -> $other$edge_att\n";
+	  $txt .= $indent . "$invis_id -> $other$edge_att\n";
 	  }
-	$invis->{$key} = undef;			# mark as output
+	$invis->{$key} = $invis_id;			# mark as output
 	}
-      # "Bonn,south,0"
-      $other = $key;
+      # "joint1" etc
+      $other = $invis_id;
+      $modify_edge++;
       }
     }
 
   ($other,$first) = ($first,$other) if $self->{_flip_edges};
 
   $e->{_p} = undef;				# mark as processed
+
+  $edge_att = $self->_insert_edge_attribute($edge_att,$suppress)
+    if $modify_edge;
 
   $txt . "$indent$first -> $other$edge_att\n";		# return edge text
   }
@@ -546,13 +595,15 @@ sub _as_graphviz
 
   # to keep track of invisible helper nodes
   $self->{_graphviz_invis} = {};
+  # name for invisible helper nodes
+  $self->{_graphviz_invis_id} = 'joint0';
 
   my $atts =  $self->{att};
   for my $class (sort keys %$atts)
     {
     next if $class =~ /\./;		# skip subclasses
 
-    my $out = $self->_remap_attributes( $class, $atts->{$class}, $remap, 'noquote');
+    my $out = $self->_remap_attributes( $class, $atts->{$class}, $remap, 'noquote', undef, 'remap_colors');
 
     # per default, our nodes are rectangular, white, filled boxes
     if ($class eq 'node')
@@ -605,7 +656,7 @@ sub _as_graphviz
     # set some defaults
     $copy->{'border-style'} = 'solid' unless defined $copy->{'border-style'};
 
-    my $out = $self->_remap_attributes( $group->class(), $copy, $remap, 'noquote');
+    my $out = $self->_remap_attributes( $group->class(), $copy, $remap, 'noquote', undef, 'remap_colors');
 
     # set some defaults
     $out->{fillcolor} = '#a0d0ff' unless defined $copy->{fillcolor};
@@ -642,12 +693,15 @@ sub _as_graphviz
     $txt .= "  }\n";
     }
 
+  my $root = $self->attribute('root');
+  $root = '' unless defined $root;
+
   my $count = 0;
   # output nodes with attributes first, sorted by their name
   for my $n (sort { $a->{name} cmp $b->{name} } values %{$self->{nodes}})
     {
     next if exists $n->{_p};
-    my $att = $n->attributes_as_graphviz();
+    my $att = $n->attributes_as_graphviz($root);
     if ($att ne '')
       {
       $n->{_p} = undef;			# mark as processed
@@ -706,7 +760,8 @@ package Graph::Easy::Node;
 sub attributes_as_graphviz
   {
   # return the attributes of this node as text description
-  my $self = shift;
+  my ($self, $root) = @_;
+  $root = '' unless defined $root;
 
   my $att = '';
   my $class = $self->class();
@@ -736,7 +791,7 @@ sub attributes_as_graphviz
       $a->{$k} = $att->{$k};
       }
     }
-  $a = $g->_remap_attributes( $self, $a, $remap, 'noquote');
+  $a = $g->_remap_attributes( $self, $a, $remap, 'noquote', undef, 'remap_colors');
 
   # bidirectional and undirected edges
   if ($self->{bidirectional})
@@ -784,6 +839,8 @@ sub attributes_as_graphviz
     {
     $a->{label} = ' ';
     }
+
+  $a->{rank} = '0' if $root ne '' && $root eq $self->{name};
 
   # create the attributes as text:
   for my $atr (sort keys %$a)

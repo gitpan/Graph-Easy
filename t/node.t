@@ -238,7 +238,7 @@ $node->set_attributes ( { class => 'foo', color => 'orange' } );
 
 is ($node->class(), 'node.foo', 'class set correctly');
 is ($node->sub_class(), 'foo', 'class set correctly');
-is ($node->attribute('color'), '#ffa500', 'color set correctly');
+is ($node->attribute('color'), 'orange', 'color set correctly');
 
 is ($node->as_txt(), '[ Node \#0 ] { color: orange; class: foo; }', 'as_txt');
 is ($node->as_html(), " <td $r class='node-foo' style=\"color: #ffa500\">Node #0</td>\n",

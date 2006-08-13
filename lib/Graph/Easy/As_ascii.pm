@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 sub _u8
   {
@@ -737,11 +737,19 @@ sub _printfb_aligned
   {
   my ($self,$fb, $x1,$y1, $w,$h, $lines, $aligns, $align_ver) = @_;
 
-  $align_ver = 'center' unless $align_ver;
+  $align_ver = 'middle' unless $align_ver;
 
+  # $align_ver eq 'middle':
   my $y = $y1 + ($h / 2) - (scalar @$lines / 2);
-  $y = $y1 if $align_ver eq 'top';
-  $y = $h - scalar @$lines if $align_ver eq 'bottom';
+  if ($align_ver eq 'top')
+    {
+    $y = $y1; 
+    $y1 = 0;
+    }
+  if ($align_ver eq 'bottom')
+    {
+    $y = $h - scalar @$lines; $y1 = 0; 
+    }
 
   my $xc = ($w / 2);
 

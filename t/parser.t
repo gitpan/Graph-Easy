@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 113;
+   plan tests => 117;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -204,6 +204,9 @@ edge { color: red; }|0
 [ Bonn ] { shape: point; point-style: square; }|1,Bonn
 [ Bonn ] { background: red; }|1,Bonn
 [ Bonn ] { background: rgb(255,0,0); }|1,Bonn
+[ Bonn ] { background: rgb(100%,0,0); }|1,Bonn
+[ Bonn ] { background: rgb(0.0,0.5,1.0); }|1,Bonn
+[ Bonn ] { background: rgb(100%,0.5,12); }|1,Bonn
 [ Bonn ] { background: #ff0000; }|1,Bonn
 [ Bonn ] { background: #ff0; }|1,Bonn
 node.red { background: red; } [ Bonn ] { class: red; }|1,Bonn
@@ -253,6 +256,8 @@ graph { background: red; } [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 ()|0
 # group w/o name
 ([Bonn])|1,Bonn,
+# edge labels with escaped chars
+[ Bonn ] -- \[ A \] \<\> \=\-\. --> [ Berlin ]|2+1,Berlin,Bonn,[ A ] <> =-.
 # XXX TODO: error testing
 # mismatching left/right side
 #[ Bonn ] - Auto--> [ Berlin ]|2+1,Auto--,Berlin,Bonn

@@ -14,7 +14,7 @@ all_from	'lib/Graph/Easy.pm';
 
 requires	'Scalar::Util'	=> 1.13;
 
-recommends	'Graph::Easy::As_svg'	=> 0.18;
+recommends	'Graph::Easy::As_svg'	=> 0.19;
 
 build_requires	'Test::More'	=> 0.42;
 

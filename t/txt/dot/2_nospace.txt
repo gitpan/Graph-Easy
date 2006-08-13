@@ -1,0 +1,6 @@
+graph {
+  colorscheme: x11;
+  flow: south;
+}
+
+[ mike ] --> [ michael ]
