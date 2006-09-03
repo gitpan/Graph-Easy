@@ -6,29 +6,42 @@ See Graph::Easy under LIMITATIONS for some hot topics. In addition:
 Important short-term TODO:
 
 * layouter:
-  + todos/big.txt is 3.6s vs. 3.0 in 0.45 - find out why 
   + honor flow on an edge
   + don't build chains across groups
   + when having edges with and without flow, track chains only for these with
     a flow (to stop non-flow edges taking the space first and blocking it)
   + route multiple edges to/from a node in the proper order (shortest first)
-  + edges with no specific start/end port should not block ports that
+  + edges without a specific start/end port should not block ports that
     are reserved for edges with a start/end port number
   + placing a node with an origin/offset inside another node results in
     endless loops as this condition is not checked and the placement
-    of the grandparent node will fail, always
+    of the grandparent node will thus always fail
   + last-resort placing of node should first try to place it more near
     to where the edge(s) are connected
 
-* classnames: "Second" and "second" are the same class, but as_txt output
-               should output the class as it was input.
-
 * Parser/Graphviz:
+  + see also the section CAVEATS in Graph::Easy::Parser::Graphviz
   + style=filled should result in color => fillcolor, not color=>fontcolor
-  + "Bonn":f1 => autosplit node
   + parse input in Latin1 charset
-
-* repair splits when left/right side is a CROSS
+  + parse "A|{ B|C }" (record shape with hor/ver nesting)
+  + nodes with shape record, but an edge going from the aggregate node have
+    the edges rendered in dot starting/ending *somewhere* on the node with the
+    record shape. We always (re-)connect these edges to the first part of the
+    autosplit node. Maybe we should balance them to use parts with as little
+    edges as possible. (The entire feature is quite bogus, since it is not
+    clear from the resulting image where the edge really starts/ends, at the
+    aggregate node or at the specific part where the arrow/line ends up
+    pointing to/from...:-/
+  + support for "landscape", "rotation" and "orientation" on graph
+  + two edges from one record-shaped node part to another part and back
+    are rendered as one bidirectional edge by dot, but as two unidirectinal
+    edges by Graph::Easy:
+  digraph SPLIT {
+    0 [ shape=record, label="<f1>n| <f2> 0" ]
+    1 [ shape=record, label="<f1>n| <f2> 1" ]
+    "0":f1 -> "1":f2;
+    "0":"f2" -> "1":"f1";
+  }
 
 * it seems not possible to set class-styles on anon nodes:
   node.anon { fill: red; } [ ] --> [ A ]
@@ -61,9 +74,6 @@ Important short-term TODO:
   just to draw the right/bottom border pieces)
   (we might put these "invisible" nodes into a different "cells" field,
    which will be rendered, but not queried for path finding etc)
-
-* as_txt(): the following are wrong as txt:
-  + 3_autosplit_hang.txt
 
 * use "shape: record" and label="{ { 00 | 01 | 02 } | { 10 | 112 | 12 } }" to
   implement auto-split nodes in graphviz (including <port>'s and rerouting
@@ -168,6 +178,9 @@ General:
   + #id (object with ID id)
 
 * implement pseudo-class "step" for animations (see POD)
+
+* Anonymous groups like "( [A] [B] )" should not have a background and
+  border just like anonymous nodes.
 
 Optimizing:
 

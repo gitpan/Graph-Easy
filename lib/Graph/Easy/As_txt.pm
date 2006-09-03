@@ -8,7 +8,7 @@ package Graph::Easy::As_txt;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 #############################################################################
 #############################################################################
@@ -106,14 +106,15 @@ sub _as_txt
   foreach my $n (@nodes)
     {
     my @out = $n->sorted_successors();
-    my $first = $n->as_pure_txt();
-    if ((@out == 0) && ( (scalar $n->predecessors() || 0) == 0))
+    my $first = $n->as_pure_txt(); 		# [ A | B ]
+    if ( defined $n->{autosplit} || ((@out == 0) && ( (scalar $n->predecessors() || 0) == 0)))
       {
       # single node without any connections (unless already output)
       next if exists $n->{autosplit} && !defined $n->{autosplit};
       $txt .= $first . "\n" unless defined $n->{_p};
       }
 
+    $first = $n->_as_part_txt();		# [ A.0 ]
     # for all outgoing connections
     foreach my $other (@out)
       {
@@ -121,7 +122,7 @@ sub _as_txt
       my @edges = $n->edges_to($other);
       for my $edge (sort { $a->{id} <=> $b->{id} } @edges)
         {
-        $txt .= $first . $edge->as_txt() . $other->as_pure_txt() . "\n";
+        $txt .= $first . $edge->as_txt() . $other->_as_part_txt() . "\n";
         }
       }
     }
@@ -233,6 +234,20 @@ sub attributes_as_txt
   $att = ' { ' . $att . '}' if $att ne '';
 
   $att;
+  }
+
+sub _as_part_txt
+  {
+  # for edges, we need the name of the part of the first part, not the entire
+  # autosplit text
+  my $self = shift;
+
+  my $name = $self->{name};
+
+  # quote special chars in name
+  $name =~ s/([\[\]\|\{\}\#])/\\$1/g;
+
+  '[ ' .  $name . ' ]';
   }
 
 sub as_pure_txt

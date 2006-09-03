@@ -6,7 +6,7 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 use base qw/Graph::Easy::Parser/;
 
 use strict;
@@ -19,6 +19,8 @@ sub _init
 
   $self->SUPER::_init(@_);
   $self->{attr_sep} = '=';
+  # remove " <p1> " from autosplit (shape=record) labels
+  $self->{_qr_part_clean} = qr/\s*<([^>]*)>/;
 
   $self;
   }
@@ -35,8 +37,27 @@ sub reset
 
   $g->set_attribute('colorscheme','x11');
   $g->set_attribute('flow','south');
+  $g->set_attribute('edge','arrow-style', 'filled');
 
   $self->{scope_stack} = [];
+
+  # allow some temp. values during parsing
+  $g->_allow_special_attributes(
+    {
+    node => {
+      shape => [
+       "",
+        [ qw/ circle diamond edge ellipse hexagon house invisible
+		invhouse invtrapezium invtriangle octagon parallelogram pentagon
+		point triangle trapezium septagon rect rounded none img record/ ],
+       '',
+       '',
+       undef,
+      ],
+    },
+    } );
+
+  $g->{_warn_on_unknown_attributes} = 1;
 
   $self;
   }
@@ -47,6 +68,19 @@ sub _unquote
 
   $name = '' unless defined $name;
 
+  # string concat
+  # "foo" + " bar" => "foo bar"
+#  print STDERR "# name='$name'\n" and
+  $name =~ s/^
+    "((?:\\"|[^"])*)"			# "foo"
+    \s*\+\s*"((?:\\"|[^"])*)"		# followed by ' + "bar"'
+    /"$1$2"/x
+  while $name =~ /^
+    "(?:\\"|[^"])*"			# "foo"
+    \s*\+\s*"(?:\\"|[^"])*"		# followed by ' + "bar"'
+    /x;
+
+  # "foo bar" => foo bar
   $name =~ s/^"\s*//; 		# remove left-over quotes
   $name =~ s/\s*"\z//; 
 
@@ -54,6 +88,19 @@ sub _unquote
   $name =~ s/\\([\[\(\{\}\]\)#"])/$1/g;
 
   $name;
+  }
+
+sub _clean_line
+  { 
+  # do some cleanups on a line before handling it
+  my ($self,$line) = @_;
+
+  $line = $self->SUPER::_clean_line($line);
+
+  # line ending in "\" means a continuation
+  $line =~ s/\\\z//;
+
+  $line;
   }
 
 sub _line_insert
@@ -99,23 +146,32 @@ sub _match_name
   # Return a regexp that matches something like '"bonn"' or 'bonn'.
 
   # "node", "graph", "edge", "digraph", "subgraph" and "strict" are reserved:
-
-  qr/\s*("[^"]*"|(?!(node|edge|digraph|subgraph|graph|edge|strict)\s)[\w]+)/i;
+  qr/\s*
+    (
+      "(?:\\"|[^"])*"			# "foo"
+      (?:\s*\+\s*"(?:\\"|[^"])*")*	# followed by 0 or more ' + "bar"'
+    |
+     (?!(?i:node|edge|digraph|subgraph|graph|strict)\s)[\w]+
+    )/xi;
   }
 
 sub _match_node
   {
   # Return a regexp that matches something like '"bonn"' or 'bonn' or 'bonn:f1'
+  my $self = shift;
 
-  # "node", "graph", "edge", "digraph", "subgraph" and "strict" are reserved:
+  my $qr_n = $self->_match_name();
 
   #    "bonn"      Bonn, Bonn0, Bonn_0, node_0 etc                                 "Bonn":f1, "Bonn":"f1"
-  qr/\s*("[^"]*"|(?!(node|edge|digraph|subgraph|graph|edge|strict)\s)[\w_]+)(:"?[\w]+"?)?/i;
+  qr/$qr_n(?::$qr_n)?/;
   }
 
 sub _match_group_start
   {
-  qr/\s*(?:digraph|subgraph|graph)\s+([\w_]+)\s*\{/i;
+  my $self = shift;
+  my $qr_n = $self->_match_name();
+
+  qr/\s*(?:strict\s+)?(?:(?i)digraph|subgraph|graph)\s+$qr_n\s*\{/i;
   }
 
 sub _match_pseudo_group_start
@@ -137,19 +193,50 @@ sub _match_edge
 
 sub _match_single_attribute
   {
-  qr/^\s*(\w+)\s*=\s*("[^"]+"|[^,\]\}\n\s;]+)[,\]\n\}\s;]?\s*/;
+  qr/^\s*(\w+)\s*=\s*		# the attribute name (label=")
+    (
+      "(?:\\"|[^"])*"			# "foo"
+      (?:\s*\+\s*"(?:\\"|[^"])*")*	# followed by 0 or more ' + "bar"'
+    |
+      [^,\]\}\n\s;]+			# or simple 'fooobar'
+    )
+    [,\]\n\}\s;]?\s*/x;		# possible ",", "\n" etc.
   }
 
 sub _match_special_attribute
   {
-  qr/^\s*(center|truecolor)[,;\s]?\s*/;
+  # match boolean attributes, these can appear without a value
+  qr/^\s*(
+  center|
+  compound|
+  concentrate|
+  constraint|
+  decorate|
+  diredgeconstraints|
+  fixedsize|
+  headclip|
+  labelfloat|
+  landscape|
+  mosek|
+  nojustify|
+  normalize|
+  overlap|
+  pack|
+  pin|
+  regular|
+  remincross|
+  root|
+  splines|
+  tailclip|
+  truecolor
+  )[,;\s]?\s*/x;
   }
 
 sub _match_attributes
   {
   # return a regexp that matches something like " [ color=red; ]" and returns
   # the inner text without the []
-  qr/\s*\[\s*([^\]]+?)\s*\];?/;
+  qr/\s*\[\s*((?:\\\]|"(?:\\"|[^"])*"|[^\]])+?)\s*\];?/;
   }
 
 sub _match_graph_attribute
@@ -163,7 +250,7 @@ sub _match_optional_attributes
   {
   # return a regexp that matches something like " [ color=red; ]" and returns
   # the inner text with the []
-  qr/(\s*\[[^\]]+?\])?;?/;
+  qr/(\s*\[\s*((?:\\\]|"(?:\\"|[^"])*"|[^\]])+?)\s*\])?;?/;
   }
 
 sub _clean_attributes
@@ -190,9 +277,16 @@ sub _new_scope
     my $old_scope = $self->{scope_stack}->[-1];
 
     # make a copy of the old scope's attribtues
-    for my $k (keys %$old_scope)
+    for my $t (keys %$old_scope)
       {
-      $scope->{$k} = $old_scope->{$k} unless $k =~ /^_/;
+      next if $t =~ /^_/;
+      my $s = $old_scope->{$t};
+      $scope->{$t} = {} unless ref $scope->{$t}; my $sc = $scope->{$t};
+      for my $k (keys %$s)
+        {
+	# skip things like "_is_group"
+        $sc->{$k} = $s->{$k} unless $k =~ /^_/;
+        }
       }
     }
   $scope->{_is_group} = 1 if defined $is_group;
@@ -219,6 +313,7 @@ sub _add_group_match
       my $self = shift;
       my $graph = $self->{graph};
       my $gn = $self->_unquote($1);
+      print STDERR "# Parser: found subcluster '$gn'\n" if $self->{debug};
       push @{$self->{group_stack}}, $graph->add_group($gn);
       $self->_new_scope( 1 );
       1;
@@ -245,15 +340,11 @@ sub _add_group_match
       my $scope = pop @{$self->{scope_stack}};
       return $self->parse_error(0) if !defined $scope;
 
-      my $eg = $1;				# entire edge ("->" etc)
-      my $edge_un = 0; $edge_un = 1 if $eg eq '--';	# undirected edge?
-      my $edge_atr = {};
-
-      if ($self->{_is_group})
+      if ($scope->{_is_group} && @{$self->{group_stack}})
         {
-        my $group = pop @{$self->{group_stack}};
+        print STDERR "# Parser: end subcluster '$self->{group_stack}->[-1]->{name}'\n" if $self->{debug};
+        pop @{$self->{group_stack}};
         }
-
       1;
       }, 
     sub
@@ -272,9 +363,10 @@ sub _add_group_match
       my $scope = pop @{$self->{scope_stack}};
       return $self->parse_error(0) if !defined $scope;
 
-      if ($self->{_is_group})
+      if ($scope->{_is_group} && @{$self->{group_stack}})
         {
-        my $group = pop @{$self->{group_stack}};
+        print STDERR "# Parser: end subcluster '$self->{group_stack}->[-1]->{name}'\n" if $self->{debug};
+        pop @{$self->{group_stack}};
         }
       # always reset the stack
       $self->{stack} = [ ];
@@ -289,6 +381,31 @@ sub _edge_style
   my ($self, $ed) = @_;
 
   'solid';
+  }
+
+sub _new_nodes
+  {
+  my ($self, $name, $group_stack, $att, $port, $stack) = @_;
+
+  $port = '' unless defined $port;
+  my @rc = ();
+  # "name1" => "name1"
+  if ($port ne '')
+    {
+    # create a special node
+    $name =~ s/^"//; $name =~ s/"\z//;
+    $port =~ s/^"//; $port =~ s/"\z//;
+    # XXX TODO: find unique name?
+    @rc = $self->_new_node ($self->{graph}, "$name:$port", $group_stack, $att, $stack);
+    my $node = $rc[0];
+    $node->{_graphviz_portlet} = $port;
+    $node->{_graphviz_basename} = $name;
+    }
+  else
+    {
+    @rc = $self->_new_node ($self->{graph}, $name, $group_stack, $att, $stack);
+    }
+  @rc;
   }
 
 sub _build_match_stack
@@ -309,7 +426,7 @@ sub _build_match_stack
   $self->_register_handler( qr/^$qr_cmt/, undef );
   
   # simple remove the graph start, but remember that we did this
-  $self->_register_handler( qr/^\s*(strict\s+)?(digraph|graph)\s+$qr_ocmt$qr_node\s*$qr_ocmt\{/, 
+  $self->_register_handler( qr/^\s*((?i)strict\s+)?((?i)digraph|graph)\s+$qr_ocmt$qr_node\s*$qr_ocmt\{/, 
     sub 
       {
       my $self = shift;
@@ -325,23 +442,25 @@ sub _build_match_stack
   # scope/group/subgraph end: "}"
   $self->_add_group_match();
 
-  # node [ color="red" ] etc 
-  $self->_register_handler( qr/^(node|graph|edge)$qr_ocmt$qr_attr/,
+  # node [ color="red" ] etc.
+  # The "(?i)" makes the keywords match case-insensitive. 
+  $self->_register_handler( qr/^\s*((?i)node|graph|edge)$qr_ocmt$qr_attr/,
     sub
       {
       my $self = shift;
-      my $type = $1 || '';
+      my $type = lc($1 || '');
       my $att = $self->_parse_attributes($2 || '', $type, NO_MULTIPLES );
-
       return undef unless defined $att;		# error in attributes?
 
       if ($type ne 'graph')
 	{
 	# apply the attributes to the current scope
 	my $scope = $self->{scope_stack}->[-1];
+        $scope->{$type} = {} unless ref $scope->{$type};
+	my $s = $scope->{$type};
 	for my $k (keys %$att)
 	  {
-          $scope->{$k} = $att->{$k}; 
+          $s->{$k} = $att->{$k}; 
 	  }
 	}
       else
@@ -373,15 +492,18 @@ sub _build_match_stack
       my $graph = $self->{graph};
       my $eg = $1;					# entire edge ("->" etc)
       my $n = $2;					# node name
+      my $port = $3;
 
       # XXX TODO: what about "1" -- "2" [ dir: both; ]?
       my $edge_un = 0; $edge_un = 1 if $eg eq '--';	# undirected edge?
 
       # need to defer edge attribute parsing until the edge exists
-      my $edge_atr = {};
+      # if inside a scope, set the scope attributes, too:
+      my $scope = $self->{scope_stack}->[-1] || {};
+      my $edge_atr = $scope->{edge} || {};
 
       # the right side node(s) (multiple in case of autosplit)
-      my $nodes_b = [ $self->_new_node ($self->{graph}, $n, $self->{group_stack}) ];
+      my $nodes_b = [ $self->_new_nodes ($n, $self->{group_stack}, {}, $port) ];
 
       my $style = $self->_link_lists( $self->{stack}, $nodes_b,
 	'--', '', $edge_atr, 0, $edge_un);
@@ -410,8 +532,9 @@ sub _build_match_stack
       return if exists $self->{scope_stack}->[-1]->{_is_group};
 
       my $n1 = $1;
+      my $port = $2;
       push @{$self->{stack}},
-        $self->_new_node ($graph, $n1, $self->{group_stack}, {}, $self->{stack});
+        $self->_new_nodes ($n1, $self->{group_stack}, {}, $port, $self->{stack}); 
 
       if (defined $self->{left_edge})
         {
@@ -421,7 +544,31 @@ sub _build_match_stack
         foreach my $node (@{$self->{left_stack}})
           {
           my $edge = $e->new( { style => $style, name => $edge_label } );
-          $edge->set_attributes($edge_atr) if $edge_atr;
+
+	  # if inside a scope, set the scope attributes, too:
+	  my $scope = $self->{scope_stack}->[-1];
+          $edge->set_attributes($scope->{edge}) if $scope;
+
+	  # override with the local attributes 
+	  # 'string' => [ 'string' ]
+	  # [ { hash }, 'string' ] => [ { hash }, 'string' ]
+	  my $e = $edge_atr; $e = [ $edge_atr ] unless ref($e) eq 'ARRAY';
+
+	  for my $a (@$e)
+	    {
+	    if (ref $a)
+	    {
+	    $edge->set_attributes($a);
+	    }
+	  else
+	    {
+	    # deferred parsing with the object as param:
+	    my $out = $self->_parse_attributes($a, $edge, NO_MULTIPLES);
+            return undef unless defined $out;		# error in attributes?
+	    $edge->set_attributes($out);
+	    }
+	  }
+
           # "<--->": bidirectional
           $edge->bidirectional(1) if $edge_bd;
           $edge->undirected(1) if $edge_un;
@@ -431,8 +578,27 @@ sub _build_match_stack
       1;
       } );
 
-  # "Berlin" [ color=red ]
-  $self->_register_node_attribute_handler($qr_node,$qr_oatr);
+  # "Berlin" [ color=red ] or "Bonn":"a" [ color=red ]
+  $self->_register_handler( qr/^$qr_node$qr_oatr/,
+    sub
+      {
+      my $self = shift;
+      my $name = $1;
+      my $port = $2;
+
+      $self->{stack} = [ $self->_new_nodes ($name, $self->{group_stack}, {}, $port) ];
+
+      # defer attribute parsing until object exists
+      my $node = $self->{stack}->[0];
+      my $a1 = $self->_parse_attributes($3||'', $node);
+      return undef if $self->{error};
+      $node->set_attributes($a1);
+
+      # forget left stack
+      $self->{left_edge} = undef;
+      $self->{left_stack} = [];
+      1;
+      } );
 
   # Things like ' "Node" ' will be consumed before, so we do not need a case
   # for '"Bonn" -> "Berlin"'
@@ -448,15 +614,19 @@ sub _build_match_stack
       my $graph = $self->{graph};
       my $eg = $1;					# entire edge ("->" etc)
       my $n = $2;					# node name
+      my $port = $3;
 
       # XXX TODO: what about "1" -- "2" [ dir: both; ]?
       my $edge_un = 0; $edge_un = 1 if $eg eq '--';	# undirected edge?
 
       # need to defer edge attribute parsing until the edge exists
-      my $edge_atr = $5||'';
+      my $edge_atr = $4||'';
+      my $scope = $self->{scope_stack}->[-1] || {};
 
-      # the right side node(s) (multiple in case of autosplit)
-      my $nodes_b = [ $self->_new_node ($self->{graph}, $n, $self->{group_stack}) ];
+      $edge_atr = [ $edge_atr, $scope->{edge} || {} ];
+
+      # the right side nodes:
+      my $nodes_b = [ $self->_new_nodes ($n, $self->{group_stack}, {}, $port) ];
 
       my $style = $self->_link_lists( $self->{stack}, $nodes_b,
 	'--', '', $edge_atr, 0, $edge_un);
@@ -497,7 +667,7 @@ sub _add_node
   
     my $is_group = $scope->{_is_group};
     delete $scope->{_is_group};
-    $node->set_attributes($scope);
+    $node->set_attributes($scope->{node});
     $scope->{_is_group} = $is_group if $is_group;
     }
 
@@ -513,16 +683,19 @@ sub _add_node
 my $remap = {
   'node' => {
     'distortion' => undef,
-    # XXX TODO: ignore non-node attributes set in a scope
-    'dir' => undef,
+
     'fixedsize' => undef,
     'group' => undef,
     'height' => undef,
+
+    # XXX TODO: ignore non-node attributes set in a scope
+    'dir' => undef,
     # a lot of example files have this spurious attribute
-    'kind' => undef,
+    #'kind' => undef,
+
     'layer' => undef,
     'margin' => undef,
-    'orientation' => undef, # \&_graphviz_remap_node_orientation,
+    'orientation' => \&_from_graphviz_node_orientation,
     'peripheries' => \&_from_graphviz_node_peripheries,
     'pin' => undef,
     'pos' => undef,
@@ -542,8 +715,7 @@ my $remap = {
 
   'edge' => {
     'arrowsize' => undef,
-    'arrowhead' => undef,
-#     'arrowhead' => \&_graphviz_remap_arrow_style,
+    'arrowhead' => \&_from_graphviz_arrow_style,
     'arrowtail' => undef,
      # important for color lists like "red:red" => double edge
     'color' => \&_from_graphviz_edge_color,
@@ -602,7 +774,7 @@ my $remap = {
     'epsilon' => undef,
     'esep' => undef,
     'fontpath' => undef,
-#    'labeljust' => \&_graphviz_remap_graph_labeljust,
+    'labeljust' => \&_from_graphviz_graph_labeljust,
     'labelloc' => \&_from_graphviz_graph_labelloc,
     'landscape' => undef,
     'layers' => undef,
@@ -698,7 +870,6 @@ my $shapes = {
   msquare => 'rect',
   plaintext => 'none',
   none => 'none',
-  record => 'rect',
   };
 
 sub _from_graphviz_node_shape
@@ -721,19 +892,39 @@ sub _from_graphviz_node_shape
 
 sub _from_graphviz_style
   {
-  my ($self, $name, $style) = @_;
+  my ($self, $name, $style, $class) = @_;
 
   my @styles = split /\s*,\s*/, $style;
+
+  my $is_node = 0;
+  $is_node = 1 if ref($class) && !$class->isa('Graph::Easy::Group');
+  $is_node = 1 if !ref($class) && defined $class && $class eq 'node';
 
   my @rc;
   for my $s (@styles)
     {
     @rc = ('shape', 'rounded') if $s eq 'rounded';
-    @rc = ('border', 'black bold') if $s eq 'bold';
-    @rc = () if $s eq 'filled';
+    @rc = ('shape', 'invisible') if $s eq 'invis';
+    @rc = ('border', 'black ' . $1) if $s =~ /^(bold|dotted|dashed)\z/;
+    if ($is_node != 0)
+      {	
+      @rc = ('shape', 'rect') if $s eq 'filled';
+      }
     }
 
   @rc;
+  }
+
+sub _from_graphviz_node_orientation
+  {
+  my ($self, $name, $o) = @_;
+
+  my $r = int($o);
+  
+  return (undef,undef) if $r == 0;
+
+  # 1.0 => 1
+  ('rotate', $r);
   }
 
 sub _from_graphviz_node_peripheries
@@ -801,6 +992,20 @@ sub _from_graphviz_edge_style
   ($name, $style);
   }
 
+sub _from_graphviz_arrow_style
+  {
+  my ($self, $name, $shape, $object) = @_;
+
+  my $style = 'open';
+
+  $style = 'closed' if $shape =~ /^(empty|onormal)\z/;
+  $style = 'filled' if $shape eq 'normal' || $shape eq 'normalnormal';
+  $style = 'open' if $shape eq 'vee' || $shape eq 'veevee';
+  $style = 'none' if $shape eq 'none' || $shape eq 'nonenone';
+
+  ('arrow-style', $style);
+  }
+
 my $color_map = {
   fontcolor => 'color',
   bgcolor => 'background',
@@ -849,21 +1054,195 @@ sub _from_graphviz_edge_color
   (@rc, $color_map->{$name}, $colors[0]);
   }
 
+sub _from_graphviz_graph_labeljust
+  {
+  my ($self, $name, $l, $object) = @_;
+
+  # input: "l" "r" or "c", output "left", "right" or "center"
+  my $a = 'center';
+  $a = 'left' if $l eq 'l';
+  $a = 'right' if $l eq 'r';
+
+  ('align', $a);
+  }
+
 #############################################################################
 
 sub _remap_attributes
   {
   my ($self, $att, $object) = @_;
 
-  # unquote attributes (especially colors)
-  for my $val (values %$att)
+  if ($self->{debug})
     {
-    $val =~ s/^"//;
-    $val =~ s/"\z//;
+    my $o = ''; $o = " for $object" if $object;
+    print STDERR "# remapping attributes '$att'$o\n";
     }
-  print STDERR "# remapping attributes '$att' for $object\n" if $self->{debug};
 
   $self->{graph}->_remap_attributes($object, $att, $remap, 'noquote', undef, undef);
+  }
+
+#############################################################################
+
+sub _parser_cleanup
+  {
+  # After initial parsing, do cleanup, e.g. autosplit nodes with shape record,
+  # re-connect edges to the parts etc.
+  my ($self) = @_;
+
+  print STDERR "# Parser cleanup pass\n" if $self->{debug};
+
+  my $g = $self->{graph};
+  my @nodes = $g->nodes();
+
+  # for all nodes that have a shape of "record", break down their label into
+  # parts and create  these as autosplit nodes
+  for my $n (@nodes)
+    {
+    my $shape = $n->attribute('shape') || 'rect';
+    my $label = $n->label();
+    if ($shape eq 'record' && $label =~ /\|/)
+      {
+      my $att = {};
+      # create basename only when node name differes from label
+      $att->{basename} = $n->{name};
+      if ($n->{name} ne $label)
+	{
+	$att->{basename} = $n->{name};
+	}
+      # XXX TODO: autosplit needs to handle nesing like "{}".
+
+      # Replace "{ ... | ... |  ... }" with "...|| ... || ...." as a cheat
+      # to fix one common case
+      if ($label =~ /^\s*\{[^\{\}]+\}\s*\z/)
+	{
+        $label =~ s/[\{\}]//g;	# {..|..} => ..|..
+        $label =~ s/\|/\|\|/g	# ..|.. => ..||..
+	  # if the graph flows left->right or right->left
+	  if (($g->attribute('flow') || 'east') =~ /^(east|west)/);
+	}
+      my @rc = $self->_autosplit_node($g, $label, $att, 0 );
+      my $group = $n->group();
+      $n->del_attribute('label');
+
+      my $qr_clean = $self->{_qr_part_clean};
+      # clean the base name of ports:
+      #  "<f1> test | <f2> test" => "test|test"
+      $rc[0]->{autosplit} =~ s/(^|\|)$qr_clean/$1/g;
+      $rc[0]->{att}->{basename} =~ s/(^|\|)$qr_clean/$1/g;
+      $rc[0]->{autosplit} =~ s/^\s*//;
+      $rc[0]->{att}->{basename} =~ s/^\s*//;
+      # '| |' => '|  |' to avoid empty parts via as_txt() => as_ascii()
+      $rc[0]->{autosplit} =~ s/\|\s\|/\|  \|/g;
+      $rc[0]->{att}->{basename} =~ s/\|\s\|/\|  \|/g;
+      $rc[0]->{autosplit} =~ s/\|\s\|/\|  \|/g;
+      $rc[0]->{att}->{basename} =~ s/\|\s\|/\|  \|/g;
+      delete $rc[0]->{att}->{basename} if $rc[0]->{att}->{basename} eq $rc[0]->{autosplit};
+
+      for my $n1 (@rc)
+	{
+	$n1->add_to_group($group) if $group;
+	$n1->set_attributes($n->{att});
+	# remove the temp. "shape=record"
+	$n1->del_attribute('shape');
+	}
+
+      # If the helper node has edges, reconnect them to the first
+      # part of the autosplit node (dot seems to render them arbitrarily
+      # on the autosplit node):
+
+      for my $e (values %{$n->{edges}})
+	{
+        $e->start_at($rc[0]) if $e->{from} == $n;
+        $e->end_at($rc[0]) if $e->{to} == $n;
+	}
+      # remove the temp. and spurious node
+      $g->del_node($n);
+      }
+    }
+
+  # During parsing, "bonn:f1" -> "berlin:f2" results in "bonn:f1" and
+  # "berlin:f2" as nodes, plus an edge connecting them
+
+  # We find all of these nodes, move the edges to the freshly created
+  # autosplit parts above, then delete the superflous temporary nodes.
+
+  # if we looked up "Bonn:f1", remember it here to save time
+  my $node_cache = {};
+
+  my @edges = $g->edges();
+  @nodes = $g->nodes();		# get a fresh list of nodes after split
+  for my $e (@edges)
+    {
+    # do this for both the from and to side of the edge:
+    for my $side ('from','to')
+      {
+      my $n = $e->{$side};
+      next unless defined $n->{_graphviz_portlet};
+
+      my $port = $n->{_graphviz_portlet};
+      my $base = $n->{_graphviz_basename};
+
+      my $node = $node_cache->{"$base:$port"};
+
+      if (!defined $node)
+	{
+	# go thru all nodes and for see if we find one with the right port name
+	for my $na (@nodes)
+	  {
+	  next unless exists $na->{autosplit_portname} && exists $na->{autosplit_basename};
+	  next unless $na->{autosplit_basename} eq $base;
+	  next unless $na->{autosplit_portname} eq $port;
+	  # cache result
+          $node_cache->{"$base:$port"} = $na;
+          $node = $na;
+	  }
+	}
+
+      if (!defined $node)
+	{
+	# Still not defined? uhoh...
+	$self->error("Cannot fine autosplit node for $base:$port on edge $e->{id}");
+ 	}
+
+      if ($side eq 'from')
+	{
+  	print STDERR "# Setting new edge start point to $node->{name}\n" if $self->{debug};
+	$e->start_at($node);
+	}
+      else
+	{
+  	print STDERR "# Setting new edge end point to $node->{name}\n" if $self->{debug};
+	$e->end_at($node);
+	}
+
+      } # end for side "from" and "to"
+    # we have reconnected this edge
+    }
+
+  @nodes = $g->nodes();
+
+  # convert "\N" to "self->{name}"
+  for my $n (@nodes)
+    {
+    my $label = $n->label();
+    if ($label =~ /\\N/)
+      {
+      my $name = $n->{name};
+      $label =~ s/\\N/$name/g;
+      $n->set_attribute('label',$label);
+      }
+    }
+
+  # after reconnecting all edges, we can delete temp. nodes: 
+  for my $n (@nodes)
+    {
+    $g->del_node($n) if exists $n->{_graphviz_portlet};
+    }
+
+  $g->_drop_special_attributes();
+  $g->{_warn_on_unknown_attributes} = 0;	# reset to die again
+
+  $self;
   }
 
 1;
@@ -881,21 +1260,23 @@ Graph::Easy::Parser::Graphviz - Parse graphviz text into Graph::Easy
         my $parser = Graph::Easy::Parser::Graphviz->new();
 
         my $graph = $parser->from_text(
-                "digraph Graph {\" .
-                ' Bonn -> "Berlin"' . "\n}\n" );
+                "digraph MyGraph { \n" .
+	 	"	Bonn -> \"Berlin\" \n }"
         );
         print $graph->as_ascii();
-        
+
 	print $parser->from_file('mygraph.dot')->as_ascii();
 
 =head1 DESCRIPTION
 
-C<Graph::Easy::Parser::Graphviz> parses the text format from graphviz and
-constructs a C<Graph::Easy> object from it.
+C<Graph::Easy::Parser::Graphviz> parses the text format from the DOT language
+use by Graphviz and constructs a C<Graph::Easy> object from it.
 
-The resulting object can than be used to layout and output the graph.
+The resulting object can than be used to layout and output the graph
+in various formats.
 
-Please see the Grapviz manual for a full description of the syntax rules.
+Please see the Graphviz manual for a full description of the syntax
+rules of the DOT language.
 
 =head2 Output
 
@@ -906,7 +1287,7 @@ with it.
 =head1 METHODS
 
 C<Graph::Easy::Parser::Graphviz> supports the same methods
-that its parent class C<Graph::Easy::Parser>:
+as its parent class C<Graph::Easy::Parser>:
 
 =head2 new()
 
@@ -976,12 +1357,45 @@ templates like C<##param1##> with the passed parameters.
 
 =head1 CAVEATS
 
+The parser has problems with the following things:
+
 =over 12
 
 =item encoding and charset attribute
 
 The Parser assumes the input to be C<utf-8>. Input files in <code>Latin1</code>
 are not parsed properly, even when they have the charset attribute set.
+
+=item table syntax
+
+Labels that contain the HTML table syntax (e.g. are limited by '<' and '>'
+opposed to '"') are not parsed yet.
+
+=item shape=record
+
+Nodes with shape record are only parsed properly when the label does not
+contain groups delimited by "{" and "}", so the following is parsed
+wrongly:
+
+	node1 [ shape=record, label="A|{B|C}" ]
+
+=item default shape
+
+The default shape for a node is 'rect', opposed to 'circle' as dot renders
+nodes.
+
+=item attributes
+
+Some attributes are B<not> remapped properly to what Graph::Easy expects, thus
+losing information, either because Graph::Easy doesn't support this feature
+yet, or because the mapping is incomplete.
+
+Some attributes meant only for nodes or edges etc, might be incorrectly applied
+to other objects, result in unnec. warnings while parsing.
+
+Attributes not valid in the original DOT language are silently ignored by dot,
+but result in a warning when parsing under Graph::Easy. This helps catching all
+these pesky misspellings, but it is not yet possible to disable these warnings.
 
 =back
 
@@ -991,7 +1405,7 @@ Exports nothing.
 
 =head1 SEE ALSO
 
-L<Graph::Easy>.
+L<Graph::Easy>, L<Graph::Reader::Dot>.
 
 =head1 AUTHOR
 

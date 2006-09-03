@@ -10,7 +10,7 @@ package Graph::Easy::Layout::Repair;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #############################################################################
 #############################################################################
@@ -42,6 +42,15 @@ sub _repair_nodes
   # multi-edges nodes, so we insert additional filler cells.
   my ($self) = @_;
   my $cells = $self->{cells};
+
+  # Make multi-celled nodes occupy the proper double space due to splicing
+  # in group cell has doubled the layout in each direction:
+  for my $n ($self->nodes())
+    {
+    # 1 => 1, 2 => 3, 3 => 5, 4 => 7 etc
+    $n->{cx} = $n->{cx} * 2 - 1;
+    $n->{cy} = $n->{cy} * 2 - 1;
+    }
 
   # We might get away with not inserting filler cells if we just mark the
   # cells as used (e.g. use only one global filler cell) since filler cells
@@ -197,9 +206,15 @@ sub _splice_edges
       {
       my $right = $cells->{"$x,$y"};
 
-      # check that both cells belong to the same edge
       $self->_repair_cell(EDGE_HOR(), $edge, $cell->{x}+1,$y,$cell)
-        if ($right->isa('Graph::Easy::Edge::Cell') && $edge == $right->{edge});
+        if $right->isa('Graph::Easy::Edge::Cell') && 
+           defined $right->{edge} && defined $right->{type} &&
+	# check that both cells belong to the same edge
+	(  $edge == $right->{edge}  ||
+	# or the right part is a cross
+	   $right->{type} == EDGE_CROSS ||
+	# or the left part is a cross
+	   $cell->{type} == EDGE_CROSS );
       }
     
     #########################################################################
@@ -210,11 +225,15 @@ sub _splice_edges
 
     if (exists $cells->{"$x,$y"})
       {
-
       my $below = $cells->{"$x,$y"};
-      # check that both cells belong to the same edge
       $self->_repair_cell(EDGE_VER(),$edge,$x,$cell->{y}+1,$cell)
-	if $below->isa('Graph::Easy::Edge::Cell') && $edge == $below->{edge};
+	if $below->isa('Graph::Easy::Edge::Cell') &&
+        # check that both cells belong to the same edge
+	(  $edge == $below->{edge}  ||
+	# or the lower part is a cross
+	   $below->{type} == EDGE_CROSS ||
+	# or the upper part is a cross
+	   $cell->{type} == EDGE_CROSS );
       }
 
     } # end for all cells
@@ -598,7 +617,6 @@ Splicing the rows/columns to add filler cells might have torn holes into
 multi-celled edges, so we splice these together again.
 
 =head2 _repair_edges()
-
 
 Splicing the rows/columns to add filler cells might have put "holes"
 between an edge start/end and the node cell it points to. This

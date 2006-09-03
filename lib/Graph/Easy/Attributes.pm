@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.21';
+$VERSION = '0.22';
 
 package Graph::Easy;
 
@@ -2405,6 +2405,7 @@ use constant {
   ATTR_URL	=> 5,
   ATTR_UINT	=> 6,		# a "small" unsigned integer
   ATTR_LIST	=> 7,		# a list of values
+  ATTR_LCTEXT	=> 8,		# lowercase text (classname)
 
   ATTR_DESC_SLOT	=> 0,
   ATTR_MATCH_SLOT	=> 1,
@@ -2528,6 +2529,7 @@ my $attributes = {
       qr/^(|[a-zA-Z][a-zA-Z0-9_]*)\z/,
      '',
      'mynodeclass',
+     ATTR_LCTEXT,
      ],
 
     fill => [
@@ -2683,6 +2685,15 @@ EOF
      "[ A|B|C ] { basename: A } [ 1 ] -> [ A.2 ]\n [ A|B|C ] [ 2 ] -> [ ABC.2 ]",
      ], 
 
+    flow => [
+     "The general direction in which edges will leave this node first. Please see the section about <a href='hinting.html#flow'>flow control</a> for reference.",
+     '_direction',
+     'east',
+     'south',
+      undef,
+      "graph { flow: up; }\n [ Enschede ] { flow: left; } -> [ Bielefeld ] -> [ Wolfsburg ]",
+     ],
+
     "group" => [
      "Puts the node into this group.",
      undef,
@@ -2727,34 +2738,6 @@ EOF
      'Cluster A',
      ],
 
-    flow => [
-     "The general direction in which edges will leave this node first. Please see the section about <a href='hinting.html#flow'>flow control</a> for reference.",
-     '_direction',
-     'east',
-     'south',
-      undef,
-      "graph { flow: up; }\n [ Enschede ] { flow: left; } -> [ Bielefeld ] -> [ Wolfsburg ]",
-     ],
-
-    shape => [
-     "The shape of the node. Nodes with shape 'point' (see L<point-style>) have a fixed size and do not display their label. The border of such a node is the outline of the C<point-shape>, and the fill is the inside of the C<point-shape>. When the C<shape> is set to the value 'img', the L<label> will be interpreted as an external image resource to display. In this case attributes like L<color>, L<font-size> etc. are ignored.",
-       [ qw/ circle diamond ellipse hexagon house invisible invhouse invtrapezium invtriangle octagon parallelogram pentagon
-             point triangle trapezium septagon rect rounded none img/ ],
-      'rect',
-      'circle',
-      undef,
-      "[ Bonn ] -> \n [ Berlin ] { shape: circle; }\n -> [ Regensburg ] { shape: rounded; }\n -> [ Ulm ] { shape: point; }\n -> [ Wasserburg ] { shape: invisible; }\n -> [ Augsburg ] { shape: triangle; }\n -> [ House ] { shape: img; label: img/house.png;\n          border: none; title: My House; fill: inherit; }",
-     ],
-
-    rotate => [
-     "The rotation of the node shape, either an absolute value (like C<south>, C<up>, C<down> or C<123>), or a relative value (like C<+12>, C<-90>, C<left>, C<right>). For relative angles, the rotation will be based on the node's L<flow>. Rotation is clockwise.",
-       undef,
-       '0',
-       '180',
-       ATTR_ANGLE,
-     "[ Bonn ] { rotate: 45; } -- ICE --> \n [ Berlin ] { shape: triangle; rotate: -90; }",
-     ],
-
     "point-style" => [
      "Controls the style of a node that has a L<shape> of 'point'.",
      [ qw/circle cross diamond dot invisible square star/ ],
@@ -2770,6 +2753,36 @@ EOF
      "\n -> [ G ] { point-style: square; }" . 
      "\n -> [ H ] { point-style: star; }"
      ], 
+
+    rank => [
+     "The rank of the node, used by the layouter to find the order and placement of nodes. " .
+     "Set to C<auto> (the default), C<same> (usefull for node lists) or a positive number. " .
+     "See the section about node ranks for reference and more examples.",
+       qr/^(auto|same|\d{1,6})\z/,
+       'auto',
+       'same',
+       undef,
+     "[ Bonn ], [ Berlin ] { rank: same; }\n [ Bonn ] -> [ Cottbus ] -> [ Berlin ]",
+     ],
+
+    rotate => [
+     "The rotation of the node shape, either an absolute value (like C<south>, C<up>, C<down> or C<123>), or a relative value (like C<+12>, C<-90>, C<left>, C<right>). For relative angles, the rotation will be based on the node's L<flow>. Rotation is clockwise.",
+       undef,
+       '0',
+       '180',
+       ATTR_ANGLE,
+     "[ Bonn ] { rotate: 45; } -- ICE --> \n [ Berlin ] { shape: triangle; rotate: -90; }",
+     ],
+
+    shape => [
+     "The shape of the node. Nodes with shape 'point' (see L<point-style>) have a fixed size and do not display their label. The border of such a node is the outline of the C<point-shape>, and the fill is the inside of the C<point-shape>. When the C<shape> is set to the value 'img', the L<label> will be interpreted as an external image resource to display. In this case attributes like L<color>, L<font-size> etc. are ignored.",
+       [ qw/ circle diamond edge ellipse hexagon house invisible invhouse invtrapezium invtriangle octagon parallelogram pentagon
+             point triangle trapezium septagon rect rounded none img/ ],
+      'rect',
+      'circle',
+      undef,
+      "[ Bonn ] -> \n [ Berlin ] { shape: circle; }\n -> [ Regensburg ] { shape: rounded; }\n -> [ Ulm ] { shape: point; }\n -> [ Wasserburg ] { shape: invisible; }\n -> [ Augsburg ] { shape: triangle; }\n -> [ House ] { shape: img; label: img/house.png;\n          border: none; title: My House; fill: inherit; }",
+     ],
 
   }, # node
 
@@ -2917,7 +2930,25 @@ EOF
 
    }, # group
 
+  # These entries will be allowed temporarily during Graphviz parsing for
+  # intermidiate values, like "shape=record".
+  special => { },
   }; # end of attribute definitions
+
+sub _allow_special_attributes
+  {
+  # store a hash with special temp. attributes
+  my ($self, $att) = @_;
+  $attributes->{special} = $att;
+  }
+
+sub _drop_special_attributes
+  {
+  # drop the hash with special temp. attributes
+  my ($self) = @_;
+
+  $attributes->{special} = {};
+  }
 
 sub _attribute_entries
   {
@@ -2948,29 +2979,32 @@ sub unquote_attribute
 
 sub valid_attribute
   {
-  # Check that an name/value pair is an valid attribute, return new
-  # attribute if valid, undef for not valid.
+  # Check that an name/value pair is an valid attribute, returns:
+  # scalar value:	valid, new attribute
+  # undef:	 	not valid
+  # []:			unknown attribute
+  # {}:			warn and ignore attribute
   my ($self, $name, $value, $class) = @_;
 
-  if (ref($value))
-    {
-    require Carp;
-    Carp::confess ("Got reference $value as value, but expected scalar");
-    }
-
-  if (ref($name))
-    {
-    require Carp;
-    Carp::confess ("Got reference $name as name, but expected scalar");
-    }
+  $self->error("Got reference $value as value, but expected scalar") if ref($value);
+  $self->error("Got reference $name as name, but expected scalar") if ref($name);
 
   $class = 'all' unless defined $class;
   $class =~ s/\..*\z//;		# remove subclasses
 
-  my $entry = $attributes->{all}->{$name} || $attributes->{$class}->{$name};
+  # prevent ->{node} from springing into existance
+  my $s = $attributes->{special}; $s = $s->{$class} if exists $s->{$class};
+
+  my $entry = $s->{$name} ||
+	      $attributes->{all}->{$name} || $attributes->{$class}->{$name};
 
   # didn't found an entry
-  return [] unless ref($entry);
+  if (!ref($entry))
+    {
+    $self->warn("Ignoring unknown attribute '$name'") 
+      if $self->{_warn_on_unknown_attributes};
+    return []; 					# report "unknown attribute"
+    }
 
   my $check = $entry->[ATTR_MATCH_SLOT];
   my $type = $entry->[ATTR_TYPE_SLOT] || ATTR_STRING;
@@ -2985,7 +3019,12 @@ sub valid_attribute
   # XXX TODO:
   # This will not work in case of mixed " $i \|\| 0| $a = 1;"
 
-  @values = split (/\s*\|\s*/, $value, -1) if $value =~ /(^|[^\\])\|/;
+  # When special attributes are set, we are parsing Graphviz, and do
+  # not allow/use multiple attributes. So skip the split.
+  if (keys %{$attributes->{special}} == 0)
+     {
+     @values = split (/\s*\|\s*/, $value, -1) if $value =~ /(^|[^\\])\|/;
+     }
 
   my $multiples = 0; $multiples = 1 if @values > 1;
 
@@ -3008,10 +3047,14 @@ sub valid_attribute
         $check = $entry->[1];
         }
       return undef unless $v =~ $check;		# invalid
+
       push @rc, $v;				# valid
       }
     # entry found, but no specific check => anything goes as value
     else { push @rc, $v; }
+
+    # "ClAss" => "class" for LCTEXT entries
+    $rc[-1] = lc($rc[-1]) if $type == ATTR_LCTEXT;
     }
 
   # only one value ('green')
@@ -3158,7 +3201,10 @@ C<Graph::Easy::Attributes> contains the definitions of valid attribute names
 and values for L<Graph::Easy|Graph::Easy>. It is used by both the parser
 and by Graph::Easy to check attributes for being valid and well-formed. 
 
-There should be no need to use it directly.
+There should be no need to use this module directly.
+
+For a complete list of attributes and their possible values, please see
+L<Graph::Easy::Manual>.
 
 =head1 EXPORT
 

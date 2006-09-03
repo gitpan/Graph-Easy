@@ -8,7 +8,7 @@ package Graph::Easy::Node::Anon;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = 0.07;
+$VERSION = 0.08;
 
 use strict;
 
@@ -61,6 +61,11 @@ sub as_pure_txt
   '[ ]';
   }
 
+sub _as_part_txt
+  {
+  '[ ]';
+  }
+
 sub as_graphviz_txt
   {
   my $self = shift;
@@ -103,7 +108,7 @@ __END__
 
 =head1 NAME
 
-Graph::Easy::Node::Anon - An anonymous, invisible node in a simple graph
+Graph::Easy::Node::Anon - An anonymous, invisible node in Graph::Easy
 
 =head1 SYNOPSIS
 

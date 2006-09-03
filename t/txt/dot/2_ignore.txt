@@ -1,0 +1,7 @@
+edge { arrow-style: filled; }
+graph {
+  colorscheme: x11;
+  flow: south;
+}
+
+[ node1 ] --> [ node2 ]

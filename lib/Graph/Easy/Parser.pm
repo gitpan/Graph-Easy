@@ -8,7 +8,7 @@ package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = '0.24';
+$VERSION = '0.25';
 use base qw/Graph::Easy::Base/;
 
 use strict;
@@ -35,6 +35,9 @@ sub _init
   # to repair parsing of group starts (the '[' would else be missing)
   $self->{group_start} = '[';
   $self->{attr_sep} = ':';
+  # An optional regexp to remove parts of an autosplit label, used by Graphviz
+  # to remove " <p1> ":
+  $self->{_qr_part_clean} = undef;
 
   # setup default class names for generated objects
   $self->{use_class} = {
@@ -71,6 +74,8 @@ sub reset
   $self->{group_stack} = [];	# all the (nested) groups we are currently in
   $self->{left_stack} = [];	# stack for the left side for "[]->[],[],..."
   $self->{left_edge} = undef;	# for -> [A], [B] continuations
+
+  Graph::Easy->_drop_special_attributes();
 
   $self->{graph} = $self->{use_class}->{graph}->new( { debug => $self->{debug}, strict => 0 } );
 
@@ -188,7 +193,7 @@ sub _register_node_attribute_handler
       my $n1 = $1;
       my $a1 = $self->_parse_attributes($2||'');
       return undef if $self->{error};
-
+ 
       $self->{stack} = [ $self->_new_node ($self->{graph}, $n1, $self->{group_stack}, $a1) ];
 
       # forget left stack
@@ -261,7 +266,7 @@ sub _build_match_stack
       {
       my $self = shift;
       my $type = $1 || '';
-      my $class = $2 || '';
+      my $class = lc($2 || '');
       my $att = $self->_parse_attributes($3 || '', $type, NO_MULTIPLES );
 
       return undef unless defined $att;		# error in attributes?
@@ -430,8 +435,9 @@ sub _clean_line
   # remove comment at end of line (but leave \# alone):
   $line =~ s/(:[^\\]|)$self->{qr_comment}.*/$1/;
 
-  # remove white space at start/end
-  $line =~ s/^\s+//;
+  # collapse white space at start
+  $line =~ s/^\s+/ /;
+  # remove white space at end
   $line =~ s/\s+\z//;
 
 #  print STDERR "# at line '$line' stack: ", join(",",@{ $self->{stack}}),"\n";
@@ -444,8 +450,8 @@ sub from_text
   my ($self,$txt) = @_;
 
   if ((ref($self)||$self) eq 'Graph::Easy::Parser' && 
-    # contains graph GRAPH { or something similiar
-    $txt =~ /(di)?graph\s+("[^"]*"|[\w_]+)\s*\{/)
+    # contains "digraph GRAPH {" or something similiar
+    $txt =~ /^(\s*|\s*\/\*.*?\*\/\s*)(strict\s+)?(di)?graph\s+("[^"]*"|[\w_]+)\s*\{/im)
     {
     require Graph::Easy::Parser::Graphviz;
     # recreate ourselfes, and pass our arguments along
@@ -500,7 +506,7 @@ sub from_text
       $curline =~ s/\t/ /g;
       }
     
-    my $line = $self->_clean_line($backbuffer . $subst . $curline);
+    my $line = $backbuffer . $subst . $self->_clean_line($curline);
 
 #  print STDERR "# Line is '$line'\n";
 
@@ -539,6 +545,9 @@ sub from_text
   return undef if $self->error();
 
   print STDERR "# Parsing done\n" if $graph->{debug};
+
+  # Do final cleanup (for parsing Graphviz)
+  $self->_parser_cleanup() if $self->can('_parser_cleanup');
 
   # turn on strict checking on returned graph
   $graph->strict(1);
@@ -586,17 +595,24 @@ sub _link_lists
 
       $graph->add_edge ( $node, $node_b, $edge );
 
-      if (!ref($edge_atr))
+      # 'string' => [ 'string' ]
+      # [ { hash }, 'string' ] => [ { hash }, 'string' ]
+      my $e = $edge_atr; $e = [ $edge_atr ] unless ref($e) eq 'ARRAY';
+
+      for my $a (@$e)
 	{
-	# deferred parsing with the object as param:
-        my $out = $self->_parse_attributes($edge_atr, $edge);
-        return undef if $self->{error};
-        $edge->set_attributes($out);
-        }
-      else
-        {
-        $edge->set_attributes($edge_atr);
-        }
+	if (ref $a)
+	  {
+	  $edge->set_attributes($a);
+	  }
+	else
+	  {
+	  # deferred parsing with the object as param:
+	  my $out = $self->_parse_attributes($a, $edge);
+	  return undef if $self->{error};
+	  $edge->set_attributes($out);
+	  }
+	}
 
       # "<--->": bidirectional
       $edge->bidirectional(1) if $edge_bd;
@@ -609,12 +625,15 @@ sub _link_lists
 
 sub _unquote
   {
-  my ($self, $name) = @_;
+  my ($self, $name, $no_collapse) = @_;
 
   $name = '' unless defined $name;
 
   # unquote special chars
   $name =~ s/\\([\[\(\{\}\]\)#<>\-\.\=])/$1/g;
+
+  # collapse multiple spaces
+  $name =~ s/\s+/ /g unless $no_collapse;
 
   $name;
   }
@@ -627,6 +646,161 @@ sub _add_node
   $graph->add_node($name);		# add unless exists
   }
 
+sub _autosplit_node
+  {
+  # Takes a node name like "a|b||c" and splits it into "a", "b", and "c".
+  # Returns the individual parts.
+  my ($self, $graph, $name, $att, $allow_empty) = @_;
+ 
+  # Default is to have empty parts. Graphviz sets this to true;
+  $allow_empty = 1 unless defined $allow_empty;
+
+  my @rc;
+  my $uc = $self->{use_class};
+  my $qr_clean = $self->{_qr_part_clean};
+
+  # build base name: "A|B |C||D" => "ABCD"
+  my $base_name = $name; $base_name =~ s/\s*\|\|?\s*//g;
+
+  # use user-provided base name
+  $base_name = $att->{basename} if exists $att->{basename};
+
+  # strip trailing/leading spaces on basename
+  $base_name =~ s/\s+\z//;
+  $base_name =~ s/^\s+//;
+
+  my $first_in_row;			# for relative placement of new row
+
+  # first one gets: "ABC", second one "ABC.1" and so on
+  # Try to find a unique cluster name in case some one get's creative and names the
+  # last part "-1":
+
+  # does work without cluster-id?
+  if (exists $self->{clusters}->{$base_name})
+    {
+    my $g = 1;
+    while ($g == 1)
+      {
+      my $base_try = $base_name; $base_try .= '-' . $self->{cluster_id} if $self->{cluster_id};
+      last if !exists $self->{clusters}->{$base_try};
+      $self->{cluster_id}++;
+      }
+    $base_name .= '-' . $self->{cluster_id} if $self->{cluster_id}; $self->{cluster_id}++;
+    }
+
+  print STDERR "# Parser: Autosplitting node with basename '$base_name'\n" if $graph->{debug};
+
+  $self->{clusters}->{$base_name} = undef;	# reserve this name
+
+  my $x = 0; my $y = 0; my $idx = 0;
+  my $remaining = $name; my $sep; my $last_sep = '';
+  my $add = 0;
+  while ($remaining ne '')
+    {
+    # XXX TODO: parsing of "\|" and "|" in one node
+    $remaining =~ s/^([^\|]*)(\|\|?|\z)//;
+    my $part = $1 || ' ';
+    $sep = $2;
+    my $port_name = '';
+
+    # possible cleanup for this part
+    if ($qr_clean)
+      {
+      $part =~ s/^$qr_clean//; $port_name = $1;
+      }
+
+    # fix [|G|] to have one empty part as last part
+    if ($add == 0 && $remaining eq '' && $sep =~ /\|\|?/)
+      {
+      $add++;				# only do it once
+      $remaining .= '|' 
+      }
+
+    my $class = $uc->{node};
+    if ($allow_empty && $part eq ' ')
+      {
+      # create an empty node with no border
+      $class .= "::Empty";
+      }
+    elsif ($part =~ /^0x20{2,}\z/)
+      {
+      # create an empty node with border
+      $part = ' ';
+      }
+    else
+      {
+      $part =~ s/^\s+//;	# rem spaces at front
+      $part =~ s/\s+\z//;	# rem spaces at end
+      }
+
+    my $node_name = "$base_name.$idx";
+
+    if ($graph->{debug})
+      {
+      my $empty = '';
+      $empty = ' empty' if $class ne $self->{use_class}->{node};
+      print STDERR "# Parser:  Creating$empty autosplit part '$part'\n" if $graph->{debug};
+      }
+
+    # if it doesn't exist, add it, otherwise retrieve node object to $node
+    if ($class =~ /::Empty/)
+      {
+      my $node = $graph->node($node_name);
+      if (!defined $node)
+	{
+	# create node object from the correct class
+	$node = $class->new($node_name);
+        $graph->add_node($node);
+	}
+      }
+
+    my $node = $graph->add_node($node_name);
+    $node->{autosplit_label} = $part;
+    # remember these two for Graphviz
+    $node->{autosplit_portname} = $port_name;
+    $node->{autosplit_basename} = $base_name;
+
+    push @rc, $node;
+    if (@rc == 1)
+      {
+      # for correct as_txt output
+      $node->{autosplit} = $name;
+      $node->{autosplit} =~ s/\s+\z//;	# strip trailing spaces
+      $node->{autosplit} =~ s/^\s+//;	# strip leading spaces
+      $node->set_attribute('basename', $att->{basename}) if defined $att->{basename};
+      $first_in_row = $node;
+      }
+    else
+      {
+      # second, third etc get previous as origin
+      my ($sx,$sy) = (1,0);
+      my $origin = $rc[-2];
+      if ($last_sep eq '||')
+        {
+        ($sx,$sy) = (0,1); $origin = $first_in_row;
+        $first_in_row = $node;
+        } 
+      $node->relative_to($origin,$sx,$sy);
+
+      # suppress as_txt output for other parts
+      $node->{autosplit} = undef;
+      }	
+    # nec. for border-collapse
+    $node->{autosplit_xy} = "$x,$y";
+
+    $idx++;						# next node ID
+    $last_sep = $sep;
+    $x++;
+    # || starts a new row:
+    if ($sep eq '||')
+      {
+      $x = 0; $y++;
+      }
+    }  # end for all parts
+
+  @rc;	# return all created nodes
+  }
+
 sub _new_node
   {
   # Create a new node unless it doesn't already exist. If the group stack
@@ -637,7 +811,7 @@ sub _new_node
 
   print STDERR "# Parser: new node '$name'\n" if $graph->{debug};
 
-  $name = $self->_unquote($name);
+  $name = $self->_unquote($name, 'no_collapse');
 
   my $autosplit;
   my $uc = $self->{use_class};
@@ -652,143 +826,14 @@ sub _new_node
     my $node = $class->new();
     @rc = ( $graph->add_node($node) );
     }
-  elsif ($name =~ /[^\\]\|/)
+  # nodes to be autosplit will be done in a sep. pass for Graphviz
+  elsif (!$self->isa('Graph::Easy::Parser::Graphviz') && $name =~ /[^\\]\|/)
     {
     $autosplit = 1;
-
-    # build base name: "A|B |C||D" => "ABCD"
-    my $base_name = $name; $base_name =~ s/\s*\|\|?\s*//g;
-
-    # use user-provided base name
-    $base_name = $att->{basename} if exists $att->{basename};
-
-    # strip trailing/leading spaces on basename
-    $base_name =~ s/\s+\z//;
-    $base_name =~ s/^\s+//;
-
-    my $first_in_row;			# for relative placement of new row
-
-    # first one gets: "ABC", second one "ABC.1" and so on
-    # Try to find a unique cluster name in case some one get's creative and names the
-    # last part "-1":
-
-    # does work without cluster-id?
-    if (exists $self->{clusters}->{$base_name})
-      {
-      my $g = 1;
-      while ($g == 1)
-        {
-        my $base_try = $base_name; $base_try .= '-' . $self->{cluster_id} if $self->{cluster_id};
-        last if !exists $self->{clusters}->{$base_try};
-        $self->{cluster_id}++;
-        }
-      $base_name .= '-' . $self->{cluster_id} if $self->{cluster_id}; $self->{cluster_id}++;
-      }
-
-    print STDERR "# Parser: Autosplitting node with basename '$base_name'\n" if $graph->{debug};
-
-    $self->{clusters}->{$base_name} = undef;	# reserve this name
-
-    my $x = 0; my $y = 0; my $idx = 0;
-    my $remaining = $name; my $sep; my $last_sep = '';
-    my $add = 0;
-    while ($remaining ne '')
-      {
-      # XXX TODO: parsing of "\|" and "|" in one node
-      $remaining =~ s/^([^\|]*)(\|\|?|\z)//;
-      my $part = $1 || ' ';
-      $sep = $2;
-
-      # fix [|G|] to have one empty part as last part
-      if ($add == 0 && $remaining eq '' && $sep =~ /\|\|?/)
-        {
-        $add++;				# only do it once
-        $remaining .= '|' 
-        }
-
-      my $class = $uc->{node};
-      if ($part eq ' ')
-        {
-        # create an empty node with no border
-        $class .= "::Empty";
-        }
-      elsif ($part =~ /^0x20{2,}\z/)
-        {
-        # create an empty node with border
-        $part = ' ';
-        }
-      else
-        {
-        $part =~ s/^\s+//;	# rem spaces at front
-        $part =~ s/\s+\z//;	# rem spaces at end
-        }
-
-      my $node_name = "$base_name.$idx";
-
-      if ($graph->{debug})
-	{
-        my $empty = '';
-        $empty = ' empty' if $class ne $self->{use_class}->{node};
-        print STDERR "# Parser:  Creating$empty autosplit part '$part'\n" if $graph->{debug};
-	}
-
-      # if it doesn't exist, add it, otherwise retrieve node object to $node
-      if ($class =~ /::Empty/)
-        {
-        my $node = $graph->node($node_name);
-        if (!defined $node)
-	  {
-	  # create node object from the correct class
-	  $node = $class->new($node_name);
-          $graph->add_node($node);
-	  }
-        }
-
-      my $node = $graph->add_node($node_name);
-      $node->{autosplit_label} = $part;
-
-      push @rc, $node;
-      if (@rc == 1)
-        {
-        # for correct as_txt output
-        $node->{autosplit} = $name;
-        $node->{autosplit} =~ s/\s+\z//;	# strip trailing spaces
-        $node->{autosplit} =~ s/^\s+//;		# strip leading spaces
-        $node->set_attribute('basename', $att->{basename}) if defined $att->{basename};
-	$first_in_row = $node;
-        }
-      else
-        {
-	# second, third etc get previous as origin
-        my ($sx,$sy) = (1,0);
-	my $origin = $rc[-2];
-        if ($last_sep eq '||')
-          {
-	  ($sx,$sy) = (0,1); $origin = $first_in_row;
-          $first_in_row = $node;
-          } 
-        $node->relative_to($origin,$sx,$sy);
-
-	# suppress as_txt output for other parts
-        $node->{autosplit} = undef;
-        }	
-      # nec. for border-collapse
-      $node->{autosplit_xy} = "$x,$y";
-
-      $idx++;						# next node ID
-      $last_sep = $sep;
-      $x++;
-      # || starts a new row:
-      if ($sep eq '||')
-        {
-        $x = 0; $y++;
-        }
-      } 
+    @rc = $self->_autosplit_node($graph, $name, $att);
     }
   else
     {
-    print STDERR "# Parser: Creating normal node\n" if $graph->{debug};
-
     # strip trailing and leading spaces
     $name =~ s/\s+\z//; 
     $name =~ s/^\s+//; 
@@ -799,6 +844,17 @@ sub _new_node
     # unquote \|
     $name =~ s/\\\|/\|/g;
 
+    if ($self->{debug})
+      {
+      if (!$graph->node($name))
+	{
+	print STDERR "# Parser: Creating normal node from name '$name'.\n";
+	}
+      else
+	{
+	print STDERR "# Parser: Found node '$name' already in graph.\n";
+	}
+      }
     @rc = ( $self->_add_node($graph, $name) ); 	# add to graph, unless exists
     }
 
@@ -957,11 +1013,12 @@ sub _parse_attributes
   while ($text ne '')
     {
 # print STDERR "attr parsing: matching '$text'\n";    
+
     # match and remove "name: value"
     my $done = ($text =~ s/$qr_att//) || 0;
 
     # match and remove "name" if "name: value;" didn't match
-    $done++ if ($done == 0 && $qr_satt && $text =~ s/$qr_satt//);
+    $done++ if $done == 0 && $qr_satt && ($text =~ s/$qr_satt//);
 
     return $self->error ("Error in attribute: '$text' doesn't look valid to me.")
       if $done == 0;
@@ -977,14 +1034,16 @@ sub _parse_attributes
   # possible remap attributes (for parsing Graphviz)
   $out = $self->_remap_attributes($out, $object) if $self->can('_remap_attributes');
 
+  my $g = $self->{graph};
   # check for being valid and finally create hash with name => value pairs
   for my $name (keys %$out)
     {
-    my $v = Graph::Easy->valid_attribute($name,$out->{$name},$class);
+    my $v = $g->valid_attribute($name,$out->{$name},$class);
 
     my $rc = 2;			# invaid attribute value
     if (ref($v) eq 'ARRAY' && @$v == 0)
       {
+      next if $g->{_warn_on_unknown_attributes};	# warned, so ignore
       $rc = 1;			# invalid attribute name
       $v = undef;
       }

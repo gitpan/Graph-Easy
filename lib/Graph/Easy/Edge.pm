@@ -7,7 +7,7 @@ package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
 @ISA = qw/Graph::Easy::Node/;		# an edge is just a special node
-$VERSION = '0.22';
+$VERSION = '0.23';
 
 use strict;
 
@@ -345,12 +345,40 @@ sub start_at
   # delete self at A
   delete $self->{from}->{edges}->{ $self->{id} };
 
-  # set from to B
+  # set "from" to B
   $self->{from} = $node;
 
   # add to B
   $self->{from}->{edges}->{ $self->{id} } = $self;
 
+  # return new start point
+  $node;
+  }
+
+sub end_at
+  {
+  # move the edge's end point from the current node to the given node
+  my ($self, $node) = @_;
+
+  # if not a node yet, or not part of this graph, make into one proper node
+  $node = $self->{graph}->add_node($node);
+
+  $self->_croak("start_at() needs a node object, but got $node")
+    unless ref($node) && $node->isa('Graph::Easy::Node');
+
+  # A => A => nothing to do
+  return $node if $self->{to} == $node;
+
+  # delete self at A
+  delete $self->{to}->{edges}->{ $self->{id} };
+
+  # set "to" to B
+  $self->{to} = $node;
+
+  # add to node B
+  $self->{to}->{edges}->{ $self->{id} } = $self;
+
+  # return new end point
   $node;
   }
 
@@ -610,6 +638,16 @@ Set the edge's start point to the given node. If given a node name,
 will add that node to the graph first.
 
 Returns the new edge start point node.
+
+=head2 end_at()
+
+	$edge->end_at($other);
+	my $other = $edge->end_at('some other node');
+
+Set the edge's end point to the given node. If given a node name,
+will add that node to the graph first.
+
+Returns the new edge end point node.
 
 =head2 flip()
 

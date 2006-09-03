@@ -6,5 +6,5 @@
   // comment
   a -> /* comment */ { b c /* comment */ d }
   { b /* comment */ c d } /* comment */ -> u
-  " my node /* comment */ " -> b
+  " my node /* not a comment */ " -> b
 }

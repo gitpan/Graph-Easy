@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 
 sub _u8
   {
@@ -1181,6 +1181,19 @@ sub as_ascii
 
   my $shape = $self->attribute('shape') || 'rect';
 
+  if ($shape eq 'edge')
+    {
+    my $edge = Graph::Easy::Edge->new();
+    my $cell = Graph::Easy::Edge::Cell->new( edge => $edge, x => $x, y => $y );
+    $cell->{w} = $self->{w};
+    $cell->{h} = $self->{h};
+    $cell->{att}->{label} = $self->label();
+    $cell->{type} = 
+     Graph::Easy::Edge::Cell->EDGE_HOR +
+     Graph::Easy::Edge::Cell->EDGE_LABEL_CELL;
+    return $cell->as_ascii();
+    }
+
   # invisible nodes, or very small ones
   return '' if $shape eq 'invisible' || $self->{w} == 0 || $self->{h} == 0;
 
@@ -1215,7 +1228,7 @@ sub as_ascii
     }
 
   ###########################################################################
-  # "draw" the label into the framebuffer (e.g. the edge and the label text)
+  # "draw" the label into the framebuffer (e.g. the node/edge and the text)
 
   $self->_draw_label($fb, $x, $y);
   

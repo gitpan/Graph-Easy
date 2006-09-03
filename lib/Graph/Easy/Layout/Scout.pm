@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.18';
+$VERSION = '0.19';
 
 #############################################################################
 #############################################################################
@@ -171,6 +171,24 @@ sub _find_path
           $type += EDGE_SHORT_W if ($dx == -1 && $dy ==  0);
           $type += EDGE_SHORT_N if ($dx ==  0 && $dy == -1);
           }
+	# if one of the end points of the edge is of shape 'edge'
+	# remove end/start flag
+        if (($edge->{to}->attribute('shape') ||'') eq 'edge')
+	  {
+	  # we only need to remove one start point, namely the one at the "end"
+	  if ($dx > 0)
+	    {
+	    $type &= ~EDGE_START_E;
+	    }
+	  elsif ($dx < 0)
+	    {
+	    $type &= ~EDGE_START_W;
+	    }
+	  }
+        if (($edge->{from}->attribute('shape') ||'') eq 'edge')
+	  {
+	  $type &= ~EDGE_START_MASK;
+	  }
 
         return [ $x, $y, $type ];			# return a short EDGE
         }
@@ -772,6 +790,16 @@ sub _find_path_astar
     EDGE_END_E,
     EDGE_END_S,
   ]; 
+
+  # if the target/source node is of shape "edge", remove the endpoint
+  if ( ($edge->{to}->attribute('shape') ||'') eq 'edge')
+    {
+    $end_flags = [ 0,0,0,0 ];
+    }
+  if ( ($edge->{from}->attribute('shape') ||'') eq 'edge')
+    {
+    $start_flags = [ 0,0,0,0 ];
+    }
 
   my ($s_p,@ss_p) = $edge->port('start');
   my ($e_p,@ee_p) = $edge->port('end');

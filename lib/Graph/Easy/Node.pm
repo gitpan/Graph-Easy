@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.27';
+$VERSION = '0.28';
 
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
@@ -580,7 +580,23 @@ sub _label_as_html
 
 sub as_html
   {
+  # return node as HTML
   my ($self) = @_;
+
+  my $shape = $self->attribute('shape') || 'rect';
+
+  if ($shape eq 'edge')
+    {
+    my $edge = Graph::Easy::Edge->new();
+    my $cell = Graph::Easy::Edge::Cell->new( edge => $edge );
+    $cell->{w} = $self->{w};
+    $cell->{h} = $self->{h};
+    $cell->{att}->{label} = $self->label();
+    $cell->{type} =
+     Graph::Easy::Edge::Cell->EDGE_HOR +
+     Graph::Easy::Edge::Cell->EDGE_LABEL_CELL;
+    return $cell->as_html();
+    }
 
   my $extra = $self->_extra_params();
   my $taga = "td$extra";
@@ -589,9 +605,6 @@ sub as_html
   my $id = $self->{graph}->{id};
   my $a = $self->{att};
   my $g = $self->{graph};
-
-  # return yourself as HTML
-  my $shape = $self->attribute('shape') || '';
 
   my $class = $self->class();
 
@@ -666,6 +679,7 @@ sub as_html
     $out->{height} = $size;
     }
 
+  # only for nodes, not for edges
   if (!$self->isa('Graph::Easy::Edge'))
     {
     my $bc = $self->attribute('border-color');
@@ -1864,7 +1878,7 @@ __END__
 
 =head1 NAME
 
-Graph::Easy::Node - Represents a node in a simple graph
+Graph::Easy::Node - Represents a node in a Graph::Easy graph
 
 =head1 SYNOPSIS
 

@@ -67,6 +67,8 @@ is ($att->color_value('4','rdgy4'), '#404040', '4 => #404040 under rdgy4');
 #############################################################################
 # valid_attribute:
 
+$att = Graph::Easy->new();
+
 my $new_value = $att->valid_attribute( 'color', 'redbrownish' );
 is ($new_value, undef, 'color redbrownish is not valid');
 

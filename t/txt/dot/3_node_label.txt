@@ -1,0 +1,11 @@
+edge { arrow-style: filled; }
+graph {
+  colorscheme: x11;
+  flow: south;
+}
+
+[ 0 ] { label: 0; }
+[ 1 ] { label: 1; }
+[ 2 ] { label: Name: 2; }
+
+[ 0 ] --> [ 1 ]

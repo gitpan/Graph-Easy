@@ -1,3 +1,4 @@
+edge { arrow-style: filled; }
 graph {
   colorscheme: x11;
   flow: south;
@@ -6,7 +7,7 @@ graph {
 [ a ] --> [ b ]
 [ a ] --> [ c ]
 [ a ] --> [ d ]
-[ my node /* comment */ ] --> [ b ]
+[ my node /* not a comment */ ] --> [ b ]
 [ b ] --> [ u ]
 [ c ] --> [ u ]
 [ d ] --> [ u ]

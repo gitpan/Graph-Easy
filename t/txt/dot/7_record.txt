@@ -1,0 +1,12 @@
+edge { arrow-style: filled; }
+graph {
+  align: left;
+  colorscheme: x11;
+  flow: south;
+  label: Left aligned label;
+}
+
+[ <f1> Aa \| <f2> Bb \| Cc ] { shape: rect; }
+[ AA | BB | CC ] { basename: a; }
+
+[ A | B | C ]

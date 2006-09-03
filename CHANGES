@@ -1,5 +1,46 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-09-03 v0.47 Tels 2013 tests
+  * Edge: add end_at(), the opposite of start_at()
+  * add node shape 'edge' - render node as a horizontal edge piece
+  * add node attribute 'rank' - 'auto', 'same' or positive number
+  * multiple spaces in edge labels were not collapsed together
+  * class names are case-insentive like in CSS, so we lowercase them on input:
+    + as_txt() renders them now unified as lowercase, always
+    + "node.SECOND { label: B; } [ A ] { class: Second; }" works now
+  * as_txt(): edges going to/starting at the first part of an autosplit node
+              are now correctly output: "[A|B] [ AB.0 ] -> [ T ]" now works.
+  * as_html(): arrow-style: filled; did not replace all "v" and "^" arrows
+  * Layouter:
+    + handle _trace_path() called with unplaced src node
+    + adding group cells makes it nec. to adjust size of multicelled nodes
+    + holes torn into after splicing in group cells where not closed when one
+      of the adjacent edge cells was of type EDGE_CROSS
+  * Parser:
+    + make detection of Graphviz code more robust against commented out text
+  * Parser/Graphviz:
+    + a scope end did not properly pop the group_stack, resulting
+      in nodes getting in the wrong group. t/in/dot/6_2_cluster.dot now
+      parses and renders correctly.
+    + "The keywords 'node', 'edge', 'graph', 'digraph', 'subgraph', and
+      'strict' are case-independent." So we accept that them way.
+    + handle the case of "strict digraph G { a -> b }" properly
+    + edge [ label=foo ] sets these attributes on edges, not nodes
+    + handle "style=dotted" for nodes (as well as "dashed")
+    + a "node [ style=invis ]" followed by "node [ style=filled ]" did
+      not set following nodes to a visible shape
+    + properly remap:
+       "arrowhead", "labeljust", "orientation"
+    + handle label="\N" for nodes
+    + the default arrow style is "filled"
+    + attribute values with a "|" inside them got wrongly split
+    + attribute values with ']' inside quoted strings like label="[P]" fixed
+    + implement parsing records of the form "<p1> A | <p2> B | C">
+    + "Bonn":"f1" now creates a node "Bonn", not "Bonn:f1", nor does it fail
+    + all boolean attributes are now recognized when appearing without a value
+    + handle string concatenation ("foo" + "" +  "bar")
+    + handle line continuation (a '\' as last character on line)
+
 2006-08-13 v0.46 Tels 1943 tests
   * Output:
     + add as_debug() and "output: debug"

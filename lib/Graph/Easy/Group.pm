@@ -8,7 +8,7 @@ use Graph::Easy::Group::Cell;
 use Graph::Easy;
 
 @ISA = qw/Graph::Easy::Node Graph::Easy/;
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 use strict;
 
@@ -328,7 +328,7 @@ __END__
 
 =head1 NAME
 
-Graph::Easy::Group - Represents a group of nodes in a simple graph
+Graph::Easy::Group - A group of nodes (aka subgraph) in Graph::Easy
 
 =head1 SYNOPSIS
 

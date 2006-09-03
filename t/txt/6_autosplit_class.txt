@@ -6,6 +6,6 @@ node.red {
 
 [ A|B|C ] { basename: A; class: red; }
 
-[ 1 ] --> [ A|B|C ]
+[ 1 ] --> [ A.0 ]
 [ 2 ] --> [ 3 ]
-[ 2 ] --> [ A|B|C ]
+[ 2 ] --> [ A.0 ]

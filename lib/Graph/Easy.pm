@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.46';
+$VERSION = '0.47';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -116,6 +116,9 @@ sub _init
     group => 'Graph::Easy::Group',
     node => 'Graph::Easy::Node',
   };
+
+  # Graph::Easy will die, Graph::Easy::Parser::Graphviz will warn
+  $self->{_warn_on_unknown_attributes} = 0;
 
   $self->{att} = {
   node => {
@@ -1490,6 +1493,9 @@ sub add_edge
   my $nodes = $self->{nodes};
   my $groups = $self->{groups};
 
+  $self->_croak("Cannot add edge for undefined node names ($x -> $y)")
+    unless defined $x && defined $y;
+
   my $xn = $x; my $yn = $y;
   $xn = $x->{name} if ref($x);
   $yn = $y->{name} if ref($y);
@@ -2739,13 +2745,15 @@ graph against each other:
 
 =head2 valid_attribute()
 
+	my $graph = Graph::Easy->new();
 	my $new_value =
-	  Graph::Easy->valid_attribute( $name, $value, $class );
+	  $graph->valid_attribute( $name, $value, $class );
 
-	if (ref($new_value) eq 'ARRAY')
+	if (ref($new_value) eq 'ARRAY' && @$new_value == 0)
 	  {
 	  # throw error
-          die ("'$name' is not a valid attribute name for '$class'");
+          die ("'$name' is not a valid attribute name for '$class'")
+		if $self->{_warn_on_unused_attributes};
 	  }
 	elsif (!defined $new_value)
 	  {
@@ -2756,15 +2764,15 @@ graph against each other:
 Check that a C<$name,$value> pair is a valid attribute in class C<$class>,
 and returns a new value.
 
+It returns an array ref if the attribute name is invalid, and undef if the
+value is invalid.
+
 The return value can differ from the passed in value, f.i.:
 
-	print Graph::Easy->valid_attribute( 'color', 'red' );
+	print $graph->valid_attribute( 'color', 'red' );
 
 This would print '#ff0000';
 
-It returns an array ref if the attribute name is invalid, and undef if the
-value is invalid.
-	
 =head2 color_as_hex()
 
 	my $hexred   = Graph::Easy->color_as_hex( 'red' );

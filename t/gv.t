@@ -9,12 +9,29 @@ use File::Spec;
 
 BEGIN
    {
-   plan tests => 34;
+   plan tests => 74;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
    use_ok ("Graph::Easy::Parser") or die($@);
    };
+
+my @warnings;
+
+#############################################################################
+# override the warn method to catch warnigs
+
+{
+ no warnings 'redefine';
+
+ package Graph::Easy::Base;
+
+ sub warn {
+   my ($self,$msg) = @_;
+   push @warnings, $msg;
+ }
+
+}
 
 #############################################################################
 # parser object
@@ -28,6 +45,9 @@ my $dir = File::Spec->catdir('in','dot');
 
 opendir DIR, $dir or die ("Cannot read dir 'in/grapviz': $!");
 my @files = readdir(DIR); closedir(DIR);
+
+binmode (STDERR, ':utf8') or die ("Cannot do binmode(':utf8') on STDERR: $!");
+binmode (STDOUT, ':utf8') or die ("Cannot do binmode(':utf8') on STDOUT: $!");
 
 eval { require Test::Differences; };
 
@@ -101,6 +121,17 @@ foreach my $f (sort @files)
   my $debug = $ascii;
   $debug =~ s/\n/\n# /g;
   print "# Generated:\n#\n# $debug\n";
+  }
+
+# check that only the expected warnings were generated
+is (scalar @warnings, 6, 'Got exactly 6 warnings');
+
+my $i = 0;
+for my $name (qw/bar pname foo fname bar brabble/)
+  {
+  is ($warnings[$i], "Ignoring unknown attribute '$name'", 
+	"Got warning about $name");
+  $i++;
   }
 
 1;

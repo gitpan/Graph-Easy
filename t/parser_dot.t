@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 78;
+   plan tests => 84;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser::Graphviz") or die($@);
@@ -73,6 +73,7 @@ $graph = Graph::Easy::Parser::Graphviz->from_text( <<EOG
   Green
   { node [ color=blue ] Blue }
   Green2
+ }
 EOG
   );
 
@@ -83,7 +84,7 @@ for my $n (qw/Red Green Green2 Blue/)
   my $node = $graph->node($n);
   my $color = lc($node->{name});
   $color =~ s/\d//g;
-  is ($node->attribute('color'), $color, 'scopes: $n => $color');
+  is ($node->attribute('color'), $color, "scopes: $n => $color");
   }
 
 #############################################################################
@@ -99,6 +100,7 @@ $graph = Graph::Easy::Parser::Graphviz->from_text( <<EOG1
   Green
   { node [ color=blue ] Blue }
   Green2
+ }
 EOG1
   );
 
@@ -149,7 +151,9 @@ foreach (<DATA>)
   my $txt = "digraph G {\n" . $in . "\n}";
   $txt =~ s/\\n/\n/g;				# insert real newlines
 
+  eval {
   $graph = $parser->from_text($txt);		# reuse parser object
+   };
 
   if (!defined $graph)
     {
@@ -206,6 +210,11 @@ __DATA__
 ""->"Bonn"->""|3,#0,#3,Bonn
 # nodes with _ and reserved text "node"
 node_1 -> node_2 |2,node_1,node_2
+# "foo"+"bar style continuations
+"frankfurt"+" (oder)"|1,frankfurt (oder)
+"frankfurt" + " (oder)"|1,frankfurt (oder)
+ "frankfurt"  +  " (oder)"|1,frankfurt (oder)
+"frank" + "furt" + " (oder)"|1,frankfurt (oder)
 # multiple spaces in nodes
 " Bonn and Berlin "|1,Bonn and Berlin
 " Bonn  and  Berlin  "|1,Bonn and Berlin
@@ -250,3 +259,6 @@ graph [ center="1", truecolor ]|0
 edge [ ]|0
 edge [\n ]|0
 edge [ f=1 ]|0
+# ']' inside attributes
+"node" [ shape="box" label="[U]" color="red" ]|1,[U],node
+node [ label="[U]" ]|0

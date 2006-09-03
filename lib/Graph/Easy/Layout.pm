@@ -50,7 +50,14 @@ sub _assign_ranks
   # outgoing connections, but no incoming ones
   for my $n (@N, $self->groups())
     {
-    $n->{rank} = 0;			# default is 0
+    # if no rank set, use 0 as default
+    $n->{rank} = $n->attribute('rank');
+    $n->{rank} = 0 if !defined $n->{rank} || $n->{rank} eq 'auto';
+
+    # XXX TODO implement laying out in same column/row
+    $n->{rank} = 0 if $n->{rank} eq 'same';
+    
+    next if $n->{rank} != 0;
     push @todo, $n
       if $n->successors() > 0 && $n->predecessors() == 0;
     }
@@ -223,8 +230,10 @@ sub _follow_chain
 	}
 
       $c->merge($next_chain, $next)		# merge the two chains
-	unless $next == $self->{_root};		# except if the next chain starts with
+	unless $next == $self->{_root}		# except if the next chain starts with
 						# the root node (bug until v0.46)
+;#	 || $next_chain->{start} == $self->{_root}; # or the first chain already starts
+						# with the root node (bug until v0.47)
 
       delete $self->{chains}->{$next_chain->{id}} if $next_chain->{len} == 0;
       }
@@ -557,17 +566,11 @@ sub layout
         {
 #	warn ("Target node $dst->{name} not yet placed");
         $mod = $self->_find_node_place( $cells, $dst, 0, undef, $edge );
-
-#        ## put current action back
-#        #unshift @todo, $action;
-#
-#	# if near-placement fails, place generic. So insert action to place
-#	# target beforehand:
-#        unshift @todo, [ ACTION_NODE, $dst ];
-#
-#	$tries--;
-#	last TRY if $tries == 0;
-#        next TRY;
+	}        
+      if (!defined $src->{x})
+        {
+#	warn ("Source node $src->{name} not yet placed");
+        $mod = $self->_find_node_place( $cells, $src, 0, undef, $edge );
 	}        
 
       # find path (mod is score modifier, or undef if no path exists)

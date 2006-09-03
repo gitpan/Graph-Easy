@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 367;
+   plan tests => 391;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -28,6 +28,9 @@ my @files = readdir(DIR); closedir(DIR);
 my @failures;
 
 eval { require Test::Differences; };
+
+binmode (STDERR, ':utf8') or die ("Cannot do binmode(':utf8') on STDERR: $!");
+binmode (STDOUT, ':utf8') or die ("Cannot do binmode(':utf8') on STDOUT: $!");
 
 foreach my $f (sort @files)
   {

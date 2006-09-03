@@ -1,0 +1,12 @@
+edge { arrow-style: filled; }
+graph {
+  colorscheme: x11;
+  flow: south;
+}
+
+[ a ] { shape: rect; }
+[ b ] { shape: invisible; }
+[ c ] { shape: rect; }
+
+[ a ] --> [ b ]
+[ b ] --> [ c ]

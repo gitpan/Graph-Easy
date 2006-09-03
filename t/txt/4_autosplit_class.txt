@@ -1,7 +1,7 @@
 node { border: double 1px; }
-node.B { border: dotted; }
-node.C { border: dashed; }
+node.b { border: dotted; }
+node.c { border: dashed; }
 
-[ C|D ] { class: B; }
+[ C|D ] { class: b; }
 
 [ A|B ]
