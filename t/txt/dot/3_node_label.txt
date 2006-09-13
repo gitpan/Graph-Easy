@@ -2,10 +2,11 @@ edge { arrow-style: filled; }
 graph {
   colorscheme: x11;
   flow: south;
+  label: Graphname;
 }
 
-[ 0 ] { label: 0; }
-[ 1 ] { label: 1; }
-[ 2 ] { label: Name: 2; }
+[ 0 ] { label: Graphname 0; }
+[ 1 ] { label: Graphname 1; }
+[ 2 ] { label: Name: 2 Graphname; }
 
-[ 0 ] --> [ 1 ]
+[ 0 ] -- 0->1 Graphname 1 0 --> [ 1 ]

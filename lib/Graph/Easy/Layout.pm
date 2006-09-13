@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.23';
+$VERSION = '0.24';
 
 #############################################################################
 #############################################################################
@@ -666,7 +666,7 @@ sub layout
 
     # all things on the stack were done, or we encountered an error
 
-    };					# end of timeout protected code
+    };					# eval {}; -- end of timeout protected code
 
   alarm(0);				# disable alarm
 
@@ -736,10 +736,25 @@ sub _optimize_layout
         # which size/coordinate to modify
 	my ($m,$co) = @{ $size_name->{$t1} };
 
+#	print STDERR "# Combining edge cells $f->{x},$f->{y} and $c->{x},$c->{y}\n";
+
 	# new width/height is the combined size
 	$f->{$m} = ($f->{$m} || 1) + ($c->{$m} || 1);
-	# correct start coordinate for reversed order
-	$f->{$co} -= ($c->{$m} || 1) if $f->{$co} > $c->{$co};
+
+#	print STDERR "# Result $f->{x},$f->{y} ",$f->{cx}||1," ", $f->{cy}||1,"\n";
+
+	# drop the reference from the $cells array for $c
+	delete $all_cells->{ "$c->{x},$c->{y}" };
+
+	if ($f->{$co} > $c->{$co})
+	  {
+	  # move $f to the new place if it was modified
+	  delete $all_cells->{ "$f->{x},$f->{y}" };
+	  # correct start coordinate for reversed order
+	  $f->{$co} -= ($c->{$m} || 1);
+
+	  $all_cells->{ "$f->{x},$f->{y}" } = $f;
+	  }
 
 	$delete = 1;				# delete $c
 	}
@@ -758,7 +773,7 @@ sub _optimize_layout
 	  # replace with placeholder (important for HTML output)
 	  $all_cells->{$xy} = Graph::Easy::Edge::Cell::Empty->new (
 	    x => $c->{x}, y => $c->{y},
-	  );	
+	  ) unless $all_cells->{$xy};	
 
           $i--; $c = $f;				# for the next statement
 	  }
@@ -776,6 +791,8 @@ sub _optimize_layout
 #     }
 
     }
+  print STDERR "# Done compacting edges.\n" if $self->{debug};
+
   }
 
 1;

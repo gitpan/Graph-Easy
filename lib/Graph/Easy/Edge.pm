@@ -7,7 +7,7 @@ package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
 @ISA = qw/Graph::Easy::Node/;		# an edge is just a special node
-$VERSION = '0.23';
+$VERSION = '0.24';
 
 use strict;
 
@@ -282,25 +282,61 @@ sub add_cell
   # to a cell, then the new cell will be inserted right after this cell.
   # if after is defined, but not a ref, the new cell will be inserted
   # at the specified position.
-  my ($self, $cell, $after) = @_;
+  my ($self, $cell, $after, $before) = @_;
  
   $self->{cells} = [] unless defined $self->{cells};
   my $cells = $self->{cells};
 
+  # if both are defined, but belong to different edges, just ignore $before:
+  $before = undef if ref($before) && $before->{edge} != $self;
+  $after = undef if ref($after) && $after->{edge} != $self;
+  if (!defined $after && ref($before))
+    {
+    $after = $before; $before = undef;
+    }
+
   if (defined $after)
     {
     # insert the new cell right after $after
-    my $ofs = 0;
-    # $after == 0 => ofs is 0 (insert at front)
-    if (ref($after))
+    my $ofs = $after;
+    if (ref($after) && !ref($before))
       {
+      # insert after $after
+      $ofs = 1;
       for my $cell (@$cells)
         {
         last if $cell == $after;
         $ofs++; 
         }
       }
-    else { $ofs = $after; }
+    elsif (ref($after) && ref($before))
+      {
+      # insert between after and before (or before/after for "reversed edges)
+      $ofs = 0;
+      my $found = 0;
+      while ($ofs < scalar @$cells - 1)		# 0,1,2,3 => 0 .. 2
+        {
+        my $c1 = $cells->[$ofs];
+        my $c2 = $cells->[$ofs+1];
+	$ofs++;
+        $found++, last if (($c1 == $after && $c2 == $before) ||
+                 ($c1 == $before && $c2 == $after));
+        }
+      if (!$found)
+	{
+        # XXX TODO: last effort
+
+        # insert after $after
+        $ofs = 1;
+        for my $cell (@$cells)
+          {
+          last if $cell == $after;
+          $ofs++; 
+          }
+        $found++;
+	}
+      $self->_croak("Could not find $after and $before") unless $found;
+      }
     splice (@$cells, $ofs, 0, $cell);
     } 
   else

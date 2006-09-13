@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Grid;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 #############################################################################
 #############################################################################
@@ -23,8 +23,6 @@ sub _balance_sizes
 
   # XXX TODO: we can abort the loop and distribute the remaining nec. size
   # once all elements in $sizes are equal.
-
-#  use Data::Dumper; print STDERR "# " . Dumper($sizes)," $need \n";
 
   return if $need < 1;
 
@@ -187,6 +185,8 @@ sub _prepare_layout
       }
     } 
 
+  print STDERR "# Calculating absolute positions for rows/columns\n" if $self->{debug};
+
   # Now run through all rows/columns and get their absolute pos by taking all
   # previous ones into account.
   my $pos = 0;
@@ -205,6 +205,7 @@ sub _prepare_layout
     }
 
   # find out max. dimensions for framebuffer
+  print STDERR "# Finding max. dimensions for framebuffer\n" if $self->{debug};
   my $max_y = 0; my $max_x = 0;
 
   for my $v (values %$cells)

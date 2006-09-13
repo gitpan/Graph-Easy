@@ -407,7 +407,8 @@ $bonn->set_attribute('border-style', 'none');
 
 $grviz = $graph->as_graphviz();
 
-like ($grviz, qr/Bonn.*style="filled,setlinewidth\(0\)"/, 'contains setlinewidth(0)');
+like ($grviz, qr/Bonn.*color="#ffffff".*style=filled/,
+  'contains color white, style filled');
 
 #############################################################################
 # node with shape: rounded;

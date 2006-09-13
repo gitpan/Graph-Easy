@@ -8,7 +8,7 @@ package Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 use strict;
 
@@ -216,7 +216,7 @@ sub as_ascii
     $self->_draw_border($fb, $b_right, $b_bottom, $b_left, $b_top, $x, $y);
     }
 
-  if (exists $self->{has_label})
+  if ($self->{has_label})
     {
     # include our label
 
@@ -262,7 +262,7 @@ sub _correct_size
       {
       # class "gt", "gb", "gr" or "gr" will be compressed away
       # (e.g. only edge cells will be existant)
-      if (exists $self->{has_label} || ($self->{cell_class} =~ /g[rltb] /))
+      if ($self->{has_label} || ($self->{cell_class} =~ /g[rltb] /))
 	{
 	$self->{w} = 2;
 	$self->{h} = 2;
@@ -277,7 +277,7 @@ sub _correct_size
 	}
       }
     }
-  if (exists $self->{has_label})
+  if ($self->{has_label})
     {
     my ($w,$h) = $self->dimensions();
     $self->{h} += $h;
@@ -353,7 +353,7 @@ Returns the name (also known as 'label') of the cell.
 
 Returns the classname(s) of this cell, like:
 
-	group-cities gr gb
+	group_cities gr gb
 
 for a cell with a bottom (gb) and right (gr) border in the class C<cities>.
 

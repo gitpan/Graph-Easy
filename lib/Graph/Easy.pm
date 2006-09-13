@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.47';
+$VERSION = '0.48';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -123,7 +123,7 @@ sub _init
   $self->{att} = {
   node => {
     align => 'center',
-    'border' => 'solid 1px #000000',
+    border => 'solid 1px #000000',
     'border-style' => 'solid',
     'border-width' => '1',
     'border-color' => '#000000',
@@ -134,6 +134,10 @@ sub _init
     margin => '0.1em',
     color => '#000000',
     colorscheme => 'inherit',
+    },
+  'node.anon' => {
+    border => 'none',
+    'border-style' => 'none',
     },
   graph => {
     'align' => 'center',
@@ -758,7 +762,7 @@ sub _class_styles
     {
     next if keys %{$a->{$class}} == 0;			# skip empty ones
 
-    my $c = $class; $c =~ s/\./-/g;			# node.city => node-city
+    my $c = $class; $c =~ s/\./_/g;			# node.city => node_city
 
     next if $class eq 'graph' and $base eq '';
     next if $class eq 'group' and $groups == 0;
@@ -773,9 +777,9 @@ sub _class_styles
       {
       if ($c !~ /\./)					# one of our primary ones
         {
-        # generate also class list 			# like: "cities,node-rivers"
-        $cls = join (",$base .$c-", sort keys %{ $class_list->{$c} });
-        $cls = ", $base.$c-$cls" if $cls ne '';		# like: ",node-cities,node-rivers"
+        # generate also class list 			# like: "cities,node_rivers"
+        $cls = join (",$base.${c}_", sort keys %{ $class_list->{$c} });
+        $cls = ",$base.${c}_$cls" if $cls ne '';		# like: ",node_cities,node_rivers"
         }
       $css_txt .= "$indent$base.$c$cls {\n";
       }
@@ -839,7 +843,7 @@ sub css
   my $id = $self->{id};
 
   # for each primary class (node/group/edge) we need to find all subclasses,
-  # and list them in the CSS, too. Otherwise "node-city" would not inherit
+  # and list them in the CSS, too. Otherwise "node_city" would not inherit
   # the attributes from "node".
 
   my $css = $self->_class_styles( $self->_skip(),
@@ -1120,6 +1124,7 @@ sub as_html
   # prepare the graph label
   my ($caption,$pos) = $self->_caption();
 
+  my $row_id = 0;
   # now run through all rows, and for each of them through all columns 
   for my $y (sort { ($a||0) <=> ($b||0) } keys %$rows)
     {
@@ -1132,14 +1137,12 @@ sub as_html
       {
       if (!exists $rows->{$y}->{$x})
 	{
-	# fill empty spaces with undef, butnot for parts of multicelled objects:
+	# fill empty spaces with undef, but not for parts of multicelled objects:
 	push @{$rs->[0]}, undef;
 	next;
 	}
       my $node = $rows->{$y}->{$x};
       next if $node->isa('Graph::Easy::Node::Cell');		# skip empty cells
-
-      # print STDERR "rendering $node->{x},$node->{y} ref($node)\n";
 
       my $h = $node->as_html();
 
@@ -1213,7 +1216,8 @@ sub as_html
       }
 
     ######################################################################
-    
+
+    my $i = 0;    
     for my $row (@$rs)
       {
       # append row to output
@@ -1225,8 +1229,10 @@ sub as_html
         $r = "\n" . $r; # if length($r) > 0;
         }
 
-      $html .= '<tr>' . $r . "</tr>\n\n";
+      $html .= "<!-- row $row_id line $i -->\n" . '<tr>' . $r . "</tr>\n\n";
+      $i++;
       }
+    $row_id++;
     }
 
   ###########################################################################

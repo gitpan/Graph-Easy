@@ -277,7 +277,7 @@ $graph->set_attribute('color', 'red');
 
 $css = $graph->css();
 
-for my $e (qw/node edge group/)
+for my $e (qw/node_anon edge group/)
   {
   like ($css, qr/table.graph\s+\.$e\s+\{[^\}]*[^-]color: #000000;/m, "contains $e color black");
   }

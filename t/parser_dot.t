@@ -4,10 +4,11 @@
 
 use Test::More;
 use strict;
+use utf8;
 
 BEGIN
    {
-   plan tests => 84;
+   plan tests => 86;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser::Graphviz") or die($@);
@@ -25,6 +26,9 @@ can_ok ("Graph::Easy::Parser::Graphviz", qw/
   _match_comment
   _build_match_stack
   /);
+
+binmode (STDERR, ':utf8') or die ("Cannot do binmode(':utf8') on STDERR: $!");
+binmode (STDOUT, ':utf8') or die ("Cannot do binmode(':utf8') on STDOUT: $!");
 
 #############################################################################
 # parser object
@@ -262,3 +266,7 @@ edge [ f=1 ]|0
 # ']' inside attributes
 "node" [ shape="box" label="[U]" color="red" ]|1,[U],node
 node [ label="[U]" ]|0
+# HTML entities names
+"&gt; &uuml; &euro; &nbsp; &lt; &amp; &;; &$;"|1,> ü € < & ; $
+#                                                              v--  non-breakable-space!
+"HTML" [label="&gt; &uuml; &euro; &nbsp; &lt; &amp; &;; &$;"]|1,> ü €   < & ; $,HTML

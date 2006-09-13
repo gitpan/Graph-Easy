@@ -5,17 +5,18 @@ use strict;
 
 BEGIN
    {
-   plan tests => 29;
+   plan tests => 31;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node::Anon") or die($@);
    use_ok ("Graph::Easy") or die($@);
    use_ok ("Graph::Easy::As_txt") or die($@);
+   require_ok ("Graph::Easy::As_ascii") or die($@);
    };
 
 can_ok ("Graph::Easy::Node::Anon", qw/
   new
-  as_ascii as_txt as_html
+  as_txt as_html
   error
   class
   name
@@ -27,7 +28,6 @@ can_ok ("Graph::Easy::Node::Anon", qw/
   x
   y
   class
-  title
   del_attribute
   set_attribute
   set_attributes
@@ -72,18 +72,18 @@ my $graph = Graph::Easy->new();
 $graph->add_node($node);
 
 is ($node->as_txt(), '[ ]', 'anon as_txt');
-is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon'></td>\n",
+is ($node->as_html(), " <td colspan=4 rowspan=4 class='node_anon'></td>\n",
  'as_html');
-is ($node->as_ascii(), "", 'anon as_ascii');
+is ($node->as_ascii(), "   \n   \n   ", 'anon as_ascii');
 
 is ($node->as_graphviz_txt(), '"\#0"', 'anon as_graphviz');
 
 #############################################################################
-# as_graphviz
+# anon node as_graphviz
 
 my $grviz = $graph->as_graphviz();
 
-my $match = quotemeta('"\#0" [ fillcolor=white, label=" ", shape=plaintext ]');
+my $match = quotemeta('"\#0" [ color="#ffffff", label=" ", style=filled ]');
 
 like ($grviz, qr/$match/, 'anon node');
 
@@ -94,8 +94,12 @@ $node->set_attribute('border-style', 'dotted');
 
 is ($node->as_txt(), '[ ] { border: dotted; }', 'anon as_txt');
 
-is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon' style=\"border: dotted 1px #000000\"></td>\n",
+is ($node->as_html(), " <td colspan=4 rowspan=4 class='node_anon' style=\"border: dotted 1px #000000\"></td>\n",
  'as_html');
+
+$grviz = $graph->as_graphviz();
+$match = quotemeta('"\#0" [ color="#ffffff", label=" ", style=filled ]');
+like ($grviz, qr/$match/, 'anon node');
 
 #############################################################################
 # with fill attribute
@@ -104,6 +108,6 @@ $node->set_attribute('fill', 'orange');
 
 is ($node->as_txt(), '[ ] { fill: orange; border: dotted; }', 'anon as_txt');
 
-is ($node->as_html(), " <td colspan=4 rowspan=4 class='node-anon' style=\"background: #ffa500; border: dotted 1px #000000\"></td>\n",
+is ($node->as_html(), " <td colspan=4 rowspan=4 class='node_anon' style=\"background: #ffa500; border: dotted 1px #000000\"></td>\n",
  'as_html');
 

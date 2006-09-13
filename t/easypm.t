@@ -140,8 +140,8 @@ good_css($graph);
 $graph->set_attributes ('node.cities', { color => '#0000ff' } );
 
 good_css($graph, 
-  'table.graph42 .node-cities',
-  'table.graph42 .node, table.graph42 .node-cities'
+  'table.graph42 .node_cities',
+  'table.graph42 .node,table.graph42 .node_anon,table.graph42 .node_cities'
   );
 
 #############################################################################

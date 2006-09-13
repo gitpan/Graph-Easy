@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.28';
+$VERSION = '0.29';
 
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
@@ -618,7 +618,7 @@ sub as_html
     return " <$taga colspan=$cs rowspan=$rs style=\"border: none; background: inherit;\"></$tagb>\n";
     }
 
-  my $c = $class; $c =~ s/\./-/g;	# node.city => node-city
+  my $c = $class; $c =~ s/\./_/g;	# node.city => node_city
 
   my $html = " <$taga colspan=$cs rowspan=$rs";
   $html .= " class='$c'" if $c ne '';
@@ -696,7 +696,7 @@ sub as_html
     $DEF = 'none' unless defined $DEF;
 
     delete $out->{border} if $out->{border} =~ /^\s*\z/ || $out->{border} eq $DEF;
-    delete $out->{border} if $class eq 'node.anon' && $out->{border} eq 'none';
+    delete $out->{border} if $class eq 'node.anon' && $out->{border} && $out->{border} eq 'none';
     }
 
   if ($class =~ /^group/)
@@ -707,6 +707,7 @@ sub as_html
 
     # only need the color for the label cell
     push @atr, 'color' if $self->{has_label};
+    $name = '&nbsp;' unless $self->{has_label};
     for my $b (@atr)
       {
       my $def = $g->attribute($group_class,$b) || '';

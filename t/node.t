@@ -215,19 +215,19 @@ $node->del_attribute('label');
 $node->{class} = 'node.cities';
 
 is ($node->as_txt(), '[ Node \#0 ] { class: cities; }', 'as_txt');
-is ($node->as_html(), " <td $r class='node-cities'>Node #0</td>\n",
+is ($node->as_html(), " <td $r class='node_cities'>Node #0</td>\n",
  'as_html');
 is ($node->as_pure_txt(), '[ Node \#0 ]', 'as_txt_node');
 
 $node->set_attribute ( 'color', 'blue' );
 is ($node->as_txt(), '[ Node \#0 ] { color: blue; class: cities; }', 'as_txt');
-is ($node->as_html(), " <td $r class='node-cities' style=\"color: #0000ff\">Node #0</td>\n",
+is ($node->as_html(), " <td $r class='node_cities' style=\"color: #0000ff\">Node #0</td>\n",
  'as_html');
 is ($node->as_pure_txt(), '[ Node \#0 ]', 'as_pure_txt');
 
 $node->set_attributes ( { color => 'purple' } );
 is ($node->as_txt(), '[ Node \#0 ] { color: purple; class: cities; }', 'as_txt');
-is ($node->as_html(), " <td $r class='node-cities' style=\"color: #800080\">Node #0</td>\n",
+is ($node->as_html(), " <td $r class='node_cities' style=\"color: #800080\">Node #0</td>\n",
  'as_html');
 is ($node->as_pure_txt(), '[ Node \#0 ]', 'as_pure_txt');
 
@@ -241,13 +241,13 @@ is ($node->sub_class(), 'foo', 'class set correctly');
 is ($node->attribute('color'), 'orange', 'color set correctly');
 
 is ($node->as_txt(), '[ Node \#0 ] { color: orange; class: foo; }', 'as_txt');
-is ($node->as_html(), " <td $r class='node-foo' style=\"color: #ffa500\">Node #0</td>\n",
+is ($node->as_html(), " <td $r class='node_foo' style=\"color: #ffa500\">Node #0</td>\n",
  'as_html');
 
 $node->set_attribute ( 'class', 'bar' );
 
 is ($node->as_txt(), '[ Node \#0 ] { color: orange; class: bar; }', 'as_txt');
-is ($node->as_html(), " <td $r class='node-bar' style=\"color: #ffa500\">Node #0</td>\n",
+is ($node->as_html(), " <td $r class='node_bar' style=\"color: #ffa500\">Node #0</td>\n",
  'as_html');
 
 #############################################################################
@@ -264,7 +264,7 @@ foreach my $l (
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: orange; link: http://bloodgate.com/; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar'><a href='http://bloodgate.com/' style=\"color: #ffa500\">Node #0</a></td>\n",
+    " <td $r class='node_bar'><a href='http://bloodgate.com/' style=\"color: #ffa500\">Node #0</a></td>\n",
     'as_html');
   }
 
@@ -278,7 +278,7 @@ foreach my $l (
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: orange; link: perl/; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar'><a href='/wiki/index.php/perl/' style=\"color: #ffa500\">Node #0</a></td>\n",
+    " <td $r class='node_bar'><a href='/wiki/index.php/perl/' style=\"color: #ffa500\">Node #0</a></td>\n",
     'as_html');
   }
 
@@ -286,14 +286,14 @@ $node->set_attribute('link', "test test&");
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: orange; link: test test&; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar'><a href='/wiki/index.php/test+test&' style=\"color: #ffa500\">Node #0</a></td>\n",
+    " <td $r class='node_bar'><a href='/wiki/index.php/test+test&' style=\"color: #ffa500\">Node #0</a></td>\n",
     'as_html');
 
 $node->set_attribute('color', "\\#801010");
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: #801010; link: test test&; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar'><a href='/wiki/index.php/test+test&' style=\"color: #801010\">Node #0</a></td>\n",
+    " <td $r class='node_bar'><a href='/wiki/index.php/test+test&' style=\"color: #801010\">Node #0</a></td>\n",
     'as_html');
 
 # test quotation marks in link:
@@ -302,7 +302,7 @@ $node->set_attribute('link', "test'test");
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: #801010; link: test\'test; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar'><a href='/wiki/index.php/test%27test' style=\"color: #801010\">Node #0</a></td>\n",
+    " <td $r class='node_bar'><a href='/wiki/index.php/test%27test' style=\"color: #801010\">Node #0</a></td>\n",
     'as_html');
 
 # quotation mark at the end (but not at the start)
@@ -310,7 +310,7 @@ $node->set_attribute('link', "test'");
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: #801010; link: test\'; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar'><a href='/wiki/index.php/test%27' style=\"color: #801010\">Node #0</a></td>\n",
+    " <td $r class='node_bar'><a href='/wiki/index.php/test%27' style=\"color: #801010\">Node #0</a></td>\n",
     'as_html');
 
 #############################################################################
@@ -323,7 +323,7 @@ $node->set_attribute('point-style','diamond');
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: #801010; flow: right; link: test test&; point-style: diamond; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    " <td $r class='node-bar'><a href='/wiki/index.php/test+test&' style=\"color: #801010\">Node #0</a></td>\n",
+    " <td $r class='node_bar'><a href='/wiki/index.php/test+test&' style=\"color: #801010\">Node #0</a></td>\n",
     'as_html');
 
 #############################################################################

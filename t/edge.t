@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 40;
+   plan tests => 43;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok qw/Graph::Easy::Edge/;
@@ -110,20 +110,26 @@ is ($edge->as_txt(), ' -- train --> ', ' -- train -->');
 
 is (scalar $edge->cells(), 0, 'no cells');
 
-my $path = Graph::Easy::Edge::Cell->new (
-  edge => $edge,
-  type => EDGE_SHORT_E,
-  x => 1, y => 1,
-);
-
+my $c = Graph::Easy::Edge::Cell->new (
+    edge => $edge,
+    type => EDGE_SHORT_E,
+    x => 1, y => 1,
+    after => 0,
+    );
 is (scalar $edge->cells(), 1, 'one cell');
+my @cells = $edge->cells();
+is ($cells[0], $c, 'added this cell');
 
-#$edge->add_cell($path);
-#is (scalar $edge->cells(), 1, 'still one cell');
-
-$path->{x}++;
-$edge->add_cell($path);
+my $c_1 = Graph::Easy::Edge::Cell->new (
+    edge => $edge,
+    type => EDGE_SHORT_E,
+    x => 2, y => 1,
+    after => $c,
+    );
 is (scalar $edge->cells(), 2, 'two cells');
+@cells = $edge->cells();
+is ($cells[0], $c, 'first cell stayed');
+is ($cells[1], $c_1, 'added after first cell');
 
 $edge->clear_cells();
 is (scalar $edge->cells(), 0, 'no cells');

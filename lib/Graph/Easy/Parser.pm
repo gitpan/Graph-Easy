@@ -8,7 +8,7 @@ package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = '0.25';
+$VERSION = '0.26';
 use base qw/Graph::Easy::Base/;
 
 use strict;
@@ -489,12 +489,15 @@ sub from_text
   ###########################################################################
   # main parsing loop
 
+  my $handled = 0;		# did we handle a fragment?
+
   LINE:
   while (@lines > 0 || $backbuffer ne '')
     {
     my $curline = '';
     
-    if (@lines > 0)
+    # only accumulate more text if we didnt handle a fragment
+    if (@lines > 0 && $handled == 0)
       {
       $self->{line_nr}++;
       $curline = shift @lines;
@@ -510,7 +513,7 @@ sub from_text
 
 #  print STDERR "# Line is '$line'\n";
 
-    my $handled = 0;
+    $handled = 0;
     PATTERN:
     for my $entry (@{$self->{match_stack}})
       {

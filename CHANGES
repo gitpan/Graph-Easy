@@ -1,5 +1,37 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-09-13 v0.48 Tels 2020 tests
+  * Parser/Graphviz:
+    + handle attribute "URL" (opposed to "url")
+    + handle attribute "href" for graph/node/subgraph, too
+    + accept "\N" in titles and urls, too  
+    + accept "\E" for edges, too (\N is replaced by "Bonn->Berlin" f.i.)
+    + accept "\G", "\T", "\H" in labels/urls/titles, too
+    + parse HTML entities like &amp; in names/labels/titles/urls
+    + fix comment parsing, things like "http://example.com" didn't work
+  * Layout/Repair:
+    + fixup the code that inserts edge pieces
+    + fixup the code that combines long HOR/VER edges in case the edge goes
+      bottom-to-top or right-to-left (the code only expected the other dir)
+    + repair JOINT_E_N_S followed by an edge on the right/bottom side properly
+  * Edge:
+    + fix add_cell() to add a cell _after_ a given cell, not before
+      (this fixes those horrible messed up HTML layouts, esp. involving
+       groups - Thanx to Florian Lindner for testcases and bugging me! :)
+  * as_html:
+    + implemented edge type 1031 (joint south to east/west, starting west)
+    + CSS class names like "node-group" must be "node_group" to fully work
+      (fixes class-attributes on anon nodes etc. not showing up)
+    + fix output of group labels on groups parsed from Graphviz
+  * as_ascii:
+    + render anon nodes, too, since they might have class attributes making
+      them visible (fixed t/in/4_node_edge.txt among others)
+  * as_graphviz:
+    + fix rendering of anon nodes (setlinewidth(0) doesn't work, so use
+      style=filled and a color that equals the node background)
+    + don't output spurious "flow" for nodes
+    + the code to supress edge labels on helper edges was broken
+
 2006-09-03 v0.47 Tels 2013 tests
   * Edge: add end_at(), the opposite of start_at()
   * add node shape 'edge' - render node as a horizontal edge piece
@@ -14,7 +46,7 @@ Revision history for Graph::Easy (formerly known as Graph::Simple):
   * Layouter:
     + handle _trace_path() called with unplaced src node
     + adding group cells makes it nec. to adjust size of multicelled nodes
-    + holes torn into after splicing in group cells where not closed when one
+    + holes torn after splicing-in group cells where not closed when one
       of the adjacent edge cells was of type EDGE_CROSS
   * Parser:
     + make detection of Graphviz code more robust against commented out text
@@ -144,7 +176,7 @@ Revision history for Graph::Easy (formerly known as Graph::Simple):
   * as_ascii:
     + deal with invisible edges at cross sections
   * as_html:
-    + implement join types with start or end points
+    + implement joint types with start or end points
   * fix the repair code that handles edges inside groups:
     + repairs more cases
     + is faster by reversing the checks and using grep

@@ -320,7 +320,8 @@ sub _find_label_cell
     }
 
   print STDERR "# setting group label for group '$self->{name}' at $lc->{x},$lc->{y}\n" if $self->{debug};
-  $lc->_set_label() if ref($lc);   
+
+  $lc->_set_label() if ref($lc);
   }
 
 1;

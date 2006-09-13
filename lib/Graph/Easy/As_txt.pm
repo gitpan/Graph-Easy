@@ -8,7 +8,7 @@ package Graph::Easy::As_txt;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 #############################################################################
 #############################################################################
@@ -46,6 +46,7 @@ sub _as_txt
     my $border = $self->border_attribute($class) || '';
     $border = '' if defined $self->{def_att}->{$class}->{border} &&
               $border eq $self->{def_att}->{$class}->{border};
+    $border = '' if $border eq 'none' && $class eq 'node.anon';
     $att .= "  border: $border;\n" if $border ne '';
 
     if ($att ne '')

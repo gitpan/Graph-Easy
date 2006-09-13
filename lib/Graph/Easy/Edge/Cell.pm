@@ -12,7 +12,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.22';
+$VERSION = '0.23';
 
 use Scalar::Util qw/weaken/;
 
@@ -195,6 +195,7 @@ my $edge_types = {
 
 my $flag_types = {
   EDGE_LABEL_CELL() => 'labeled',
+  EDGE_SHORT_CELL() => 'short',
 
   EDGE_START_E() => 'starting east',
   EDGE_START_W() => 'starting west',
@@ -247,7 +248,8 @@ sub _init
 
   foreach my $k (keys %$args)
     {
-    next unless $k =~ /^(graph|edge|x|y|type)\z/;	# ignore "after"
+    # don't store "after" and "before"
+    next unless $k =~ /^(graph|edge|x|y|type)\z/;
     $self->{$k} = $args->{$k};
     }
 
@@ -257,7 +259,7 @@ sub _init
     unless defined $self->{type};
 
   # register ourselves at this edge
-  $self->{edge}->add_cell ($self, $args->{after});
+  $self->{edge}->add_cell ($self, $args->{after}, $args->{before});
   # take over settings from edge
   $self->{style} = $self->{edge}->style();
   $self->{class} = $self->{edge}->{class};
@@ -413,7 +415,7 @@ my $edge_html = {
     '',
     ' <td colspan=2 rowspan=2 class="##class## eb"></td>'. "\n" .
     ' <td class="##class## eb" style="border-left: ##border##;">&nbsp;</td>' . "\n",
-    ' <td colspan=1 class="##class## eb"></td>',
+    ' <td class="##class## eb"></td>',
    ],
 
   EDGE_S_E() + EDGE_END_S() => [
@@ -636,7 +638,7 @@ my $edge_html = {
     '',
     '<td class="##class## eb" style="##bg##">&nbsp;</td>' . "\n".
     ' <td colspan=2 class="##class## eb" style="border-left: ##border##;##bg##">&nbsp;</td>'."\n".
-    ' <td colspan=1 class="##class## eb" style="border-left: ##border##;##bg##">&nbsp;</td>',
+    ' <td class="##class## eb" style="border-left: ##border##;##bg##">&nbsp;</td>',
 
     '<td colspan=2 class="##class## v" style="##bg##"##edgecolor##>v</td>' . "\n" .
     ' <td colspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
@@ -649,7 +651,7 @@ my $edge_html = {
 
     '<td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' . "\n".
     ' <td colspan=2 rowspan=2 class="##class## lh" style="border-left: ##border##; border-bottom: ##border##;##lc####bg##">##label##</td>'."\n".
-    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##border##;##bg##">&nbsp;</td>',
+    ' <td rowspan=2 class="##class## eb" style="border-left: ##border##;##bg##">&nbsp;</td>',
 
     '',
 
@@ -750,12 +752,22 @@ my $edge_html = {
     ' <td colspan=4 class="##class## eb"></td>',
    ],
 
+  EDGE_S_E_W() + EDGE_START_W() => [
+    '<td rowspan=4 class="##class## el"></td>' . "\n" .
+    '<td colspan=3 rowspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>',
+    '',
+    '<td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' ."\n".
+    ' <td rowspan=2 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
+    '',
+
+   ],
+
   EDGE_S_E_W() + EDGE_END_E() => [
     '<td colspan=3 rowspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>' . "\n" .
     ' <td rowspan=4 class="##class## va"##edgecolor##>&gt;</td>',
     '',
     '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' ."\n".
-    ' <td colspan=1 rowspan=2 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
+    ' <td rowspan=2 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
     '',
    ],
 
@@ -1060,7 +1072,7 @@ sub as_html
     {
     my $c = $a;					# make a copy
 
-    my $cl = $self->class(); $cl =~ s/\./-/g;	# group.cities => group-cities
+    my $cl = $self->class(); $cl =~ s/\./_/g;	# group.cities => group_cities
     $c =~ s/##class##/$cl/g;
     # replace borderv with the border for the vertical edge on CROSS sections
     $border =~ s/\s+/ /g;			# collapse multiple spaces

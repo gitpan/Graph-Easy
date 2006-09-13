@@ -1,5 +1,5 @@
 +-----------------+
-| Bonn  am  Rhein |
+| Bonn  am Rhein  |
 +-----------------+
   |
   | train (ICE)

@@ -1,6 +1,7 @@
-digraph G {
-  node [ label="\N" ]
+digraph Graphname {
+  graph [ label="\G" ]
+  node [ label="\G \N" ]
 
-  0 -> 1
-  2 [ label="Name: \N" ]
+  0 -> 1 [ label="\E \G \T \H" ]
+  2 [ label="Name: \N \G" ]
 }

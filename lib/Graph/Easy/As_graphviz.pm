@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.18';
+$VERSION = '0.19';
 
 #############################################################################
 #############################################################################
@@ -31,6 +31,7 @@ my $remap = {
     'rotate' => \&_graphviz_remap_node_rotate,
     'shape' => \&_graphviz_remap_node_shape,
     'title' => 'tooltip',
+    'flow' => undef,
     },
   'edge' => {
     'align' => undef,
@@ -252,18 +253,25 @@ sub _graphviz_remap_border_style
   $style = 'setlinewidth(3)' if $style =~ /^bold/;
   $style = 'setlinewidth(7)' if $style =~ /^broad/;
   $style = 'setlinewidth(14)' if $style =~ /^wide/;
-  $style = 'setlinewidth(0)' if $style eq 'none';
+
+  my @rc;
+  if ($style eq 'none')
+    {
+    my $fill = 'white'; $fill = $node->color_attribute('fill') if ref($node);
+    $style = 'filled'; @rc = ('color', $fill);
+    }
   
   # default style can be suppressed
   return (undef, undef) if $style =~ /^(|solid)\z/ && $shape ne 'rounded';
 
   # for graphviz v2.4 and up
-  $style = 'filled,'.$style;
+  $style = 'filled,'.$style unless $style eq 'filled';
   $style = 'rounded,'.$style if $shape eq 'rounded';
 
   $style =~ s/,\z//;		# "rounded," => "rounded"
 
-  ('style', $style);
+  push @rc, 'style', $style;
+  @rc;
   }
 
 sub _graphviz_remap_link
@@ -309,6 +317,12 @@ sub _graphviz_remap_node_shape
 
   my $s = $style;
   $s = 'plaintext' if $style =~ /^(invisible|none|point)\z/;
+
+  if (ref($object))
+    {
+    my $border = $object->attribute('border-style') || '';
+    $s = 'plaintext' if $border eq 'none';
+    }
 
   ($name, $s);
   }
@@ -453,7 +467,7 @@ sub _suppress_edge_attribute
   # remove the named attribute from the edge attribute string
   my ($self, $att, $sup_att) = @_;
 
-  $att =~ s/$sup_att=("(\\"|[^"])*"|[^\s\n,;])//;
+  $att =~ s/$sup_att=("(\\"|[^"])*"|[^\s\n,;]+)[,;]?//;
   $att;
   }
 

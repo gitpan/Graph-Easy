@@ -8,7 +8,7 @@ package Graph::Easy::Node::Anon;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = 0.08;
+$VERSION = 0.09;
 
 use strict;
 
@@ -21,8 +21,6 @@ sub _init
   $self->{name} = '#' . $self->{id};
   $self->{class} = 'node.anon';
 
-  $self->{att}->{shape} = 'invisible';
-  $self->{att}->{'border-style'} = 'none';
   $self->{att}->{label} = ' ';
 
   $self;
@@ -48,12 +46,6 @@ sub attributes_as_txt
        shape => undef,
        class => undef,
        } } );
-  }
-
-sub as_ascii
-  {
-  # node is invisible
-  "";
   }
 
 sub as_pure_txt
@@ -83,13 +75,6 @@ sub as_txt
   my $self = shift;
 
   '[ ]' . $self->attributes_as_txt();
-  }
-
-sub title
-  {
-  # Returns a title of the node (or '', if none was set), which can be
-  # used for mouse-over titles
-  '';
   }
 
 sub text_styles_as_css

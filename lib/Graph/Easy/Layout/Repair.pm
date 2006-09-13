@@ -10,7 +10,7 @@ package Graph::Easy::Layout::Repair;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 #############################################################################
@@ -85,15 +85,17 @@ sub _repair_nodes
 
 sub _repair_cell
   {
-  my ($self, $type, $edge, $x, $y, $after) = @_;
+  my ($self, $type, $edge, $x, $y, $after, $before) = @_;
 
   # already repaired?
   return if exists $self->{cells}->{"$x,$y"};
 
+#  print STDERR "# Insert edge cell at $x,$y (type $type) for edge $edge->{from}->{name} --> $edge->{to}->{name}\n";
+
   $self->{cells}->{"$x,$y"} =
     Graph::Easy::Edge::Cell->new( 
       type => $type, 
-      edge => $edge, x => $x, y => $y, after => $after );
+      edge => $edge, x => $x, y => $y, before => $before, after => $after );
 
   }
 
@@ -131,16 +133,16 @@ sub _splice_edges
       {
       my $right = $cells->{"$x,$y"};
 
-      #print STDERR "# at $x,$y\n";
+#      print STDERR "# at $x,$y\n";
 
       # |-> [ empty ] [ node ]
-      if (!$right->isa('Graph::Easy::Node'))
+      if ($right->isa('Graph::Easy::Edge::Cell'))
 	{
         # when the left one is a joint, the right one must be an edge
         $self->error("Found non-edge piece ($right->{type} $right) right to a joint ($type)") 
           unless $right->isa('Graph::Easy::Edge::Cell');
 
-        #print STDERR "splicing in HOR piece to the right of joint at $x, $y\n";
+#        print STDERR "splicing in HOR piece to the right of joint at $x, $y ($edge $right $right->{edge})\n";
 
         # insert the new piece before the first part of the edge after the joint
         $self->_repair_cell(EDGE_HOR(), $right->{edge},$cell->{x}+1,$y,0)
@@ -167,7 +169,7 @@ sub _splice_edges
           unless $left->isa('Graph::Easy::Edge::Cell');
 
         # insert the new piece before the joint
-        $self->_repair_cell(EDGE_HOR(), $edge, $cell->{x}+1,$y,$cell)
+        $self->_repair_cell(EDGE_HOR(), $edge, $cell->{x}+1,$y,0) # $left,$cell)
           if $edge != $left->{edge};
 	}
       }
@@ -193,8 +195,8 @@ sub _splice_edges
 
 	# XXX TODO
       # insert the new piece after the joint
-#      $self->_repair_cell(EDGE_VER(), $bottom->{edge},$x,$cell->{y}+1,0)
-#        if $edge != $bottom->{edge}; 
+      $self->_repair_cell(EDGE_VER(), $bottom->{edge},$x,$cell->{y}+1,0)
+        if $edge != $bottom->{edge}; 
       }
 
     #########################################################################
@@ -206,7 +208,7 @@ sub _splice_edges
       {
       my $right = $cells->{"$x,$y"};
 
-      $self->_repair_cell(EDGE_HOR(), $edge, $cell->{x}+1,$y,$cell)
+      $self->_repair_cell(EDGE_HOR(), $edge, $cell->{x}+1,$y,$cell,$right)
         if $right->isa('Graph::Easy::Edge::Cell') && 
            defined $right->{edge} && defined $right->{type} &&
 	# check that both cells belong to the same edge
@@ -226,7 +228,8 @@ sub _splice_edges
     if (exists $cells->{"$x,$y"})
       {
       my $below = $cells->{"$x,$y"};
-      $self->_repair_cell(EDGE_VER(),$edge,$x,$cell->{y}+1,$cell)
+
+      $self->_repair_cell(EDGE_VER(),$edge,$x,$cell->{y}+1,$cell,$below)
 	if $below->isa('Graph::Easy::Edge::Cell') &&
         # check that both cells belong to the same edge
 	(  $edge == $below->{edge}  ||

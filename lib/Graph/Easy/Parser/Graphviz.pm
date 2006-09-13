@@ -6,11 +6,11 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 use base qw/Graph::Easy::Parser/;
 
 use strict;
-
+use utf8;
 use constant NO_MULTIPLES => 1;
 
 sub _init
@@ -62,6 +62,263 @@ sub reset
   $self;
   }
 
+# map "&tilde;" to "~" 
+my %entities = (
+  'amp'    => '&',
+  'quot'   => '"',
+  'lt'     => '<',
+  'gt'     => '>',
+  'nbsp'   => ' ',		# this is a non-break-space between '' here!
+  'iexcl'  => '¡',
+  'cent'   => '¢',
+  'pound'  => '£',
+  'curren' => '¤',
+  'yen'    => '¥',
+  'brvbar' => '¦',
+  'sect'   => '§',
+  'uml'    => '¨',
+  'copy'   => '©',
+  'ordf'   => 'ª',
+  'ordf'   => 'ª',
+  'laquo'  => '«',
+  'not'    => '¬',
+  'shy'    => "\x{00AD}",		# soft-hyphen
+  'reg'    => '®',
+  'macr'   => '¯',
+  'deg'    => '°',
+  'plusmn' => '±',
+  'sup2'   => '²',
+  'sup3'   => '³',
+  'acute'  => '´',
+  'micro'  => 'µ',
+  'para'   => '¶',
+  'midot'  => '·',
+  'cedil'  => '¸',
+  'sup1'   => '¹',
+  'ordm'   => 'º',
+  'raquo'  => '»',
+  'frac14' => '¼',
+  'frac12' => '½',
+  'frac34' => '¾',
+  'iquest' => '¿',
+  'Agrave' => 'À',
+  'Aacute' => 'Á',
+  'Acirc'  => 'Â',
+  'Atilde' => 'Ã',
+  'Auml'   => 'Ä',
+  'Aring'  => 'Å',
+  'Aelig'  => 'Æ',
+  'Ccedil' => 'Ç',
+  'Egrave' => 'È',
+  'Eacute' => 'É',
+  'Ecirc'  => 'Ê',
+  'Euml'   => 'Ë',
+  'Igrave' => 'Ì',
+  'Iacute' => 'Í',
+  'Icirc'  => 'Î',
+  'Iuml'   => 'Ï',
+  'ETH'    => 'Ð',
+  'Ntilde' => 'Ñ',
+  'Ograve' => 'Ò',
+  'Oacute' => 'Ó',
+  'Ocirc'  => 'Ô',
+  'Otilde' => 'Õ',
+  'Ouml'   => 'Ö',
+  'times'  => '×',
+  'Oslash' => 'Ø',
+  'Ugrave' => 'Ù',
+  'Uacute' => 'Ù',
+  'Ucirc'  => 'Û',
+  'Uuml'   => 'Ü',
+  'Yacute' => 'Ý',
+  'THORN'  => 'Þ',
+  'szlig'  => 'ß',
+  'agrave' => 'à',
+  'aacute' => 'á',
+  'acirc'  => 'â',
+  'atilde' => 'ã',
+  'auml'   => 'ä',
+  'aring'  => 'å',
+  'aelig'  => 'æ',
+  'ccedil' => 'ç',
+  'egrave' => 'è',
+  'eacute' => 'é',
+  'ecirc'  => 'ê',
+  'euml'   => 'ë',
+  'igrave' => 'ì',
+  'iacute' => 'í',
+  'icirc'  => 'î',
+  'iuml'   => 'ï',
+  'eth'    => 'ð',
+  'ntilde' => 'ñ',
+  'ograve' => 'ò',
+  'oacute' => 'ó',
+  'ocirc'  => 'ô',
+  'otilde' => 'õ',
+  'ouml'   => 'ö',
+  'divide' => '÷',
+  'oslash' => 'ø',
+  'ugrave' => 'ù',
+  'uacute' => 'ú',
+  'ucirc'  => 'û',
+  'uuml'   => 'ü',
+  'yacute' => 'ý',
+  'thorn'  => 'þ',
+  'yuml'   => 'ÿ',
+  'Oelig'  => 'Œ',
+  'oelig'  => 'œ',
+  'Scaron' => 'Š',
+  'scaron' => 'š',
+  'Yuml'   => 'Ÿ',
+  'fnof'   => 'ƒ',
+  'circ'   => '^',
+  'tilde'  => '~',
+  'Alpha'  => 'Α',
+  'Beta'   => 'Β',
+  'Gamma'  => 'Γ',
+  'Delta'  => 'Δ',
+  'Epsilon'=> 'Ε',
+  'Zeta'   => 'Ζ',
+  'Eta'    => 'Η',
+  'Theta'  => 'Θ',
+  'Iota'   => 'Ι',
+  'Kappa'  => 'Κ',
+  'Lambda' => 'Λ',
+  'Mu'     => 'Μ',
+  'Nu'     => 'Ν',
+  'Xi'     => 'Ξ',
+  'Omicron'=> 'Ο',
+  'Pi'     => 'Π',
+  'Rho'    => 'Ρ',
+  'Sigma'  => 'Σ',
+  'Tau'    => 'Τ',
+  'Upsilon'=> 'Υ',
+  'Phi'    => 'Φ',
+  'Chi'    => 'Χ',
+  'Psi'    => 'Ψ',
+  'Omega'  => 'Ω',
+  'alpha'  => 'α',
+  'beta'   => 'β',
+  'gamma'  => 'γ',
+  'delta'  => 'δ',
+  'epsilon'=> 'ε',
+  'zeta'   => 'ζ',
+  'eta'    => 'η',
+  'theta'  => 'θ',
+  'iota'   => 'ι',
+  'kappa'  => 'κ',
+  'lambda' => 'λ',
+  'mu'     => 'μ',
+  'nu'     => 'ν',
+  'xi'     => 'ξ',
+  'omicron'=> 'ο',
+  'pi'     => 'π',
+  'rho'    => 'ρ',
+  'sigma'  => 'σ',
+  'tau'    => 'τ',
+  'upsilon'=> 'υ',
+  'phi'    => 'φ',
+  'chi'    => 'χ',
+  'psi'    => 'ψ',
+  'omega'  => 'ω',
+  'thetasym'=>'ϑ',
+  'upsih'  => 'ϒ',
+  'piv'    => 'ϖ',
+  'ensp'   => "\x{2003}",	# normal wide space
+  'emsp'   => "\x{2004}",	# wide space
+  'thinsp' => "\x{2009}",	# very thin space
+  'zwnj'   => "\x{200c}",	# zero-width-non-joiner
+  'zwj'    => "\x{200d}",	# zero-width-joiner
+  'lrm'    => "\x{200e}",	# left-to-right
+  'rlm'    => "\x{200f}",	# right-to-left
+  'ndash'  => '–',
+  'mdash'  => '—',
+  'lsquo'  => '‘',
+  'rsquo'  => '’',
+  'sbquo'  => '‚',
+  'ldquo'  => '“',
+  'rdquo'  => '”',
+  'bdquo'  => '„',
+  'dagger' => '†',
+  'Dagger' => '‡',
+  'bull'   => '•',
+  'hellip' => '…',
+  'permil' => '‰',
+  'prime'  => '′',
+  'Prime'  => '′',
+  'lsaquo' => '‹',
+  'rsaquo' => '›',
+  'oline'  => '‾',
+  'frasl'  => '⁄',
+  'euro'   => '€',
+  'image'  => 'ℑ',
+  'weierp' => '℘',
+  'real'   => 'ℜ',
+  'trade'  => '™',
+  'alefsym'=> 'ℵ',
+  'larr'   => '←',
+  'uarr'   => '↑',
+  'rarr'   => '→',
+  'darr'   => '↓',
+  'harr'   => '↔',
+  'crarr'  => '↵',
+  'lArr'   => '⇐',
+  'uArr'   => '⇑',
+  'rArr'   => '⇒',
+  'dArr'   => '⇓',
+  'hArr'   => '⇔',
+  'forall' => '∀',
+  'part'   => '∂',
+  'exist'  => '∃',
+  'empty'  => '∅',
+  'nabla'  => '∇',
+  'isin'   => '∈',
+  'notin'  => '∉',
+  'ni'     => '∋',
+  'prod'   => '∏',
+  'sum'    => '∑',
+  'minus'  => '−',
+  'lowast' => '∗',
+  'radic'  => '√',
+  'prop'   => '∝',
+  'infin'  => '∞',
+  'ang'    => '∠',
+  'and'    => '∧',
+  'or'     => '∨',
+  'cap'    => '∩',
+  'cup'    => '∪',
+  'int'    => '∫',
+  'there4' => '∴',
+  'sim'    => '∼',
+  'cong'   => '≅',
+  'asymp'  => '≃',
+  'ne'     => '≠',
+  'eq'     => '=',
+  'le'     => '≤',
+  'ge'     => '≥',
+  'sub'    => '⊂',
+  'sup'    => '⊃',
+  'nsub'   => '⊄',
+  'nsup'   => '⊅',
+  'sube'   => '⊆',
+  'supe'   => '⊇',
+  'oplus'  => '⊕',
+  'otimes' => '⊗',
+  'perp'   => '⊥',
+  'sdot'   => '⋅',
+  'lceil'  => '⌈',
+  'rceil'  => '⌉',
+  'lfloor' => '⌊',
+  'rfloor' => '⌋',
+  'lang'   => '〈',
+  'rang'   => '〉',
+  'roz'    => '◊',
+  'spades' => '♠',
+  'clubs'  => '♣',
+  'diamonds'=>'♦',
+  'hearts' => '♥',
+  );
+
 sub _unquote
   {
   my ($self, $name) = @_;
@@ -80,6 +337,12 @@ sub _unquote
     \s*\+\s*"(?:\\"|[^"])*"		# followed by ' + "bar"'
     /x;
 
+  # map "&!;" to "!"
+  $name =~ s/&(.);/$1/g;
+
+  # map "&amp;" to "&"
+  $name =~ s/&([^;]+);/$entities{$1} || '';/eg;
+
   # "foo bar" => foo bar
   $name =~ s/^"\s*//; 		# remove left-over quotes
   $name =~ s/\s*"\z//; 
@@ -95,8 +358,10 @@ sub _clean_line
   # do some cleanups on a line before handling it
   my ($self,$line) = @_;
 
-  $line = $self->SUPER::_clean_line($line);
+  chomp($line);
 
+  # collapse white space at start
+  $line =~ s/^\s+//;
   # line ending in "\" means a continuation
   $line =~ s/\\\z//;
 
@@ -422,14 +687,18 @@ sub _build_match_stack
   my $qr_edge  = $self->_match_edge();
   my $qr_pgr = $self->_match_pseudo_group_start();
 
-  # remove multi line comments
+  # remove multi line comments /* comment */
   $self->_register_handler( qr/^$qr_cmt/, undef );
+  
+  # remove single line comment // comment
+  $self->_register_handler( qr/^\s*\/\/.*/, undef );
   
   # simple remove the graph start, but remember that we did this
   $self->_register_handler( qr/^\s*((?i)strict\s+)?((?i)digraph|graph)\s+$qr_ocmt$qr_node\s*$qr_ocmt\{/, 
     sub 
       {
       my $self = shift;
+      $self->{_graphviz_graph_name} = $3; 
       $self->_new_scope(1);
       1;
       } );
@@ -731,7 +1000,6 @@ my $remap = {
     'headport' => undef,
     'headtarget' => undef,
     'headtooltip' => undef,
-    'href' => 'link',
     'labelangle' => undef,
     'labeldistance' => undef,
     'labelfloat' => undef,
@@ -841,7 +1109,8 @@ my $remap = {
     'showboxes' => undef,
     'target' => undef,
     'tooltip' => 'title',
-    'url' => 'link',
+    'URL' => 'link',
+    'href' => 'link',
     },
   };
 
@@ -1219,24 +1488,85 @@ sub _parser_cleanup
     # we have reconnected this edge
     }
 
-  @nodes = $g->nodes();
-
-  # convert "\N" to "self->{name}"
-  for my $n (@nodes)
-    {
-    my $label = $n->label();
-    if ($label =~ /\\N/)
-      {
-      my $name = $n->{name};
-      $label =~ s/\\N/$name/g;
-      $n->set_attribute('label',$label);
-      }
-    }
-
   # after reconnecting all edges, we can delete temp. nodes: 
   for my $n (@nodes)
     {
     $g->del_node($n) if exists $n->{_graphviz_portlet};
+    }
+
+  @nodes = $g->nodes();
+
+  # convert "\N" to "self->{name}", \G => graph name
+  for my $n (@nodes)
+    {
+    for my $w (qw/label title link/)
+      {
+      no strict 'refs'; 
+      my $str = $n->$w();
+      my $changed = 0;
+      if ($str =~ /\\N/)
+	{
+	my $name = $n->{name};
+	$str =~ s/\\N/$name/g;
+	$changed++;
+	}
+      if ($str =~ /\\G/)
+	{
+	my $name = $self->{_graphviz_graph_name};
+	$str =~ s/\\G/$name/g;
+	$changed++;
+	}
+      $n->set_attribute($w,$str) if $changed > 0;
+      }
+    }
+  # convert "\G" for the graph
+  for my $w (qw/label title link/)
+    {
+    no strict 'refs'; 
+    my $str = $g->$w();
+    if ($str =~ /\\G/)
+      {
+      my $name = $self->{_graphviz_graph_name};
+      $str =~ s/\\G/$name/g;
+      $g->set_attribute($w,$str);
+      }
+    }
+  
+  # convert "\E" to "Bonn->Berlin", handle \G, \H and \T, too
+  for my $e (@edges)
+    {
+    for my $w (qw/label title link/)
+      {
+      no strict 'refs'; 
+      my $str = $e->$w();
+      my $changed = 0;
+      if ($str =~ /\\E/)
+	{
+        my $es = '->'; $es = '--' if $e->undirected();
+	my $name = $e->{from}->{name} . $es . $e->{to}->{name};
+	$str =~ s/\\E/$name/g;
+	$changed++;
+	}
+      if ($str =~ /\\G/)
+	{
+	my $name = $self->{_graphviz_graph_name};
+	$str =~ s/\\G/$name/g;
+	$changed++;
+	}
+      if ($str =~ /\\H/)
+	{
+	my $name = $e->{from}->{name};
+	$str =~ s/\\H/$name/g;
+	$changed++;
+	}
+      if ($str =~ /\\T/)
+	{
+	my $name = $e->{to}->{name};
+	$str =~ s/\\T/$name/g;
+	$changed++;
+	}
+      $e->set_attribute($w,$str) if $changed > 0;
+      }
     }
 
   $g->_drop_special_attributes();
@@ -1363,7 +1693,7 @@ The parser has problems with the following things:
 
 =item encoding and charset attribute
 
-The Parser assumes the input to be C<utf-8>. Input files in <code>Latin1</code>
+The parser assumes the input to be C<utf-8>. Input files in <code>Latin1</code>
 are not parsed properly, even when they have the charset attribute set.
 
 =item table syntax
@@ -1390,12 +1720,12 @@ Some attributes are B<not> remapped properly to what Graph::Easy expects, thus
 losing information, either because Graph::Easy doesn't support this feature
 yet, or because the mapping is incomplete.
 
-Some attributes meant only for nodes or edges etc, might be incorrectly applied
-to other objects, result in unnec. warnings while parsing.
+Some attributes meant only for nodes or edges etc. might be incorrectly applied
+to other objects, resulting in unnec. warnings while parsing.
 
 Attributes not valid in the original DOT language are silently ignored by dot,
 but result in a warning when parsing under Graph::Easy. This helps catching all
-these pesky misspellings, but it is not yet possible to disable these warnings.
+these pesky misspellings, but it's not yet possible to disable these warnings.
 
 =back
 

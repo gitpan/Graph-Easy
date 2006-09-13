@@ -42,10 +42,8 @@ Important short-term TODO:
     "0":f1 -> "1":f2;
     "0":"f2" -> "1":"f1";
   }
-
-* it seems not possible to set class-styles on anon nodes:
-  node.anon { fill: red; } [ ] --> [ A ]
-
+  + t/in/dot/6_2_cluster.dot: layout is slightly garbled
+   
 * as_ascii:
   + use custom text-wrap (Text::Wrap is well, buggy)
   + better support for different shapes (circle, box, polygon etc)
@@ -55,7 +53,6 @@ Important short-term TODO:
 * as_html: 
   + v-- and --^ edges (mis-aligned arrows)
     (complete edge-arrow alignment in HTML)
-  + handle multi-celled vertical edges with groups correctly
   + shift arrows on hor edge end/starts (non-short) left/right, too
   + output of node-clusters is slightly wrong
   + there is no space between two nodes placed next (with filler
@@ -180,7 +177,7 @@ General:
 * implement pseudo-class "step" for animations (see POD)
 
 * Anonymous groups like "( [A] [B] )" should not have a background and
-  border just like anonymous nodes.
+  border - just like anonymous nodes.
 
 Optimizing:
 
