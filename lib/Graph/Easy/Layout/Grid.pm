@@ -8,12 +8,14 @@ package Graph::Easy::Layout::Grid;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.06';
+$VERSION = 0.06;
 
 #############################################################################
 #############################################################################
 
 package Graph::Easy;
+
+use strict;
 
 sub _balance_sizes
   {

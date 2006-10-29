@@ -1,4 +1,4 @@
-node { border: double 1px; }
+node { border: double; }
 node.b { border: dotted; }
 node.c { border: dashed; }
 

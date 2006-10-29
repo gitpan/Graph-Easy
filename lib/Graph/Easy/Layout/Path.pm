@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.13';
+$VERSION = 0.13;
 
 #############################################################################
 #############################################################################
@@ -399,6 +399,8 @@ sub _find_node_place
   print STDERR "# Finding place for $node->{name}, try #$try\n" if $self->{debug};
   print STDERR "# Parent node is '$parent->{name}'\n" if $self->{debug} && ref $parent;
 
+  print STDERR "# called from ". join (" ", caller) . "\n" if $self->{debug};
+
 #  local $self->{debug} = 1;
 
   my $min_dist = 2;
@@ -535,7 +537,9 @@ sub _find_node_place
     {
     @tries = $parent->_near_places($cells, $min_dist, undef, 0, $dir);
 
-    print STDERR "# Trying chained placement of $node->{name} with min distance $min_dist\n" if $self->{debug};
+    print STDERR 
+	"# Trying chained placement of $node->{name} with min distance $min_dist from parent $parent->{name}\n"
+	if $self->{debug};
 
     # weed out positions that are unsuitable
     @tries = $self->_clear_tries($node, $cells, \@tries);

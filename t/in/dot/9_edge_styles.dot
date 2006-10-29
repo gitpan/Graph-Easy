@@ -1,0 +1,24 @@
+# dot -Tpng 8_edge_styles.dot -o 8_edge_styles.png
+// various edge styles and misc. attributes
+digraph G {
+  node [style=filled, color=lightsalmon, fontsize=14, fontname="Helvetica"];
+  edge [style="setlinewidth(5)"];
+  margin="0";
+  ratio=auto;
+  nodesep=0.2;
+  ranksep=0.2;
+  clusterrank=local;
+
+  A -> B [ style=solid ]
+  B -> C [ style=invis ]
+  C -> D [ style=dotted ]
+  D -> E [ style=dashed ]
+  // bold-dash
+  A -> F [ style="setlinewidth(5), dashed" ]
+  // setlinewidth(5) => bold
+  F -> G [ style="setlinewidth(5)" ]
+  // setlinewidth(7) => broad
+  G -> H [ style="setlinewidth(7)" ]
+  // setlinewidth(14) => wide
+  H -> I [ style="setlinewidth(14)" ]
+}

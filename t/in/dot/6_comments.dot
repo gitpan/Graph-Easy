@@ -2,7 +2,7 @@
  * multi line
  * comment
 */
-/* comment */ digraph GRAPH_0 { // comment
+/* comment */ digraph /* one comment */ GRAPH_0 /* another */ /* comment */ { // comment
   // comment
   a -> /* comment */ { b c /* comment */ d }
   { b /* comment */ c d } /* comment */ -> u

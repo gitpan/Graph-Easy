@@ -1,18 +1,18 @@
 edge {
   color: blue;
-  label-color: green;
+  labelcolor: green;
 }
 graph {
   background: oldlace;
   label: My sample graph;
-  border: solid 1px black;
+  border: solid  black;
 }
 
 [ Five ] { color: yellow; fill: maroon; }
 [ One ] { color: white; fill: seagreen; }
 [ Two ] { shape: triangle; }
 
-[ Five ] -  Test label - > { color: red; label-color: darkslategrey; } [ Seven ]
+[ Five ] -  Test label - > { color: red; labelcolor: darkslategrey; } [ Seven ]
 [ Five ] --> [ Seven ]
 [ Five ] <==> [ Three ]
 [ Five ] --> [ Eight ]

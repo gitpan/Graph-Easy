@@ -1,11 +1,68 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2006-10-29 v0.49 Tels 2182 tests
+  * fixed Synopsis
+  * add more modules to t/pod_cov.t and t/pod.t
+  * speedup loading: remove _u8() kludge, use utf8 in As_ascii.pm
+  * Node: added get_attribute() as alias for attribute()
+  * Completely rework the attributes code:
+    + attribute() now always returns the default value, and respects
+      inheritance for values that are "inherit". Instead of a hard-coded
+      attribute list, we now simple use 'inherit' for default values.
+    + 'inherit' is a valid colorscheme and edges, (anon) groups, and (anon)
+      nodes have "inherit" as default colorscheme
+    + add "autosplit" and "autojoin" for edges
+    + accept all attributes with a "-" in their name also without the "-"
+      (fontcolor, textwrap etc. are now valid inputs)
+    + make default_attribute() work, even when the object is not in a graph
+    + default_attribute() uses the info in $attributes to avoid double data
+    + add attributes "root" and "rank" for groups
+    + del_attribute() now works for virtual attributes like 'border' or 'size'
+    + add: raw_attribute(), raw_attributes(), get_attributes()
+  * Graph: del_node() didn't deregister a child node from parent
+  * support \; and \' (f.i. to escape single quotes if you want a label "''")
+  * Start working towards a recursive layouter:
+    + separate layout() into layout() (for graph only) and _layout()
+    + call edges_into_groups() before layout
+    + Group: store cells in {_cells} to avoid clash with {cells} from layout
+    + Group: in _layout() set {debug} for groups from parent graph {debug}
+  * Parser:
+    + make magic detection of Graphviz input much more robust
+    + parsing failed silently when there was only one invalid line of input
+    + fix parsing of empty groups and/or anonymous groups
+    + sort attributes before checking them to make tests more predictable
+  * Parser/Graphviz:
+    + a new scope start followed by a non-node (f.i. attributes) crashed
+      the parser. See t/in/dot/5_scope_atr.dot for an example.
+    + recognize (n|ne|e|se|s|sw|w|nw) as compass directions after nodes/ports
+    + recognize numbers as node names (like 0.11, 1.0, 0., 1., etc)
+    + the ID in "graph ID { }" is optional
+    + properly remap headport/tailport for edges
+    + make comment parsing more robust, especially against multiple multiline
+      comments or multiline comments without spaces around them
+    + recognize "setlinewidth(..)" for edge styles
+  * as_txt():
+    + don't insert superflous newline for empty groups
+    + properly output anonymous and empty groups
+    + output all attribute names w/o the "-", i.e. "fontsize: 80%;"
+  * as_html():
+    + properly quote "<", ">" and "&" in labels
+    + values of "inherit" work now, even when just set on a class/subclass
+  * as_graphviz():
+    + output nodes inside groups in sorted order to make tests more predictable
+    + add tests for proper colorscheme support
+  * attribute "autolabel": 
+    + allow and prefer/doc to use just "N" for specifying the length
+    + use "…" (ellipse) instead of just three dots (except in as_ascii)
+    + allow up to 99999 characters (was 9999)
+    + change doc to reflect that a set label will be shortened, too
+
 2006-09-13 v0.48 Tels 2020 tests
   * Parser/Graphviz:
     + handle attribute "URL" (opposed to "url")
     + handle attribute "href" for graph/node/subgraph, too
     + accept "\N" in titles and urls, too  
-    + accept "\E" for edges, too (\N is replaced by "Bonn->Berlin" f.i.)
+    + accept "\E" for edges, too (\E is replaced by "Bonn->Berlin" f.i.)
     + accept "\G", "\T", "\H" in labels/urls/titles, too
     + parse HTML entities like &amp; in names/labels/titles/urls
     + fix comment parsing, things like "http://example.com" didn't work
@@ -167,7 +224,7 @@ Revision history for Graph::Easy (formerly known as Graph::Simple):
       where we could immidiately create a joint and be done)
     + likewise for edges splitting up, if a shared edge runs alongside a node,
       then a joint will be created there immidiately
-    + fix bidiectional edges with a joint as start piece
+    + fix bidirectional edges with a joint as start piece
     + Don't warn on edges with no cells (on joints, under debug) about being
       unable to find path
     + improve placement for nodes where their edges share an end point

@@ -1,4 +1,4 @@
-edge { arrow-style: filled; }
+edge { arrowstyle: filled; }
 graph {
   colorscheme: x11;
   flow: south;

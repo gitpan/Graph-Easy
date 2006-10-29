@@ -1,11 +1,14 @@
 #!/usr/bin/perl -w
 
+# Test the attribute system, especially gettin, setting attributes
+# on objects and classes:
+
 use Test::More;
 use strict;
 
 BEGIN
    {
-   plan tests => 81;
+   plan tests => 120;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Attributes") or die($@);
@@ -68,6 +71,8 @@ is ($att->color_value('4','rdgy4'), '#404040', '4 => #404040 under rdgy4');
 # valid_attribute:
 
 $att = Graph::Easy->new();
+
+$att->no_fatal_errors(1);
 
 my $new_value = $att->valid_attribute( 'color', 'redbrownish' );
 is ($new_value, undef, 'color redbrownish is not valid');
@@ -137,15 +142,41 @@ is ($graph->error(),'','no error');
 $graph->error('');			# reset potential error for next test
 
 $graph->set_attribute('graph', 'shape', 'point');
-is ($graph->error(),"Error: 'shape' is not a valid attribute for graph",'no error');
+is ($graph->error(),"Error in attribute: 'shape' is not a valid attribute name for a graph",
+  'shape is not a valid attribute');
 $graph->error('');			# reset potential error for next test
 
 $e->no_fatal_errors(1);
 
 $e->set_attribute('shape','point');
-is ($graph->error(),"Error: 'shape' is not a valid attribute for edge",'no error');
+is ($graph->error(),"Error in attribute: 'shape' is not a valid attribute name for a edge",
+  'shape is not a valid attribute');
 $graph->error('');			# reset potential error for next test
 
+#############################################################################
+# Setting an attribute on the graph directly is the same as setting it on
+# the class 'graph':
+
+$graph->set_attribute('graph', 'flow', 'south');
+is ($graph->attribute('flow'), 'south', 'flow was set to south');
+
+$graph->set_attribute('flow', 'west');
+is ($graph->attribute('flow'), 'west', 'flow was set to south');
+
+is ($graph->attribute('label-pos'), 'top', 'label-pos defaults to top');
+is ($graph->attribute('labelpos'), 'top', 'label-pos defaults to top');
+
+$graph->set_attribute('graph', 'label-pos', 'bottom');
+is ($graph->attribute('label-pos'), 'bottom', 'label-pos was set to bottom');
+is ($graph->attribute('labelpos'), 'bottom', 'label-pos was set to bottom');
+
+$graph->del_attribute('label-pos');
+is ($graph->attribute('label-pos'), 'top', 'label-pos defaults to top');
+is ($graph->attribute('labelpos'), 'top', 'label-pos defaults to top');
+
+$graph->set_attribute('graph', 'labelpos', 'bottom');
+is ($graph->attribute('label-pos'), 'bottom', 'label-pos was set to bottom');
+is ($graph->attribute('labelpos'), 'bottom', 'label-pos was set to bottom');
 
 #############################################################################
 # text-style attribute
@@ -174,7 +205,6 @@ $graph->set_attribute('graph', 'text-style', 'bold underline overline italic');
 my $styles = $graph->text_styles();
 is (join(',', sort keys %$styles), 'bold,italic,overline,underline', 'text_styles()');
 
-
 my $node = $graph->add_node('one');
 
 $node->set_attribute('text-style', 'bold underline overline italic');
@@ -182,4 +212,141 @@ $node->set_attribute('text-style', 'bold underline overline italic');
 $styles = $node->text_styles();
 is (join(',', sort keys %$styles), 'bold,italic,overline,underline', 'text_styles() on node');
 
+#############################################################################
+# border-style vs. borderstyle
 
+$graph = Graph::Easy->new();
+
+$graph->no_fatal_errors(1);
+
+($n,$m,$e) = $graph->add_edge('A','B');
+
+is ($n->attribute('border-style'),'solid', 'border-style is solid');
+is ($n->attribute('borderstyle'),'solid', 'borderstyle is solid');
+
+$n->set_attribute('border-style','dashed');
+
+is ($n->attribute('border-style'),'dashed', 'border-style is now dashed');
+is ($n->attribute('borderstyle'),'dashed', 'border-style is now dashed');
+
+#############################################################################
+# inheritance of values ('inherit')
+
+$graph = Graph::Easy->new();
+($n,$m,$e) = $graph->add_edge('A','B');
+
+$graph->set_attribute('node', 'color', 'red');
+$graph->set_attribute('color', 'green');
+$n->set_attribute('color', 'inherit');
+$n->set_attribute('class', 'foo');
+
+is ($n->attribute('class'), 'foo', 'get_attribute("class") works');
+
+# N inherits from class "node"
+
+is ($n->attribute('color'),'red', 'inherited red from class "node"');
+is ($m->attribute('color'),'red', 'inherited red from class "node"');
+
+$graph->set_attribute('node', 'color', 'inherit');
+
+is ($n->attribute('color'),'green', 'inherited green from graph');
+is ($m->attribute('color'),'green', 'inherited green from graph');
+
+$m->set_attribute('color', 'blue');
+is ($m->attribute('color'),'blue', 'got blue');
+
+#############################################################################
+# raw_attribute() and get_raw_attributes()
+
+$graph = Graph::Easy->new();
+($n,$m,$e) = $graph->add_edge('A','B');
+
+$graph->set_attribute('node', 'color', 'red');
+$graph->set_attribute('color', 'green');
+$n->set_attribute('color', 'inherit');
+$n->set_attribute('class', 'foo');
+$m->set_attribute('color', 'blue');
+
+# N inherits from class "node"
+
+is ($n->raw_attribute('fill'), undef, 'attribute fill not set');
+is ($n->raw_attribute('color'), 'red', 
+  'attribute color set to inherit, so we inherit red');
+
+is ($graph->raw_attribute('fill'), undef, 'attribute fill not set on graph');
+is ($graph->raw_attribute('color'), 'green', 
+  'attribute color set to green on graph');
+
+is ($m->raw_attribute('color'), 'blue', 
+  'attribute color set to blue on node B');
+
+is ($m->raw_attribute('fill'), undef, 
+  'attribute fill not set on node m');
+
+my $str = _att_to_str($n->raw_attributes());
+is ($str, 'color=>red;', 'node A has only color set');
+
+$str = _att_to_str($m->raw_attributes());
+is ($str, 'color=>blue;', 'node B has only color set');
+
+$str = _att_to_str($graph->raw_attributes());
+is ($str, 'color=>green;', 'graph has only color set');
+
+$str = _att_to_str($e->raw_attributes());
+is ($str, '', 'edge has no attributes set');
+
+#############################################################################
+# virtual attribute 'class'
+
+$graph = Graph::Easy->new();
+
+($n,$m,$e) = $graph->add_edge('Bonn','Berlin');
+
+is ($graph->attribute('class'), '', 'class graph');
+is ($n->attribute('class'), '', 'class node');
+is ($e->attribute('class'), '', 'class edge');
+
+$n->set_attribute('class', 'anon');
+is ($n->attribute('class'), 'anon', 'class anon for node Bonn');
+
+$e->set_attribute('class', 'foo');
+is ($e->attribute('class'), 'foo', 'class foo for edge');
+
+#############################################################################
+# attribute 'link'
+
+$graph = Graph::Easy->new();
+
+($n,$m,$e) = $graph->add_edge('Bonn','Berlin');
+
+$n->set_attribute('autolink','name');
+
+# default linkbase + autolink from name
+is ($n->link(), '/wiki/index.php/Bonn', "link() for 'Bonn'");
+
+is ($graph->link(), '', "no link on graph");
+
+$graph->set_attribute('autolink','name');
+
+# graph doesn't have a name => no link
+is ($graph->link(), '', "link() is 'Bonn'");
+
+$graph->set_attribute('link','Berlin');
+# default linkbase + link
+is ($graph->link(), '/wiki/index.php/Berlin', "link() for graph");
+
+1;
+
+#############################################################################
+
+sub _att_to_str
+  {
+  my $out = shift;
+
+  my $str = '';
+  for my $k (sort keys %$out)
+    {
+    $str .= $k . '=>' . $out->{$k} . ';';
+    }
+  $str;
+  }

@@ -1,9 +1,9 @@
-edge { arrow-style: filled; }
+edge { arrowstyle: filled; }
 graph {
   colorscheme: x11;
   flow: south;
   label: Deutsche Städte am Rhein;
-  label-pos: bottom;
+  labelpos: bottom;
 }
 
 [ Köln ] --> [ Bonn ]

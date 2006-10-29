@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 
+# test anonymous nodes
+
 use Test::More;
 use strict;
 
@@ -98,8 +100,8 @@ is ($node->as_html(), " <td colspan=4 rowspan=4 class='node_anon' style=\"border
  'as_html');
 
 $grviz = $graph->as_graphviz();
-$match = quotemeta('"\#0" [ color="#ffffff", label=" ", style=filled ]');
-like ($grviz, qr/$match/, 'anon node');
+$match = quotemeta('"\#0" [ color="#000000", label=" ", style="filled,dotted" ]');
+like ($grviz, qr/$match/, 'anon node as graphviz');
 
 #############################################################################
 # with fill attribute

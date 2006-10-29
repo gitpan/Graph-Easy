@@ -6,6 +6,7 @@ See Graph::Easy under LIMITATIONS for some hot topics. In addition:
 Important short-term TODO:
 
 * layouter:
+  + implement autosplit and autojoin for edges
   + honor flow on an edge
   + don't build chains across groups
   + when having edges with and without flow, track chains only for these with
@@ -18,6 +19,18 @@ Important short-term TODO:
     of the grandparent node will thus always fail
   + last-resort placing of node should first try to place it more near
     to where the edge(s) are connected
+  + allow end/start without specicyfying a side: "[ A ]--> { end: 0; } [ B ]"
+  + t/in/5_joint.txt - the rendering order is C,A,B, so that the edge
+    from A to Z comes before B to Z. And since the layouter "knows" it
+    should not block the last port on B, it makes a bend. In this case, tho,
+    it could just go along B, because the edges join each other anyway.
+
+Recursive layouter:
+  + an empty group should consist of one cell (with the label and border)
+  + lay out all groups first, then interlink them together
+
+* as_graphviz():
+  + links to/from empty groups fail
 
 * Parser/Graphviz:
   + see also the section CAVEATS in Graph::Easy::Parser::Graphviz
@@ -33,24 +46,18 @@ Important short-term TODO:
     aggregate node or at the specific part where the arrow/line ends up
     pointing to/from...:-/
   + support for "landscape", "rotation" and "orientation" on graph
-  + two edges from one record-shaped node part to another part and back
-    are rendered as one bidirectional edge by dot, but as two unidirectinal
-    edges by Graph::Easy:
-  digraph SPLIT {
-    0 [ shape=record, label="<f1>n| <f2> 0" ]
-    1 [ shape=record, label="<f1>n| <f2> 1" ]
-    "0":f1 -> "1":f2;
-    "0":"f2" -> "1":"f1";
-  }
-  + t/in/dot/6_2_cluster.dot: layout is slightly garbled
-   
+
 * as_ascii:
   + use custom text-wrap (Text::Wrap is well, buggy)
   + better support for different shapes (circle, box, polygon etc)
   + implement pod-formatted labels (*bold*, /italic/,
     _underline_, -l-i-n-e-t-h-r-o-u-g-h-, ~overline~, "code")
+  + rendering of "(group)" is empty (need a recursive layouter for that,
+    since the current layouter doesn't add any group cells if a group doesn't
+    have any node or edge at all)
 
 * as_html: 
+  + fill on edges
   + v-- and --^ edges (mis-aligned arrows)
     (complete edge-arrow alignment in HTML)
   + shift arrows on hor edge end/starts (non-short) left/right, too
@@ -61,6 +68,7 @@ Important short-term TODO:
   + define missing HTML edge pieces: CROSS sections with end/start points
   + define JOINTs with start/end pieces (6 for each joints, making 24 types)
   + implement HTML nodes as triangles, house, etc. using slanted edges
+  + t/in/dot/6_2_cluster.dot: layout is slightly garbled
 
 * fix nesting with pod-formatted labels
 
@@ -78,7 +86,7 @@ Important short-term TODO:
 
 Parser:
 
-* be truly recursive: parse nested graphs/groups/nodes
+* be truly recursive: parse nested groups
 * support for node splitting ala:
 
     "[ A ] | [ B | C ] || [ D | E ]"
@@ -113,6 +121,7 @@ Output:
 
 * as_txt(): 
   + output of node clusters and node chains is not optimal
+  + links between groups are missing
 * as_graphviz(): (these things seem to be actually not possible in Graphviz)
   + border-styles: wave, dot-dot-dash and dot-dash
   + edge-styles: wave, dot-dot-dash and dot-dash

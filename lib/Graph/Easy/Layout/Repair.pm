@@ -10,7 +10,7 @@ package Graph::Easy::Layout::Repair;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.05';
+$VERSION = 0.06;
 
 #############################################################################
 #############################################################################
@@ -414,8 +414,6 @@ sub _fill_group_cells
   # take a shortcut if we do not have groups
   return $self if $self->groups == 0;
 
-  $self->_edges_into_groups();
-
   $self->{padding_cells} = 1;		# set to true
 
   # We need to insert "filler" cells around each node/edge/cell:
@@ -515,11 +513,9 @@ sub _fill_group_cells
   # XXX TODO
   # we should "grow" the group area to close holes
 
-  # for all group cells, set their right type (for border) depending on
-  # neighbour cells
-  for my $cell (values %$cells)
+  for my $group (values %{$self->{groups}})
     {
-    $cell->_set_type($cells) if $cell->isa('Graph::Easy::Group::Cell');
+    $group->_set_cell_types($cells);
     }
 
   # create a mapping for each row/column so that we can repair edge starts/ends

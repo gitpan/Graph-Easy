@@ -8,7 +8,7 @@ package Graph::Easy::As_txt;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.10';
+$VERSION = 0.11;
 
 #############################################################################
 #############################################################################
@@ -21,8 +21,7 @@ sub _as_txt
   {
   my ($self) = @_;
 
-  # convert the graph to a textual representation
-  # does not need a layout() before hand!
+  # Convert the graph to a textual representation - does not need layout().
 
   $self->_assign_ranks();
 
@@ -44,9 +43,11 @@ sub _as_txt
       }
 
     my $border = $self->border_attribute($class) || '';
-    $border = '' if defined $self->{def_att}->{$class}->{border} &&
-              $border eq $self->{def_att}->{$class}->{border};
-    $border = '' if $border eq 'none' && $class eq 'node.anon';
+
+    # 'solid 1px #000000' =~ /^solid/;
+    # 'solid 1px #000000' =~ /^solid 1px #000000/;
+    $border = '' if $self->default_attribute($class,'border') =~ /^$border/;
+
     $att .= "  border: $border;\n" if $border ne '';
 
     if ($att ne '')
@@ -148,20 +149,31 @@ sub as_txt
 
   require Graph::Easy::As_txt;
 
-  my $n = $self->{name};
-  # quote special chars in name
-  $n =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
+  my $n = '';
+  if (!$self->isa('Graph::Easy::Group::Anon'))
+    {
+    $n = $self->{name};
+    # quote special chars in name
+    $n =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
+    $n = ' ' . $n;
+    }
 
-  my $txt = "( $n\n";
+  my $txt = "($n";
 
   $n = $self->{nodes};
 
+  $txt .= (keys %$n > 0 ? "\n" : ' ');
   for my $name ( sort keys %$n )
     {
     $n->{$name}->{_p} = 1;                              # mark as processed
     $txt .= '  ' . $n->{$name}->as_pure_txt() . "\n";
     }
   $txt .= ")" . $self->attributes_as_txt() . "\n\n";
+
+  # insert all the edges of the group
+
+  #
+  $txt;
   }
 
 #############################################################################
@@ -180,12 +192,14 @@ sub attributes_as_txt
     {
     # other nodes are invisible in as_txt: 
     return '' unless defined $self->{autosplit};
-    # the first one might have had no label set
+    # the first one might have had a label set
     }
 
   my $att = '';
   my $class = $self->class();
   my $g = $self->{graph};
+
+  # XXX TODO: remove atttributes that are simple the default attributes
 
   my $new = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'encode' );
 
@@ -202,6 +216,8 @@ sub attributes_as_txt
     $new->{size} = ($new->{columns}||1) . ',' . ($new->{rows}||1);
     delete $new->{rows};
     delete $new->{columns};
+    # don't output the default size
+    delete $new->{size} if $new->{size} eq '1,1';
     } 
 
   for my $atr (sort keys %$new)
@@ -211,14 +227,13 @@ sub attributes_as_txt
     $att .= "$atr: $new->{$atr}; ";
     }
 
-  my $border = $self->border_attribute() || '';
+  my $border = $self->border_attribute();
 
-  if (defined $g)
-    {
-    my $DEF = $g->border_attribute ($class);
-    $border = '' if $border eq $DEF;
-    $border = '' if $border eq 'none' && $class eq 'node.anon';
-    }
+  # XXX TODO: should do this for all attributes, not only for border
+  # XXX TODO: this seems wrong anyway
+
+  # don't include default border
+  $border = '' if ref $g && $g->attribute($class,'border') eq $border;
   $att .= "border: $border; " if $border ne '';
 
   # if we have a subclass, we probably need to include it
@@ -226,7 +241,7 @@ sub attributes_as_txt
   $c = $1 if $class =~ /\.(\w+)/;
 
   # but we do not need to include it if our group has a nodeclass attribute
-  $c = '' if ref($self->{group}) && defined $self->{group}->attribute('nodeclass');
+  $c = '' if ref($self->{group}) && $self->{group}->attribute('nodeclass') eq $c;
 
   # include our subclass as attribute
   $att .= "class: $c; " if $c ne '' && $c ne 'anon';

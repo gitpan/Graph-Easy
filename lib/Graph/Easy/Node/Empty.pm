@@ -8,7 +8,7 @@ package Graph::Easy::Node::Empty;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.04';
+$VERSION = 0.04;
 
 use strict;
 

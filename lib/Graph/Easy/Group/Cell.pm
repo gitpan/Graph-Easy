@@ -8,7 +8,7 @@ package Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.10';
+$VERSION = 0.11;
 
 use strict;
 
@@ -175,6 +175,15 @@ sub attribute
   $self->{group}->attribute(@_);
   }
 
+sub get_attribute
+  {
+  my $self = shift;
+
+  $self->{group}->attribute(@_);
+  }
+
+use constant isa_cell => 1;
+
 #############################################################################
 # conversion to ASCII or HTML
 
@@ -184,7 +193,7 @@ sub as_ascii
 
   my $fb = $self->_framebuffer($self->{w}, $self->{h});
 
-  my $border_style = $self->{group}->attribute('border-style') || 'dashed';
+  my $border_style = $self->{group}->attribute('borderstyle');
   my $EM = 14;
   my $border_width = Graph::Easy::_border_width_in_pixels($self->{group},$EM);
 

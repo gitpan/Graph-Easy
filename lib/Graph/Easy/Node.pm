@@ -6,12 +6,18 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.29';
+$VERSION = 0.30;
 
 use Graph::Easy::Base;
+use Graph::Easy::Attributes;
 @ISA = qw/Graph::Easy::Base/;
 
+my $att_aliases;
+
 use strict;
+use utf8;
+
+use constant isa_cell => 0;
 
 sub _init
   {
@@ -31,7 +37,7 @@ sub _init
       require Carp;
       Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Node->new()");
       }
-    $self->{$k} = $args->{$k};
+    $self->{$k} = $args->{$k} if $k eq 'name';
     $self->{att}->{$k} = $args->{$k} if $k eq 'label';
     }
   
@@ -53,9 +59,9 @@ sub _border_styles
   # return the four border styles (right, bottom, left, top)
   my $self = shift;
 
-  my $border = $self->attribute('border-style') || 'none';
-  my $width = $self->attribute('border-width') || '1';
-  my $color = $self->color_attribute('border-color') || '#000000';
+  my $border = $self->attribute('borderstyle');
+  my $width = $self->attribute('borderwidth');
+  my $color = $self->color_attribute('bordercolor');
 
   # XXX TODO:
   ($border, $width, $color, 
@@ -73,15 +79,15 @@ sub _correct_size
 
   return if defined $self->{w};
 
-  my $border = $self->attribute('border-style') || 'none';
+  my $border = $self->attribute('borderstyle');
 
-  my $shape = $self->attribute('shape') || 'rect';
+  my $shape = $self->attribute('shape');
 
   if ($shape eq 'point')
     {
     $self->{w} = 5;
     $self->{h} = 3;
-    my $style = $self->attribute('point-style') || 'star';
+    my $style = $self->attribute('pointstyle');
     if ($style eq 'invisible')
       {
       $self->{w} = 0; $self->{h} = 0; return; 
@@ -97,7 +103,7 @@ sub _correct_size
     my ($w,$h) = $self->dimensions();
     $self->{h} = $h + 2;
     $self->{w} = $w + 2;
-    $self->{w} += 2 if $border ne 'none';
+    $self->{w} += 2 if $border ne 'none' && $shape ne 'none';
     }
 
   return if $border eq 'none' || !exists $self->{autosplit};
@@ -401,7 +407,7 @@ sub _aligned_label
   my ($self, $align, $wrap) = @_;
 
   $align = 'center' unless $align;
-  $wrap = $self->attribute('text-wrap') || 'none' unless defined $wrap;
+  $wrap = $self->attribute('textwrap') unless defined $wrap;
 
   my $name = $self->label();
 
@@ -443,28 +449,28 @@ my $remap = {
     align => undef,
     background => undef,
     basename => undef,
-    'border' => undef,
-    'border-style' => undef,
-    'border-width' => undef,
-    'border-color' => undef,
+    border => undef,
+    borderstyle => undef,
+    borderwidth => undef,
+    bordercolor => undef,
     columns => undef,
     fill => 'background',
     origin => undef,
     offset => undef, 
-    'point-style' => undef,
+    pointstyle => undef,
     rows => undef, 
     size => undef,
     shape => undef,
     },
   edge => {
     fill => undef,
-    'border' => undef,
+    border => undef,
     },
   all => {
     align => 'text-align',
     autolink => undef,
     autotitle => undef,
-    'font-size' => undef,
+    fontsize => undef,
     font => 'font-family',
     flow => undef,
     format => undef,
@@ -472,9 +478,9 @@ my $remap = {
     link => undef,
     linkbase => undef,
     style => undef,
-    'text-style' => undef,
+    textstyle => undef,
     title => undef,
-    'text-wrap' => \&Graph::Easy::_remap_text_wrap,
+    textwrap => \&Graph::Easy::_remap_text_wrap,
     },
   };
 
@@ -511,8 +517,8 @@ sub _label_as_html
   # Also align each line, and if nec., convert B<bold> to <b>bold</b>.
   my ($self) = @_;
 
-  my $align = $self->attribute('align') || $self->default_attribute('align') || 'center';
-  my $text_wrap = $self->attribute('text-wrap') || 'none';
+  my $align = $self->attribute('align');
+  my $text_wrap = $self->attribute('textwrap');
 
   my ($lines,$aligns);
   if ($text_wrap ne 'none')
@@ -540,7 +546,7 @@ sub _label_as_html
   $align = 'center' if $switch_to_center;
   my $a = substr($align,0,1);			# center => c
 
-  my $format = $self->attribute('format') || 'none';
+  my $format = $self->attribute('format');
 
   my $name = '';
   my $i = 0;
@@ -560,11 +566,11 @@ sub _label_as_html
       }
     else
       { 
+      $line =~ s/&/&amp;/g;			# quote &
       $line =~ s/>/&gt;/g;			# quote >
       $line =~ s/</&lt;/g;			# quote <
+      $line =~ s/\\\\/\\/g;			# "\\" to "\"
       }
-    $line =~ s/&/&amp;/g;			# quote &
-    $line =~ s/\\\\/\\/g;			# "\\" to "\"
 
     # insert a span to align the line unless the default already covers it
     $line = '<span class="' . $al . '">' . $line . '</span>'
@@ -583,7 +589,8 @@ sub as_html
   # return node as HTML
   my ($self) = @_;
 
-  my $shape = $self->attribute('shape') || 'rect';
+  my $shape = 'rect';
+  $shape = $self->attribute('shape') unless $self->isa_cell();
 
   if ($shape eq 'edge')
     {
@@ -620,8 +627,7 @@ sub as_html
 
   my $c = $class; $c =~ s/\./_/g;	# node.city => node_city
 
-  my $html = " <$taga colspan=$cs rowspan=$rs";
-  $html .= " class='$c'" if $c ne '';
+  my $html = " <$taga colspan=$cs rowspan=$rs##class##";
    
   my $link = $self->link();
 
@@ -637,7 +643,7 @@ sub as_html
     require Graph::Easy::As_ascii;		# for _u8 and point-style
 
     local $self->{graph}->{_ascii_style} = 1;	# use utf-8
-    $name = $self->_point_style( $self->attribute('point-style') || 'star' );
+    $name = $self->_point_style( $self->attribute('pointstyle') );
     }
   elsif ($shape eq 'img')
     {
@@ -654,7 +660,8 @@ sub as_html
     ($name,$switch_to_center) = $self->_label_as_html(); 
     }
 
-  my $out = $self->{graph}->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'encode', 'remap_colors');
+  my $att = $self->raw_attributes();
+  my $out = $self->{graph}->_remap_attributes( $self, $att, $remap, 'noquote', 'encode', 'remap_colors');
 
   $out->{'text-align'} = 'center' if $switch_to_center;
 
@@ -670,7 +677,7 @@ sub as_html
     }
   if ($shape eq 'circle')
     {
-    my ($w, $h) = $self->dimensions();
+    my ($w,$h) = $self->dimensions();
     my $r = $w; $r = $h if $h > $w;
     my $size = ($r * 0.7) . 'em';
     $out->{'-moz-border-radius'} = '100%';
@@ -687,13 +694,7 @@ sub as_html
     my $bs = $self->attribute('border-style');
 
     $out->{border} = Graph::Easy::_border_attribute_as_html( $bs, $bw, $bc );
-    my $c = $class;
-    $c =~ s/\s+.*//;	# "group gt" => "group"
-    my $DEF = $g->border_attribute ($c);
-
-    $c =~ s/\..*//;	# remove subclasses
-    $DEF = $g->border_attribute ($c) if !defined $DEF || $DEF eq '';
-    $DEF = 'none' unless defined $DEF;
+    my $DEF = $self->default_attribute('border');
 
     delete $out->{border} if $out->{border} =~ /^\s*\z/ || $out->{border} eq $DEF;
     delete $out->{border} if $class eq 'node.anon' && $out->{border} && $out->{border} eq 'none';
@@ -702,16 +703,20 @@ sub as_html
   if ($class =~ /^group/)
     {
     delete $out->{border};
-    my $group_class = $class; $group_class =~ s/\s.*//;	# "group gt" => "group"
+    my $group_class = $c; $group_class =~ s/\s.*//;	# "group gt" => "group"
     my @atr = qw/border-color border-width fill/;
+
+    # transform "group_foo gr" to "group_foo" if border eq 'none' (for anon groups)
+    my $border_style = $self->attribute('borderstyle');
+    $c = $group_class if $border_style eq 'none';
 
     # only need the color for the label cell
     push @atr, 'color' if $self->{has_label};
     $name = '&nbsp;' unless $self->{has_label};
     for my $b (@atr)
       {
-      my $def = $g->attribute($group_class,$b) || '';
-      my $v = $self->attribute($b) || '';
+      my $def = $g->attribute($group_class,$b);
+      my $v = $self->attribute($b);
       my $n = $b; $n = 'background' if $b eq 'fill';
       $out->{$n} = $v unless $v eq '' || $v eq $def;
       }
@@ -721,7 +726,7 @@ sub as_html
   # "shape: none;" or point means no border, and background instead fill color
   if ($shape =~ /^(point|none)\z/)
     {
-    my $bg = $self->color_attribute('background') || 'inherit'; 
+    my $bg = $self->color_attribute('background'); 
     $out->{background} = $bg;
     $out->{border} = 'none';
     }
@@ -765,6 +770,9 @@ sub as_html
     $html .= "$td_style><a href='$link'";	# put the style on "<a.."
     $end_tag = '</a>'.$end_tag;
     }
+
+  $c = " class='$c'" if $c ne '';
+  $html =~ s/##class##/$c/;
   $html .= " style=\"$style\"" if $style;
   $html .= ">$name";
   $html .= "$end_tag";
@@ -827,7 +835,7 @@ sub _parent_flow_absolute
 
   return '90' if ref($self) eq 'Graph::Easy';
 
-  my $flow = $self->parent()->attribute('flow') || $def;
+  my $flow = $self->parent()->raw_attribute('flow') || $def;
 
   return unless defined $flow;
 
@@ -856,7 +864,7 @@ sub flow
   my $in;
   my $flow = $self->{att}->{flow};
 
-  $flow = $self->_parent_flow_absolute() unless defined $flow;
+  $flow = $self->_parent_flow_absolute() if !defined $flow || $flow eq 'inherit';
 
   # if flow is absolute, return it early
   return $self->{_cached_flow} = $flow if defined $flow && $flow =~ /^(0|90|180|270)\z/;
@@ -897,13 +905,7 @@ sub flow
 
   $flow = Graph::Easy->_direction_as_number($in) unless defined $flow;
 
-#  print STDERR "# flow for $self->{name}: $in $flow\n";
-
   $self->{_cached_flow} = Graph::Easy->_flow_as_direction($in,$flow);
-
-#  print STDERR " result $self->{_cached_flow}\n";
-
-  $self->{_cached_flow};
   }
 
 #############################################################################
@@ -915,30 +917,20 @@ sub _calc_size
   # Will return a hash that denotes in which direction the node should grow.
   my $self = shift;
 
-  # default is 1,1
-  my ($cx,$cy) = (1,1);
-
-  # if specified "rows", or "columns" (and not "size"), then grow the node
+  # If specified only one of "rows" or "columns", then grow the node
   # only in the unspecified direction. Default is grow both.
   my $grow_sides = { cx => 1, cy => 1 };
 
-  my $size = $self->attribute('size');
-  if (!defined $size)
-    {
-    my $rows = $self->attribute('rows');
-    my $cols = $self->attribute('columns');
-    delete $grow_sides->{cy} if defined $rows && !defined $cols;
-    delete $grow_sides->{cx} if defined $cols && !defined $rows;
-    $cx = $cols if defined $cols;    
-    $cy = $rows if defined $rows;    
-    }
-  else
-    {
-    ($cx,$cy) = split /\s*,\s*/, $size;
-    }
+  my $r = $self->{att}->{rows};
+  my $c = $self->{att}->{columns};
+  delete $grow_sides->{cy} if defined $r && !defined $c;
+  delete $grow_sides->{cx} if defined $c && !defined $r;
 
-  $self->{cx} = abs($cx || 1);
-  $self->{cy} = abs($cy || 1);
+  $r = $self->attribute('rows') unless defined $r;
+  $c = $self->attribute('columns') unless defined $c;
+
+  $self->{cy} = abs($r || 1);
+  $self->{cx} = abs($c || 1);
 
   $grow_sides;
   }
@@ -1126,7 +1118,7 @@ sub title
   my $self = shift;
 
   my $title = $self->attribute('title');
-  if (!defined $title)
+  if ($title eq '')
     {
     my $autotitle = $self->attribute('autotitle');
     if (defined $autotitle)
@@ -1160,17 +1152,7 @@ sub background
   # get the background for this group/edge cell, honouring group membership.
   my $self = shift;
 
-  my $bg = $self->color_attribute('background') || 'inherit';
-
-  if ($bg eq 'inherit')
-    {
-    # if part of a group, the groups fill is the members background.
-    $bg = ($self->{group}->color_attribute('fill')||'inherit')
-      if ref $self->{group};
-    return '' if $bg eq 'inherit';
-    }
-
-  $bg;
+  $self->color_attribute('background');
   }
 
 sub label
@@ -1178,6 +1160,7 @@ sub label
   my $self = shift;
 
   my $label = $self->attribute('label');
+
   # for autosplit nodes, use their auto-label first (unless already got 
   # a label from the class):
   $label = $self->{autosplit_label} unless defined $label;
@@ -1187,17 +1170,27 @@ sub label
 
   if ($label ne '')
     {
-    my $autolabel = $self->attribute('autolabel');
-    if (defined $autolabel)
+    my $len = $self->attribute('autolabel');
+    if ($len ne '')
       {
-      # restrict label length?
-      my ($what, $len) = split /\s*,\s*/, $autolabel;
+      # allow the old format (pre v0.49), too: "name,12" => 12
+      $len =~ s/^name\s*,\s*//;			
       # restrict to sane values
-      $len = abs($len || 0); $len = 9999 if $len > 9999;
+      $len = abs($len || 0); $len = 99999 if $len > 99999;
       if (length($label) > $len)
         {
-        $len = int($len / 2) - 3; $len = 0 if $len < 0;
-        $label = substr($label, 0, $len) . ' ... ' . substr($label, -$len, $len);
+        my $g = $self->{graph} || {};
+	if ((($g->{_ascii_style}) || 0) == 0)
+	  {
+	  # ASCII output
+	  $len = int($len / 2) - 3; $len = 0 if $len < 0;
+	  $label = substr($label, 0, $len) . ' ... ' . substr($label, -$len, $len);
+	  }
+	else
+	  {
+	  $len = int($len / 2) - 2; $len = 0 if $len < 0;
+	  $label = substr($label, 0, $len) . ' … ' . substr($label, -$len, $len);
+	  }
         }
       }
     }
@@ -1574,11 +1567,9 @@ sub relative_to
                   ." tried to set origin of '$self->{name}' to my own grandchild $parent->{name}");
     }
 
-  if (defined $self->{origin})
-    {
-    # unregister us with our old parent
-    delete $self->{origin}->{children}->{$self->{id}};
-    }
+  # unregister us with our old parent
+  delete $self->{origin}->{children}->{$self->{id}} if defined $self->{origin};
+
   $self->{origin} = $parent;
   $self->{dx} = $dx if defined $dx;
   $self->{dy} = $dy if defined $dy;
@@ -1621,81 +1612,28 @@ sub find_grandparent
 #############################################################################
 # attributes
 
-sub color_attribute
-  {
-  # Just like get_attribute(), but for colors, and returns them as hex,
-  # using the current colorscheme.
-  my ($self, $att) = @_;
-
-  my $color = $self->attribute($att); $color = '' unless defined $color;
-
-  if ($color ne '' && $color !~ /^#/)
-    {
-    my $scheme = $self->attribute('colorscheme') || 'w3c';
-    $scheme = $self->{graph}->attribute('graph','colorscheme') if $scheme eq 'inherit';
-
-    $color = Graph::Easy->color_as_hex($color, $scheme);
-    }
-  $color;
-  }
-
-sub attribute
-  {
-  my ($self, $atr) = @_;
-
-  warn ("Node::attribute() takes only one argument, did you mean set_attribute()?") if @_ > 2;
-
-  return $self->{att}->{$atr} if exists $self->{att}->{$atr};
-
-  my $g = $self->{graph};
-  # if we do not belong to a graph, we cannot inherit attributes
-  return unless ref($g) =~ /^Graph::Easy/;
-
-  my $class = $self->{class};
-
-  # try "node.class" first:
-  my $att = $g->attribute ($class, $atr);
-
-  my $c = $class; $c =~ s/\.(.*)//;		# remove subclass
-
-  # try "node" next
-  $att = $g->attribute ($c, $atr) unless defined $att;
-
-  # XXX TODO: this should use $self->parent() instead of just graph
-
-  # If neither our group nor our parent class had the attribute, try to
-  # inherit it from "graph" as a last resort:
-
-  $att = $g->attribute ('graph', $atr) if !defined $att && 
-    $atr =~ /^(flow|linkbase|autolink|autotitle|autolabel)\z/;
-
-  $att;
-  }
-
-sub default_attribute
+sub del_attribute
   {
   my ($self, $name) = @_;
 
-  my $graph = $self->{graph}; $graph = $self if ref($self) eq 'Graph::Easy';
-
-  my $class = $self->{class} || 'graph';
-
-  # for Edge/Cell.pm
-  $class = $self->{edge}->{class} if ref($self->{edge});
- 
-  return undef unless exists $graph->{att}->{$class};
-
-  my $att = $graph->{att}->{ $class };
-
-  $att->{$name};
-  }
-
-sub del_attribute
-  {
-  my ($self, $atr) = @_;
+  # font-size => fontsize
+  $name = $att_aliases->{$name} if exists $att_aliases->{$name};
 
   delete $self->{_cached_flow};
-  delete $self->{att}->{$atr};
+
+  my $a = $self->{att};
+  delete $a->{$name};
+  if ($name eq 'size')
+    {
+    delete $a->{rows};
+    delete $a->{columns};
+    }
+  if ($name eq 'border')
+    {
+    delete $a->{borderstyle};
+    delete $a->{borderwidth};
+    delete $a->{bordercolor};
+    }
   $self;
   }
 
@@ -1707,6 +1645,9 @@ sub set_attribute
 
   $name = 'undef' unless defined $name;
   $v = 'undef' unless defined $v;
+
+  # font-size => fontsize
+  $name = $att_aliases->{$name} if exists $att_aliases->{$name};
 
   if (!defined $class)
     {
@@ -1724,18 +1665,10 @@ sub set_attribute
   my $strict = 0; $strict = $g->{strict} if $g;
   if ($strict)
     {
-    my $v = $g->valid_attribute($name,$val,$class);
+    my ($rc, $newname, $v) = $g->validate_attribute($name,$val,$class);
 
-    if (ref($v) eq 'ARRAY')
-      {
-      $g->error("Error: '$name' is not a valid attribute for $class");
-      return;
-      }
-    if (!defined $v)
-      {
-      $g->error("Error in attribute: '$val' is not a valid $name for $class");
-      return;
-      }
+    return if defined $rc;		# error?
+
     $val = $v;
     }
 
@@ -1753,10 +1686,8 @@ sub set_attribute
     {
     my $c = $self->{att};
 
-    my @rc = $g->split_border_attributes( $val );
-    $c->{'border-style'} = $rc[0] if defined $rc[0];
-    $c->{'border-width'} = $rc[1] if defined $rc[1];
-    $c->{'border-color'} = $rc[2] if defined $rc[2];
+    ($c->{borderstyle}, $c->{borderwidth}, $c->{bordercolor}) =
+	$g->split_border_attributes( $val );
 
     return $val;
     }
@@ -1806,7 +1737,6 @@ sub set_attribute
     }
 
   $self->{att}->{$name} = $val;
-  $self;
   }
 
 sub set_attributes
@@ -1827,12 +1757,24 @@ sub set_attributes
 
 BEGIN
   {
+  # some handy aliases
   *text_styles_as_css = \&Graph::Easy::text_styles_as_css;
   *text_styles = \&Graph::Easy::text_styles;
   *_font_size_in_pixels = \&Graph::Easy::_font_size_in_pixels;
   *get_color_attribute = \&color_attribute;
   *link = \&Graph::Easy::link;
   *border_attribute = \&Graph::Easy::border_attribute;
+  *get_attributes = \&Graph::Easy::get_attributes;
+  *get_attribute = \&Graph::Easy::attribute;
+  *raw_attribute = \&Graph::Easy::raw_attribute;
+  *raw_color_attribute = \&Graph::Easy::raw_color_attribute;
+  *raw_attributes = \&Graph::Easy::raw_attributes;
+  *raw_attributes = \&Graph::Easy::raw_attributes;
+  *attribute = \&Graph::Easy::attribute;
+  *color_attribute = \&Graph::Easy::color_attribute;
+  *default_attribute = \&Graph::Easy::default_attribute;
+  *edges = \&connections;
+  $att_aliases = Graph::Easy::_att_aliases();
   }
 
 #############################################################################
@@ -1900,7 +1842,7 @@ like L<Graph::Easy>.
 
 =head1 METHODS
 
-Apart from the methods of the base class C<Graph::Easy::Base>, a
+Apart from the methods of the base class L<Graph::Easy::Base>, a
 C<Graph::Easy::Node> has the following methods:
 
 =head2 new()
@@ -1941,12 +1883,25 @@ that routine is defined L<Graph::Easy::As_svg.pm>.
 
 Returns the node as graphviz compatible text which can be feed
 to dot etc to create images.
+  
+=head2 as_graphviz_txt()
+
+	my $txt = $node->as_graphviz_txt();
+
+Return only the node itself (without attributes) as graphviz representation.
 
 =head2 as_pure_txt()
 
 	my $txt = $node->as_pure_txt();
 
 Return the node in simple txt format, without the attributes.
+
+=head2 text_styles_as_css()
+
+	my $styles = $graph->text_styles_as_css();	# or $edge->...() etc.
+
+Return the text styles as a chunk of CSS styling that can be embedded into
+a C< style="" > parameter.
 
 =head2 as_html()
 
@@ -1962,12 +1917,11 @@ Returns the respective attribute of the node or undef if it
 was not set. If there is a default attribute for all nodes
 of the specific class the node is in, then this will be returned.
 
-=head2 default_attribute()
+=head2 get_attributes()
 
-	my $def = $node->default_attribute('color');
+	my $attr = $node->get_attributes();
 
-Returns the default value for the given attribute in the class
-of the object, or the empty string if no default could be found.
+Return all the set attributes of the node.
 
 =head2 attributes_as_txt
 
@@ -2012,7 +1966,7 @@ using the current colorscheme.
 
 =head2 get_color_attribute()
 
-Is an alias to C<color_attribute()>.
+Is an alias for L<color_attribute()>.
 
 =head2 text_styles()
 
@@ -2137,7 +2091,7 @@ objects, and true for C<Graph::Easy::Node::Anon>.
 	my ($x,$y) = $node->pos();
 
 Returns the position of the node. Initially, this is undef, and will be
-set from C<Graph::Easy::layout>.
+set from L<Graph::Easy::layout()>.
 
 =head2 offset()
 
@@ -2151,14 +2105,14 @@ the origin node was not sset.
 	my $x = $node->x();
 
 Returns the X position of the node. Initially, this is undef, and will be
-set from C<Graph::Easy::layout>.
+set from L<Graph::Easy::layout()>.
 
 =head2 y()
 
 	my $y = $node->y();
 
 Returns the Y position of the node. Initially, this is undef, and will be
-set from C<Graph::Easy::layout>.
+set from L<Graph::Easy::layout()>.
 
 =head2 id()
 
@@ -2177,7 +2131,16 @@ connection fit at the borders.
 
 	my $cnt = $node->connections();
 
-Returns the number of connections to (incoming) and from (outgoing) this node.
+Returns all the incomming and outgoing edges of this node. Self-loops are
+returned only once.
+
+In scalar context returns just the number of connections.
+
+=head2 edges()
+
+	my $edges = $node->edges();
+
+Is an alias for L<connections>.
 
 =head2 predecessors()
 
@@ -2316,7 +2279,7 @@ default) and the flow attribute of this node.
 The return value of that method is added as extra params to the
 HTML tag for a node when as_html() is called. Returns the empty
 string by default, and can be overriden in subclasses. See also
-C<use_class()>.
+L<use_class()>.
 
 Overriden method should return a text with a leading space, or the
 empty string.

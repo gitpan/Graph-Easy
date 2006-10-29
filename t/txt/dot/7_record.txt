@@ -1,4 +1,4 @@
-edge { arrow-style: filled; }
+edge { arrowstyle: filled; }
 graph {
   align: left;
   colorscheme: x11;

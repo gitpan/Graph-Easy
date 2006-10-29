@@ -149,6 +149,8 @@ foreach (<DATA>)
   next if $_ =~ /^\s*\z/;			# skip empty lines
   next if $_ =~ /^#/;				# skip comments
 
+  $parser->reset();
+
   die ("Illegal line $line in testdata") unless $_ =~ /^(.*)\|([^\|]*)$/;
   my ($in,$result) = ($1,$2);
 

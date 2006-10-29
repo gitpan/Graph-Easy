@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 178;
+   plan tests => 191;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -52,8 +52,12 @@ can_ok ("Graph::Easy::Node", qw/
   default_attribute
   del_attribute
   set_attribute
+  get_attribute
   set_attributes
   attribute
+  default_attribute
+  color_attribute
+  get_attributes
   border_attribute
   group add_to_group
   origin
@@ -91,10 +95,9 @@ is ($node->is_multicelled(), 0, 'no multicelled');
 is ($node->rows(), 1, '1 row');
 is ($node->columns(), 1, '1 column');
 
-# these are not set, because the node doesn't have a border and thus inherits
-# it
-is ($node->attribute('border'), undef, 'attribute("border")');
-is ($node->attribute('border-style'), undef, 'attribute("border-style")');
+# These are inherited:
+is ($node->attribute('border'), '', 'attribute("border")');
+is ($node->attribute('border-style'), 'solid', 'attribute("border-style")');
 
 is (join(",",$node->dimensions()), "7,1", 'dimensions = (7,1)');
 
@@ -182,13 +185,19 @@ is ($node->as_txt(), '[ Frankfurt \|-\| ]', 'as_txt');
 is ($node->as_html(), " <td $r class='node'>Frankfurt |-|</td>\n",
  'as_html');
 
-# quoting of []
+# quoting of [] and {}
 $node->{name} = 'Frankfurt [ { #1 } ]';
 
 is ($node->as_txt(), '[ Frankfurt \[ \{ \#1 \} \] ]', 'as_txt');
 is ($node->as_html(), " <td $r class='node'>Frankfurt [ { #1 } ]</td>\n",
  'as_html');
 
+# quoting of &, < and >
+$node->{name} = 'Frankfurt < & >';
+
+is ($node->as_txt(), '[ Frankfurt < & > ]', 'as_txt');
+is ($node->as_html(), " <td $r class='node'>Frankfurt &lt; &amp; &gt;</td>\n",
+ 'as_html');
 
 #############################################################################
 # as_txt with labels
@@ -314,6 +323,30 @@ $node->set_attribute('link', "test'");
     'as_html');
 
 #############################################################################
+# multicelled nodes
+
+is ($node->is_multicelled(), 0, 'no multicelled');
+is (join (",",$node->size()), '1,1', 'size 1,1');
+
+$node->set_attribute('size', '5,3');
+$node->_calc_size();
+is (join (",",$node->size()), '5,3', 'size 5,3');
+is ($node->is_multicelled(), 1, 'is multicelled');
+is ($node->attribute('size'), '5,3', 'attribute("size")');
+
+$node->set_attribute('size', '1,1');
+$node->_calc_size();
+
+is ($node->{att}->{rows}, 1, 'rows still present');
+is ($node->{att}->{columns}, 1, 'columns still present');
+is ($node->as_txt(), "[ Node \\#0 ] { color: #801010; link: test'; class: bar; }",
+  'size not in output');
+
+$node->del_attribute('size');
+is (exists $node->{att}->{rows} ? 1 : 0, 0, 'rows no longer present');
+is (exists $node->{att}->{columns} ? 1 : 0, 0, 'columns no longer present');
+
+#############################################################################
 # skipping of attributes (should not appear in HTML)
 
 $node->set_attribute('link', "test test&");
@@ -321,7 +354,7 @@ $node->set_attribute('flow','right');
 $node->set_attribute('point-style','diamond');
 
   is ($node->as_txt(), 
-    '[ Node \#0 ] { color: #801010; flow: right; link: test test&; point-style: diamond; class: bar; }', 'as_txt');
+    '[ Node \#0 ] { color: #801010; flow: right; link: test test&; pointstyle: diamond; class: bar; }', 'as_txt');
   is ($node->as_html(), 
     " <td $r class='node_bar'><a href='/wiki/index.php/test+test&' style=\"color: #801010\">Node #0</a></td>\n",
     'as_html');
@@ -386,12 +419,12 @@ is ($node->as_ascii(), "   \n X \n   ", 'no border for shape "none"');
 #############################################################################
 # as_ascii() and label vs name (bug until v0.16)
 
-$node = Graph::Easy::Node->new( { name => "Node #0", label => 'label' } );
+$node = Graph::Easy::Node->new( { name => "Node #01234", label => 'label' } );
 is ($node->label(), 'label', 'node label eq "label"');
 
 $node->_correct_size();
 
-is ($node->width(), '7', 'width 7');
+is ($node->width(), '9', 'width 9 (length("label") + 2 (padding) + 2 (border)');
 is ($node->height(), '3', 'height 3');
 
 like ($node->as_ascii(), qr/label/, 'as_ascii uses label, not name');
@@ -580,4 +613,17 @@ for my $e (@expect)
   is ($A->angle(), $e, "expect $e for $an");
   }
 
+#############################################################################
+# Deleting a node should work if the node is a child node (fail untill v0.49)
+
+$graph = Graph::Easy->new();
+
+$A = $graph->add_node('A');
+$B = $graph->add_node('B');
+$B->set_attribute('origin','A');
+$B->set_attribute('offset','2,2');
+
+$graph->del_node('B');
+
+is ($graph->as_ascii(), "+---+\n| A |\n+---+\n", 'only one node rendered');
 

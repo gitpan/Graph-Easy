@@ -172,7 +172,7 @@ $edge->del_attribute('start');
 #############################################################################
 # background()
 
-is ($edge->background(), '', 'background()');
+is ($edge->background(), 'inherit', 'background()');
 
 $graph = Graph::Easy->new();
 my ($A,$B); ($A,$B,$edge) = $graph->add_edge('A','B');

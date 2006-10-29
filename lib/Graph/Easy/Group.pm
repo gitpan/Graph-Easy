@@ -8,7 +8,7 @@ use Graph::Easy::Group::Cell;
 use Graph::Easy;
 
 @ISA = qw/Graph::Easy::Node Graph::Easy/;
-$VERSION = '0.13';
+$VERSION = 0.15;
 
 use strict;
 
@@ -21,7 +21,7 @@ sub _init
   
   $self->{name} = 'Group #'. $self->{id};
   $self->{class} = 'group';
-  $self->{cells} = {};
+  $self->{_cells} = {};				# the Group::Cell objects
   $self->{cx} = 1;
   $self->{cy} = 1;
 
@@ -36,6 +36,8 @@ sub _init
     }
   
   $self->{nodes} = {};
+  $self->{groups} = {};
+  $self->{att} = {};
 
   $self;
   }
@@ -61,12 +63,12 @@ sub edges
 
 sub set_attribute
   {
-  my ($self, $atr, $v, $class) = @_;
+  my ($self, $name, $val, $class) = @_;
 
-  $self->SUPER::set_attribute($atr,$v, $class);
+  $self->SUPER::set_attribute($name, $val, $class);
 
   # if defined attribute "nodeclass", put our nodes into that class
-  if ($atr eq 'nodeclass')
+  if ($name eq 'nodeclass')
     {
     my $class = $self->{att}->{nodeclass};
     for my $node (values %{ $self->{nodes} } )
@@ -226,7 +228,7 @@ sub cells
   # return all the cells this group currently occupies
   my $self = shift;
 
-  $self->{cells};
+  $self->{_cells};
   }
 
 sub clear_cells
@@ -234,7 +236,7 @@ sub clear_cells
   # remove all belonging cells
   my $self = shift;
 
-  $self->{cells} = {};
+  $self->{_cells} = {};
 
   $self;
   }
@@ -244,7 +246,7 @@ sub add_cell
   # add a cell to the list of cells this group covers
   my ($self,$cell) = @_;
 
-  $self->{cells}->{"$cell->{x},$cell->{y}"} = $cell;
+  $self->{_cells}->{"$cell->{x},$cell->{y}"} = $cell;
   }
 
 sub del_cell
@@ -252,7 +254,7 @@ sub del_cell
   # delete a cell from the list of cells this group covers
   my ($self,$cell) = @_;
 
-  delete $self->{cells}->{"$cell->{x},$cell->{y}"};
+  delete $self->{_cells}->{"$cell->{x},$cell->{y}"};
   delete $cell->{group};
 
   $self;
@@ -269,7 +271,7 @@ sub _find_label_cell
 
   my $lc;						# the label cell
 
-  for my $c (values %{$self->{cells}})
+  for my $c (values %{$self->{_cells}})
     {
     # find a cell where to put the label
     next unless $c->{cell_class} =~ /^\s*gt\s*\z/;
@@ -295,12 +297,12 @@ sub _find_label_cell
     $lc = $c;
     }
 
-  # find the the cell mostly near the center in the found top-row
+  # find the cell mostly near the center in the found top-row
   if (ref($lc) && $align eq 'center')
     {
     my ($left, $right);
     # find left/right most coordinates
-    for my $c (values %{$self->{cells}})
+    for my $c (values %{$self->{_cells}})
       {
       next if $c->{y} != $lc->{y};
       $left = $c->{x} if !defined $left || $left > $c->{x};  
@@ -308,8 +310,8 @@ sub _find_label_cell
       }
     my $center = int(($right - $left) / 2 + $left);
     my $min_dist;
-    # find the the cell mostly near the center in the found top-row
-    for my $c (values %{$self->{cells}})
+    # find the cell mostly near the center in the found top-row
+    for my $c (values %{$self->{_cells}})
       {
       next if $c->{y} != $lc->{y};
       # squared to get rid of sign
@@ -319,9 +321,42 @@ sub _find_label_cell
       }
     }
 
-  print STDERR "# setting group label for group '$self->{name}' at $lc->{x},$lc->{y}\n" if $self->{debug};
+  print STDERR "# Setting label for group '$self->{name}' at $lc->{x},$lc->{y}\n"
+	if $self->{debug};
 
   $lc->_set_label() if ref($lc);
+  }
+
+sub layout
+  {
+  my $self = shift;
+
+  $self->_croak('Cannot call layout() on a Graph::Easy::Group directly.');
+  }
+
+sub _layout
+  {
+  my $self = shift;
+
+  ###########################################################################
+  # set local {debug} for groups
+  local $self->{debug} = $self->{graph}->{debug};
+
+  $self->SUPER::_layout();
+  }
+
+sub _set_cell_types
+  {
+  my ($self, $cells) = @_;
+
+  # for all out cells, set the right cell class:
+
+  for my $cell (values %{$self->{_cells}})
+    {
+    $cell->_set_type($cells);
+    }
+ 
+  $self;
   }
 
 1;
@@ -492,13 +527,26 @@ Returns the group as Graph::Easy textual description.
 Called by the layouter once for each group. Goes through all cells of this
 group and finds one where to attach the label to. Internal usage only.
 
+=head2 attribute related methods
+
+You can call all the various attribute related methods like C<set_attribute()>,
+C<get_attribute()>, etc. on a group, too. For example:
+
+	$group->set_attribute('label', 'by train');
+	my $attr = $group->get_attributes();
+
+=head2 layout()
+
+This routine should not be called on groups, it only works on the graph
+itself.
+
 =head1 EXPORT
 
 None by default.
 
 =head1 SEE ALSO
 
-L<Graph::Easy>.
+L<Graph::Easy>, L<Graph::Easy::Node>, L<Graph::Easy::Manual>.
 
 =head1 AUTHOR
 

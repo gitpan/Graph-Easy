@@ -6,7 +6,7 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = '0.08';
+$VERSION = 0.09;
 use base qw/Graph::Easy::Parser/;
 
 use strict;
@@ -33,7 +33,7 @@ sub reset
 
   # set some default attributes on the graph object, because graphviz has
   # different defaults as Graph::Easy
-  my $g = $self->{graph};
+  my $g = $self->{_graph};
 
   $g->set_attribute('colorscheme','x11');
   $g->set_attribute('flow','south');
@@ -395,27 +395,38 @@ sub _match_multi_line_comment
   # match a multi line comment
 
   # /* * comment * */
-  qr#\s*/\*.*?\*/#;
+  qr#(?:\s*/\*.*?\*/)+#;
   }
 
 sub _match_optional_multi_line_comment
   {
   # match a multi line comment
 
-  # "/* * comment * */" or ""
-  qr#(?:\s*/\*.*?\*/|)#;
+  # "/* * comment * */" or /* a */ /* b */ or ""
+  qr#(?:(?:\s*/\*.*?\*/\s*)*|\s+)#;
   }
 
 sub _match_name
   {
-  # Return a regexp that matches something like '"bonn"' or 'bonn'.
+  # Return a regexp that matches an ID in the DOT language.
+  # See http://www.graphviz.org/doc/info/lang.html for reference.
 
   # "node", "graph", "edge", "digraph", "subgraph" and "strict" are reserved:
   qr/\s*
     (
+	# double quoted string
       "(?:\\"|[^"])*"			# "foo"
       (?:\s*\+\s*"(?:\\"|[^"])*")*	# followed by 0 or more ' + "bar"'
     |
+	# number
+     -?					# optional minus sign
+	(?:				# non-capture group
+	\.[0-9]+				# .00019
+	|				 # or
+	[0-9]+(?:\.[0-9]*)?			# 123 or 123.1
+	)
+    |
+	# plain node name (a-z0-9_+)
      (?!(?i:node|edge|digraph|subgraph|graph|strict)\s)[\w]+
     )/xi;
   }
@@ -427,8 +438,16 @@ sub _match_node
 
   my $qr_n = $self->_match_name();
 
-  #    "bonn"      Bonn, Bonn0, Bonn_0, node_0 etc                                 "Bonn":f1, "Bonn":"f1"
-  qr/$qr_n(?::$qr_n)?/;
+  # Examples: "bonn", "Bonn":f1, "Bonn":"f1", "Bonn":"port":"w", Bonn:port:w
+  qr/
+	$qr_n				# node name (see _match_name)
+	(?:
+	  :$qr_n
+	  (?: :(n|ne|e|se|s|sw|w|nw) )?	# :port:compass_direction
+	  |
+	  :(n|ne|e|se|s|sw|w|nw)	# :compass_direction
+	  )?				# optional
+    /x;
   }
 
 sub _match_group_start
@@ -576,7 +595,7 @@ sub _add_group_match
     sub
       {
       my $self = shift;
-      my $graph = $self->{graph};
+      my $graph = $self->{_graph};
       my $gn = $self->_unquote($1);
       print STDERR "# Parser: found subcluster '$gn'\n" if $self->{debug};
       push @{$self->{group_stack}}, $graph->add_group($gn);
@@ -661,14 +680,14 @@ sub _new_nodes
     $name =~ s/^"//; $name =~ s/"\z//;
     $port =~ s/^"//; $port =~ s/"\z//;
     # XXX TODO: find unique name?
-    @rc = $self->_new_node ($self->{graph}, "$name:$port", $group_stack, $att, $stack);
+    @rc = $self->_new_node ($self->{_graph}, "$name:$port", $group_stack, $att, $stack);
     my $node = $rc[0];
     $node->{_graphviz_portlet} = $port;
     $node->{_graphviz_basename} = $name;
     }
   else
     {
-    @rc = $self->_new_node ($self->{graph}, $name, $group_stack, $att, $stack);
+    @rc = $self->_new_node ($self->{_graph}, $name, $group_stack, $att, $stack);
     }
   @rc;
   }
@@ -694,11 +713,31 @@ sub _build_match_stack
   $self->_register_handler( qr/^\s*\/\/.*/, undef );
   
   # simple remove the graph start, but remember that we did this
-  $self->_register_handler( qr/^\s*((?i)strict\s+)?((?i)digraph|graph)\s+$qr_ocmt$qr_node\s*$qr_ocmt\{/, 
+  $self->_register_handler( qr/^\s*((?i)strict)?$qr_ocmt((?i)digraph|graph)$qr_ocmt$qr_node$qr_ocmt\{/, 
     sub 
       {
       my $self = shift;
       $self->{_graphviz_graph_name} = $3; 
+      $self->_new_scope(1);
+      1;
+      } );
+
+  # simple remove the graph start, but remember that we did this
+  $self->_register_handler( qr/^\s*((?i)strict)?$qr_ocmt((?i)digraph)$qr_ocmt\{/, 
+    sub 
+      {
+      my $self = shift;
+      $self->{_graphviz_graph_name} = 'unnamed'; 
+      $self->_new_scope(1);
+      1;
+      } );
+
+  # simple remove the graph start, but remember that we did this
+  $self->_register_handler( qr/^\s*strict$qr_ocmt(di)?graph$qr_ocmt\{/i, 
+    sub 
+      {
+      my $self = shift;
+      $self->{_graphviz_graph_name} = 'unnamed'; 
       $self->_new_scope(1);
       1;
       } );
@@ -734,7 +773,7 @@ sub _build_match_stack
 	}
       else
 	{
-	my $graph = $self->{graph};
+	my $graph = $self->{_graph};
 	$graph->set_attributes ($type, $att);
 	}
 
@@ -750,20 +789,17 @@ sub _build_match_stack
   # [ color=red; ] (for nodes/edges)
   $self->_register_attribute_handler($qr_attr);
 
-  # node chain continued like "-> { "Kassel" ... "
-  $self->_register_handler( qr/^$qr_edge$qr_ocmt$qr_pgr$qr_ocmt$qr_node/,
+  # node chain continued like "-> { ... "
+  $self->_register_handler( qr/^$qr_edge$qr_ocmt$qr_pgr/,
     sub
       {
       my $self = shift;
 
       return if @{$self->{stack}} == 0;	# only match this if stack non-empty
 
-      my $graph = $self->{graph};
+      my $graph = $self->{_graph};
       my $eg = $1;					# entire edge ("->" etc)
-      my $n = $2;					# node name
-      my $port = $3;
 
-      # XXX TODO: what about "1" -- "2" [ dir: both; ]?
       my $edge_un = 0; $edge_un = 1 if $eg eq '--';	# undirected edge?
 
       # need to defer edge attribute parsing until the edge exists
@@ -771,21 +807,15 @@ sub _build_match_stack
       my $scope = $self->{scope_stack}->[-1] || {};
       my $edge_atr = $scope->{edge} || {};
 
-      # the right side node(s) (multiple in case of autosplit)
-      my $nodes_b = [ $self->_new_nodes ($n, $self->{group_stack}, {}, $port) ];
-
-      my $style = $self->_link_lists( $self->{stack}, $nodes_b,
-	'--', '', $edge_atr, 0, $edge_un);
-
       # create a new scope
       $self->_new_scope();
 
       # remember the left side
-      $self->{left_edge} = [ $style, '', $edge_atr, 0, $edge_un ];
+      $self->{left_edge} = [ 'solid', '', $edge_atr, 0, $edge_un ];
       $self->{left_stack} = $self->{stack};
 
       # forget stack and remember the right side instead
-      $self->{stack} = $nodes_b;
+      $self->{stack} = [];
 
       1;
       } );
@@ -795,7 +825,7 @@ sub _build_match_stack
     sub
       {
       my $self = shift;
-      my $graph = $self->{graph};
+      my $graph = $self->{_graph};
 
       # only match this inside a "{ }" (normal, non-group) scope
       return if exists $self->{scope_stack}->[-1]->{_is_group};
@@ -854,12 +884,13 @@ sub _build_match_stack
       my $self = shift;
       my $name = $1;
       my $port = $2;
+      my $compass = $4 || ''; $port .= ":$compass" if $compass;
 
-      $self->{stack} = [ $self->_new_nodes ($name, $self->{group_stack}, {}, $port) ];
+      $self->{stack} = [ $self->_new_nodes ($name, $self->{group_stack}, {}, $port ) ];
 
       # defer attribute parsing until object exists
       my $node = $self->{stack}->[0];
-      my $a1 = $self->_parse_attributes($3||'', $node);
+      my $a1 = $self->_parse_attributes($5||'', $node);
       return undef if $self->{error};
       $node->set_attributes($a1);
 
@@ -880,19 +911,18 @@ sub _build_match_stack
 
       return if @{$self->{stack}} == 0;	# only match this if stack non-empty
 
-      my $graph = $self->{graph};
+      my $graph = $self->{_graph};
       my $eg = $1;					# entire edge ("->" etc)
       my $n = $2;					# node name
       my $port = $3;
+      my $compass = $4 || $5 || ''; $port .= ":$compass" if $compass;
 
-      # XXX TODO: what about "1" -- "2" [ dir: both; ]?
       my $edge_un = 0; $edge_un = 1 if $eg eq '--';	# undirected edge?
 
-      # need to defer edge attribute parsing until the edge exists
-      my $edge_atr = $4||'';
       my $scope = $self->{scope_stack}->[-1] || {};
 
-      $edge_atr = [ $edge_atr, $scope->{edge} || {} ];
+      # need to defer edge attribute parsing until the edge exists
+      my $edge_atr = [ $6||'', $scope->{edge} || {} ];
 
       # the right side nodes:
       my $nodes_b = [ $self->_new_nodes ($n, $self->{group_stack}, {}, $port) ];
@@ -959,8 +989,6 @@ my $remap = {
 
     # XXX TODO: ignore non-node attributes set in a scope
     'dir' => undef,
-    # a lot of example files have this spurious attribute
-    #'kind' => undef,
 
     'layer' => undef,
     'margin' => undef,
@@ -995,9 +1023,8 @@ my $remap = {
     'headclip' => undef,
     'headhref' => undef,
     'headurl' => undef,
-    'headport' => undef,
+    'headport' => \&_from_graphviz_headport,
     'headlabel' => undef,
-    'headport' => undef,
     'headtarget' => undef,
     'headtooltip' => undef,
     'labelangle' => undef,
@@ -1019,9 +1046,8 @@ my $remap = {
     'tailclip' => undef,
     'tailhref' => undef,
     'tailurl' => undef,
-    'tailport' => undef,
+    'tailport' => \&_from_graphviz_tailport,
     'taillabel' => undef,
-    'tailport' => undef,
     'tailtarget' => undef,
     'tailtooltip' => undef,
     'weight' => undef,
@@ -1196,6 +1222,41 @@ sub _from_graphviz_node_orientation
   ('rotate', $r);
   }
 
+my $port_remap = {
+  n => 'north',
+  e => 'east',
+  w => 'west',
+  s => 'south',
+  };
+
+sub _from_graphviz_headport
+  {
+  my ($self, $name, $compass) = @_;
+
+  # XXX TODO
+  # handle "port:compass" too
+
+  # one of "n","ne","e","se","s","sw","w","nw
+  # "ne => n"
+  my $c = $port_remap->{ substr(lc($compass),0,1) } || 'east';
+ 
+  ('end', $c);
+  }
+
+sub _from_graphviz_tailport
+  {
+  my ($self, $name, $compass) = @_;
+
+  # XXX TODO
+  # handle "port:compass" too
+
+  # one of "n","ne","e","se","s","sw","w","nw
+  # "ne => n" => "north"
+  my $c = $port_remap->{ substr(lc($compass),0,1) } || 'east';
+  
+  ('start', $c);
+  }
+
 sub _from_graphviz_node_peripheries
   {
   my ($self, $name, $cnt) = @_;
@@ -1258,6 +1319,16 @@ sub _from_graphviz_edge_style
   # input: solid dashed dotted bold invis
   $style = 'invisible' if $style eq 'invis';
 
+  # convert "setlinewidth(12)" => 
+  if ($style =~ /setlinewidth\((\d+)\)/)
+    {
+    my $width = abs($1 || 1);
+    $style = 'wide';			# > 14
+    $style = 'solid' if $width < 3;
+    $style = 'bold' if $width >= 3 && $width < 7;
+    $style = 'broad' if $width >= 7 && $width < 14;
+    }
+
   ($name, $style);
   }
 
@@ -1286,7 +1357,7 @@ my $color_map = {
 
 sub _from_graphviz_color
   {
-  # remape the color name and value
+  # remap the color name and value
   my ($self, $name, $color) = @_;
 
   # "0.1 0.4 0.5" => "rgb(0.1,0.4,0.5)"
@@ -1303,7 +1374,7 @@ sub _from_graphviz_color
 
 sub _from_graphviz_edge_color
   {
-  # remape the color name and value
+  # remap the color name and value
   my ($self, $name, $color) = @_;
 
   my @colors = split /:/, $color;
@@ -1325,7 +1396,7 @@ sub _from_graphviz_edge_color
 
 sub _from_graphviz_graph_labeljust
   {
-  my ($self, $name, $l, $object) = @_;
+  my ($self, $name, $l) = @_;
 
   # input: "l" "r" or "c", output "left", "right" or "center"
   my $a = 'center';
@@ -1347,7 +1418,7 @@ sub _remap_attributes
     print STDERR "# remapping attributes '$att'$o\n";
     }
 
-  $self->{graph}->_remap_attributes($object, $att, $remap, 'noquote', undef, undef);
+  $self->{_graph}->_remap_attributes($object, $att, $remap, 'noquote', undef, undef);
   }
 
 #############################################################################
@@ -1360,7 +1431,7 @@ sub _parser_cleanup
 
   print STDERR "# Parser cleanup pass\n" if $self->{debug};
 
-  my $g = $self->{graph};
+  my $g = $self->{_graph};
   my @nodes = $g->nodes();
 
   # for all nodes that have a shape of "record", break down their label into
@@ -1435,7 +1506,7 @@ sub _parser_cleanup
   # We find all of these nodes, move the edges to the freshly created
   # autosplit parts above, then delete the superflous temporary nodes.
 
-  # if we looked up "Bonn:f1", remember it here to save time
+  # if we looked up "Bonn:f1", remember it here to save time:
   my $node_cache = {};
 
   my @edges = $g->edges();
@@ -1451,8 +1522,17 @@ sub _parser_cleanup
       my $port = $n->{_graphviz_portlet};
       my $base = $n->{_graphviz_basename};
 
+      my $compass = '';
+      if ($port =~ s/:(n|ne|e|se|s|sw|w|nw)\z//)
+	{
+        $compass = $1;
+	}
+      # "Bonn:w" is port "w", and only "west" when that port doesnt exist	
+
+      # look it up in the cache first
       my $node = $node_cache->{"$base:$port"};
 
+      my $p = undef;
       if (!defined $node)
 	{
 	# go thru all nodes and for see if we find one with the right port name
@@ -1464,24 +1544,47 @@ sub _parser_cleanup
 	  # cache result
           $node_cache->{"$base:$port"} = $na;
           $node = $na;
+          $p = $port_remap->{substr($compass,0,1)} if $compass;		# ne => n => north
 	  }
 	}
 
       if (!defined $node)
 	{
-	# Still not defined? uhoh...
-	$self->error("Cannot fine autosplit node for $base:$port on edge $e->{id}");
+	# Still not defined?
+        # port looks like a compass node?
+	if ($port =~ /^(n|ne|e|se|s|sw|w|nw)\z/)
+	  {
+	  # get the first node matching the base
+	  for my $na (@nodes)
+	    {
+	    next unless exists $na->{autosplit_basename};
+	    next unless $na->{autosplit_basename} eq $base;
+	    # cache result
+	    $node_cache->{"$base:$port"} = $na;
+	    $node = $na;
+	    }
+          $p = $port_remap->{substr($port,0,1)};		# ne => n => north
+	  }
+	else
+	  {
+	  # uhoh...
+	  $self->error("Cannot find autosplit node for $base:$port on edge $e->{id}");
+	  }
  	}
 
       if ($side eq 'from')
 	{
   	print STDERR "# Setting new edge start point to $node->{name}\n" if $self->{debug};
 	$e->start_at($node);
+  	print STDERR "# Setting new edge end point to start at $p\n" if $self->{debug} && $p;
+	$e->set_attribute('start', $p) if $p;
 	}
       else
 	{
   	print STDERR "# Setting new edge end point to $node->{name}\n" if $self->{debug};
 	$e->end_at($node);
+  	print STDERR "# Setting new edge end point to end at $p\n" if $self->{debug} && $p;
+	$e->set_attribute('end', $p) if $p;
 	}
 
       } # end for side "from" and "to"
@@ -1624,8 +1727,12 @@ as its parent class C<Graph::Easy::Parser>:
 	use Graph::Easy::Parser::Graphviz;
 	my $parser = Graph::Easy::Parser::Graphviz->new();
 
-Creates a new parser object. The only valid parameter is debug,
-when set to true it will enable debug output to STDERR:
+Creates a new parser object. There are two valid parameters:
+
+	debug
+	fatal_errors
+
+Both take either a false or a true value.
 
 	my $parser = Graph::Easy::Parser::Graphviz->new( debug => 1 );
 	$parser->from_text('digraph G { A -> B }');

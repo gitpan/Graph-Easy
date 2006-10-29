@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.24';
+$VERSION = 0.25;
 
 #############################################################################
 #############################################################################
@@ -117,6 +117,7 @@ sub _follow_chain
   my $chain = Graph::Easy::Layout::Chain->new( start => $node, graph => $self );
   $self->{chains}->{ $chain->{id} } = $chain;
 
+  my $first_node = $node;
   my $done = 1;				# how many nodes did we process?
  NODE:
   while (3 < 5)
@@ -189,7 +190,9 @@ sub _follow_chain
 
     my @rc;
 
-    for my $s (values %suc)		# for all successors
+    # for all successors
+    #for my $s (sort { $a->{name} cmp $b->{name} || $a->{id} <=> $b->{id} }  values %suc)
+    for my $s (values %suc)
       {
       print STDERR "# suc $s->{name} chain ", $s->{_chain} || 'undef',"\n" if $self->{debug};
 
@@ -240,7 +243,7 @@ sub _follow_chain
 
     last;
     }
-
+  
   print STDERR "#$indent Chain $node->{_chain} ended at $node->{name}\n" if $self->{debug};
 
   $done;				# return nr of done nodes
@@ -275,7 +278,7 @@ sub _find_chains
   my $done = 0; my $todo = scalar keys %{$self->{nodes}};
 
   # the node where the layout should start, as name
-  my $root_name = $self->attribute('root');
+  my $root_name = $self->raw_attribute('root');
   $self->{_root} = undef;				# as ref to a Node object
 
   # Start at nodes with no predecessors (starting points) and then do the rest:
@@ -307,7 +310,8 @@ sub _find_chains
     $done += _follow_chain($n) unless defined $n->{_chain};
     }
 
-  print STDERR "# Done all $todo nodes\n" if $done == $todo && $self->{debug};
+  print STDERR "# Oops - done only $done nodes, but should have done $todo.\n" if $done != $todo && $self->{debug};
+  print STDERR "# Done all $todo nodes.\n" if $done == $todo && $self->{debug};
 
   $self->{_root};
   }
@@ -334,7 +338,7 @@ sub _dump_stack
       my ($at, $node, $try, $parent, $edge) = @$action;
       my $id = 'unknown'; $id = $edge->{id} if ref($edge);
       print STDERR
-       "#  chain '$node->{name}' from parent '$parent->{name} with try $try (for edge id $id)'\n";
+       "#  chain '$node->{name}' from parent '$parent->{name}' with try $try (for edge id $id)'\n";
       }
     elsif ($action_type == ACTION_TRACE)
       {
@@ -377,6 +381,8 @@ sub _action
 #############################################################################
 # layout the graph
 
+# The general layout routine for the entire graph:
+
 sub layout
   {
   my $self = shift;
@@ -386,11 +392,39 @@ sub layout
     local $SIG{ALRM} = sub { die "layout did not finish in time\n" };
     alarm(abs($self->{timeout} || 5)) unless defined $DB::single; # debugger?
 
-  # Reset the sequence of the random generator, so that for the same
-  # seed, the same layout will occur. Both for testing and repeatable
-  # layouts based on max score.
+    # Reset the sequence of the random generator, so that for the same
+    # seed, the same layout will occur. Both for testing and repeatable
+    # layouts based on max score.
+    srand($self->{seed});
 
-  srand($self->{seed});
+    $self->_edges_into_groups();
+
+    # XXX TODO: 
+    # call this for all groups, then assemble groups/nodes into graph
+    $self->_layout();
+
+    };					# eval {}; -- end of timeout protected code
+
+  alarm(0);				# disable alarm
+
+  # cleanup
+  $self->{chains} = undef;		# drop chain info
+  foreach my $n (values %{$self->{nodes}})
+    {
+    # drop old chain info
+    $n->{_next} = undef;
+    delete $n->{_chain};
+    delete $n->{_c};
+    }
+
+  delete $self->{_root};
+
+  die $@ if $@;				# propagate errors
+  }
+
+sub _layout
+  {
+  my $self = shift;
 
   ###########################################################################
   # do some assorted stuff beforehand
@@ -419,7 +453,9 @@ sub layout
   if ($self->{debug})
     {
     print STDERR "#  Generated the following chains:\n";
-    for my $chain (sort { $a->{len} <=> $b->{len} } values %{$self->{chains}})
+    for my $chain (
+     sort { $a->{len} <=> $b->{len} || $a->{start}->{name} cmp $b->{start}->{name} }
+      values %{$self->{chains}})
       {
       $chain->dump('  ');
       }
@@ -461,12 +497,15 @@ sub layout
   # After laying out all chained nodes and their links, we need to resolve
   # left-over edges and links. We do this for each node, and then for each of
   # its edges, but do the edges shortest-first.
-  
+ 
   for my $n (values %{$self->{nodes}})
     {
+    push @todo, $self->_action( ACTION_NODE, $n, 0 ); # if exists $n->{_todo};
+
     # gather to-do edges
     my @edges = ();
-    for my $e (values %{$n->{edges}})
+    for my $e (sort { $a->{to}->{name} cmp $b->{to}->{name} } values %{$n->{edges}})
+#    for my $e (values %{$n->{edges}})
       {
       # edge already done?
       next unless exists $e->{_todo};
@@ -665,24 +704,6 @@ sub layout
       }
 
     # all things on the stack were done, or we encountered an error
-
-    };					# eval {}; -- end of timeout protected code
-
-  alarm(0);				# disable alarm
-
-  # cleanup
-  $self->{chains} = undef;		# drop chain info
-  foreach my $n (values %{$self->{nodes}})
-    {
-    # drop old chain info
-    $n->{_next} = undef;
-    delete $n->{_chain};
-    delete $n->{_c};
-    }
-
-  delete $self->{_root};
-
-  die $@ if $@;				# propagate errors
   }
 
 my $size_name = {

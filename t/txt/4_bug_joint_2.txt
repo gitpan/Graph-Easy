@@ -1,4 +1,4 @@
-edge { arrow-style: none; }
+edge { arrowstyle: none; }
 
 [ C ] { offset: 0,2; origin: B; }
 [ D ] { offset: 0,2; origin: C; }

@@ -9,7 +9,7 @@ use File::Spec;
 
 BEGIN
    {
-   plan tests => 74;
+   plan tests => 95;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -51,7 +51,11 @@ binmode (STDOUT, ':utf8') or die ("Cannot do binmode(':utf8') on STDOUT: $!");
 
 eval { require Test::Differences; };
 
-foreach my $f (sort @files)
+foreach my $f (sort { 
+  $a =~ /^(\d+)/; my $a1 = $1 || '1'; 
+  $b =~ /^(\d+)/; my $b1 = $1 || '1'; 
+  $a1 <=> $b1 || $a cmp $b;
+  } @files)
   {
   next unless -f "$dir/$f";			# only files
   
@@ -59,6 +63,7 @@ foreach my $f (sort @files)
 
   print "# at $f\n";
   my $txt = readfile("$dir/$f");
+  $parser->reset();
   my $graph = $parser->from_text($txt);		# reuse parser object
 
   $f =~ /^(\d+)/;
@@ -77,7 +82,7 @@ foreach my $f (sort @files)
 
   my $of = $f; $of =~ s/\.dot/\.txt/;
   my $out = readfile(File::Spec->catfile('out','dot',$of));
-  $out =~ s/(^|\n)\s*#[^#=]{2}.*\n//g;		# remove comments
+  $out =~ s/(^|\n)#[^#=]{2}.*\n//g;		# remove comments
   $out =~ s/\n\n\z/\n/mg;			# remove empty lines
 
 # print "txt: $txt\n";
@@ -124,12 +129,15 @@ foreach my $f (sort @files)
   }
 
 # check that only the expected warnings were generated
-is (scalar @warnings, 6, 'Got exactly 6 warnings');
+use Data::Dumper;
+
+print STDERR Dumper(\@warnings) unless
+  is (scalar @warnings, 6, 'Got exactly 6 warnings');
 
 my $i = 0;
-for my $name (qw/bar pname foo fname bar brabble/)
+for my $name (qw/bar foo pname fname bar brabble/)
   {
-  is ($warnings[$i], "Ignoring unknown attribute '$name'", 
+  like ($warnings[$i], qr/Ignoring unknown attribute '$name' for class/,
 	"Got warning about $name");
   $i++;
   }

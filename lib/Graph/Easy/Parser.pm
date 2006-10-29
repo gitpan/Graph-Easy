@@ -8,8 +8,9 @@ package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = '0.26';
-use base qw/Graph::Easy::Base/;
+$VERSION = 0.27;
+use Graph::Easy::Base;
+@ISA = qw/Graph::Easy::Base/;
 
 use strict;
 use constant NO_MULTIPLES => 1;
@@ -20,10 +21,11 @@ sub _init
 
   $self->{error} = '';
   $self->{debug} = 0;
+  $self->{fatal_errors} = 1;
   
   foreach my $k (keys %$args)
     {
-    if ($k !~ /^(debug)\z/)
+    if ($k !~ /^(debug|fatal_errors)\z/)
       {
       require Carp;
       my $class = ref($self);
@@ -34,6 +36,8 @@ sub _init
 
   # to repair parsing of group starts (the '[' would else be missing)
   $self->{group_start} = '[';
+  # what to replace the matched text with
+  $self->{replace} = '';
   $self->{attr_sep} = ':';
   # An optional regexp to remove parts of an autosplit label, used by Graphviz
   # to remove " <p1> ":
@@ -77,7 +81,11 @@ sub reset
 
   Graph::Easy->_drop_special_attributes();
 
-  $self->{graph} = $self->{use_class}->{graph}->new( { debug => $self->{debug}, strict => 0 } );
+  $self->{_graph} = $self->{use_class}->{graph}->new( {
+      debug => $self->{debug},
+      strict => 0,
+      fatal_errors => $self->{fatal_errors},
+    } );
 
   $self;
   }
@@ -156,8 +164,8 @@ sub _register_attribute_handler
         $object = $self->{group_stack}->[-1];
         if (!defined $object)
           {
-          $object = $self->{graph};
-          $stack = [ $self->{graph} ];
+          $object = $self->{_graph};
+          $stack = [ $self->{_graph} ];
           }
         }
       my ($a, $max_idx) = $self->_parse_attributes($1||'', $object);
@@ -194,13 +202,42 @@ sub _register_node_attribute_handler
       my $a1 = $self->_parse_attributes($2||'');
       return undef if $self->{error};
  
-      $self->{stack} = [ $self->_new_node ($self->{graph}, $n1, $self->{group_stack}, $a1) ];
+      $self->{stack} = [ $self->_new_node ($self->{_graph}, $n1, $self->{group_stack}, $a1) ];
 
       # forget left stack
       $self->{left_edge} = undef;
       $self->{left_stack} = [];
       1;
       } );
+  }
+
+sub _new_group
+  {
+  # create a new (possible anonymous) group
+  my ($self, $name) = @_;
+
+  $name = '' unless defined $name;
+
+  my $gr = $self->{use_class}->{group};
+
+  my $group;
+
+  if ($name eq '')
+    {
+    print STDERR "# Creating new anon group.\n" if $self->{debug};
+    $gr .= '::Anon';
+    $group = $gr->new();
+    }
+  else
+    {
+    $name = $self->_unquote($name);
+    print STDERR "# Creating new group '$name'.\n" if $self->{debug};
+    $group = $gr->new( name => $name );
+    }
+
+  $self->{_graph}->add_group($group);
+
+  $group;
   }
 
 sub _add_group_match
@@ -217,13 +254,19 @@ sub _add_group_match
     sub
       {
       my $self = shift;
-      my $graph = $self->{graph};
+      my $graph = $self->{_graph};
 
-      my $gn = $self->_unquote($1);
+      my $end = $2; $end = '' unless defined $end;
 
-      push @{$self->{group_stack}}, $graph->add_group($gn);
+      $self->{replace} = $self->{group_start} if $end eq $self->{group_start};
+
+      my $group = $self->_new_group($1);
+      push @{$self->{group_stack}}, $group;
+
+      # we matched an empty group like "()", or "( group name )"
+      $self->{stack} = [ $group ] if $end eq ')';
       1;
-      }, $self->{group_start} );
+      } );
 
   # ") { }" # group end (with optional attributes)
   $self->_register_handler( qr/^$qr_group_end$qr_oatr/,
@@ -243,6 +286,7 @@ sub _add_group_match
       $self->{stack} = [ $group ];
       1;
       } );
+
   }
 
 sub _build_match_stack
@@ -271,7 +315,7 @@ sub _build_match_stack
 
       return undef unless defined $att;		# error in attributes?
 
-      my $graph = $self->{graph};
+      my $graph = $self->{_graph};
       $graph->set_attributes ( "$type$class", $att);
 
       # forget stacks
@@ -291,7 +335,7 @@ sub _build_match_stack
     sub
       {
       my $self = shift;
-      my $graph = $self->{graph};
+      my $graph = $self->{_graph};
       my $n1 = $1;
       my $a1 = $self->_parse_attributes($2||'');
       return undef if $self->{error};
@@ -326,7 +370,7 @@ sub _build_match_stack
 
       return if @{$self->{stack}} == 0;	# only match this if stack non-empty
 
-      my $graph = $self->{graph};
+      my $graph = $self->{_graph};
       my $eg = $1;					# entire edge ("-- label -->" etc)
 
       my $edge_bd = $2 || $4;				# bidirectional edge ('<') ?
@@ -352,7 +396,7 @@ sub _build_match_stack
       $edge_label =~ s/\s+\z// if defined $edge_label;
 
       # the right side node(s) (multiple in case of autosplit)
-      my $nodes_b = [ $self->_new_node ($self->{graph}, $n, $self->{group_stack}, $a1) ];
+      my $nodes_b = [ $self->_new_node ($self->{_graph}, $n, $self->{group_stack}, $a1) ];
 
       my $style = $self->_link_lists( $self->{stack}, $nodes_b,
 	$ed, $edge_label, $edge_atr, $edge_bd, $edge_un);
@@ -375,6 +419,7 @@ sub _build_match_stack
     sub
       {
       my $self = shift;
+
       return if @{$self->{stack}} == 0;	# only match this if stack non-empty
 
       my $eg = $1;					# entire edge ("-- label -->" etc)
@@ -389,14 +434,14 @@ sub _build_match_stack
 
       my $edge_atr = $11 || '';				# save edge attributes
 
-      my $gn = $12; $gn = '' unless defined $gn;	# group name
+      my $gn = $12; 
+      # matched "-> ( Group ["
+      $self->{replace} = $self->{group_start} if defined $13 && $13 eq $self->{group_start};
 
       $edge_atr = $self->_parse_attributes($edge_atr, 'edge');
       return undef if $self->{error};
 
-      $gn = $self->_unquote($gn);
-
-      $self->{group_stack} = [ $self->{graph}->add_group( $gn) ];
+      $self->{group_stack} = [ $self->_new_group($gn) ];
 
       # allow undefined edge labels for setting them from the class
       $edge_label = $self->_unquote($edge_label) if $edge_label;
@@ -411,8 +456,11 @@ sub _build_match_stack
       $self->{left_stack} = $self->{stack};
       # forget stack
       $self->{stack} = [];
+      # matched "->()" so remember the group on the stack
+      $self->{stack} = [ $self->{group_stack}->[-1] ] if defined $13 && $13 eq ')';
+
       1;
-      }, $self->{group_start} );
+      } );
   }
 
 sub _line_insert
@@ -449,22 +497,35 @@ sub from_text
   {
   my ($self,$txt) = @_;
 
+  # matches a multi-line comment
+  my $o_cmt = qr#((\s*/\*.*?\*/\s*)*\s*|\s+)#;
+
   if ((ref($self)||$self) eq 'Graph::Easy::Parser' && 
     # contains "digraph GRAPH {" or something similiar
-    $txt =~ /^(\s*|\s*\/\*.*?\*\/\s*)(strict\s+)?(di)?graph\s+("[^"]*"|[\w_]+)\s*\{/im)
+     ( $txt =~ /^(\s*|\s*\/\*.*?\*\/\s*)(strict)?$o_cmt(di)?graph$o_cmt("[^"]*"|[\w_]+)$o_cmt\{/im ||
+    # contains "digraph {" or something similiar	
+      $txt =~ /^(\s*|\s*\/\*.*?\*\/\s*)(strict)?${o_cmt}digraph$o_cmt\{/im || 
+    # contains "strict graph {" or something similiar	
+      $txt =~ /^(\s*|\s*\/\*.*?\*\/\s*)strict${o_cmt}(di)?graph$o_cmt\{/im)) 
     {
     require Graph::Easy::Parser::Graphviz;
     # recreate ourselfes, and pass our arguments along
-    my $debug = 0; $debug = $self->{debug} if ref($self);
+    my $debug = 0;
     my $old_self = $self;
-    $self = Graph::Easy::Parser::Graphviz->new( debug => $debug );
-    $self->{_old_self} = $old_self;
+    if (ref($self))
+      {
+      $debug = $self->{debug};
+      $self->{fatal_errors} = 0;
+      }
+    $self = Graph::Easy::Parser::Graphviz->new( debug => $debug, fatal_errors => 0 );
+    $self->reset();
+    $self->{_old_self} = $old_self if ref($self);
     }
 
   $self = $self->new() unless ref $self;
   $self->reset();
 
-  my $graph = $self->{graph};
+  my $graph = $self->{_graph};
   return $graph if !defined $txt || $txt =~ /^\s*\z/;		# empty text?
  
   my $uc = $self->{use_class};
@@ -517,8 +578,8 @@ sub from_text
     PATTERN:
     for my $entry (@{$self->{match_stack}})
       {
+      $self->{replace} = '';
       my ($pattern, $handler, $replace) = @$entry;
-      $replace = '' unless defined $replace;
 
 #  print STDERR "# Matching against $pattern\n";
       if ($line =~ $pattern)
@@ -528,24 +589,26 @@ sub from_text
         $rc = &$handler($self) if defined $handler;
         if ($rc)
 	  {
+          $replace = $self->{replace} unless defined $replace;
 	  $replace = &$replace($self,$line) if ref($replace);
 #  print STDERR "# Handled it successfully.\n";
           $line =~ s/$pattern/$replace/;
-#  print STDERR "# Line is now '$line' (replace was '$replace')\n";
+#  print STDERR "# Line is now '$line' (replaced with '$replace')\n";
           $handled++; last PATTERN;
           }
         }
       }
 
-    # stop at the very last line
-    last LINE if $handled == 0 && @lines == 0;			
-
     # couldn't handle that fragement, so accumulate it and try again
     $backbuffer = $line;
+
+    # stop at the very last line
+    last LINE if $handled == 0 && @lines == 0;
     }
 
   $self->error("'$backbuffer' not recognized by " . ref($self)) if $backbuffer ne '';
-  return undef if $self->error();
+
+  return undef if $self->{error} && $self->{fatal_errors};
 
   print STDERR "# Parsing done\n" if $graph->{debug};
 
@@ -554,6 +617,7 @@ sub from_text
 
   # turn on strict checking on returned graph
   $graph->strict(1);
+  $graph->fatal_errors(1);
 
   $graph;
   }
@@ -584,7 +648,7 @@ sub _link_lists
   # one to list two.
   my ($self, $left, $right, $ed, $label, $edge_atr, $edge_bd, $edge_un) = @_;
 
-  my $graph = $self->{graph};
+  my $graph = $self->{_graph};
  
   my $style = $self->_edge_style($ed);
   my $e = $self->{use_class}->{edge};
@@ -935,9 +999,10 @@ sub _match_single_attribute
 
 sub _match_group_start
   {
-  # return a regexp that matches something like " ( group [" and returns
-  # the text between "(" and "["
-  qr/\s*\(\s*([^\[]*?)\s*\[/;
+  # Return a regexp that matches something like " ( group [" and returns
+  # the text between "(" and "[". Also matches empty groups like "( group )"
+  # or even "()":
+  qr/\s*\(\s*([^\[\)]*?)\s*([\[\)])/;
   }
 
 sub _match_group_end
@@ -1037,28 +1102,15 @@ sub _parse_attributes
   # possible remap attributes (for parsing Graphviz)
   $out = $self->_remap_attributes($out, $object) if $self->can('_remap_attributes');
 
-  my $g = $self->{graph};
+  my $g = $self->{_graph};
   # check for being valid and finally create hash with name => value pairs
-  for my $name (keys %$out)
+  for my $name (sort keys %$out)
     {
-    my $v = $g->valid_attribute($name,$out->{$name},$class);
+    my ($rc, $newname, $v) = $g->validate_attribute($name,$out->{$name},$class,$no_multiples);
 
-    my $rc = 2;			# invaid attribute value
-    if (ref($v) eq 'ARRAY' && @$v == 0)
-      {
-      next if $g->{_warn_on_unknown_attributes};	# warned, so ignore
-      $rc = 1;			# invalid attribute name
-      $v = undef;
-      }
-    $multiples = scalar @$v if ref($v) eq 'ARRAY';
+    $self->error($g->{error}) if defined $rc;
 
-    $rc = 4, $v = undef 		# | and no multiples => error
-      if $no_multiples && $multiples;
-
-    return $self->parse_error($rc,$out->{$name},$name,$class)
-      unless defined $v;				# stop on error
-
-    $att->{$name} = $v;
+    $att->{$newname} = $v if defined $v;	# undef => ignore attribute
     }
 
   return $att unless wantarray;
@@ -1129,6 +1181,8 @@ The resulting object can than be used to layout and output the graph.
 
 The input consists of text describing the graph, encoded in UTF-8.
 
+Example:
+
 	[ Bonn ]      --> [ Berlin ]
 	[ Frankfurt ] <=> [ Dresden ]
 	[ Bonn ]      --> [ Frankfurt ]
@@ -1141,10 +1195,22 @@ input of the following form will also work:
 		"Bonn" -> "Berlin"
 	}
 
-See L<Graph::Easy::Parser::Graphviz|Graph::Easy::Parser::Graphviz>
-for more information about parsing graphviz code.
+Note that the magic detection only works for B<named> graphs or graph
+with "digraph" at their start, so the following will not be detected as
+graphviz code because it looks exactly like valid Graph::Easy code
+at the start:
+
+	graph {
+		"Bonn" -> "Berlin"
+	}
+
+See L<Graph::Easy::Parser::Graphviz> for more information about parsing
+graphs in the DOT language.
 
 =head2 Input Syntax
+
+This is a B<very> brief description of the syntax for the Graph::Easy
+language, for a full specification, please see L<Graph::Easy::Manual>.
 
 =over 2
 
@@ -1154,6 +1220,12 @@ Nodes are rendered (or "quoted", if you wish) with enclosing square brackets:
 
 	[ Single node ]
 	[ Node A ] --> [ Node B ]
+
+Anonymous nodes do not have a name and cannot be refered to again:
+
+	[ ] -> [ Bonn ] -> [ ]
+
+This creates three nodes, two of them anonymous.
 
 =item edges
 
@@ -1169,8 +1241,8 @@ The edges between the nodes can have the following styles:
 	..->		dot-dot-dash
 	= >		double-dash
 
-There is also the style "bold". Unlike the others, this can only be
-set via the (optional) edge attributes:
+There are also the styles C<bold>, C<wide> and C<broad>. Unlike the others,
+these can only be set via the (optional) edge attributes:
 
 	[ AB ] --> { style: bold; } [ ABC ]
 
@@ -1244,9 +1316,25 @@ To use a label with an edge without arrow heads, use the attributes:
 
 	[ AB ] -- { label: edgelabel; } [ CD ]
 
+=item groups
+
+Round brackets are used to group nodes together:
+
+	( Cities:
+
+		[ Bonn ] -> [ Berlin ]
+	)
+
+Anonymous groups do not have a name and cannot be refered to again:
+
+	( [ Bonn ] ) -> [ Berlin ]
+
+This creates an anonymous group with the node C<Bonn> in it, and
+links it to the node C<Berlin>.
+
 =back
 
-Please see the manual for a full description of the syntax rules.
+Please see L<Graph::Easy::Manual> for a full description of the syntax rules.
 
 =head2 Output
 

@@ -3,7 +3,7 @@ author: Tels <nospam-abuse@bloodgate.com>
 build_requires: 
   Test::More: 0.42
 distribution_type: module
-generated_by: Module::Install version 0.63
+generated_by: Module::Install version 0.64
 license: gpl
 name: Graph-Easy
 no_index: 
@@ -18,4 +18,4 @@ recommends:
 requires: 
   Scalar::Util: 1.13
   perl: 5.8.1
-version: 0.48
+version: 0.49

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 53;
+   plan tests => 71;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -40,9 +40,9 @@ is ($graph->timeout(), 5, '5 seconds');
 is ($graph->strict(), 1, 'is strict');
 is ($graph->nodes(), 0, '0 nodes');
 is ($graph->edges(), 0, '0 edges');
-is ($graph->border_attribute('graph'), '', 'graph border is none');
-is ($graph->border_attribute('group'), 'dashed 1px #000000', 'group border is dashed 1px black');
-is ($graph->border_attribute('node'), 'solid 1px #000000', 'node border is solid 1px black');
+is ($graph->border_attribute('graph'), 'none', 'graph border is none');
+is ($graph->border_attribute('group'), 'dashed', 'group border is dashed 1px black');
+is ($graph->border_attribute('node'), 'solid', 'node border is solid 1px black');
 is ($graph->border_attribute('edge'), 'none', 'edge border is none');
 
 is (join (',', $graph->edges()), '', '0 edges');
@@ -130,6 +130,10 @@ $bonn->set_attribute('border', 'none');
 $bonn->set_attribute('color', 'red');
 $berlin->set_attribute('color', 'blue');
 
+is ($bonn->attribute('borderstyle'), 'none', 'borderstyle set to none');
+is ($bonn->attribute('border'), 'none', 'border set to none');
+is ($bonn->border_attribute(), 'none', 'border set to none');
+
 # border is second-to-last, class is the last attribute:
 
 is ( $graph->as_txt(), <<HERE
@@ -143,14 +147,42 @@ HERE
 , 'as_txt() for 4 nodes with 3 edges and class attribute');
 
 
-$graph->set_attribute('graph', 'border', '1px dashed');
-$graph->set_attribute('node', 'border', 'blue solid 1px');
+# set only 1px and dashed
+$graph->set_attribute('graph', 'border', '1px dotted');
+$graph->set_attribute('node', 'border', 'blue solid 2px');
+
+# override "borderstyle"
+$graph->set_attribute('graph', 'border-style', 'dashed');
+
+is ($graph->attribute('borderstyle'), 'dashed', 'borderstyle set on graph');
+is ($graph->attribute('borderwidth'), '1', 'borderwidth set on graph');
+is ($graph->attribute('bordercolor'), '#000000', 'bordercolor is default black');
+is ($graph->attribute('border'), 'dashed', 'border set on graph');
+is ($graph->border_attribute(), 'dashed', 'border set on graph');
+
+# the same with the class attribute for the graph
+is ($graph->attribute('graph','borderstyle'), 'dashed', 'borderstyle set on class graph');
+is ($graph->attribute('graph','borderwidth'), '1', 'borderwidth set on class graph');
+is ($graph->attribute('graph','bordercolor'), '#000000', 'bordercolor is default black');
+is ($graph->attribute('graph','border'), 'dashed', 'border set on class graph');
+is ($graph->border_attribute('graph'), 'dashed', 'border set on class graph');
+
+# the same with the class attribute for class "node"
+is ($graph->attribute('node','borderstyle'), 'solid', 'borderstyle set on class node');
+is ($graph->attribute('node','borderwidth'), '2', 'borderwidth set on class node');
+is ($graph->attribute('node','bordercolor'), 'blue', 'borderwidth set on class node');
+is ($graph->attribute('node','border'), 'solid 2px blue', 'border set on class node');
+is ($graph->border_attribute('node'), 'solid 2px blue', 'border set on class node');
 
 # graph/node/edge attributes come first
 
+# graph "border: dashed" because "black" and "1px" are the defaults
+# node "border: solid 2px blue" because these are not the defaults (color/width changed
+# means we also get the style explicitely)
+
 is ( $graph->as_txt(), <<HERE
-graph { border: dashed 1px; }
-node { border: solid 1px blue; }
+graph { border: dashed; }
+node { border: solid 2px blue; }
 
 [ Berlin ] { color: blue; }
 [ Bonn ] { color: red; border: none; class: cities; }

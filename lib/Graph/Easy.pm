@@ -11,21 +11,24 @@ use Graph::Easy::Base;
 use Graph::Easy::Attributes;
 use Graph::Easy::Edge;
 use Graph::Easy::Group;
+use Graph::Easy::Group::Anon;
 use Graph::Easy::Layout;
 use Graph::Easy::Node;
 use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.48';
+$VERSION = '0.49';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
+use utf8;
+my $att_aliases;
 
 BEGIN 
   {
   # a few aliases for backwards compatibility
-  *attribute = \&get_attribute; 
+  *get_attribute = \&attribute; 
   *as_html_page = \&as_html_file;
   *as_graphviz_file = \&as_graphviz;
   *as_ascii_file = \&as_ascii;
@@ -34,8 +37,8 @@ BEGIN
   *_aligned_label = \&Graph::Easy::Node::_aligned_label;
   *_convert_pod = \&Graph::Easy::Node::_convert_pod;
   *_label_as_html = \&Graph::Easy::Node::_label_as_html;
-  *default_attribute = \&Graph::Easy::Node::default_attribute; 
   *get_color_attribute = \&color_attribute;
+  $att_aliases = Graph::Easy::_att_aliases();
   }
 
 #############################################################################
@@ -119,71 +122,63 @@ sub _init
 
   # Graph::Easy will die, Graph::Easy::Parser::Graphviz will warn
   $self->{_warn_on_unknown_attributes} = 0;
+  $self->{fatal_errors} = 1;
 
-  $self->{att} = {
+  # Attribute overlay for HTML output:
+  $self->{html_att} = {
   node => {
+    borderstyle => 'solid',
+    borderwidth => '1px',
+    bordercolor => '#000000',
     align => 'center',
-    border => 'solid 1px #000000',
-    'border-style' => 'solid',
-    'border-width' => '1',
-    'border-color' => '#000000',
-    fill => 'white',
     padding => '0.2em',
     'padding-left' => '0.3em',
     'padding-right' => '0.3em',
     margin => '0.1em',
-    color => '#000000',
-    colorscheme => 'inherit',
     },
   'node.anon' => {
-    border => 'none',
-    'border-style' => 'none',
+    'borderstyle' => 'none',
     },
   graph => {
-    'align' => 'center',
-    border => 'none',
-    background => 'inherit',
     margin => '0.5em',
     padding => '0.5em',
-    linkbase => '/wiki/index.php/',
-    colorscheme => 'w3c',
+    'empty-cells' => 'show',
     },
   edge => { 
     border => 'none',
-    'border-style' => 'none',
-    background => 'inherit',
     padding => '0.2em',
     margin => '0.1em',
-    color => '#000000',
     'font' => 'monospaced, courier-new, courier, sans-serif',
     },
   group => { 
-    'border' => 'dashed 1px #000000',
-    'border-style' => 'dashed',
-    'border-width' => '1',
-    'border-color' => '#000000',
-    'font-size' => '0.8em',
+    'borderstyle' => 'dashed',
+    'borderwidth' => '1',
+    'fontsize' => '0.8em',
     fill => '#a0d0ff',
     padding => '0.2em',
+# XXX TODO:
+# in HTML, align left is default, so we could omit this:
     align => 'left',
-    color => '#000000',
+    },
+  'group.anon' => {
+    'borderstyle' => 'none',
+    background => 'white',
     },
   };
 
-  # make copy of defaults, to not include them in output
-  $self->{def_att} = { node => {}, graph => {}, edge => {}};
-  foreach my $c (qw/node graph edge group/)
-    {
-    my $a = $self->{att}->{$c};
-    foreach my $atr (keys %$a)
-      {
-      $self->{def_att}->{$c}->{$atr} = $a->{$atr};
-      }
-    }
+  # The attributes of the graph itself, _and_ the class/subclass attributes.
+  # These can share a hash, because:
+  # *  {att}->{graph} contains both the graph attributes and the class, since
+  #    these are synonymous, it is not possible to have more than one graph.
+  # *  'node', 'group', 'edge' are not valid attributes for a graph, so
+  #    setting "graph { node: 1; }" is not possible and can thus not overwrite
+  #    the entries from att->{node}.
+  # *  likewise for "node.subclass", attribute names never have a "." in them
+  $self->{att} = {};
 
   foreach my $k (keys %$args)
     {
-    if ($k !~ /^(timeout|debug|strict)\z/)
+    if ($k !~ /^(timeout|debug|strict|fatal_errors)\z/)
       {
       $self->error ("Unknown option '$k'");
       }
@@ -312,7 +307,7 @@ sub link
 
   my $link = $self->attribute('link');
   my $autolink = $self->attribute('autolink');
-  if (!defined $link && defined $autolink)
+  if ($link eq '' && $autolink ne '')
     {
     $link = $self->{name} if $autolink eq 'name';
     # defined to avoid overriding "name" with the non-existant label attribute
@@ -325,10 +320,16 @@ sub link
   if ($link ne '' && $link !~ /^([\w]{3,4}:\/\/|\/)/)
     {
     my $base = $self->attribute('linkbase');
-    $link = $base . $link if defined $base;
+    $link = $base . $link;
     }
 
   $link;
+  }
+
+sub parent
+  {
+  # return parent object, for graphs that is undef
+  undef;
   }
 
 sub seed
@@ -490,74 +491,6 @@ sub node
 #############################################################################
 # attribute handling
 
-sub border_attribute
-  {
-  # Return "1px solid red" from the border-(style|color|width) attributes,
-  # mainly used by as_txt() output. Does not use colorscheme!
-  my ($self, $class) = @_;
-
-  my ($style,$width,$color);
-
-  if (defined $class)
-    {
-    $style = $self->attribute($class, 'border-style') || '';
-    return $style if $style eq 'none';
-
-    $width = $self->attribute($class, 'border-width') || '';
-    $color = $self->attribute($class, 'border-color') || '';
-    }
-  else 
-    {
-    $style = $self->{att}->{'border-style'} || '';
-    return $style if $style =~ /^(none|)\z/;
-    $width = $self->{att}->{'border-width'} || '';
-    $color = $self->{att}->{'border-color'} || '';
-    }
-  Graph::Easy::_border_attribute($style, $width, $color);
-  }
-
-sub color_attribute
-  {
-  # Just like get_attribute(), but for colors, and returns them as hex,
-  # using the current colorscheme.
-  my ($self, $class, $att) = @_;
-
-  # allow calls of $self->color_attribute('fill') on Graph::Easy:
-  ($class,$att) = ('graph',$class) unless defined $att;
-
-  my $color = $self->get_attribute($class,$att);
-
-  return $color unless defined $color;
-
-  if ($color !~ /^#/ && $color ne '')
-    {
-    my $scheme = $self->attribute('colorscheme') || 'w3c';
-    $color = Graph::Easy->color_as_hex($color, $scheme);
-    }
-
-  $color;
-  }
-
-sub get_attribute
-  {
-  # return the value of attribute $att from class $class
-  my ($self, $class, $att) = @_;
-
-  # allow calls of the style get_attribute('background');
-  if (scalar @_ == 2)
-    {
-    $att = $class; $class = 'graph';
-    }
-
-  return $self->border_attribute($class) if $att eq 'border'; # virtual attribute
-
-  return $self->{class} if $att eq 'class' && $class ne 'graph';
-
-  my $a = $self->{att};
-  return undef unless exists $a->{$class} && exists $a->{$class}->{$att};
-  $a->{$class}->{$att};
-  }
-
 sub set_attribute
   {
   my ($self, $class, $name, $val) = @_;
@@ -569,6 +502,9 @@ sub set_attribute
     $name = $class;
     $class = 'graph';
     }
+
+  # font-size => fontsize
+  $name = $att_aliases->{$name} if exists $att_aliases->{$name};
 
   $name = 'undef' unless defined $name;
   $val = 'undef' unless defined $val;
@@ -583,19 +519,9 @@ sub set_attribute
 
   if ($self->{strict})
     {
-    my $v = $self->valid_attribute($name,$val,$class);
+    my ($rc, $newname, $v) = $self->validate_attribute($name,$val,$class);
+    return if defined $rc;		# error?
 
-    # catch [] (invalid) and [ "red", "green" ] (multi-attribute on single object)
-    if (ref($v) eq 'ARRAY')
-      {
-      $self->error("Error: '$name' is not a valid attribute for $class");
-      return;
-      }
-    if (!defined $v)
-      {
-      $self->error("Error in attribute: '$val' is not a valid $name for $class");
-      return;
-      }
     $val = $v;
     }
 
@@ -615,19 +541,21 @@ sub set_attribute
       }
     }
 
+  my $att = $self->{att};
+  # create hash if it doesn't exist yet
+  $att->{$class} = {} unless ref $att->{$class};
+
   if ($name eq 'border')
     {
-    my $c = $self->{att}->{$class};
+    my $c = $att->{$class};
 
-    my @rc = $self->split_border_attributes( $val ); 
-    $c->{'border-style'} = $rc[0] if defined $rc[0];
-    $c->{'border-width'} = $rc[1] if defined $rc[1];
-    $c->{'border-color'} = $rc[2] if defined $rc[2];
+    ($c->{borderstyle}, $c->{borderwidth}, $c->{bordercolor}) =
+	$self->split_border_attributes( $val );
 
     return $val;
     }
 
-  $self->{att}->{$class}->{$name} = $val;
+  $att->{$class}->{$name} = $val;
   }
 
 sub set_attributes
@@ -648,9 +576,6 @@ sub set_attributes
     return $self->error ("Illegal class '$class' when setting attributes");
     }
 
-  # create class
-  $self->{att}->{$class} = {} unless ref($self->{att}->{$class}) eq 'HASH';
-
   foreach my $a (keys %$att)
     {
     $self->set_attribute($class, $a, $att->{$a});
@@ -660,9 +585,30 @@ sub set_attributes
 
 sub del_attribute ($$$)
   {
-  my ($self, $class, $atr) = @_;
+  my ($self, $class, $name) = @_;
 
-  delete $self->{att}->{$class}->{$atr};
+  if (@_ == 2)
+    {
+    $name = $class; $class = 'graph';
+    }
+
+  # font-size => fontsize
+  $name = $att_aliases->{$name} if exists $att_aliases->{$name};
+
+  my $a = $self->{att}->{$class};
+
+  delete $a->{$name};
+  if ($name eq 'size')
+    {
+    delete $a->{rows};
+    delete $a->{columns};
+    }
+  if ($name eq 'border')
+    {
+    delete $a->{borderstyle};
+    delete $a->{borderwidth};
+    delete $a->{bordercolor};
+    }
   $self;
   }
 
@@ -698,7 +644,7 @@ sub output
 sub _class_styles
   {
   # Create the style sheet with the class lists. This is used by both
-  # css() and As_svg(). $skip is a qr// object that returns true for
+  # css() and as_svg(). $skip is a qr// object that returns true for
   # attribute names to be skipped (e.g. excluded), and $map is a
   # HASH that contains mapping for attribute names for the output (only
   # used by As_svg()).
@@ -729,8 +675,15 @@ sub _class_styles
         {
         $acc->{$k} = $ac->{$k};
         }
-      # add the exra keys
+      }
+
+    # add the extra keys
+    for my $class (keys %$overlay)
+      {
       my $oc = $overlay->{$class};
+      # create the hash if it doesn't exist yet
+      $a->{$class} = {} unless ref $a->{$class};
+      my $acc = $a->{$class};
       for my $k (keys %$oc)
         {
         $acc->{$k} = $oc->{$k} unless exists $acc->{$k};
@@ -789,17 +742,19 @@ sub _class_styles
       # should be skipped?
       next if $att =~ $skip || $att eq 'border';
 
-      # do not specify attribtes for the entire graph (only for the label)
-      next if $class eq 'graph' && $att =~ /^(color|font|font-size|align|fill)\z/;
+      # do not specify attributes for the entire graph (only for the label)
+      next if $class eq 'graph' && $att =~ /^(color|font|fontsize|align|fill)\z/;
 
       $done++;						# how many did we really?
       my $val = $a->{$class}->{$att};
 
+      next if !defined $val;
+
       # for groups, set to none, it will be later overriden for the different
       # cells (like "ga") with a border only on the appropriate side:
-      $val = 'none' if $att eq 'border-style' && $class eq 'group';
+      $val = 'none' if $att eq 'borderstyle' && $class eq 'group';
       # fix border-widths to be in pixel
-      $val .= 'px' if $att eq 'border-width' && $val !~ /(px|em|%)\z/;
+      $val .= 'px' if $att eq 'borderwidth' && $val !~ /(px|em|%)\z/;
 
       # change attribute name/value?
       if (exists $map->{$att})
@@ -807,6 +762,26 @@ sub _class_styles
         $att = $map->{$att} unless ref $map->{$att};	# change attribute name?
         ($att,$val) = &{$map->{$att}}($self,$att,$val) if ref $map->{$att};
 	}
+
+      # value is "inherit"?
+      if ($class ne 'graph' && $att && $val && $val eq 'inherit')
+        {
+        # get the value from one class "up"
+
+	# node.foo => node, node => graph
+        my $base_class = $class; $base_class = 'graph' unless $base_class =~ /\./;
+	$base_class =~ s/\..*//;
+
+        $val = $a->{$base_class}->{$att};
+
+	if ($base_class ne 'graph' && (!defined $val || $val eq 'inherit'))
+	  {
+	  # node.foo => node, inherit => graph
+          $val = $a->{graph}->{$att};
+	  $att = undef if !defined $val;
+	  }
+	}
+
       $css_txt .= "$indent2$att: $val;\n" if defined $att;
       }
 
@@ -822,7 +797,7 @@ sub _skip
   my ($self) = shift;
 
   # skip these for CSS
-  qr/^(basename|columns|colorscheme|flow|format|rows|root|size|offset|origin|label|link|linkbase|(auto)?(link|title)|(node|edge)class|shape|arrow-style|label-color|point-style|text-style|style)\z/;
+  qr/^(basename|columns|colorscheme|flow|format|rows|root|size|offset|origin|linkbase|(auto)?(label|link|title)|auto(join|split)|(node|edge)class|shape|arrowstyle|label(color|pos)|pointstyle|textstyle|style)\z/;
   }
 
 sub _remap_text_wrap
@@ -849,25 +824,26 @@ sub css
   my $css = $self->_class_styles( $self->_skip(),
     {
       fill => 'background',
-      'text-wrap' => \&_remap_text_wrap,
+      textwrap => \&_remap_text_wrap,
       align => 'text-align',
       font => 'font-family',
-    }, undef, undef, 
-    {
-      graph => {
-        'empty-cells' => 'show',
-      },
-    } );
+      fontsize => 'font-size',
+      bordercolor => 'border-color',
+      borderstyle => 'border-style',
+      borderwidth => 'border-width',
+    },
+    undef,
+    undef, 
+    $self->{html_att},
+    );
 
   my @groups = $self->groups();
 
-  # Set attributes for all TDs that start with "group" (hyphen seperated,
-  # so that group classes are something like "group-cities". The second rule
-  # is for all TD without any class at all (these are the "filler" cells):
+  # Set attributes for all TDs that start with "group":
   $css .= <<CSS
 table.graph##id## td[class|="group"] { padding: 0.2em; }
 CSS
-  if scalar @groups > 0;
+  if @groups > 0;
 
   $css .= <<CSS
 table.graph##id## td {
@@ -879,14 +855,6 @@ table.graph##id## span.l { float: left; }
 table.graph##id## span.r { float: right; }
 CSS
 ;
-
-  # count anon nodes and append CSS for them if nec.
-  $css .= <<CSSANON
-table.graph##id## .node-anon {
-  border: none;
-  }
-CSSANON
- if $self->anon_nodes() > 0;
 
   # append CSS for edge cells (and their parts like va (vertical arrow
   # (left/right), vertical empty), etc)
@@ -957,7 +925,7 @@ CSS
       {
       my $class = $group->{class};
 
-      my $border = $group->attribute('border-style') || 'none'; 
+      my $border = $group->attribute('borderstyle'); 
 
       $class =~ s/.*\.//;	# leave only subclass
       $css .= Graph::Easy::Group::Cell->_css($self->{id}, $class, $border); 
@@ -1039,18 +1007,18 @@ sub _caption
 
   return ('','') unless defined $caption && $caption ne '';
 
-  my $bg = $self->color_attribute('graph','fill') || '';
+  my $bg = $self->raw_color_attribute('fill');
 
   my $style = ' style="';
-  $style .= "background: $bg;" if $bg ne '';
+  $style .= "background: $bg;" if $bg;
     
   # the font family
-  my $f = $self->attribute('graph','font') || '';
+  my $f = $self->raw_attribute('font') || '';
   $style .= "font-family: $f;" if $f ne '';
 
   # the text color
-  my $c = $self->color_attribute('graph','color') || '';
-  $style .= "color: $c;" if $c ne '';
+  my $c = $self->raw_color_attribute('color');
+  $style .= "color: $c;" if $c;
 
   # bold, italic, underline, incl. fontsize and align
   $style .= $self->text_styles_as_css();
@@ -1072,7 +1040,7 @@ sub _caption
 
   $caption = "<tr>\n  <td colspan=##cols##$style>$caption</td>\n</tr>\n";
 
-  my $pos = $self->attribute('graph','label-pos') || 'top';
+  my $pos = $self->attribute('labelpos');
 
   ($caption,$pos);
   } 
@@ -1680,6 +1648,9 @@ sub del_node
   # drop all edges from the node locally
   $node->{edges} = { };
 
+  # if the node is a child of another node, deregister it there
+  delete $node->{origin}->{children}->{$node->{id}} if defined $node->{origin};
+
   $self->{score} = undef;			# invalidate last layout
 
   $self;
@@ -1771,6 +1742,31 @@ sub groups
   scalar keys %{$self->{groups}};
   }
 
+sub anon_groups
+  {
+  # return all anon groups as objects
+  my ($self) = @_;
+
+  my $n = $self->{groups};
+
+  if (!wantarray)
+    {
+    my $count = 0;
+    for my $group (values %$n)
+      {
+      $count++ if $group->is_anon();
+      }
+    return $count;
+    }
+
+  my @anon = ();
+  for my $group (values %$n)
+    {
+    push @anon, $group if $group->is_anon();
+    }
+  @anon;
+  }
+
 sub use_class
   {
   # use the provided class for generating objects of the type $object
@@ -1846,11 +1842,11 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or via Graphviz
 	# adding edges with attributes:
 
         my $edge = Graph::Easy::Edge->new();
-	$edge->set_attributes(
+	$edge->set_attributes( {
                 label => 'train',
                 style => 'dotted',
                 color => 'red',
-        );
+	} );
 
 	# now with the optional edge object
 	$graph->add_edge ($bonn, $berlin, $edge);
@@ -1972,9 +1968,8 @@ You can also add self-loops:
 
 	$graph->add_edge('Bremen','Bremen');
 
-For more options please see the online manual at:
-
-	http://bloodgate.com/perl/graph/manual/
+For more options please see the
+L<online manual|http://bloodgate.com/perl/graph/manual/>.
 
 =head2 Output
 
@@ -2202,7 +2197,7 @@ Add a single node X to the graph. C<$x> should be either a
 C<Graph::Easy::Node> object, or a unique name for the node. Will do
 nothing if the node already exists in the graph.
 
-It returns an C<Graph::Easy::Node> object.
+It returns an L<Graph::Easy::Node> object.
 
 =head2 del_node()
 
@@ -2228,7 +2223,7 @@ Merge two nodes. Will delete all connections between the two nodes, then
 move over any connection to/from the second node to the first, then delete
 the second node from the graph.
 
-Any set attributes on the second node will be lost.
+Any attributes on the second node will be lost.
 
 =head2 get_attribute()
 
@@ -2240,27 +2235,131 @@ Example:
 
 	my $color = $graph->attribute( 'node', 'color' );
 
+You can also call the various attribute related methods on members of the
+graph directly, for instance:
+
+	$node->get_attribute('label');
+	$edge->get_attribute('color');
+	$group->get_attribute('fill');
+
 =head2 attribute()
 
 	my $value = $graph->attribute( $class, $name );
 
-C<attribute> is an alias for L<get_attribute>.
+Is an alias for L<get_attribute>.
 
 =head2 color_attribute()
 
 	# returns f.i. #ff0000
 	my $color = $graph->get_color_attribute( 'node', 'color' );
 
-Just like get_attribute(), but only for colors, and returns them as hex,
+Just like L<get_attribute()>, but only for colors, and returns them as hex,
 using the current colorscheme.
 
 =head2 get_color_attribute()
 
-Is an alias to C<color_attribute()>.
+Is an alias for L<color_attribute()>.
+
+=head2 get_attributes()
+
+	my $att = $object->get_attributes();
+
+Return all effective attributes on this object (graph/node/group/edge) as
+an anonymous hash ref. This respects inheritance and default values.
+
+See also L<get_raw_attributes()>.
+
+=head2 raw_attributes()
+
+	my $att = $object->get_attributes();
+
+Return all set attributes on this object (graph/node/group/edge) as
+an anonymous hash ref. This respects inheritance, but does not include
+default values for unset attributes.
+
+See also L<get_attributes()>.
+
+=head2 default_attribute()
+
+	my $def = $graph->default_attribute($class, 'fill');
+
+Returns the default value for the given attribute B<in the class>
+of the object.
+
+The default attribute is the value that will be used if
+the attribute on the object itself, as well as the attribute
+on the class is unset.
+
+To find out what attribute is on the class, use the three-arg form
+of L<attribute> on the graph:
+
+	my $g = Graph::Easy->new();
+	my $node = $g->add_node('Berlin');
+
+	print $node->attribute('fill'), "\n";		# print "white"
+	print $node->default_attribute('fill'), "\n";	# print "white"
+	print $g->attribute('node','fill'), "\n";	# print "white"
+
+	$g->set_attribute('node','fill','red');		# class is "red"
+	$node->set_attribute('fill','green');		# this object is "green"
+
+	print $node->attribute('fill'), "\n";		# print "green"
+	print $node->default_attribute('fill'), "\n";	# print "white"
+	print $g->attribute('node','fill'), "\n";	# print "red"
+
+See also L<raw_attribute()>.
+
+=head2 raw_attribute()
+
+	my $value = $object->raw_attribute( $name );
+
+Return the value of attribute C<$name> from the object it this
+method is called on (graph, node, edge, group etc.). If the
+attribute is not set on the object itself, returns undef.
+
+This method respects inheritance, so an attribute value of 'inherit'
+on an object will make the method return the inherited value:
+
+	my $g = Graph::Easy->new();
+	my $n = $g->add_node('A');
+
+	$g->set_attribute('color','red');
+
+	print $n->raw_attribute('color');		# undef
+	$n->set_attribute('color','inherit');
+	print $n->raw_attribute('color');		# 'red'
+
+See also L<attribute()>.
+
+=head2 raw_color_attribute()
+
+	# returns f.i. #ff0000
+	my $color = $graph->raw_color_attribute('color' );
+
+Just like L<raw_attribute()>, but only for colors, and returns them as hex,
+using the current colorscheme.
+
+If the attribute is not set on the object, returns undef;
+
+=head2 raw_attributes()
+
+	my $att = $object->raw_attributes();
+
+Returns a hash with all the raw attributes of that object.
+Attributes that are no set on the object itself, but on
+the class this object belongs to are B<not> included.
+
+This method respects inheritance, so an attribute value of 'inherit'
+on an object will make the method return the inherited value.
 
 =head2 set_attribute()
 
+	# Set the attribute on the given class.
 	$graph->set_attribute( $class, $name, $val );
+
+	# Set the attribute on the graph itself. This is synonymous
+	# to using 'graph' as class in the form above.
+	$graph->set_attribute( $name, $val );
 
 Sets a given attribute named C<$name> to the new value C<$val> in the class
 specified in C<$class>.
@@ -2271,6 +2370,13 @@ Example:
 
 The class can be one of C<graph>, C<edge>, C<node> or C<group>. The last
 three can also have subclasses like in C<node.subclassname>.
+
+You can also call the various attribute related methods on members of the
+graph directly, for instance:
+
+	$node->set_attribute('label', 'my node');
+	$edge->set_attribute('color', 'red');
+	$group->set_attribute('fill', 'green');
 
 =head2 set_attributes()
 
@@ -2290,7 +2396,14 @@ Example:
 
 	$graph->del_attribute('border');
 
-Delete the attribute with the given name.
+Delete the attribute with the given name from the object.
+
+You can also call the various attribute related methods on members of the
+graph directly, for instance:
+
+	$node->del_attribute('label');
+	$edge->del_attribute('color');
+	$group->del_attribute('fill');
 
 =head2 unquote_attribute()
 
@@ -2306,7 +2419,7 @@ Return the attribute unquoted except for labels and titles.
   	my $border = $graph->border_attribute();
 
 Return the combined border attribute like "1px solid red" from the
-border-(style|color|width) attributes.
+border(style|color|width) attributes.
 
 =head2 split_border_attributes()
 
@@ -2322,7 +2435,7 @@ Returns all nodes that have only outgoing edges, e.g. are the root of a tree,
 in no particular order.
 
 Isolated nodes (no edges at all) will B<not> be included, see
-C<predecessorless_nodes()> to get these, too.
+L<predecessorless_nodes()> to get these, too.
 
 In scalar context, returns the number of source nodes.
 
@@ -2335,7 +2448,7 @@ they have outgoing edges or not, in no particular order.
 
 Isolated nodes (no edges at all) B<will> be included in the list.
 
-See also C<source_nodes()>.
+See also L<source_nodes()>.
 
 In scalar context, returns the number of predecessorless nodes.
 
@@ -2366,14 +2479,14 @@ Creates the internal structures to layout the graph.
 This methods will be called automatically when you call any of the
 C<as_FOO> methods or C<output()> as described below.
 
-See also: C<timeout()>.
+See also: L<timeout()>.
 
 =head2 output_format()
 
 	$graph->output_format('html');
 
 Set the outputformat. One of 'html', 'ascii', 'graphviz', 'svg' or 'txt'.
-See also C<output()>.
+See also L<output()>.
 
 =head2 output()
 
@@ -2391,7 +2504,7 @@ Return the graph layout in ASCII art, in utf-8.
 
 	print $graph->as_ascii_file();
 
-Is an alias for C<as_ascii>.
+Is an alias for L<as_ascii>.
 
 =head2 as_ascii_html()
 
@@ -2457,20 +2570,29 @@ footer. Can be viewed in the browser of your choice.
 
 	my $group = $graph->add_group('Group name');
 
-Add a group to the graph and return it as C<Graph::Easy::Group> object.
+Add a group to the graph and return it as L<Graph::Easy::Group> object.
 
 =head2 group()
 
 	my $group = $graph->group('Name');
 
-Returns the group with the name C<Name> as C<Graph::Easy::Group> object.
+Returns the group with the name C<Name> as L<Graph::Easy::Group> object.
 
 =head2 groups()
 
 	my @groups = $graph->groups();
 
-Returns the groups of the graph as C<Graph::Easy::Group> objects,
+Returns the groups of the graph as L<Graph::Easy::Group> objects,
 in arbitrary order.
+
+=head2 anon_groups()
+
+	my $anon_groups = $graph->anon_groups();
+
+In scalar context, returns the number of anon groups (aka
+L<Graph::Easy::Group::Anon>) the graph has.
+
+In list context, returns all anon groups as objects, in arbitrary order.
 
 =head2 del_group()
 
@@ -2482,7 +2604,7 @@ Delete the group with the given name.
 
 	my @edges = $graph->edges();
 
-Returns the edges of the graph as C<Graph::Easy::Edge> objects,
+Returns the edges of the graph as L<Graph::Easy::Edge> objects,
 in arbitrary order.
 
 =head2 is_simple_graph()
@@ -2492,6 +2614,12 @@ in arbitrary order.
 	  }
 
 Returns true if the graph does not have multiedges.
+
+=head2 parent()
+
+	my $parent = $graph->parent();
+
+Returns the parent graph, for graphs this is undef.
 
 =head2 label()
 
@@ -2523,7 +2651,7 @@ C<dot> etc.
 
 	print $graph->as_graphviz_file();
 
-Is an alias for C<as_graphviz()>.
+Is an alias for L<as_graphviz()>.
 
 =head2 angle()
 
@@ -2547,7 +2675,7 @@ In list context, returns all nodes as objects, in arbitrary order.
 	my $anon_nodes = $graph->anon_nodes();
 
 In scalar context, returns the number of anon nodes (aka
-C<Graph::Easy::Node::Anon>) the graph has.
+L<Graph::Easy::Node::Anon>) the graph has.
 
 In list context, returns all anon nodes as objects, in arbitrary order.
 
@@ -2579,17 +2707,17 @@ Return CSS code for that graph. See L<as_html()>.
 
 	print $graph->as_txt();
 
-Return the graph as a textual representation, that can be parsed with
-C<Graph::Easy::Parser> back to a graph.
+Return the graph as a normalized textual representation, that can be
+parsed with L<Graph::Easy::Parser> back to the same graph.
 
 This does not call L<layout()> since the actual text representation
-is more a dump of the graph, than a certain layout.
+is just a dump of the graph.
 
 =head2 as_txt_file()
 
 	print $graph->as_txt_file();
 
-Is an alias for C<as_txt()>.
+Is an alias for L<as_txt()>.
 
 =head2 as_svg()
 
@@ -2597,9 +2725,9 @@ Is an alias for C<as_txt()>.
 
 Return the graph as SVG (Scalable Vector Graphics), which can be
 embedded into HTML pages. You need to install
-C<Graph::Easy::As_svg> first to make this work.
+L<Graph::Easy::As_svg> first to make this work.
 
-See also C<as_svg_file()>.
+See also L<as_svg_file()>.
 
 =head2 as_svg_file()
 
@@ -2767,6 +2895,8 @@ graph against each other:
           die ("'$value' is no valid '$name' for '$class'");
 	  }
 
+Deprecated, please use L<validate_attribute()>.
+
 Check that a C<$name,$value> pair is a valid attribute in class C<$class>,
 and returns a new value.
 
@@ -2778,6 +2908,25 @@ The return value can differ from the passed in value, f.i.:
 	print $graph->valid_attribute( 'color', 'red' );
 
 This would print '#ff0000';
+
+=head2 validate_attribute()
+
+	my $graph = Graph::Easy->new();
+	my ($rc,$new_name, $new_value) =
+	  $graph->validate_attribute( $name, $value, $class );
+
+Checks a given attribute name and value (or values, in case of a
+value like "red|green") for being valid. It returns a new
+attribute name (in case of "font-color" => "fontcolor") and
+either a single new attribute, or a list of attribute values
+as array ref.
+
+If C<$rc> is defined, it is the error number:
+
+	1			unknown attribute name
+	2			invalid attribute value
+	4			found multiple attributes, but these arent
+				allowed at this place
 
 =head2 color_as_hex()
 
@@ -2946,7 +3095,8 @@ Exports nothing.
 
 =head1 SEE ALSO
 
-L<Graph::Easy::As_svg>, L<Graph::Easy::Manual> and L<Graph::Easy::Parser>.
+L<Graph>, L<Graph::Convert>, L<Graph::Easy::As_svg>, L<Graph::Easy::Manual> and
+L<Graph::Easy::Parser>.
 
 =head2 Related Projects
 
@@ -2986,16 +3136,13 @@ a single nesting layer like so:
 	  [ Bonn ] -> [ Berlin ]
 	)
 
-=item scopes
-
-Scopes are not yet implemented.
-
 =back
 
 =head2 Layouter
 
 The layouter can not yet handle links between groups (or between
-a group and a node, or vice versa).
+a group and a node, or vice versa). These links will thus only
+appear in L<as_graphviz()> or L<as_txt()> output.
 
 =head2 Paths
 

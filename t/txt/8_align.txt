@@ -1,18 +1,18 @@
 edge { align: right; }
 graph {
-  font-size: 2em;
+  fontsize: 2em;
   label: My Graph;
 }
 node.left {
   align: left;
-  font-size: 1.5em;
+  fontsize: 1.5em;
 }
 
 [ Left\n align\n no border ] { align: left; border: none; }
 [ Left\naligned ] { class: left; }
 [ Right\nAligned ] { align: right; }
 [ Rightmost ] { align: right; }
-[ center\n align\n no border ] { border: none; }
+[ center\n align\n no border ] { align: center; border: none; }
 
 ( Nodes:
   [ Left\naligned ]

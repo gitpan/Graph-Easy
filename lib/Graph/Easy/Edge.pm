@@ -7,9 +7,11 @@ package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
 @ISA = qw/Graph::Easy::Node/;		# an edge is just a special node
-$VERSION = '0.24';
+$VERSION = 0.25;
 
 use strict;
+
+use constant isa_cell => 1;
 
 #############################################################################
 
@@ -42,7 +44,6 @@ sub _init
   # not defined => no label, thus inherit from class  
   delete $self->{att}->{label} unless defined $self->{att}->{label};
 
-  $self->{att}->{'border-style'} = 'none';
   $self->{att}->{style} = $self->{style} if $self->{style};
   delete $self->{style};
  
@@ -131,11 +132,11 @@ sub has_ports
 
   my $s_port = $self->{att}->{start} || $self->attribute('start');
 
-  return 1 if defined $s_port;
+  return 1 if $s_port ne '';
 
   my $e_port = $self->{att}->{end} || $self->attribute('end');
 
-  return 1 if defined $e_port;
+  return 1 if $e_port ne '';
 
   0;
   }
@@ -457,7 +458,7 @@ sub port
   # our flow comes from ourselves
   my $sp = $self->attribute($which); 
 
-  return (undef,undef) unless defined $sp;
+  return (undef,undef) unless defined $sp && $sp ne '';
 
   my ($side, $port) = split /\s*,\s*/, $sp;
 
@@ -710,19 +711,17 @@ returned side will be one absolute direction of C<east>, C<west>,
 C<north> or C<south>, depending on the port restriction and
 flow at that edge.
 
+=head2 attribute related methods
+
+You can call all the various attribute related methods like C<set_attribute()>,
+C<get_attribute()>, etc. on an edge, too. For example:
+
+	$edge->set_attribute('label', 'by train');
+	my $attr = $edge->get_attributes();
+
 =head1 EXPORT
 
 None by default.
-
-=head1 TODO
-
-=over 2
-
-=item joints
-
-Edges that join another edge.
-
-=back
 
 =head1 SEE ALSO
 

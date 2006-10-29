@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.19';
+$VERSION = 0.20;
 
 #############################################################################
 #############################################################################
@@ -16,77 +16,77 @@ package Graph::Easy;
 use strict;
 
 my $remap = {
-  'node' => {
+  node => {
     'align' => undef,
     'background' => undef,   # need a way to simulate that on non-rect nodes
     'basename' => undef,
-    'border-color' => 'color',
-    'border-style' => \&_graphviz_remap_border_style,
-    'border-width' => undef,
+    'bordercolor' => 'color',
+    'borderstyle' => \&_graphviz_remap_border_style,
+    'borderwidth' => undef,
     'border' => undef,
     'color' => 'fontcolor',
     'fill' => 'fillcolor',
     'label' => \&_graphviz_remap_label,
-    'point-style' => undef,
+    'pointstyle' => undef,
     'rotate' => \&_graphviz_remap_node_rotate,
     'shape' => \&_graphviz_remap_node_shape,
     'title' => 'tooltip',
     'flow' => undef,
     },
-  'edge' => {
+  edge => {
     'align' => undef,
-    'arrow-style' => \&_graphviz_remap_arrow_style,
+    'arrowstyle' => \&_graphviz_remap_arrow_style,
     'background' => undef,
     'border' => undef,
-    'border-style' => undef,
+    'borderstyle' => undef,
     'color' => \&_graphviz_remap_edge_color,
     'end' => \&_graphviz_remap_port,
     'flow' => undef,
-    'label-color' => \&_graphviz_remap_label_color,
+    'labelcolor' => \&_graphviz_remap_label_color,
     'start' => \&_graphviz_remap_port,
     'style' => \&_graphviz_remap_edge_style,
     'title' => 'tooltip',
     'minlen' => \&_graphviz_remap_edge_minlen,
     },
-  'graph' => {
+  graph => {
     'align' => \&_graphviz_remap_align,
     'background' => undef,
-    'border-color' => 'color',
-    'border-style' => \&_graphviz_remap_border_style,
-    'border-width' => undef,
+    'bordercolor' => 'color',
+    'borderstyle' => \&_graphviz_remap_border_style,
+    'borderwidth' => undef,
     'fill' => 'bgcolor',
     'flow' => undef,
     'gid' => 'undef',
-    'label-pos' => 'labelloc',
+    'labelpos' => 'labelloc',
     'output' => undef,
     },
-  'group' => {
+  group => {
     'align' => \&_graphviz_remap_align,
     'background' => undef,
-    'border-color' => 'color',
-    'border-style' => \&_graphviz_remap_border_style,
-    'border-width' => undef,
+    'bordercolor' => 'color',
+    'borderstyle' => \&_graphviz_remap_border_style,
+    'borderwidth' => undef,
     'color' => 'fontcolor',
     'fill' => 'fillcolor',
     'title' => 'tooltip',
     },
-  'all' => {
+  all => {
     class => undef,
     'autolink' => undef,
     'autotitle' => undef,
-    'font-size' => \&_graphviz_remap_fontsize,
+    'fontsize' => \&_graphviz_remap_fontsize,
     'font' => \&_graphviz_remap_font,
     'link' => \&_graphviz_remap_link,
     'linkbase' => undef,
-    'text-style' => undef,
+    'textstyle' => undef,
+    'textwrap' => undef,
+    'format' => undef,
     },
-  'always' => {
-    'border-style' => 1,
-    'label-pos' => 1,
-    'label-color' => 1,
-    'link' => 1,
-    'rotate' => 1,
-    'color' => 1,
+  always => {
+    node	=> [ qw/borderstyle link rotate/ ],
+    'node.anon' => [ qw/bordercolor borderstyle link rotate/ ],
+    edge	=> [ qw/labelcolor link color/ ],
+    graph	=> [ qw/labelpos borderstyle link/ ],
     },
   };
 
@@ -116,10 +116,18 @@ sub _graphviz_remap_edge_color
 
   my $style = ref($object) ? 
     $object->attribute('style') : 
-    $self->attribute('style','edge');
-  $style = '' unless defined $style;
+    $self->attribute('edge','style');
 
-  $color = 'black' unless defined $color;
+  if (!defined $color)
+    {
+    $color = ref($object) ? 
+      $object->color_attribute('color') : 
+      $self->color_attribute('edge','color');
+    }
+
+#  $style = '' unless defined $style;
+
+#  $color = '#000000' unless defined $color;
  
   $color = $color . ':' . $color	# 'red:red'
     if $style =~ /^double/;
@@ -160,6 +168,8 @@ sub _graphviz_remap_node_rotate
 
   # do this only for objects, not classes 
   return (undef,undef) unless ref($self) && defined $angle;
+
+  return (undef,undef) if $angle == 0;
 
   # despite what the manual says, dot rotates counter-clockwise, so fix that
   $angle = 360 - $angle;
@@ -234,6 +244,8 @@ sub _graphviz_remap_border_style
 
   my $shape = '';
   $shape = ($node->attribute('shape') || '') if ref($node);
+
+  $style = $node->attribute('borderstyle') unless defined $style;
  
   # some shapes don't need a border:
   return (undef,undef) if $shape =~ /^(none|invisible|img|point)\z/;
@@ -246,7 +258,7 @@ sub _graphviz_remap_border_style
   $style = 'dashed' if $style =~ /^double-/;	# double-dash
   $style = 'dotted' if $style =~ /^wave/;	# wave
 
-  # border-style double will be handled extra with peripheries=2 later
+  # borderstyle double will be handled extra with peripheries=2 later
   $style = 'solid' if $style eq 'double';
 
   # XXX TODO: These should be (3, 0.5em, 1em) instead of 3,7,14
@@ -265,6 +277,7 @@ sub _graphviz_remap_border_style
   return (undef, undef) if $style =~ /^(|solid)\z/ && $shape ne 'rounded';
 
   # for graphviz v2.4 and up
+  $style = 'filled' if $style eq 'solid';
   $style = 'filled,'.$style unless $style eq 'filled';
   $style = 'rounded,'.$style if $shape eq 'rounded';
 
@@ -276,14 +289,14 @@ sub _graphviz_remap_border_style
 
 sub _graphviz_remap_link
   {
-  my ($graph, $name, $l, $self) = @_;
+  my ($self, $name, $l, $object) = @_;
 
   # do this only for objects, not classes 
-  return (undef,undef) unless ref($self);
-
-  my $link = $self->link();
+  return (undef,undef) unless ref($object);
   
-  ('URL', $link);
+  $l = $object->link() unless defined $l;
+
+  ('URL', $l);
   }
 
 sub _graphviz_remap_label_color
@@ -295,6 +308,8 @@ sub _graphviz_remap_label_color
   
   # no label => no color nec.
   return (undef, $color) if ($self->label()||'') eq '';
+
+  $color = $self->raw_attribute('labelcolor') unless defined $color;
 
   # the label color falls back to the edge color
   $color = $self->attribute('color') unless defined $color;
@@ -320,7 +335,7 @@ sub _graphviz_remap_node_shape
 
   if (ref($object))
     {
-    my $border = $object->attribute('border-style') || '';
+    my $border = $object->attribute('borderstyle');
     $s = 'plaintext' if $border eq 'none';
     }
 
@@ -420,6 +435,8 @@ sub _generate_group_edge
     $from = $v;
     }
 
+  # XXX TODO:
+  # this fails for empty groups
   if ($to->isa('Graph::Easy::Group'))
     {
     # find an arbitray node inside the group
@@ -613,7 +630,7 @@ sub _as_graphviz
   $self->{_graphviz_invis_id} = 'joint0';
 
   my $atts =  $self->{att};
-  for my $class (sort keys %$atts)
+  for my $class (qw/edge graph group node/)
     {
     next if $class =~ /\./;		# skip subclasses
 
@@ -635,8 +652,8 @@ sub _as_graphviz
     elsif ($class eq 'edge')
       {
       $out->{dir} = 'back' if $flow == 270 || $flow == 0;
-      my ($name,$style) = $self->_graphviz_remap_arrow_style('arrow-style',
-        $self->attribute('edge','arrow-style') || 'open' );
+      my ($name,$style) = $self->_graphviz_remap_arrow_style('',
+        $self->attribute('edge','arrowstyle') );
       $out->{$name} = $style;
       }
 
@@ -668,7 +685,7 @@ sub _as_graphviz
       $copy->{$a} = $group->{att}->{$a};
       }
     # set some defaults
-    $copy->{'border-style'} = 'solid' unless defined $copy->{'border-style'};
+    $copy->{'borderstyle'} = 'solid' unless defined $copy->{'borderstyle'};
 
     my $out = $self->_remap_attributes( $group->class(), $copy, $remap, 'noquote', undef, 'remap_colors');
 
@@ -690,7 +707,7 @@ sub _as_graphviz
     $txt .= $att . "\n" if $att ne '';
  
     # output nodes (w/ or w/o attributes) in that group
-    for my $n (values %{$group->{nodes}})
+    for my $n ($group->sorted_nodes())
       {
       my $att = $n->attributes_as_graphviz();
       $n->{_p} = undef;			# mark as processed
@@ -782,29 +799,33 @@ sub attributes_as_graphviz
 
   return '' unless ref $self->{graph};
 
-  $self->_croak("Object $self ($self->{name}) is not part of a graph") unless ref $self->{graph};
-
   my $g = $self->{graph};
 
-  # if we are in a subclass, also add attributes of that class
-  my $a = $self->{att};
+  # get all attributes, excluding the class attributes
+  my $a = $self->raw_attributes();
 
-  if ($class =~ /\./)
+  # add the attributes that are listed under "always":
+  my $attr = $self->{att};
+  my $base_class = $class; $base_class =~ s/\..*//;
+  my $list = $remap->{always}->{$class} || $remap->{always}->{$base_class};
+  for my $name (@$list)
     {
-    $a = {};
-    # copy own attributes
-    my $att = $self->{att};
-    for my $k (keys %$att)
+    # for speed, try to look it up directly
+
+    # look if we have a code ref, if yes, simple set the value to undef
+    # and let the coderef handle it later:
+    if ( ref($remap->{$base_class}->{$name}) ||
+         ref($remap->{all}->{$name}) )
       {
-      $a->{$k} = $att->{$k};
+      $a->{$name} = undef;
       }
-    # copy class attributes
-    $att = $g->{att}->{$class};
-    for my $k (keys %$att)
+    else
       {
-      $a->{$k} = $att->{$k};
+      $a->{$name} = $attr->{$name};
+      $a->{$name} = $self->attribute($name) unless defined $a->{$name} && $a->{$name} ne 'inherit';
       }
     }
+
   $a = $g->_remap_attributes( $self, $a, $remap, 'noquote', undef, 'remap_colors');
 
   # bidirectional and undirected edges
@@ -812,7 +833,7 @@ sub attributes_as_graphviz
     {
     delete $a->{dir};
     my ($n,$s) = Graph::Easy::_graphviz_remap_arrow_style(
-	$self,'', $self->attribute('arrow-style') || 'open');
+	$self,'', $self->attribute('arrowstyle'));
     $a->{arrowhead} = $s; 
     $a->{arrowtail} = $s; 
     }
@@ -823,8 +844,8 @@ sub attributes_as_graphviz
     $a->{arrowtail} = 'none'; 
     }
 
-  # border-style: double:
-  my $style = $self->attribute('border-style') || 'solid';
+  # borderstyle: double:
+  my $style = $self->attribute('borderstyle');
   $a->{peripheries} = 2 if $style =~ /^double/;
 
   # For nodes with shape plaintext, set the fillcolor to the background of
@@ -833,23 +854,23 @@ sub attributes_as_graphviz
   if ($class =~ /node/ && $shape eq 'plaintext')
     {
     my $p = $self->parent();
-    $a->{fillcolor} = $p->attribute('fill') || 'white';
+    $a->{fillcolor} = $p->attribute('fill');
     }
 
-  my $sh = $self->attribute('shape') || 'rect';
+  $shape = $self->attribute('shape') unless $self->isa_cell();
 
   # for point-shaped nodes, include the point as label and set width/height
-  if ($sh eq 'point')
+  if ($shape eq 'point')
     {
     require Graph::Easy::As_ascii;		# for _u8 and point-style
 
-    my $style = $self->_point_style( $self->attribute('point-style') || 'star' );
+    my $style = $self->_point_style( $self->attribute('pointstyle') );
 
     $a->{label} = $style;
     # for point-shaped invisible nodes, set height/width = 0
     $a->{width} = 0, $a->{height} = 0 if $style eq '';  
     }
-  if ($sh eq 'invisible')
+  if ($shape eq 'invisible')
     {
     $a->{label} = ' ';
     }

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 56;
+   plan tests => 65;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -90,21 +90,27 @@ like ($html, qr/td.*border:\s*none/, 'shape invisible results in border: none');
 #############################################################################
 # label colors
 
-$graph->set_attribute( 'edge', 'label-color' => 'red' );
+$graph->set_attribute( 'edge', 'label-color' => 'blue' );
+$edge->set_attribute( 'label-color' => 'red' );
 
 $css = $graph->css();
 $html = $graph->as_html();
 
-like ($html, qr/border-bottom:.*;\s*color: #ff0000/, 'some edge got color red');
+unlike ($html, qr/border-bottom:.*;\s*color: #0000ff/, 'no edge is green');
+like ($html, qr/border-bottom:.*;\s*color: #ff0000/, 'some edge is red');
 
 #############################################################################
 # edge color vs. label colors
 
-$graph->set_attribute( 'edge', 'color' => 'green' );
+$edge->set_attribute( 'color' => 'green' );
 
 $html = $graph->as_html();
 
-like ($html, qr/border-bottom:.*#008000.*;\s*color: #ff0000/, 'some edge got color red');
+unlike ($html, qr/border-bottom:.*#0000ff/, 'no edge got blue');
+unlike ($html, qr/border-bottom:.*;\s*color: #0000ff/, 'no edge got blue');
+
+like ($html, qr/border-bottom:.*#008000.*;\s*color: #ff0000/, 
+  'color green, label-color red');
 
 #############################################################################
 # caption from label
@@ -277,9 +283,9 @@ $graph->set_attribute('color', 'red');
 
 $css = $graph->css();
 
-for my $e (qw/node_anon edge group/)
+for my $e (qw/node_anon edge group_anon/)
   {
-  like ($css, qr/table.graph\s+\.$e\s+\{[^\}]*[^-]color: #000000;/m, "contains $e color black");
+  unlike ($css, qr/table.graph\s+\.$e\s+\{[^\}]*[^-]color: #ff0000;/m, "contains not $e color red");
   }
 
 #############################################################################
@@ -336,4 +342,35 @@ $html = $graph->as_html_file();
 unlike ($html, qr/invisible/, 'no border on invisible edges');
 unlike ($html, qr/#ff0000/, 'no color on invisible edges');
 unlike ($html, qr/foobarbaz/, 'no label on invisible edges');
+
+#############################################################################
+# inheritance of attributes via classes
+
+$graph = Graph::Easy->new();
+
+($A,$B,$edge) = $graph->add_edge('green', 'blue.foo');
+
+$graph->set_attribute('color','red');
+$graph->set_attribute('node','color','blue');
+$graph->set_attribute('node.foo','color','inherit');
+$graph->set_attribute('node.bar','color','green');
+$graph->set_attribute('edge','color','inherit');
+$graph->set_attribute('edge.foo','color','inherit');
+
+$A->set_attribute('class','bar');
+$B->set_attribute('class','foo');
+$edge->set_attribute('class','foobar');				# no color set
+
+my ($C,$D,$E) = $graph->add_edge('blue','red');
+
+$E->set_attribute('class','foo');			# inherits red
+$D->set_attribute('color','inherit');			# inherits red from graph
+
+is ($A->attribute('color'),'green', 'node.bar is green');
+is ($B->attribute('color'),'blue', 'node.foo inherits blue from node');
+is ($C->attribute('color'),'blue', 'node is just blue');
+is ($D->attribute('color'),'red', 'inherits red from graph');
+
+is ($edge->attribute('color'),'black', 'no color set, so defaults to black');
+is ($E->attribute('color'),'red', 'inherit red from graph');
 

@@ -6,12 +6,29 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.22';
+$VERSION = 0.23;
 
 package Graph::Easy;
 
 use strict;
 use utf8;		# for examples like "Fähre"
+
+# to make it easier to remember the attribute names:
+my $att_aliases = {
+  'arrow-style' => 'arrowstyle',
+  'border-color' => 'bordercolor',
+  'border-style' => 'borderstyle',
+  'border-width' => 'borderwidth',
+  'font-size' => 'fontsize',
+  'label-color' => 'labelcolor',
+  'label-pos' => 'labelpos',
+  'text-style' => 'textstyle',
+  'text-wrap' => 'textwrap',
+  'point-style' => 'pointstyle',
+  'point-shape' => 'pointshape',
+  };
+
+sub _att_aliases { $att_aliases; }
 
 #############################################################################
 # color handling
@@ -171,6 +188,7 @@ my $color_names = {
   },
 
   x11 => {
+    inherit		=> 'inherit',
     aliceblue		=> '#f0f8ff',
     antiquewhite	=> '#faebd7',
     antiquewhite1	=> '#ffefdb',
@@ -1937,6 +1955,7 @@ sub _color_scheme
   # check that a given color scheme is valid
   my ($self, $scheme) = @_;
 
+  return $scheme if $scheme eq 'inherit';
   exists $color_names->{ $scheme } ? $scheme : undef;
   }
 
@@ -2017,7 +2036,7 @@ sub color_as_hex
 
 sub text_style
   {
-  # check whether the given list of text-style attributes is valid
+  # check whether the given list of textstyle attributes is valid
   my ($self, $style) = @_;
 
   return $style if $style =~ /^(normal|none|)\z/;
@@ -2031,10 +2050,11 @@ sub text_style
 
 sub text_styles
   {
-  # return a hash with the defined text-styles checked
+  # return a hash with the defined textstyles checked
   my ($self) = @_;
 
-  my $style = $self->attribute('text-style') || '';
+  my $style = $self->attribute('textstyle');
+
   return { none => 1 } if $style =~ /^(normal|none)\z/;
   return { } if $style eq '';
 
@@ -2068,21 +2088,20 @@ sub text_styles_as_css
     $style .= " text-decoration: $s;" if $s;
     }
 
-  my $fs = $self->attribute('font-size') || '';
+  my $fs = $self->raw_attribute('fontsize');
 
   # get the fonts-size from the class
-  if ($fontsize)
-    {
-    my $DEF = $self->default_attribute('font-size') || '';
-    $fs = '' unless $fs ne $DEF;
-    }
+#  if (defined $fontsize)
+#    {
+#    my $DEF = $self->default_attribute('fontsize') || '';
+#    $fs = '' unless $fs ne $DEF;
+#    }
   $style .= " font-size: $fs;" if $fs;
 
   if (!$align)
     {
-    my $al = $self->attribute('align') || '';
-    $al = 'left' if $al eq '' and $self->isa('Graph::Easy::Group::Cell');
-
+    # XXX TODO: raw_attribute()?
+    my $al = $self->attribute('align');
     $style .= " text-align: $al;" if $al;
     }
 
@@ -2093,7 +2112,7 @@ sub _font_size_in_pixels
   {
   my ($self, $em, $val) = @_;
   
-  my $fs = $val; $fs = $self->attribute('font-size') || '' if !defined $val;
+  my $fs = $val; $fs = $self->attribute('fontsize') || '' if !defined $val;
   return $em if $fs eq '';
 
   if ($fs =~ /^([\d.]+)em\z/)
@@ -2111,8 +2130,7 @@ sub _font_size_in_pixels
     }
   else
     {
-    require Carp;
-    Carp::confess ("Illegal font-size '$fs'");
+    $self->error("Illegal fontsize '$fs'");
     }
   $fs;
   }
@@ -2235,7 +2253,7 @@ sub _direction
 
 sub _border_attribute_as_html
   {
-  # Return "solid 1px red" from the individual border-(style|color|width)
+  # Return "solid 1px red" from the individual border(style|color|width)
   # attributes, mainly for HTML output.
   my ($style, $width, $color, $scheme) = @_;
 
@@ -2272,7 +2290,7 @@ sub _border_attribute_as_html
 
 sub _border_attribute
   {
-  # Return "solid 1px red" from the individual border-(style|color|width)
+  # Return "solid 1px red" from the individual border(style|color|width)
   # attributes. Used by as_txt().
   my ($style, $width, $color) = @_;
 
@@ -2295,10 +2313,10 @@ sub _border_width_in_pixels
   {
   my ($self, $em) = @_;
   
-  my $bw = $self->attribute('border-width') || '0';
+  my $bw = $self->attribute('borderwidth') || '0';
   return 0 if $bw eq '0';
 
-  my $bs = $self->attribute('border-style') || 'none';
+  my $bs = $self->attribute('borderstyle') || 'none';
 
   return 0 if $bs eq 'none';
   return 3 if $bs =~ /^bold/;
@@ -2323,8 +2341,7 @@ sub _border_width_in_pixels
     }
   else
     {
-    require Carp;
-    Carp::confess ("Illegal border-width '$bw'");
+    $self->error("Illegal borderwidth '$bw'");
     }
   $bw;
   }
@@ -2378,17 +2395,18 @@ sub split_border_attributes
   my $width = $1 || '';
   $width =~ s/\D+//g;                           # leave only digits
 
-  $width = undef if $width eq '';
-
   $border =~ s/\s+//g;                          # rem unnec. spaces
 
   # The left-over part must be a valid color. 
   my $color = $border;
   $color = Graph::Easy->_color($border) if $border ne '';
 
-  $self->error("$border is not a valid border-color")
+  $self->error("$border is not a valid bordercolor")
     unless defined $color;
 
+  $width = undef if $width eq '';
+  $color = undef if $color eq '';
+  $style = undef if $style eq '';
   ($style,$width,$color);
   }
 
@@ -2398,21 +2416,26 @@ sub split_border_attributes
 # different types of attributes with pre-defined handling
 use constant {
   ATTR_STRING	=> 0,		# other strings 
-  ATTR_TEXT	=> 1,		# titles, links, labels etc
-  ATTR_COLOR	=> 2,
-  ATTR_ANGLE	=> 3,
-  ATTR_PORT	=> 4,
+  ATTR_COLOR	=> 1,
+  ATTR_ANGLE	=> 2,
+  ATTR_PORT	=> 3,
+  ATTR_UINT	=> 4,		# a "small" unsigned integer
   ATTR_URL	=> 5,
-  ATTR_UINT	=> 6,		# a "small" unsigned integer
-  ATTR_LIST	=> 7,		# a list of values
-  ATTR_LCTEXT	=> 8,		# lowercase text (classname)
+
+# these cannot have "inherit", see ATTR_INHERIT_MIN
+  ATTR_LIST	=> 6,		# a list of values
+  ATTR_LCTEXT	=> 7,		# lowercase text (classname)
+  ATTR_TEXT	=> 8,		# titles, links, labels etc
+
+  ATTR_NO_INHERIT	=> 6,
 
   ATTR_DESC_SLOT	=> 0,
   ATTR_MATCH_SLOT	=> 1,
   ATTR_DEFAULT_SLOT	=> 2,
   ATTR_EXAMPLE_SLOT	=> 3,
   ATTR_TYPE_SLOT	=> 4,
-     
+
+
   };
 
 # Lists the attribute names along with
@@ -2428,91 +2451,93 @@ my $attributes = {
     align => [
      "The alignment of the label text.",
      [ qw/center left right/ ],
-     'center for graph and nodes, left for groups and edge labels',
-     'left',
+     { default => 'center', group => 'left', edge => 'left' },
+     'right',
      undef,
      "graph { align: left; label: My Graph; }\nnode {align: left;}\n ( Nodes:\n [ Right\\nAligned ] { align: right; } -- label\\n text -->\n { align: left; }\n [ Left\\naligned ] )",
      ],
 
     autolink => [
-     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<link>, unless L<link> is already set. This attribute is inherited by nodes, edges and groups. See the section about labels, titles, names and links for reference.",
-     [ qw/label title name none/ ],
-     'none',
+     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<link>, unless L<link> is already set. See the section about labels, titles, names and links for reference.",
+     [ qw/label title name none inherit/ ],
+     { default => 'inherit', graph => 'none' },
      'title',
      ],
 
     autotitle => [
-     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<title>, unless L<title> is already set. This attribute is inherited by nodes, edges and groups. See the section about labels, titles, names and links for reference.",
-     [ qw/label name none link/ ],
-     'none',
+     "If set to something else than 'none', will use the appropriate attribute to automatically generate the L<title>, unless L<title> is already set. See the section about labels, titles, names and links for reference.",
+     [ qw/label name none link inherit/ ],
+     { default => 'inherit', graph => 'none' },
      'label',
      ],
 
     autolabel => [
-     "Will automatically generate the L<label>, unless L<label> is already set. The label will be restricted to N characters length, where N should be greater than 12. This attribute is inherited by nodes, edges and groups.  See the section about labels, titles, names and links for reference.",
-     qr/^name(\s*,\s*[\d]{2,4})?\z/,
-     '',
-     'name,20',
+     "Will restrict the L<label> text to N characters. N must be greater than 10. See the section about labels, titles, names and links for reference.",
+     # for compatibility with older versions (pre v0.49), also allow "name,N"
+     qr/^(name\s*,\s*)?[\d]{2,5}\z/,
+     { default => 'inherit', graph => '' },
+     '20',
      undef,
-     "graph { autolabel: name,20; autotitle: name; }\n\n[ Bonn ] -- Acme Travels Incorporated --> [ Frankfurt (Main) / Flughafen ]",
+     "graph { autolabel: 20; autotitle: name; }\n\n[ Bonn ]\n -- Acme Travels Incorporated -->\n  [ Frankfurt (Main) / Flughafen ]",
      ],
 
     background => [
-     "The background color, e.g. the color B<outside> the shape. Do not confuse with L<fill>. See the section about color names and values for reference.",
+     "The background color, e.g. the color B<outside> the shape. Do not confuse with L<fill>. If set to inherit, the object will inherit the L<fill> color (B<not> the background color!) of the parent e.g. the enclosing group or graph. See the section about color names and values for reference.",
      undef,
-     '"white" for the graph, "inherit" for edges, and undef and nodes',
+#     { default => 'inherit', graph => 'white', group.anon => 'white', node.anon => 'white' },
+     'inherit',
      'rgb(255,0,0)',
      ATTR_COLOR,
      "[ Crimson ] { shape: circle; background: crimson; }\n -- Aqua Marine --> { background: #7fffd4; }\n [ Misty Rose ] { background: white; fill: rgb(255,228,221); }",
      ],
 
-    "border-color" => [
+    bordercolor => [
      'The color of the L<border>. See the section about color names and values for reference.',
      undef,
-     'black',
+     { default => '#000000' },
      'rgb(255,255,0)',
      ATTR_COLOR,
-     "node { border: black bold; }\n[ Black ]\n --> [ Red ]      { border-color: red; }\n --> [ Green ]    { border-color: green; }",
+     "node { border: black bold; }\n[ Black ]\n --> [ Red ]      { bordercolor: red; }\n --> [ Green ]    { bordercolor: green; }",
      ],
 
-    'border-style' => [
-     'The style of the L<border>. The special styles "bold", "broad", "wide", "double-dash" and "bold-dash" will set and override the L<border-width>.',
+    borderstyle => [
+     'The style of the L<border>. The special styles "bold", "broad", "wide", "double-dash" and "bold-dash" will set and override the L<borderwidth>.',
      [ qw/none solid dotted dashed dot-dash dot-dot-dash double wave bold bold-dash broad double-dash wide/ ],
-     '"none" for graphs and edges, "solid" for nodes and "dotted" for groups.',
+     { default => 'none', 'node.anon' => 'none', 'group.anon' => 'none', node => 'solid', group => 'dashed' },
      'dotted',
      undef,
-     "node { border: dotted; }\n[ Dotted ]\n --> [ Dashed ]      { border-style: dashed; }\n --> [ broad ]    { border-style: broad; }",
+     "node { border: dotted; }\n[ Dotted ]\n --> [ Dashed ]      { borderstyle: dashed; }\n --> [ broad ]    { borderstyle: broad; }",
      ],
 
-    'border-width' => [
+    borderwidth => [
      'The width of the L<border>. Certain L<border>-styles will override the width.',
      qr/^\d+(px|em)?\z/,
-     '1px',
+     '1',
      '2px',
      ],
 
-    'border' => [
-     'The border. Can be any combination of L<border-style>, L<border-color> and L<border-width>.',
+    border => [
+     'The border. Can be any combination of L<borderstyle>, L<bordercolor> and L<borderwidth>.',
      undef,
-     '1px solid black',
+     { default => 'none', 'node.anon' => 'none', 'group.anon' => 'none', node => 'solid 1px #000000', group => 'dashed 1px #000000' },
      'dotted red',
      undef,
      "[ Normal ]\n --> [ Bold ]      { border: bold; }\n --> [ Broad ]     { border: broad; }\n --> [ Wide ]      { border: wide; }\n --> [ Bold-Dash ] { border: bold-dash; }",
      ],
 
     color => [
-     'The foreground/text color. See the section about color names and values for reference.',
+     'The foreground/text/label color. See the section about color names and values for reference.',
      undef,
      'black',
      'rgb(255,255,0)',
      ATTR_COLOR,
-     "[ Crimson ] { color: crimson; }\n -> { color: blue; }\n [ Dark Orange ] { color: rgb(255,50%,0.01); }",
+     "[ Lime ] { color: limegreen; }\n -- label --> { color: blue; labelcolor: red; }\n [ Dark Orange ] { color: rgb(255,50%,0.01); }",
      ],
 
     colorscheme => [
-     "The color scheme to use for all color values. Defaults to 'inherit' for nodes, edges and groups, and 'w3c' for the graph. See the section about color names and values for reference and a list of possible values.",
+     "The colorscheme to use for all color values. See the section about color names and values for reference and a list of possible values.",
      '_color_scheme',
-     'inherit',
+     { default => 'inherit', graph => 'w3c', },
      'x11',
      ATTR_STRING,
      "graph { colorscheme: accent8; } [ 1 ] { fill: 1; }\n"
@@ -2525,7 +2550,7 @@ my $attributes = {
      ],
 
     class => [
-     'The subclass. See the section about class names for reference.',
+     'The subclass of the object. See the section about class names for reference.',
       qr/^(|[a-zA-Z][a-zA-Z0-9_]*)\z/,
      '',
      'mynodeclass',
@@ -2535,25 +2560,35 @@ my $attributes = {
     fill => [
      "The fill color, e.g. the color inside the shape. For the graph, this is the background color for the label. For edges, the color inside the arrow shape. See also L<background>. See the section about color names and values for reference.",
      undef,
-     '"white" for the graph and nodes, "inherit" for edges',
+     { default => 'white', graph => 'inherit', edge => 'inherit', group => '#a0d0ff', 
+	'group.anon' => 'white', 'node.anon' => 'white' },
      'rgb(255,0,0)',
      ATTR_COLOR,
-     "[ Crimson ]\n  {\n  shape: octagon;\n  background: crimson;\n  fill: red;\n  border-color: slategrey;\n  }\n-- Aqua Marine -->\n  {\n  arrow-style: filled;\n  fill: red;\n  }\n[ Two ]",
+     "[ Crimson ]\n  {\n  shape: octagon;\n  background: crimson;\n  fill: red;\n  bordercolor: slategrey;\n  }\n-- Aqua Marine -->\n  {\n  arrowstyle: filled;\n  fill: red;\n  }\n[ Two ]",
      ],
 
-    'font-size' => [
+    'fontsize' => [
      "The size of the label text, best expressed in I<em> (1.0em, 0.5em etc) or percent (100%, 50% etc)",
      qr/^\d+(\.\d+)?(em|px|%)?\z/,
-     '"1.0em" for the graph and nodes, "0.8em" for edge and group labels',
+     { default => '0.8em', graph => '1em', node => '1em', },
      '50%',
      undef,
-     "graph { font-size: 200%; label: Sample; }\n\n ( Nodes:\n [ Big ] { font-size: 1.5em; color: white; fill: darkred; }\n  -- Small -->\n { font-size: 0.2em; }\n  [ Normal ] )",
+     "graph { fontsize: 200%; label: Sample; }\n\n ( Nodes:\n [ Big ] { fontsize: 1.5em; color: white; fill: darkred; }\n  -- Small -->\n { fontsize: 0.2em; }\n  [ Normal ] )",
+     ],
+
+    flow => [
+     "The general direction in which edges will leave nodes first. On edges, influeces where the target node is place. Please see the section about <a href='hinting.html#flow'>flow control</a> for reference.",
+     '_direction',
+     { graph => 'east', default => 'inherit' },
+     'south',
+      undef,
+      "graph { flow: up; }\n [ Enschede ] { flow: left; } -> [ Bielefeld ] -> [ Wolfsburg ]",
      ],
 
     font => [
      'A prioritized list of lower-case, unquoted values, separated by a comma. Values are either font family names (like "times", "arial" etc) or generic family names (like "serif", "cursive", "monospace"), the first recognized value will be used. Always offer a generic name as the last possibility.',
      '_font',
-     '"sans-serif" for edge labels, and "serif" for all other labels',
+     { default => 'serif', edge => 'sans-serif' },
      'arial, helvetica, sans-serif',
      undef,
      "graph { font: vinque, georgia, utopia, serif; label: Sample; }" .
@@ -2573,15 +2608,15 @@ my $attributes = {
     label => [
      "The text displayed as label. If not set, equals the name (for nodes) or no label (for edges, groups and the graph itself).",
      undef,
-     '',
+     undef,
      'My label',
      ATTR_TEXT,
      ],
 
     linkbase => [
-     'The base URL prepended to all generated links. This attribute is inherited by nodes, edges and groups. See the section about links for reference.',
+     'The base URL prepended to all generated links. See the section about links for reference.',
      undef,
-     '',
+     { default => 'inherit', graph => '/wiki/index.php/', },
      'http://en.wikipedia.org/wiki/',
      ATTR_URL,
      ],
@@ -2591,18 +2626,18 @@ my $attributes = {
      undef,
      '',
      'Graph',
-     ATTR_URL,
+     ATTR_TEXT,
      <<LINK_EOF
 node {
   autolink: name;
-  text-style: none;
-  font-size: 1.1em;
+  textstyle: none;
+  fontsize: 1.1em;
   }
 graph {
   linkbase: http://de.wikipedia.org/wiki/;
   }
 edge {
-  text-style: overline;
+  textstyle: overline;
   }
 
 [] --> [ Friedrichshafen ]
@@ -2619,7 +2654,7 @@ LINK_EOF
      ATTR_TEXT,
      ],
 
-    'format' => [
+    format => [
      "The formatting language of the label. The default, C<none> means nothing special will be done. When set to C<pod>, formatting codes like <code>B&lt;bold&gt;</code> will change the formatting of the label. See the section about label text formatting for reference.",
      [ 'none', 'pod' ],
      'none',
@@ -2639,62 +2674,53 @@ edge { format: pod; }
 EOF
      ],
 
-    'text-style' => [
+    textstyle => [
      "The style of the label text. Either 'none', or any combination (separated with spaces) of 'underline', 'overline', 'bold', 'italic', 'line-through'. 'none' disables underlines on links.",
      'text_style',
-     'none',
+     '',
      'underline italic bold',
      undef,
      <<EOF
 graph {
-  font-size: 150%;
+  fontsize: 150%;
   label: Verbindung;
-  text-style: bold italic;
+  textstyle: bold italic;
   }
 node {
-  text-style: underline bold;
+  textstyle: underline bold;
   fill: #ffd080;
   }
 edge {
-  text-style: italic bold overline;
+  textstyle: italic bold overline;
   }
 
-[ Meersburg ] { font-size: 2em; }
- -- F\x{e4}hre --> { font-size: 1.2em; color: red; }
+[ Meersburg ] { fontsize: 2em; }
+ -- F\x{e4}hre --> { fontsize: 1.2em; color: red; }
  [ Konstanz ]
 EOF
      ],
 
-    'text-wrap' => [
+    textwrap => [
      "When set to C<auto>, the label text will be wrapped to make the node size smaller, alignments on individual line breaks are ignored.. The default <code>none</code> makes the label text appear exactly as it was written, with <a href='syntax.html'>manual line breaks</a> applied.",
      [ qw/auto none/ ],
      'none',
      'auto',
      undef,
-     "node { text-wrap: auto; }\n ( Nodes:\n [ Frankfurt (Oder) liegt an der\n   ostdeutschen Grenze und an der Oder ] -->\n [ Städte innerhalb der\n   Ost-Westfahlen Region mit sehr langen Namen] )",
+     "node { textwrap: auto; }\n ( Nodes:\n [ Frankfurt (Oder) liegt an der\n   ostdeutschen Grenze und an der Oder ] -->\n [ Städte innerhalb der\n   Ost-Westfahlen Region mit sehr langen Namen] )",
      ],
    },
 
   node => {
-    "basename" => [
-     "Controls the base name of an autosplit node. Ignored for all other nodes.",
+    basename => [
+     "Controls the base name of an autosplit node. Ignored for all other nodes. Unless set, it is generated automatically from the node parts. Please see the section about <a href='hinting.html#autosplit'>autosplit</a> for reference.",
      undef,
-      'automatically generated from the parts',
+      '',
       '123',
        undef,
      "[ A|B|C ] { basename: A } [ 1 ] -> [ A.2 ]\n [ A|B|C ] [ 2 ] -> [ ABC.2 ]",
      ], 
 
-    flow => [
-     "The general direction in which edges will leave this node first. Please see the section about <a href='hinting.html#flow'>flow control</a> for reference.",
-     '_direction',
-     'east',
-     'south',
-      undef,
-      "graph { flow: up; }\n [ Enschede ] { flow: left; } -> [ Bielefeld ] -> [ Wolfsburg ]",
-     ],
-
-    "group" => [
+    group => [
      "Puts the node into this group.",
      undef,
       '',
@@ -2738,26 +2764,26 @@ EOF
      'Cluster A',
      ],
 
-    "point-style" => [
+    pointstyle => [
      "Controls the style of a node that has a L<shape> of 'point'.",
      [ qw/circle cross diamond dot invisible square star/ ],
       'star',
       'square',
       undef,
      "node { shape: point; }\n\n [ A ]".
-     "\n -> [ B ] { point-style: circle; }" .
-     "\n -> [ C ] { point-style: cross; }" . 
-     "\n -> [ D ] { point-style: diamond; }" . 
-     "\n -> [ E ] { point-style: dot; }" . 
-     "\n -> [ F ] { point-style: invisible; }" . 
-     "\n -> [ G ] { point-style: square; }" . 
-     "\n -> [ H ] { point-style: star; }"
+     "\n -> [ B ] { pointstyle: circle; }" .
+     "\n -> [ C ] { pointstyle: cross; }" . 
+     "\n -> [ D ] { pointstyle: diamond; }" . 
+     "\n -> [ E ] { pointstyle: dot; }" . 
+     "\n -> [ F ] { pointstyle: invisible; }" . 
+     "\n -> [ G ] { pointstyle: square; }" . 
+     "\n -> [ H ] { pointstyle: star; }"
      ], 
 
     rank => [
      "The rank of the node, used by the layouter to find the order and placement of nodes. " .
      "Set to C<auto> (the default), C<same> (usefull for node lists) or a positive number. " .
-     "See the section about node ranks for reference and more examples.",
+     "See the section about ranks for reference and more examples.",
        qr/^(auto|same|\d{1,6})\z/,
        'auto',
        'same',
@@ -2775,7 +2801,7 @@ EOF
      ],
 
     shape => [
-     "The shape of the node. Nodes with shape 'point' (see L<point-style>) have a fixed size and do not display their label. The border of such a node is the outline of the C<point-shape>, and the fill is the inside of the C<point-shape>. When the C<shape> is set to the value 'img', the L<label> will be interpreted as an external image resource to display. In this case attributes like L<color>, L<font-size> etc. are ignored.",
+     "The shape of the node. Nodes with shape 'point' (see L<pointstyle>) have a fixed size and do not display their label. The border of such a node is the outline of the C<pointshape>, and the fill is the inside of the C<pointshape>. When the C<shape> is set to the value 'img', the L<label> will be interpreted as an external image resource to display. In this case attributes like L<color>, L<fontsize> etc. are ignored.",
        [ qw/ circle diamond edge ellipse hexagon house invisible invhouse invtrapezium invtriangle octagon parallelogram pentagon
              point triangle trapezium septagon rect rounded none img/ ],
       'rect',
@@ -2787,30 +2813,6 @@ EOF
   }, # node
 
   graph => {
-
-    colorscheme => [
-     "The color scheme to use for all color values. Defaults to 'inherit' for nodes, edges and groups, and 'w3c' for the graph. See the section about color names and values for reference and a list of possible values.",
-     '_color_scheme',
-     'w3c',
-     'x11',
-     ATTR_STRING,
-     "graph { colorscheme: bupu9; } [ 1 ] { fill: 1; }\n"
-        . " -> \n [ 3 ] { fill: 3; }\n" 
-        . " -> \n [ 4 ] { fill: 4; }\n" 
-        . " -> \n [ 5 ] { fill: 5; }\n" 
-        . " -> \n [ 6 ] { fill: 6; }\n" 
-        . " -> \n [ 7 ] { fill: 7; }\n" 
-        . " -> \n [ 8 ] { fill: 8; }\n" ,
-     ],
-
-    flow => [
-	"The graph's general flow direction. Please see the section about <a href='hinting.html#flow'>flow control</a> for reference.",
-	'_direction',
-	'east',
-	'south',
-        undef,
-        "graph { flow: up; }\n [ Enschede ] -> [ Bielefeld ] -> [ Wolfsburg ]",
-     ],
 
     gid => [
 	"A unique ID for the graph. Usefull if you want to include two graphs into one HTML page.",
@@ -2828,16 +2830,16 @@ EOF
         "graph { output: debug; }"
      ],
 
-    "label-pos" => [
+    labelpos => [
 	"The position of the graph label.",
 	[ qw/top bottom/ ],
 	'top',
 	'bottom',
 	ATTR_LIST,
-        "graph { label-pos: bottom; label: My Graph; }\n\n [ Buxtehude ] -> [ Fuchsberg ]\n"
+        "graph { labelpos: bottom; label: My Graph; }\n\n [ Buxtehude ] -> [ Fuchsberg ]\n"
      ],
 
-    "root" => [
+    root => [
 	"The name of the root node, given as hint to the layouter to start the layout there. When not set, the layouter will pick a node at semi-random.",
 	undef,
 	'',
@@ -2859,29 +2861,22 @@ EOF
       "[ A ] -- solid --> [ B ]\n .. dotted ..> [ C ]\n -  dashed - > [ D ]\n -- bold --> { style: bold; } [ E ]\n -- broad --> { style: broad; } [ F ]\n -- wide --> { style: wide; } [ G ]",
      ],
 
-    "arrow-style" => [
-      'The style of the arrow. Open arrows are vee-shaped and the bit inside the arrow has the color of the L<background>. Closed arrows are triangle shaped, with a background-color fill. Filled arrows are closed, too, but use the L<fill> color for the inside. An arrow-style of none creates undirected edges just like "[A] -- [B]" would do.',
+    arrowstyle => [
+      'The style of the arrow. Open arrows are vee-shaped and the bit inside the arrow has the color of the L<background>. Closed arrows are triangle shaped, with a background-color fill. Filled arrows are closed, too, but use the L<fill> color for the inside. An C<arrowstyle> of none creates undirected edges just like "[A] -- [B]" would do.',
       [ qw/none open closed filled/ ],
       'open',
       'closed',
       undef,
-      "[ A ] -- open --> [ B ]\n -- closed --> { arrow-style: closed; } [ C ]\n -- filled --> { arrow-style: filled; } [ D ]\n -- filled --> { arrow-style: filled; fill: lime; } [ E ]\n -- none --> { arrow-style: none; } [ F ]",
+      "[ A ] -- open --> [ B ]\n -- closed --> { arrowstyle: closed; } [ C ]\n -- filled --> { arrowstyle: filled; } [ D ]\n -- filled --> { arrowstyle: filled; fill: lime; } [ E ]\n -- none --> { arrowstyle: none; } [ F ]",
      ],
 
-    flow => [
-      "The flow direction for this edge. Influence where the target node is placed. Please see the section about <a href='hinting.html#flow'>flow control</a> for reference.",
-     '_direction',
-     'east',
-     'south',
-     ],
-
-    "label-color" => [
+    labelcolor => [
      'The text color for the label. If unspecified, will fall back to L<color>. See the section about color names and values for reference.',
      undef,
      'black',
      'rgb(255,255,0)',
      ATTR_COLOR,
-     "[ Bonn ] -- ICE --> { label-color: blue; }\n [ Berlin ]",
+     "[ Bonn ] -- ICE --> { labelcolor: blue; }\n [ Berlin ]",
      ],
 
     start => [
@@ -2903,12 +2898,31 @@ EOF
      ],
 
     minlen => [
-     'The minimum length of the edge, in cells. Defaults to 1, or 2 for edges with joints.',
+     'The minimum length of the edge, in cells. Defaults to 1. The minimum length is ' .
+     'automatically increased for edges with joints.',
      undef,
      '1',
      '4',
      ATTR_UINT,
      "[ Bonn ] -- longer --> { minlen: 3; } [ Berlin ]\n[ Bonn ] --> [ Potsdam ] { origin: Bonn; offset: 2,2; }",
+     ],
+
+    autojoin => [
+     'Controls whether the layouter can join this edge automatically with other edges leading to the same node. C<never> means this edge will never joined with another edge automatically, C<always> means always (if possible), even if the attributes on the edges do not match. C<equals> means only edges with the same set of attributes will be automatically joined together. See also C<autosplit>.',
+     [qw/never always equals/],
+     'never',
+     'always',
+     undef,
+     "[ Bonn ], [ Aachen ]\n -- 1 --> { autojoin: equals; } [ Berlin ]",
+     ],
+
+    autosplit => [
+     'Controls whether the layouter replace multiple edges leading from one node to other nodes with one edge splitting up. C<never> means this edge will never be part of such a split, C<always> means always (if possible), even if the attributes on the edges do not match. C<equals> means only edges with the same set of attributes will be automatically split up. See also C<autojoin>.',
+     [qw/never always equals/],
+     'never',
+     'always',
+     undef,
+     "[ Bonn ]\n -- 1 --> { autosplit: equals; } [ Berlin ], [ Aachen ]",
      ],
 
    }, # edge
@@ -2928,6 +2942,25 @@ EOF
       'connections',
      ],
 
+    rank => [
+     "The rank of the group, used by the layouter to find the order and placement of group. " .
+     "Set to C<auto> (the default), C<same> or a positive number. " .
+     "See the section about ranks for reference and more examples.",
+       qr/^(auto|same|\d{1,6})\z/,
+       'auto',
+       'same',
+       undef,
+     "( Cities: [ Bonn ], [ Berlin ] ) { rank: 0; } ( Rivers: [ Rhein ], [ Sieg ] ) { rank: 0; }",
+     ],
+
+    root => [
+	"The name of the root node, given as hint to the layouter to start the layout there. When not set, the layouter will pick a node at semi-random.",
+	undef,
+	'',
+	'My Node',
+	ATTR_TEXT,
+	"( Cities: [ A ] --> [ B ] --> [ C ] --> [ D ] --> [ A ] ) { root: B; }",
+     ],
    }, # group
 
   # These entries will be allowed temporarily during Graphviz parsing for
@@ -2956,6 +2989,437 @@ sub _attribute_entries
   $attributes;
   }
 
+sub border_attribute
+  {
+  # Return "1px solid red" from the border-(style|color|width) attributes,
+  # mainly used by as_txt() output. Does not use colorscheme!
+  my ($self, $class) = @_;
+
+  my ($style,$width,$color);
+
+  my $g = $self; $g = $self->{graph} if ref($self->{graph});
+
+  my ($def_style, $def_color, $def_width);
+
+  # XXX TODO need no_default_attribute()
+  if (defined $class)
+    {
+    $style = $g->attribute($class, 'borderstyle');
+    return $style if $style eq 'none';
+
+    $def_style = $g->default_attribute('borderstyle');
+
+    $width = $g->attribute($class,'borderwidth');
+    $def_width = $g->default_attribute($class,'borderwidth');
+    $width = '' if $def_width eq $width;
+
+    $color = $g->attribute($class,'bordercolor');
+    $def_color = $g->default_attribute($class,'bordercolor');
+    $color = '' if $def_color eq $color;
+    }
+  else 
+    {
+    $style = $self->attribute('borderstyle');
+    return $style if $style eq 'none';
+
+    $def_style = $self->default_attribute('borderstyle');
+
+    $width = $self->attribute('borderwidth');
+    $def_width = $self->default_attribute('borderwidth');
+    $width = '' if $def_width eq $width;
+
+    $color = $self->attribute('bordercolor');
+    $def_color = $self->default_attribute('bordercolor');
+    $color = '' if $def_color eq $color;
+    }
+
+  return '' if $def_style eq $style and $color eq '' && $width eq '';
+
+  Graph::Easy::_border_attribute($style, $width, $color);
+  }
+
+sub default_attribute
+  {
+  # Return the default value for the attribute.
+  my ($self, $class, $name) = @_;
+
+  # allow $self->default_attribute('fill');
+  if (scalar @_ == 2)
+    {
+    $name = $class;
+    $class = $self->{class} || 'graph';
+    }
+
+  # get the base class: node.foo => node
+  my $base_class = $class; $base_class =~ s/\..*//;
+
+  # Remap alias names without "-" to their hyphenated version:
+  $name = $att_aliases->{$name} if exists $att_aliases->{$name};
+
+  # prevent ->{special}->{node} from springing into existance
+  my $s = $attributes->{special}; $s = $s->{$class} if exists $s->{$class};
+
+  my $entry =	$s->{$name} ||
+		$attributes->{all}->{$name} ||
+		$attributes->{$base_class}->{$name};
+
+  # Didn't found an entry:
+  if (!ref($entry))
+    {
+    $self->warn("Ignoring unknown attribute '$name' for class $class") 
+      if $self->{_warn_on_unknown_attributes};
+    $self->error("Error: '$name' is not a valid attribute for $class");
+    return;
+    }
+
+  # get the default attribute from the entry
+  my $def = $entry->[ ATTR_DEFAULT_SLOT ]; my $val = $def;
+
+  # "node.subclass" gets the default from "node", 'edge' from 'default':
+  # " { default => 'foo', 'node.anon' => 'none', node => 'solid' }":
+  if (ref $def)
+    {
+    $val = $def->{$class};
+    $val = $def->{$base_class} unless defined $val;
+    $val = $def->{default} unless defined $val;
+    }
+
+  $val;
+  }
+
+sub raw_attribute
+  {
+  # Return either the raw attribute set on an object (honoring inheritance),
+  # or undef for when that specific attribute is not set. Does *not*
+  # inspect class attributes.
+  my ($self, $name) = @_;
+
+  # Remap alias names without "-" to their hyphenated version:
+  $name = $att_aliases->{$name} if exists $att_aliases->{$name};
+
+  my $class = $self->{class} || 'graph';
+  my $base_class = $class; $base_class =~ s/\..*//;
+
+  # prevent ->{special}->{node} from springing into existance
+  my $s = $attributes->{special}; $s = $s->{$class} if exists $s->{$class};
+
+  my $entry =	$s->{$name} ||
+		$attributes->{all}->{$name} ||
+		$attributes->{$base_class}->{$name};
+
+  # Didn't found an entry:
+  if (!ref($entry))
+    {
+    $self->warn("Ignoring unknown attribute '$name' for class $class") 
+      if $self->{_warn_on_unknown_attributes};
+    $self->error("Error: '$name' is not a valid attribute for $class");
+    return;
+    }
+
+  my $type = $entry->[ ATTR_TYPE_SLOT ] || ATTR_STRING;
+
+  my $val;
+
+  ###########################################################################
+  # Check the object directly first
+  my $a = $self->{att};
+  if (exists $a->{graph})
+    {
+    # for graphs, look directly in the class to save time:
+    $val = $a->{graph}->{$name} 
+	if exists $a->{graph}->{$name};
+    }
+  else
+    {
+    $val = $a->{$name} if exists $a->{$name};
+    }
+
+  # For "background", and objects that are in a group, we inherit "fill":
+  $val = $self->{group}->color_attribute('fill')
+    if $name eq 'background' && ref $self->{group};
+
+  return $val if !defined $val || $val ne 'inherit';
+
+  # $val is defined, and "inherit"
+
+  # for graphs, there is nothing to inherit from
+  return $val if $class eq 'graph';
+
+  # we try classes in this order:
+  # "node", "graph"
+
+  my @tries = ();
+  # if the class is already "node", skip it:
+  if ($class =~ /\./)
+    {
+    my $parent_class = $class; $parent_class =~ s/\..*//;
+    push @tries, $parent_class;
+    }
+
+  # If not part of a graph, we cannot have class attributes, but
+  # we still can find default attributes. So fake a "graph":
+  my $g = $self->{graph}; 			# for objects in a graph
+  $g = { att => {} } unless ref($g);		# for objects not in a graph
+
+  $val = undef;
+  for my $try (@tries)
+    {
+#    print STDERR "# Trying class $try for attribute $name\n";
+
+    my $att = $g->{att}->{$try};
+
+    $val = $att->{$name} if exists $att->{$name};
+
+    # value was not defined, so get the default value
+    if (!defined $val)
+      {
+      my $def = $entry->[ ATTR_DEFAULT_SLOT ]; $val = $def;
+
+      # "node.subclass" gets the default from "node", 'edge' from 'default':
+      # " { default => 'foo', 'node.anon' => 'none', node => 'solid' }":
+      if (ref $def)
+	{
+	$val = $def->{$try};
+        if (!defined $val && $try =~ /\./)
+	  {
+	  my $base = $try; $base =~ s/\..*//;
+	  $val = $def->{$base};
+	  }
+	$val = $def->{default} unless defined $val;
+	}
+      }
+    # $val must now be defined, because default value must exist.
+
+#    print STDERR "# Found '$val' for $try\n";
+
+    if ($name ne 'label')
+      {
+      $self->warn("Uninitialized default for attribute '$name' on class '$try'\n")
+        unless defined $val;
+      }
+
+    return $val if $type >= ATTR_NO_INHERIT;
+
+    # got some value other than inherit or already at top of tree:
+    return $val if defined $val && $val ne 'inherit';
+  
+    # try next class in inheritance tree
+    $val = undef;
+    }
+
+  $val;
+  }
+
+sub color_attribute
+  {
+  # Just like get_attribute(), but for colors, and returns them as hex,
+  # using the current colorscheme.
+  my $self = shift;
+
+  my $color = $self->attribute(@_);
+
+  if ($color !~ /^#/ && $color ne '')
+    {
+    my $scheme = $self->attribute('colorscheme');
+    $color = Graph::Easy->color_as_hex($color, $scheme);
+    }
+
+  $color;
+  }
+
+sub raw_color_attribute
+  {
+  # Just like raw_attribute(), but for colors, and returns them as hex,
+  # using the current colorscheme.
+  my $self = shift;
+
+  my $color = $self->raw_attribute(@_);
+  return undef unless defined $color;		# default to undef
+
+  if ($color !~ /^#/ && $color ne '')
+    {
+    my $scheme = $self->attribute('colorscheme');
+    $color = Graph::Easy->color_as_hex($color, $scheme);
+    }
+
+  $color;
+  }
+
+sub attribute
+  {
+  my ($self, $class, $name) = @_;
+
+  my $three_arg = 0;
+  if (scalar @_ == 3)
+    {
+    # $self->attribute($class,$name) if only allowed on graphs
+    return $self->error("Calling $self->attribute($class,$name) only allowed for graphs") 
+      if exists $self->{graph};
+  
+   if ($class !~ /^(node|group|edge|graph\z)/)
+      {
+      return $self->error ("Illegal class '$class' when trying to get attribute '$name'");
+      }
+    $three_arg = 1;
+    return $self->border_attribute($class) if $name eq 'border'; # virtual attribute
+    }
+  else
+    {
+    # allow calls of the style get_attribute('background');
+    $name = $class; $class = $self->{class} || 'graph';
+    return $self->border_attribute() if $name eq 'border'; # virtual attribute
+    return join (",",$self->size()) if $name eq 'size'; # virtual attribute
+    }
+
+#  print "# called attribute($class,$name)\n";
+
+  # font-size => fontsize
+  $name = $att_aliases->{$name} if exists $att_aliases->{$name};
+    
+  my $base_class = $class; $base_class =~ s/\.(.*)//;
+  my $sub_class = $1; $sub_class = '' unless defined $sub_class;
+  return $sub_class if $name eq 'class';
+
+  # prevent ->{special}->{node} from springing into existance
+  my $s = $attributes->{special}; $s = $s->{$class} if exists $s->{$class};
+  my $entry =	$s->{$name} ||
+		$attributes->{all}->{$name} ||
+		$attributes->{$base_class}->{$name};
+
+  # Didn't found an entry:
+  if (!ref($entry))
+    {
+    $self->warn("Ignoring unknown attribute '$name' for class $class") 
+      if $self->{_warn_on_unknown_attributes};
+    $self->error("Error: '$name' is not a valid attribute for $class");
+    return;
+    }
+
+  my $type = $entry->[ ATTR_TYPE_SLOT ] || ATTR_STRING;
+
+  my $val;
+
+  if ($three_arg == 0)
+    {
+    ###########################################################################
+    # Check the object directly first
+    my $a = $self->{att};
+    if (exists $a->{graph})
+      {
+      # for graphs, look directly in the class to save time:
+      $val = $a->{graph}->{$name} 
+	if exists $a->{graph}->{$name};
+      }
+    else
+      {
+      $val = $a->{$name} if exists $a->{$name};
+      }
+
+    # For "background", and objects that are in a group, we inherit "fill":
+    if ($name eq 'background' && $val && $val eq 'inherit')
+      {
+      my $parent = $self->parent();
+      $val = $parent->color_attribute('fill') if $parent && $parent != $self;
+      }
+
+    # XXX BENCHMARK THIS
+    return $val if defined $val && 
+	# no inheritance ("inherit" is just a normal string value)
+	($type >= ATTR_NO_INHERIT ||
+	# no inheritance since value is something else like "red"
+	 $val ne 'inherit' ||
+	# for graphs, there is nothing to inherit from
+	 $class eq 'graph'); 
+    }
+
+  # $val not defined, or 'inherit'
+
+  ###########################################################################
+  # Check the classes now
+
+#  print STDERR "# Called self->attribute($class,$name)\n";
+
+  # we try them in this order:
+  # node.subclass, node, graph
+
+#  print STDERR "# $self->{name} $class $val ", join(" ", caller),"\n" if $class =~ /\./ && $name eq 'color';
+
+  my @tries = ();
+  # skip "node.foo" if value is 'inherit'
+  push @tries, $class unless defined $val;
+  if ($class =~ /\./)
+    {
+    my $parent_class = $class; $parent_class =~ s/\..*//;
+    push @tries, $parent_class;
+    }
+  push @tries, 'graph' unless @tries && $tries[-1] eq 'graph';
+
+  # If not part of a graph, we cannot have class attributes, but
+  # we still can find default attributes. So fake a "graph":
+  my $g = $self->{graph}; 			# for objects in a graph
+  $g = { att => {} } unless ref($g);		# for objects not in a graph
+
+  # XXX TODO should not happen
+  $g = $self if $self->{class} eq 'graph';	# for the graph itself
+
+  $val = undef;
+  for my $try (@tries)
+    {
+#    print STDERR "# Trying class $try for attribute $name\n";
+
+    my $att = $g->{att}->{$try};
+
+    $val = $att->{$name} if exists $att->{$name};
+
+    # value was not defined, so get the default value
+    if (!defined $val)
+      {
+      my $def = $entry->[ ATTR_DEFAULT_SLOT ]; $val = $def;
+
+      # "node.subclass" gets the default from "node", 'edge' from 'default':
+      # " { default => 'foo', 'node.anon' => 'none', node => 'solid' }":
+      if (ref $def)
+	{
+	$val = $def->{$try};
+        if (!defined $val && $try =~ /\./)
+	  {
+	  my $base = $try; $base =~ s/\..*//;
+	  $val = $def->{$base};
+	  }
+	$val = $def->{default} unless defined $val;
+	}
+      }
+    # $val must now be defined, because default value must exist.
+
+#    print STDERR "# Found '$val' for $try ($class)\n";
+
+    if ($name ne 'label')
+      {
+      $self->warn("Uninitialized default for attribute '$name' on class '$try'\n")
+        unless defined $val;
+      }
+
+    return $val if $type >= ATTR_NO_INHERIT;
+
+    # got some value other than inherit or already at top of tree:
+    last if defined $val && ($val ne 'inherit' || $try eq 'graph');
+
+    # try next class in inheritance tree
+    $val = undef;
+    }
+
+  # For "background", and objects that are in a group, we inherit "fill":
+  if ($name eq 'background' && $val && $val eq 'inherit')
+    {
+    my $parent = $self->parent();
+    $val = $parent->color_attribute('fill') if $parent && $parent != $self;
+    }
+
+  # If we fell through here, $val is 'inherit' for graph. That happens
+  # for instance for 'background':
+  $val;
+  }
+
 sub unquote_attribute
   {
   # The parser leaves quotes and escapes in the attribute, these things
@@ -2964,9 +3428,11 @@ sub unquote_attribute
   my ($self,$class,$name,$val) = @_;
 
   # clean quoted strings
+  # XXX TODO
+  # $val =~ s/^["'](.*[^\\])["']\z/$1/;
   $val =~ s/^["'](.*)["']\z/$1/;
 
-  $val =~ s/\\([#"])/$1/g;		# reverse backslashed \# and \"
+  $val =~ s/\\([#"';\\])/$1/g;		# reverse backslashed chars
 
   # remove any %00-%1f, %7f and high-bit chars to avoid exploits and problems
   $val =~ s/%[^2-7][a-fA-F0-9]|%7f//g;
@@ -2979,12 +3445,37 @@ sub unquote_attribute
 
 sub valid_attribute
   {
+  # Only for compatibility, use validate_attribute()!
+
   # Check that an name/value pair is an valid attribute, returns:
   # scalar value:	valid, new attribute
   # undef:	 	not valid
-  # []:			unknown attribute
-  # {}:			warn and ignore attribute
+  # []:			unknown attribute (might also warn)
   my ($self, $name, $value, $class) = @_;
+
+  my ($error,$newname,$v) = $self->validate_attribute($name,$value,$class);
+
+  return [] if defined $error && $error == 1;
+  return undef if defined $error && $error == 2;
+  $v;
+  }
+
+sub validate_attribute
+  {
+  # Check that an name/value pair is an valid attribute, returns:
+  # $error, $newname, @values
+
+  # A possible new name is in $newname, this is f.i. used to convert
+  # "font-size" # to "fontsize".
+
+  # Upon errors, $error contains the error code:
+  # undef:	 	all went well
+  # 1			unknown attribute name
+  # 2			invalid attribute value 
+  # 4			found multiple attributes, but these aren't
+  #			allowed at this place
+
+  my ($self, $name, $value, $class, $no_multiples) = @_;
 
   $self->error("Got reference $value as value, but expected scalar") if ref($value);
   $self->error("Got reference $name as name, but expected scalar") if ref($name);
@@ -2992,18 +3483,22 @@ sub valid_attribute
   $class = 'all' unless defined $class;
   $class =~ s/\..*\z//;		# remove subclasses
 
-  # prevent ->{node} from springing into existance
+  # Remap alias names without "-" to their hyphenated version:
+  $name = $att_aliases->{$name} if exists $att_aliases->{$name};
+
+  # prevent ->{special}->{node} from springing into existance
   my $s = $attributes->{special}; $s = $s->{$class} if exists $s->{$class};
 
   my $entry = $s->{$name} ||
 	      $attributes->{all}->{$name} || $attributes->{$class}->{$name};
 
-  # didn't found an entry
+  # Didn't found an entry:
   if (!ref($entry))
     {
-    $self->warn("Ignoring unknown attribute '$name'") 
+    $self->warn("Ignoring unknown attribute '$name' for class $class") 
       if $self->{_warn_on_unknown_attributes};
-    return []; 					# report "unknown attribute"
+    $self->error("Error in attribute: '$name' is not a valid attribute name for a $class");
+    return (1);				# return error
     }
 
   my $check = $entry->[ATTR_MATCH_SLOT];
@@ -3027,6 +3522,7 @@ sub valid_attribute
      }
 
   my $multiples = 0; $multiples = 1 if @values > 1;
+  return (4) if $no_multiples && $multiples; 		# | and no multiples => error
 
   # check each part on it's own
   my @rc;
@@ -3035,7 +3531,13 @@ sub valid_attribute
     if (defined $check && !ref($check))
       {
       no strict 'refs';
-      push @rc, $self->$check($v, $name);
+      my $checked = $self->$check($v, $name);
+      if (!defined $checked)
+	{
+        $self->error("Error in attribute: '$v' is not a valid $name for a $class");
+        return (2);
+        }
+      push @rc, $checked;
       }
     elsif ($check)
       {
@@ -3046,7 +3548,11 @@ sub valid_attribute
         $entry->[1] = eval($list);
         $check = $entry->[1];
         }
-      return undef unless $v =~ $check;		# invalid
+      if ($v !~ $check)				# invalid?
+	{
+        $self->error("Error in attribute: '$v' is not a valid $name for a $class");
+	return (2);
+	}
 
       push @rc, $v;				# valid
       }
@@ -3058,10 +3564,10 @@ sub valid_attribute
     }
 
   # only one value ('green')
-  return $rc[0] unless $multiples;
+  return (undef, $name, $rc[0]) unless $multiples;
 
   # multiple values ('green|red')
-  \@rc;
+  (undef, $name, \@rc);
   }
 
 ###########################################################################
@@ -3088,18 +3594,13 @@ sub _remap_attributes
   my $r = $remap->{$class};
   my $ra = $remap->{all};
   my $ral = $remap->{always};
-  my $def = $self->{def_att}->{$class};
 
-  # This loop does also handle the individual "border-color" attributes.
-  # If the output should contain only "border", but not "border-color", then
+  # This loop does also handle the individual "bordercolor" attributes.
+  # If the output should contain only "border", but not "bordercolor", then
   # the caller must filter them out.
 
-  # do attributes plus the ones in "always", but don't do attributes twice 
+  # do these attributes
   my @keys = keys %$att;
-  for my $k (keys %$ral)
-    {
-    push @keys, $k unless exists $att->{$k};
-    }
 
   my $color_scheme = 'w3c';
   $color_scheme = $object->attribute('colorscheme') if ref($object);
@@ -3124,8 +3625,6 @@ sub _remap_attributes
          (exists $r->{$atr} && !defined $r->{$atr}) ||
          (exists $ra->{$atr} && !defined $ra->{$atr});
       }
-    # suppress default attributes
-    next if defined $def->{$atr} && defined $val && $val eq $def->{$atr};
 
     my $entry = $attributes->{all}->{$atr} || $attributes->{$class}->{$atr};
 
@@ -3180,6 +3679,87 @@ sub _remap_attributes
   $out;
   }
 
+sub raw_attributes
+  {
+  # return all set attributes on this object (graph/node/group/edge) as
+  # an anonymous hash ref
+  my $self = shift;
+
+  my $class = $self->{class} || 'graph';
+
+  my $att = $self->{att};
+  $att = $self->{att}->{graph} if $class eq 'graph';
+
+  my $g = $self->{graph} || $self;
+
+  my $out = {};
+  if (!$g->{strict})
+    {
+    for my $name (keys %$att)
+      {
+      my $val = $att->{$name};
+      next unless defined $val;			# set to undef?
+
+      $out->{$name} = $val;
+      }
+    return $out;
+    }
+
+  my $base_class = $class; $base_class =~ s/\..*//;
+  for my $name (keys %$att)
+    {
+    my $val = $att->{$name};
+    next unless defined $val;			# set to undef?
+
+    $out->{$name} = $val;
+ 
+    next unless $val eq 'inherit';
+ 
+    # prevent ->{special}->{node} from springing into existance
+    my $s = $attributes->{special}; $s = $s->{$class} if exists $s->{$class};
+    my $entry =	$s->{$name} ||
+		$attributes->{all}->{$name} ||
+		$attributes->{$base_class}->{$name};
+
+    # Didn't found an entry:
+    if (!ref($entry))
+      {
+      $self->warn("Ignoring unknown attribute '$name' for class $class") 
+        if $self->{_warn_on_unknown_attributes};
+      $self->error("Error: '$name' is not a valid attribute for $class");
+      return;
+      }
+  
+    my $type = $entry->[ ATTR_TYPE_SLOT ] || ATTR_STRING;
+
+    # need to inherit value?
+    $out->{$name} = $self->attribute($name) if $type < ATTR_NO_INHERIT;
+    }
+
+  $out;
+  }
+
+sub get_attributes
+  {
+  # Return all effective attributes on this object (graph/node/group/edge) as
+  # an anonymous hash ref. This respects inheritance and default values.
+  my $self = shift;
+
+  my $att = {};
+  my $class = $self->main_class();
+
+  # f.i. "all", "node"
+  for my $type ('all', $class)
+    {
+    for my $a (keys %{$attributes->{$type}})
+      {
+      my $val = $self->attribute($a);		# respect inheritance	
+      $att->{$a} = $val if defined $val;
+      }
+    }
+
+  $att;
+  }
 
 1;
 __END__
@@ -3192,8 +3772,11 @@ Graph::Easy::Attributes - Define and check attributes for Graph::Easy
 
 	use Graph::Easy;
 
+	my $graph = Graph::Easy->new();
+
 	my $hexred = Graph::Easy->color_as_hex( 'red' );
-	print Graph::Easy->valid_attribute( 'color', 'red', 'graph' );
+	my ($name, $value) = $graph->valid_attribute( 'color', 'red', 'graph' );
+	print "$name => $value\n" if !ref($value);
 
 =head1 DESCRIPTION
 

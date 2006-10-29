@@ -6,24 +6,9 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.17';
+$VERSION = 0.18;
 
-sub _u8
-  {
-  # Converts UTF-16 codepoints in hex (like "2500") into utf-8
-  # XXX TODO:
-  # It seems wastefull to load Encode just for converting static strings,
-  # maybe we can work around that somehow, f.i. with "use utf8;".
-  my ($utf16) = @_;
-
-  require Encode;
-
-  # in case of input like "ca", turn it into "25ca"
-  $utf16 = '25' . $utf16 if length($utf16) == 2;
-
-  # UTF-16BE must be in uppercase to make some older Encode versions happy
-  Encode::decode('UTF-16BE', pack("H" . length($utf16), $utf16));
-  }
+use utf8;
 
 #############################################################################
 #############################################################################
@@ -31,11 +16,6 @@ sub _u8
 package Graph::Easy::Edge::Cell;
 
 use strict;
-
-BEGIN
-  {
-  *_u8 = \&Graph::Easy::As_ascii::_u8;
-  }
 
 my $edge_styles = [ 
   {
@@ -55,22 +35,22 @@ my $edge_styles = [
   },
   {
   # style            hor, ver,   	    cross,     corner (SE, SW, NE, NW)
-  'solid'	 => [ _u8('00'), _u8('02'), _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ],
-  'double'	 => [ _u8('50'), _u8('51'), _u8('6c'),  _u8('54'), _u8('57'), _u8('5a'), _u8('5d') ],
-  'double-dash'	 => [ _u8('50').' ', _u8('2225'), _u8('6c'),  _u8('54'), _u8('57'), _u8('5a'), _u8('5d') ], # double dashed
-  'dotted'	 => [ _u8('00b7'), ':',     _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # dotted
-  'dashed'	 => [ _u8('74'), _u8('75'), _u8('18'),  _u8('0c'), _u8('10'), _u8('75'), _u8('18') ], # dashed
-  'dot-dash'	 => [ _u8('00b7').'-',  "!",   _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # dot-dash
-  'dot-dot-dash' => [ (_u8('00b7') x 2).'-', "!",  _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # dot-dot-dash
-  'wave' 	 => [ _u8('223c'), _u8('2240'),     _u8('3c'),  _u8('0c'), _u8('10'), _u8('14'), _u8('18') ], # wave
-  'bold' 	 => [ _u8('01'), _u8('03'), _u8('4b'),  _u8('0f'), _u8('13'), _u8('17'), _u8('1b') ], # bold
-  'bold-dash' 	 => [ _u8('01').' ', _u8('7b'), _u8('4b'),  _u8('0f'), _u8('13'), _u8('17'), _u8('1b') ], # bold-dash
-  'broad' 	 => [ _u8('ac'), _u8('ae'), _u8('88'),  _u8('88'), _u8('88'), _u8('88'), _u8('88') ], # wide
-  'wide' 	 => [ _u8('88'), _u8('88'), _u8('88'),  _u8('88'), _u8('88'), _u8('88'), _u8('88') ], # broad
+  'solid'	 => [ '─', '│', '┼',  '┌', '┐', '└', '┘' ],
+  'double'	 => [ '═', '║', '╬',  '╔', '╗', '╚', '╝' ],
+  'double-dash'	 => [ '═'.' ', '∥', '╬',  '╔', '╗', '╚', '╝' ], # double dashed
+  'dotted'	 => [ '·', ':',     '┼',  '┌', '┐', '└', '┘' ], # dotted
+  'dashed'	 => [ '╴', '╵', '┘',  '┌', '┐', '╵', '┘' ], # dashed
+  'dot-dash'	 => [ '·'.'-',  "!",   '┼',  '┌', '┐', '└', '┘' ], # dot-dash
+  'dot-dot-dash' => [ ('·' x 2).'-', "!",  '┼',  '┌', '┐', '└', '┘' ], # dot-dot-dash
+  'wave' 	 => [ '∼', '≀',     '┼',  '┌', '┐', '└', '┘' ], # wave
+  'bold' 	 => [ '━', '┃', '╋',  '┏', '┓', '┗', '┛' ], # bold
+  'bold-dash' 	 => [ '━'.' ', '╻', '╋',  '┏', '┓', '┗', '┛' ], # bold-dash
+  'broad' 	 => [ '▬', '▮', '█',  '█', '█', '█', '█' ], # wide
+  'wide' 	 => [ '█', '█', '█',  '█', '█', '█', '█' ], # broad
 
 # these two make it nec. to support multi-line styles for the vertical edge pieces
-#  'broad-dash' 	 => [ _u8('fc'), _u8('fc'), _u8('fc'),  _u8('fc'), _u8('fc'), _u8('fc'), _u8('fc') ], # broad-dash
-#  'wide-dash' 	 => [ (_u8('88')x 2) .'  ', _u8('88'), _u8('88'),  _u8('88'), _u8('88'), _u8('88'), _u8('88') ], # wide-dash
+#  'broad-dash' 	 => [ '◼', '◼', '◼',  '◼', '◼', '◼', '◼' ], # broad-dash
+#  'wide-dash' 	 => [ ('█'x 2) .'  ', '█', '█',  '█', '█', '█', '█' ], # wide-dash
   },
   ];
 
@@ -92,14 +72,14 @@ my $cross_styles = [
   # normal cross 
   [
     {
-    'boldsolid' 	=> _u8('3f'),
-    'solidbold' 	=> _u8('42'),
-    'doublesolid' 	=> _u8('6a'),
-    'soliddouble' 	=> _u8('6b'),
-    'dashedsolid' 	=> _u8('24'),
-    'soliddashed' 	=> _u8('34'),
-    'doubledashed' 	=> _u8('67'),
-    'dasheddouble' 	=> _u8('62'),
+    'boldsolid' 	=> '┿',
+    'solidbold' 	=> '╂',
+    'doublesolid' 	=> '╪',
+    'soliddouble' 	=> '╫',
+    'dashedsolid' 	=> '┤',
+    'soliddashed' 	=> '┴',
+    'doubledashed' 	=> '╧',
+    'dasheddouble' 	=> '╢',
     },
     {
     'boldsolid'		=> '+',  
@@ -126,21 +106,21 @@ my $cross_styles = [
   #        |
   [
     {
-    'solidsolid'		=> _u8('2c'),  
-    'boldbold'			=> _u8('33'),  
-    'doubledouble'		=> _u8('66'),  
-    'dasheddashed'		=> _u8('74'),  
-    'dotteddotted'		=> _u8('00b7'),  
+    'solidsolid'		=> '┬',  
+    'boldbold'			=> '┳',  
+    'doubledouble'		=> '╦',  
+    'dasheddashed'		=> '╴',  
+    'dotteddotted'		=> '·',  
     },
   ],
   # N_E_W  |
   #       -+-
   [ 
     {
-    'solidsolid'		=> _u8('34'),  
-    'boldbold'			=> _u8('3b'),  
-    'doubledouble'		=> _u8('69'),  
-    'dotteddotted'		=> _u8('00b7'),  
+    'solidsolid'		=> '┴',  
+    'boldbold'			=> '┻',  
+    'doubledouble'		=> '╩',  
+    'dotteddotted'		=> '·',  
     },
   ],
   # E_N_S  |
@@ -148,9 +128,9 @@ my $cross_styles = [
   #        |
   [ 
     {
-    'solidsolid'		=> _u8('1c'),  
-    'boldbold'			=> _u8('23'),  
-    'doubledouble'		=> _u8('60'),  
+    'solidsolid'		=> '├',  
+    'boldbold'			=> '┣',  
+    'doubledouble'		=> '╠',  
     'dotteddotted'		=> ':',  
     },
   ],
@@ -159,9 +139,9 @@ my $cross_styles = [
   #        |
   [ 
     {
-    'solidsolid'		=> _u8('24'),  
-    'boldbold'			=> _u8('2b'),  
-    'doubledouble'		=> _u8('63'),  
+    'solidsolid'		=> '┤',  
+    'boldbold'			=> '┫',  
+    'doubledouble'		=> '╣',  
     'dotteddotted'		=> ':',  
     },
   ] ];
@@ -172,7 +152,7 @@ sub _arrow_style
 
   my $edge = $self->{edge};
 
-  my $as = $edge->attribute('arrow-style') || 'open';
+  my $as = $edge->attribute('arrow-style');
   $as = 'none' if $edge->{undirected};
   $as;
   }
@@ -197,8 +177,7 @@ sub _insert_label
   {
   my ($self, $fb, $xs, $ys, $ws, $hs, $align_ver) = @_;
 
-  # for edge labels, left is the default
-  my $align = $self->{edge}->attribute('align') || 'left';
+  my $align = $self->{edge}->attribute('align');
   
   my ($lines,$aligns) = $self->_aligned_label($align);
 
@@ -692,7 +671,7 @@ sub _draw_label
   my $type = $self->{type} & EDGE_TYPE_MASK;
 
   # for cross sections, we maybe need to draw one of the parts:
-  return if ($self->attribute('style') || '') eq 'invisible' && $type ne EDGE_CROSS;
+  return if $self->attribute('style') eq 'invisible' && $type ne EDGE_CROSS;
 
   my $m = $draw_dispatch->{$type};
 
@@ -711,11 +690,6 @@ package Graph::Easy::Node;
 
 use strict;
 
-BEGIN
-  {
-  *{_u8} = \&Graph::Easy::As_ascii::_u8;
-  }
-
 sub _framebuffer
   {
   # generate an actual framebuffer consisting of spaces
@@ -725,6 +699,7 @@ sub _framebuffer
                join (": ", caller(),"\n") if !defined $w;
 
   my @fb;
+
   my $line = ' ' x $w;
   for my $y (1..$h)
     {
@@ -866,19 +841,19 @@ my $border_styles =
   none =>		[ ' ', ' ', ' ', ' ', ' ',   ' ',   [ ' '      ], [ ' '     ], ' ', ' ', ' ', ' ', ' ' ],
   },
   {
-  solid =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('00'), _u8('00'),     [ _u8('02') ], [ _u8('02') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  double =>		[ _u8('54'), _u8('57'), _u8('5d'), _u8('5a'), _u8('50'), _u8('50'),     [ _u8('51') ], [ _u8('51') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  dotted =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('22ef'), _u8('22ef'), [ _u8('22ee') ], [ _u8('22ee') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  dashed =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('2212'), _u8('2212'), [ _u8('4e') ], [ _u8('4e') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  'dot-dash' =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('00b7').'-', _u8('00b7').'-', ['!'], ['!'], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  'dot-dot-dash' =>	[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), (_u8('00b7') x 2) .'-', (_u8('00b7') x 2) .'-', [ _u8('02'), ':' ], [ _u8('02'), ':' ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  bold =>		[ _u8('0f'), _u8('13'), _u8('1b'), _u8('17'), _u8('01'), _u8('01'), [ _u8('03') ], [ _u8('03') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  'bold-dash' =>	[ _u8('0f'), _u8('13'), _u8('1b'), _u8('17'), _u8('01').' ', _u8('01').' ', [ _u8('7b') ], [ _u8('7b') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  'double-dash' =>	[ _u8('54'), _u8('57'), _u8('5d'), _u8('5a'), _u8('50').' ', _u8('50').' ', [ _u8('2225') ], [ _u8('2225') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  wave =>		[ _u8('0c'), _u8('10'), _u8('18'), _u8('14'), _u8('223c'),  _u8('223c'), [ _u8('2240') ], [ _u8('2240') ], _u8('3c'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  broad =>		[ _u8('9b'), _u8('9c'), _u8('9f'), _u8('99'), _u8('80'), _u8('84'), [ _u8('8c') ], [ _u8('90') ], _u8('84'), _u8('1c'), _u8('24'), _u8('34'), _u8('2c') ],
-  wide =>		[ _u8('88'), _u8('88'), _u8('88'), _u8('88'), _u8('88'), _u8('88'), [ _u8('88') ], [ _u8('88') ], _u8('88'), _u8('88'), _u8('88'), _u8('88'), _u8('88') ],
-  none =>		[ ' ', ' ', ' ', ' ', ' ', ' ',  [ ' '      ], [ ' ' ], 		    ' ', ' ', ' ', ' ', ' ', ],
+  solid =>		[ '┌', '┐', '┘', '└', '─', '─',     [ '│' ], [ '│' ], '┼', '├', '┤', '┴', '┬' ],
+  double =>		[ '╔', '╗', '╝', '╚', '═', '═',     [ '║' ], [ '║' ], '┼', '├', '┤', '┴', '┬' ],
+  dotted =>		[ '┌', '┐', '┘', '└', '⋯', '⋯', [ '⋮' ], [ '⋮' ], '┼', '├', '┤', '┴', '┬' ],
+  dashed =>		[ '┌', '┐', '┘', '└', '−', '−', [ '╎' ], [ '╎' ], '┼', '├', '┤', '┴', '┬' ],
+  'dot-dash' =>		[ '┌', '┐', '┘', '└', '·'.'-', '·'.'-', ['!'], ['!'], '┼', '├', '┤', '┴', '┬' ],
+  'dot-dot-dash' =>	[ '┌', '┐', '┘', '└', ('·' x 2) .'-', ('·' x 2) .'-', [ '│', ':' ], [ '│', ':' ], '┼', '├', '┤', '┴', '┬' ],
+  bold =>		[ '┏', '┓', '┛', '┗', '━', '━', [ '┃' ], [ '┃' ], '┼', '├', '┤', '┴', '┬' ],
+  'bold-dash' =>	[ '┏', '┓', '┛', '┗', '━'.' ', '━'.' ', [ '╻' ], [ '╻' ], '┼', '├', '┤', '┴', '┬' ],
+  'double-dash' =>	[ '╔', '╗', '╝', '╚', '═'.' ', '═'.' ', [ '∥' ], [ '∥' ], '┼', '├', '┤', '┴', '┬' ],
+  wave =>		[ '┌', '┐', '┘', '└', '∼',  '∼', [ '≀' ], [ '≀' ], '┼', '├', '┤', '┴', '┬' ],
+  broad =>		[ '▛', '▜', '▟', '▙', '▀', '▄', [ '▌' ], [ '▐' ], '▄', '├', '┤', '┴', '┬' ],
+  wide =>		[ '█', '█', '█', '█', '█', '█', [ '█' ], [ '█' ], '█', '█', '█', '█', '█' ],
+  none =>		[ ' ', ' ', ' ', ' ', ' ', ' ',  [ ' ' ], [ ' ' ], ' ', ' ', ' ', ' ', ' ', ],
   },
   ];
 
@@ -888,34 +863,31 @@ my $border_styles =
  # lower right edge
  # lower left edge
 
-my $rounded_edges =
-  [
-  _u8('6d'), _u8('6e'), _u8('6f'), _u8('70'),
-  ]; 
+my $rounded_edges = [ '╭', '╮', '╯', '╰', ]; 
 
  # ASCII and box art: the different point styles
 
 my $point_styles = 
   [
   {
-  'star' => '*',
-  'square' => '#',
-  'dot' => '.',
-  'circle' => 'o', 	# unfortunately, we do not have a filled o
-  'cross' => '+',
-  'diamond' => '<>',
-  'x' => 'X',
-  'invisible' => '',
+  'star'	=> '*',
+  'square'	=> '#',
+  'dot'		=> '.',
+  'circle'	=> 'o',  # unfortunately, there is no filled o in ASCII
+  'cross'	=> '+',
+  'diamond'	=> '<>',
+  'x'		=> 'X',
+  'invisible'	=> '',
   },
   {
-  'star' => _u8('2605'),
-  'square' => _u8('a0'),
-  'dot' => _u8('00b7'),
-  'circle' => _u8('cf'),
-  'cross' => '+',
-  'diamond' => _u8('c6'),
-  'x' => _u8('73'),
-  'invisible' => '',
+  'star'	=> '★',
+  'square'	=> '■',
+  'dot'		=> '·',
+  'circle'	=> '●',
+  'cross'	=> '+',
+  'diamond'	=> '◆',
+  'x'		=> '╳',
+  'invisible'	=> '',
   },
   ];  
 
@@ -937,7 +909,8 @@ sub _border_style
 
   die ("Unknown $type border style '$style'") if @$s == 0;
 
-  my $shape = $self->attribute('shape') || '';
+  my $shape = 'rect';
+  $shape = $self->attribute('shape') unless $self->isa_cell();
   return $s unless $shape eq 'rounded';
 
   # if shape: rounded, overlay the rounded edge pieces
@@ -957,17 +930,17 @@ sub _border_style
 my $arrow_styles = 
   [
   {
-    open => [ '>', '<', '^', 'v', ],
-    closed => [ '>', '<', '^', 'v', ],
-    filled => [ '>', '<', '^', 'v', ],
+    open   => [ '>', '<', '^', 'v' ],
+    closed => [ '>', '<', '^', 'v' ],
+    filled => [ '>', '<', '^', 'v' ],
   },
   {
-    # Using '2227' and '2228' for up/down does have problems with many Fonts
-    # not shwoing these characters. So we use "^" and "v", even though they
+    # Using '2227' and '2228' for up/down does have problems with many fonts
+    # not having these characters. So we use "^" and "v", even though they
     # do not look as "good".
-    open => [ '>', '<', '^', 'v', ],
-    filled => [ _u8('25b6'), _u8('25c0'), _u8('25b2'), _u8('25bc') ],
-    closed => [ _u8('25b7'), _u8('25c1'), _u8('25b3'), _u8('25bd') ],
+    open   => [ '>', '<', '^', 'v' ],
+    filled => [ '▶', '◀', '▲', '▼' ],
+    closed => [ '▷', '◁', '△', '▽' ],
   },
   ];
 
@@ -997,7 +970,7 @@ my $arrow_dir = {
 
 sub _arrow_to_dir
   {
-  # return an arror in unicode, depending on style and direction
+  # To convert an HTML arrow to Unicode
   my ($self, $style) = @_;
 
   $arrow_dir->{$style} || 0;
@@ -1142,12 +1115,12 @@ sub _draw_label
   # draw the node label into the framebuffer
   my ($self, $fb, $x, $y) = @_;
 
-  my $shape = $self->attribute('shape') || 'rect';
+  my $shape = $self->attribute('shape');
 
   if ($shape eq 'point')
     {
     # point-shaped nodes do not show their label in ASCII
-    my $style = $self->attribute('point-style') || 'star';
+    my $style = $self->attribute('point-style');
     my $l = $self->_point_style($style);
 
     $self->_printfb_line ($fb, 2, $self->{h} - 2, $l) if $l;
@@ -1160,14 +1133,14 @@ sub _draw_label
 
   my $w = $self->{w} - 4; my $xs = 2;
   my $h = $self->{h} - 2; my $ys = 0.5;
-  my $border = $self->attribute('border-style') || '';
+  my $border = $self->attribute('borderstyle');
   if ($border eq 'none')
     {
     $w += 2; $h += 2;
     $xs = 1; $ys = 0;
     }
 
-  my $align = $self->attribute('align') || 'center';
+  my $align = $self->attribute('align');
   $self->_printfb_aligned ($fb, $xs, $ys, $w, $h, $self->_aligned_label($align));
   }
 
@@ -1179,7 +1152,8 @@ sub as_ascii
   # +--------+    ..........    "" 
   my ($self, $x,$y) = @_;
 
-  my $shape = $self->attribute('shape') || 'rect';
+  my $shape = 'rect';
+  $shape = $self->attribute('shape') unless $self->isa_cell();
 
   if ($shape eq 'edge')
     {
@@ -1202,7 +1176,7 @@ sub as_ascii
   # point-shaped nodes do not have a border
   if ($shape !~ /^(point|none)\z/)
     {
-    my $border_style = $self->attribute('border-style') || 'solid';
+    my $border_style = $self->attribute('borderstyle');
     my $EM = 14;
     my $border_width = Graph::Easy::_border_width_in_pixels($self,$EM);
 

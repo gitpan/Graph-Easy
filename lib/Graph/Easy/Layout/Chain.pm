@@ -7,7 +7,7 @@
 package Graph::Easy::Layout::Chain;
 
 use Graph::Easy::Base;
-$VERSION = '0.07';
+$VERSION = 0.08;
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -135,7 +135,8 @@ sub layout
   if (exists $pre->{_todo})
     {
     # edges with a flow attribute must be handled differently
-    if ($edge && ($edge->attribute('flow') || $edge->has_ports()))
+    # XXX TODO: the test for attribute('flow') might be wrong (raw_attribute()?)
+    if ($edge && ($edge->{to} == $pre) && ($edge->attribute('flow') || $edge->has_ports()))
       {
       push @TODO, $g->_action( _ACTION_CHAIN, $pre, 0, $edge->{from}, $edge);
       }
@@ -173,6 +174,7 @@ sub layout
   while (defined $n)
     {
     # first do edges going from P to N
+    #for my $e (sort { $a->{to}->{name} cmp $b->{to}->{name} } values %{$pre->{edges}})
     for my $e (values %{$pre->{edges}})
       {
       # skip selfloops and backward links, these will be done later
@@ -209,6 +211,7 @@ sub layout
     print STDERR "# inter-chain link from $n->{name}\n" if $g->{debug};
 
     # gather all edges starting at $n, but do the ones with a flow first
+#    for my $e (sort { $a->{to}->{name} cmp $b->{to}->{name} } values %{$n->{edges}})
     for my $e (values %{$n->{edges}})
       {
       # skip selfloops, these will be done later
@@ -271,6 +274,7 @@ sub layout
   $n = $self->{start};
   while (defined $n)
     {
+#    for my $e (sort { $a->{to}->{name} cmp $b->{to}->{name} } values %{$n->{edges}})
     for my $e (values %{$n->{edges}})
       {
       next unless exists $e->{_todo};
@@ -314,6 +318,8 @@ sub layout
 #      print STDERR "# chain-tracking to: $to->{name}\n";
 
       # pass the edge along, in case it has a flow
+#      my @pass = ();
+#      push @pass, $e if $chain->{_first} && $e->{to} == $chain->{_first};
       push @TODO, @{ $chain->layout($e) } unless $chain->{_done};
 
       # link the edges to $to

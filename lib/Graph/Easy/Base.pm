@@ -6,7 +6,7 @@
 
 package Graph::Easy::Base;
 
-$VERSION = '0.06';
+$VERSION = 0.06;
 
 use strict;
 
@@ -59,9 +59,18 @@ sub no_fatal_errors
   {
   my $self = shift;
 
-  $self->{no_fatal_errors} = $_[1] ? 0 : 1 if @_ > 0;
+  $self->{fatal_errors} = ($_[1] ? 1 : 0) if @_ > 0;
 
-  $self->{no_fatal_errors} || 0;
+  $self->{fatal_errors} || 0;
+  }
+
+sub fatal_errors
+  {
+  my $self = shift;
+
+  $self->{fatal_errors} = ($_[1] ? 0 : 1) if @_ > 0;
+
+  $self->{fatal_errors} || 0;
   }
 
 sub error
@@ -70,13 +79,16 @@ sub error
 
   # If we switched to a temp. Graphviz parser, then set the error on the
   # original parser object instead:
-  $self->{_old_self}->error(@_) if ref($self->{_old_self});
+  return $self->{_old_self}->error(@_) if ref($self->{_old_self});
+
+  # if called on a member on a graph, call error() on the graph itself:
+  return $self->{graph}->error(@_) if ref($self->{graph});
 
   if (defined $_[0])
     {
     $self->{error} = $_[0];
     $self->_croak($self->{error}, 2)
-      unless $self->{no_fatal_errors} || $self->{error} eq '';
+      if ($self->{fatal_errors}) && $self->{error} ne '';
     }
   $self->{error} || '';
   }
@@ -183,11 +195,23 @@ Warn on STDERR with the given message.
 
 =head2 no_fatal_errors()
 
-	$fatal = $object->no_fatal_errors();
 	$object->no_fatal_errors(1);
+
+Set the flag that determines whether setting an error message
+via C<error()> is fatal, e.g. results in a call to C<_croak()>.
+
+A true value will make errors non-fatal. See also L<fatal_errors>.
+
+=head2 fatal_errors()
+
+	$fatal = $object->fatal_errors();
+	$object->fatal_errors(0);		# turn off
+	$object->fatal_errors(1);		# turn on
 
 Set/get the flag that determines whether setting an error message
 via C<error()> is fatal, e.g. results in a call to C<_croak()>.
+
+A true value makes errors fatal.
 
 =head2 self()
 

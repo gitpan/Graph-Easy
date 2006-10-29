@@ -7,12 +7,13 @@ package Graph::Easy::Edge::Cell;
 
 use strict;
 use Graph::Easy::Edge;
+use Graph::Easy::Attributes;
 require Exporter;
 
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.23';
+$VERSION = 0.24;
 
 use Scalar::Util qw/weaken/;
 
@@ -208,6 +209,8 @@ my $flag_types = {
   EDGE_END_S() => 'ending south',
 
   };
+
+use constant isa_cell => 1;
 
 sub edge_type
   {
@@ -958,8 +961,8 @@ sub as_html
   my $type = $self->{type} & EDGE_NO_M_MASK;
   my $style = $self->{style};
 
-  my $as = $self->{edge}->attribute('arrow-style') || '';
-  $as = 'none' if $self->{edge}->{undirected};
+  my $as; $as = 'none' if $self->{edge}->{undirected};
+  $as = $self->{edge}->attribute('arrowstyle') unless $as;
 
   my $code = $edge_html->{$type};
 
@@ -988,7 +991,7 @@ sub as_html
   my $id = $self->{graph}->{id};
 
   # || 'black' to set a black border if "label-color" is set
-  my $color = $self->get_color_attribute('color') || '#000000';
+  my $color = $self->color_attribute('color');
   my $label = '';
   my $label_style = '';
 
@@ -1003,7 +1006,7 @@ sub as_html
     # replace linebreaks by <br>, but remove extra spaces 
     $label =~ s/\s*\\n\s*/<br \/>/g;
 
-    my $label_color = $self->get_color_attribute('label-color') || $color;
+    my $label_color = $self->raw_color_attribute('labelcolor') || $color;
     $label_color = '' if $label_color eq '#000000';
     $label_style = "color: $label_color;" if $label_color;
 
@@ -1034,9 +1037,9 @@ sub as_html
   ###########################################################################
   # get the border styles/colors:
 
-  my $bow = $self->attribute('border-width'); $bow = 2 unless defined $bow;
+  # width for the edge is "2px"
+  my $bow = '2';
   my $border = Graph::Easy::_border_attribute_as_html( $self->{style}, $bow, $color);
-
   my $border_v = $border;
 
   if (($self->{type} & EDGE_TYPE_MASK) == EDGE_CROSS)
@@ -1090,7 +1093,7 @@ sub as_html
 
     # only for filled and close
     $c =~ s/>(v|\^|&lt;|&gt;)/'>' . $self->_unicode_arrow($as, $self->_arrow_to_dir($1)); /eg
-      if $as =~ /^(filled|closed)\z/;
+      if $as ne 'open';
 
     # insert the label last, other "v" as label might get replaced above
     $c =~ s/>##label##/$title>$label/;
@@ -1229,12 +1232,13 @@ sub _correct_size
 
 sub attribute
   {
-  my ($self, $atr) = @_;
+  my ($self, $att) = @_;
 
-  return $self->{att}->{$atr} if exists $self->{att}->{$atr};
+  # attributes like "font-size" will fail here and are handled below
+  return $self->{att}->{$att} if exists $self->{att}->{$att};
 
   # if not set, path simple uses the attributes from the edge it belongs to
-  $self->{edge}->attribute($atr);
+  $self->{edge}->attribute($att);
   }
 
 1;

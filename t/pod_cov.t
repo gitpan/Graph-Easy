@@ -7,7 +7,7 @@ my $tests;
 
 BEGIN
    {
-   $tests = 16;
+   $tests = 20;
    plan tests => $tests;
    chdir 't' if -d 't';
    use lib '../lib';
@@ -26,6 +26,7 @@ SKIP:
     Graph::Easy::Group
     Graph::Easy::Edge
     Graph::Easy::Base
+    Graph::Easy::As_ascii
     Graph::Easy::As_txt
     Graph::Easy::As_graphviz
     Graph::Easy::Layout::Chain
@@ -38,6 +39,15 @@ SKIP:
    /)
     {
     pod_coverage_ok( $m, "$m is covered" );
+    }
+
+  my $trustparents = { coverage_class => 'Pod::Coverage::CountParents' };
+  for my $m (qw/
+    Graph::Easy::Node::Anon
+    Graph::Easy::Group::Anon
+   /)
+    {
+    pod_coverage_ok( $m, $trustparents, "$m is covered" );
     }
 
   # Define the global CONSTANTS for internal usage
@@ -64,6 +74,7 @@ SKIP:
 	NO_MULTIPLES
     )\z/x ] };
   pod_coverage_ok( "Graph::Easy::Parser", $trustme );
+  pod_coverage_ok( "Graph::Easy::Parser::Graphviz", $trustme );
 
   }
 

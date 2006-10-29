@@ -1,5 +1,5 @@
 #############################################################################
-# (c) by Tels 2004. Part of Graph::Easy. An anonymous invisible node.
+# (c) by Tels 2004. Part of Graph::Easy. An anonymous (invisible) node.
 #
 #############################################################################
 
@@ -8,7 +8,7 @@ package Graph::Easy::Node::Anon;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = 0.09;
+$VERSION = 0.10;
 
 use strict;
 
@@ -103,8 +103,8 @@ Graph::Easy::Node::Anon - An anonymous, invisible node in Graph::Easy
 
 =head1 DESCRIPTION
 
-A C<Graph::Easy::Node::Anon> represents an anonymous, invisible node in a
-simple graph. These can be used to let edges start and end "nowhere".
+A C<Graph::Easy::Node::Anon> represents an anonymous, invisible node.
+These can be used to let edges start and end "nowhere".
 
 The syntax in the Graph::Easy textual description language looks like this:
 
@@ -120,7 +120,7 @@ L<Graph::Easy::Node>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

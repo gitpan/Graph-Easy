@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.19';
+$VERSION = 0.19;
 
 #############################################################################
 #############################################################################
@@ -676,7 +676,12 @@ sub _get_joints
       next unless exists $next_fields->{ $type };
 
       # don't consider end/start (depending on $mask) cells
-      next if $c->{type} & $mask;
+
+      # do not join EDGE_HOR or EDGE_VER, but join corner pieces
+      next if ( ($type == EDGE_HOR()) || 
+		($type == EDGE_VER()) ) &&
+		($c->{type} & $mask);
+#      next if ($c->{type} & $mask);
 
       my $fields = $next_fields->{$type};
 
@@ -960,7 +965,7 @@ sub _astar
   my @start = @$A;
   my @stop = @$B;
   my $stop = scalar @stop;
- 
+
   my $src = $edge->{from};
   my $dst = $edge->{to};
   my $cells = $self->{cells};
@@ -1057,12 +1062,12 @@ sub _astar
       if ($x == $stop[$i] && $y == $stop[$i+1])
         {
         $closed->{$key}->[4] += $stop[$i+2] if defined $stop[$i+2];
-	# store the reached stop position if it is know
+	# store the reached stop position if it is known
 	if ($per_field > 3)
 	  {
 	  $closed->{$key}->[6] = $stop[$i+3];
 	  $closed->{$key}->[7] = $stop[$i+4];
-          # print STDERR "#  Reached stop position $x,$y (lx,ly $stop[$i+3], $stop[$i+4])\n" if $self->{debug};
+          print STDERR "#  Reached stop position $x,$y (lx,ly $stop[$i+3], $stop[$i+4])\n" if $self->{debug};
 	  }
         elsif ($self->{debug}) {
           print STDERR "#  Reached stop position $x,$y\n";
@@ -1098,7 +1103,7 @@ sub _astar
         $lowest_distance = $d if $d < $lowest_distance; 
         }
 
-    print STDERR "#  opening pos $x,$y ($lowest_distance + $lg)\n" if $self->{debug};
+    print STDERR "#  opening pos $nx,$ny ($lowest_distance + $lg)\n" if $self->{debug};
 
       # open new position into OPEN
       $open->add( [ $lowest_distance + $lg, $nx, $ny, $x, $y, undef ] );

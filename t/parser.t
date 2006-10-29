@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 117;
+   plan tests => 123;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -33,6 +33,7 @@ is ($parser->error(), '', 'no error yet');
 # parse_error():
 
 $parser->no_fatal_errors(1);
+$parser->reset();
 
 $parser->{line_nr} = 0;
 is ($parser->parse_error(1,'foo','bar','node'),
@@ -66,6 +67,13 @@ is (ref($graph), 'Graph::Easy');
 is ($graph->nodes(), 1, 'one node');
 
 #############################################################################
+# test for invalid input with only one line
+
+my $graph2 = $parser->from_text('invalid');
+
+like ($parser->error(), qr/invalid/, 'one invalid line results in error');
+
+#############################################################################
 # matching nodes
 
 my $node_qr = $parser->_match_node();
@@ -84,6 +92,8 @@ foreach (<DATA>)
   next if $_ =~ /^\s*\z/;			# skip empty lines
   next if $_ =~ /^#/;				# skip comments
 
+  $parser->reset();
+
   die ("Illegal line $line in testdata") unless $_ =~ /^(.*)\|([^\|]*)$/;
   my ($in,$result) = ($1,$2);
 
@@ -94,7 +104,7 @@ foreach (<DATA>)
 
   if (!defined $graph)
     {
-    fail($parser->error());
+    fail($parser->error(). ". Input was: $txt");
     next;
     }
   if ($graph->error)
@@ -247,15 +257,29 @@ graph { background: red; } [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ]\n { color: red; } --> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ] { color:\n red; } --> [ Berlin ]|2,Berlin,Bonn
 ( Group [ Bonn ] ) { color: red; }|1,Bonn,Group
-([Bonn]){color:red;}|1,Bonn,
+([Bonn]){color:red;}|1,Bonn,Group #0
 (0[Bonn]){color:red;}|1,Bonn,0
 [ $sys$Node ]|1,$sys$Node
 # lists on the right side
 [ Bonn ] -- test --> [ Berlin], [ Chemnitz ]|3+2,Berlin,Bonn,Chemnitz,test,test
 # empty group
-()|0
+()|0,Group #0
+# empty group
+( )|0,Group #0
+# empty group with link
+( )->[Bonn]|1,Bonn,Group #0
+# empty group linked to another empty group
+( )->( )|0,Group #0,Group #1
+# link ending at empty group (#1 because Bonn is #0)
+[Bonn]->( )|1,Bonn,Group #1
+# link ending at empty group, and starting at empty group
+# 0,1,3 (and not 0,1,2) because:
+# "()" - create first group
+# "->()" - create second group and *then* the edge (id #3)
+# "()" - create third group as "#3"
+()->()->()|0,Group #0,Group #1,Group #3
 # group w/o name
-([Bonn])|1,Bonn,
+([Bonn])|1,Bonn,Group #0
 # edge labels with escaped chars
 [ Bonn ] -- \[ A \] \<\> \=\-\. --> [ Berlin ]|2+1,Berlin,Bonn,[ A ] <> =-.
 # XXX TODO: error testing

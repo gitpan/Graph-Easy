@@ -1,7 +1,7 @@
 [ Aachen ] { offset: 0,2; origin: Hannover; }
 [ Berlin ] { offset: 2,0; origin: Aachen; }
 [ Cuxhaven ] { offset: 4,0; origin: Aachen; }
-[ Hannover ] { flow: down; size: 6,1; }
+[ Hannover ] { flow: down; }
 [ Zwickau ] { offset: 2,-2; origin: Hannover; }
 
 [ Hannover ] --> { start: south; } [ Aachen ]

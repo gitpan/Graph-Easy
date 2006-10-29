@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 111;
+   plan tests => 112;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -33,7 +33,10 @@ can_ok ("Graph::Easy", qw/
   set_attributes
   set_attribute
   get_attribute
+  get_attributes
   get_color_attribute
+  default_attribute
+  raw_attribute
   color_attribute
   attribute
   del_attribute
@@ -107,13 +110,16 @@ is ($graph->is_simple_graph(), 1, 'still simple graph');
 #############################################################################
 # attribute tests
 
-is ($graph->attribute('node', 'background'), undef, 
-	'node.background = undef');
+is ($graph->attribute('background'), 'inherit', 
+	'graph background = undef');
+
+is ($graph->attribute('node', 'background'), 'inherit', 
+	'node background = undef');
 
 is ($graph->attribute('node', 'fill'), 'white', 
 	'node { fill: white }');
 
-is ($graph->attribute('graph', 'border'), '', 
+is ($graph->attribute('graph', 'border'), 'none', 
 	'graph { border: none; }');
 
 $graph->set_attributes ('graph', { color => 'white', background => 'red' });
@@ -167,8 +173,7 @@ graph {
 }
 node.cities { color: #0000ff; }
 
-( Cities
-)
+( Cities )
 
 [ Bonn ] --> [ Berlin ]
 [ Berlin ] --> [ Frankfurt ]

@@ -30,6 +30,7 @@ lib/Graph/Easy/Attributes.pm		define and check attributes
 lib/Graph/Easy/Base.pm			OO base class
 lib/Graph/Easy/Edge/Cell.pm
 lib/Graph/Easy/Edge.pm
+lib/Graph/Easy/Group/Anon.pm		an anonymous (aka nameless) group
 lib/Graph/Easy/Group/Cell.pm
 lib/Graph/Easy/Group.pm
 lib/Graph/Easy/Layout/Chain.pm		a chain of nodes
@@ -38,7 +39,7 @@ lib/Graph/Easy/Layout/Path.pm		path management
 lib/Graph/Easy/Layout/Repair.pm		group cells splicing/repair code
 lib/Graph/Easy/Layout.pm		actual layout routines
 lib/Graph/Easy/Layout/Scout.pm		pathfinding (including A*)
-lib/Graph/Easy/Node/Anon.pm
+lib/Graph/Easy/Node/Anon.pm		an anonymous node
 lib/Graph/Easy/Node/Cell.pm
 lib/Graph/Easy/Node/Empty.pm		empty parts of a cluster
 lib/Graph/Easy/Node.pm
@@ -52,6 +53,7 @@ META.yml				Module meta-data
 README
 SIGNATURE
 t/anon.t
+t/anon_group.t
 t/ascii.t
 t/astar.t
 t/as_txt.t
@@ -85,6 +87,8 @@ t/group/0230.txt
 t/group.t
 t/gv.t
 t/html.t			HTML output
+t/in/0_empty_group.txt
+t/in/0_empty_groups.txt
 t/in/1_bidi_loop.txt
 t/in/1node.txt
 t/in/1_selfloop_2.txt
@@ -215,26 +219,33 @@ t/in/10_repair.txt
 t/in/18_multiples.txt
 t/in/25_autosplit_empty.txt
 t/in/README
+t/in/dot/0_empty.dot
 t/in/dot/2_bool.dot
 t/in/dot/2_graph_label_bottom.dot
 t/in/dot/2_ignore.dot
 t/in/dot/2_nospace.dot
+t/in/dot/2_no_spaces.dot
+t/in/dot/2_ports.dot
 t/in/dot/2_strict.dot
 t/in/dot/3_graph_label_long.dot
 t/in/dot/3_invis.dot
 t/in/dot/3_node_label.dot
-t/in/dot/4_uppercase.dot
+t/in/dot/4_compass.dot
 t/in/dot/4_record.dot
 t/in/dot/4_strings.dot
+t/in/dot/4_uppercase.dot
 t/in/dot/5_scopes.dot
 t/in/dot/5_scopes_chain.dot
 t/in/dot/5_scopes_uni.dot
+t/in/dot/5_scope_atr.dot
 t/in/dot/6_comments.dot
 t/in/dot/6_2_cluster.dot
 t/in/dot/7_record.dot
 t/in/dot/9_back.dot
 t/in/dot/9_stacking.dot
 t/in/dot/9_tree.dot
+t/in/dot/9_edge_styles.dot
+t/in/dot/10_numbers.dot
 t/in/dot/16_split.dot
 t/layers.t
 t/layouter/edge_label.txt
@@ -245,6 +256,7 @@ t/layouter/multiples.txt
 t/layouter/state.txt
 t/layouter.t
 t/layout.t
+t/layout_r.t
 t/node_mc.t
 t/node.t
 TODO
@@ -257,6 +269,8 @@ todos/layouter_loop_2.txt
 todos/layouter_loop.txt
 todos/tree.txt
 todos/tree2.txt
+t/out/0_empty_group.txt
+t/out/0_empty_groups.txt
 t/out/1_bidi_loop.txt
 t/out/1node.txt
 t/out/1_selfloop_2.txt
@@ -388,17 +402,22 @@ t/out/10_repair.txt
 t/out/18_multiples.txt
 t/out/25_autosplit_empty.txt
 t/out/drop_result.txt
+t/out/dot/0_empty.txt
 t/out/dot/2_bool.txt
 t/out/dot/2_graph_label_bottom.txt
 t/out/dot/2_ignore.txt
 t/out/dot/2_nospace.txt
+t/out/dot/2_no_spaces.txt
+t/out/dot/2_ports.txt
 t/out/dot/2_strict.txt
 t/out/dot/3_graph_label_long.txt
 t/out/dot/3_invis.txt
 t/out/dot/3_node_label.txt
-t/out/dot/4_uppercase.txt
+t/out/dot/4_compass.txt
 t/out/dot/4_record.txt
 t/out/dot/4_strings.txt
+t/out/dot/4_uppercase.txt
+t/out/dot/5_scope_atr.txt
 t/out/dot/5_scopes.txt
 t/out/dot/5_scopes_chain.txt
 t/out/dot/5_scopes_uni.txt
@@ -406,8 +425,10 @@ t/out/dot/6_comments.txt
 t/out/dot/6_2_cluster.txt
 t/out/dot/7_record.txt
 t/out/dot/9_back.txt
+t/out/dot/9_edge_styles.txt
 t/out/dot/9_stacking.txt
 t/out/dot/9_tree.txt
+t/out/dot/10_numbers.txt
 t/out/dot/16_split.txt
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
@@ -470,6 +491,8 @@ t/syntax/0250.txt
 t/syntax/0251.txt
 t/syntax/0252.txt
 t/syntax/0254.txt
+t/txt/0_empty_group.txt
+t/txt/0_empty_groups.txt
 t/txt/1_undirected_loop.txt
 t/txt/2_autolabel.txt
 t/txt/2_autosplit_empty.txt
@@ -572,17 +595,22 @@ t/txt/10borders.txt
 t/txt/10_repair.txt
 t/txt/18_multiples.txt
 t/txt/25_autosplit_empty.txt
+t/txt/dot/0_empty.txt
 t/txt/dot/2_bool.txt
 t/txt/dot/2_graph_label_bottom.txt
 t/txt/dot/2_ignore.txt
 t/txt/dot/2_nospace.txt
+t/txt/dot/2_no_spaces.txt
+t/txt/dot/2_ports.txt
 t/txt/dot/2_strict.txt
 t/txt/dot/3_graph_label_long.txt
 t/txt/dot/3_invis.txt
 t/txt/dot/3_node_label.txt
-t/txt/dot/4_uppercase.txt
+t/txt/dot/4_compass.txt
 t/txt/dot/4_record.txt
 t/txt/dot/4_strings.txt
+t/txt/dot/4_uppercase.txt
+t/txt/dot/5_scope_atr.txt
 t/txt/dot/5_scopes.txt
 t/txt/dot/5_scopes_chain.txt
 t/txt/dot/5_scopes_uni.txt
@@ -590,8 +618,10 @@ t/txt/dot/6_comments.txt
 t/txt/dot/6_2_cluster.txt
 t/txt/dot/7_record.txt
 t/txt/dot/9_back.txt
+t/txt/dot/9_edge_styles.txt
 t/txt/dot/9_tree.txt
 t/txt/dot/9_stacking.txt
+t/txt/dot/10_numbers.txt
 t/txt/dot/16_split.txt
 t/use_class.t			test overriding classes in the Parser
 

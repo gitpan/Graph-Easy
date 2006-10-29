@@ -1,13 +1,13 @@
 #!/usr/bin/perl -w
 
-# test graphviz output
+# test as_graphviz() output
 
 use Test::More;
 use strict;
 
 BEGIN
    {
-   plan tests => 131;
+   plan tests => 136;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -221,7 +221,6 @@ is ($graph->error(),'', 'no error');
 $grviz = $graph->as_graphviz();
 like ($grviz, qr/arrowhead=none/, 'arrow-style none');
 
-
 #############################################################################
 #############################################################################
 # undirected edges
@@ -294,7 +293,6 @@ is ($graph->attribute('graph','autolink'), 'name', 'autolink=name');
 
 $grviz = $graph->as_graphviz();
 like ($grviz, qr/URL="http:\/\/bloodgate.com/, 'linkbase plus link');
-
 
 #############################################################################
 # link vs. autolink and linkbase
@@ -395,7 +393,7 @@ $group->add_node($berlin);
 
 $grviz = $graph->as_graphviz();
 
-like ($grviz, qr/Berlin(.|\n)*Bonn(.|\n)*\}(.|\n)*\}/, 'contains nodes inside group');
+like ($grviz, qr/Bonn(.|\n)*Berlin(.|\n)*\}(.|\n)*\}/, 'contains nodes inside group');
 
 #############################################################################
 # node with border-style: none:
@@ -448,13 +446,13 @@ $graph = Graph::Easy->new();
 $edge->set_attribute('style','double');
 
 $grviz = $graph->as_graphviz();
-like ($grviz, qr/[^"]Bonn[^"].*color="black:black/, 'contains Bonn and black:black');
+like ($grviz, qr/[^"]Bonn[^"].*color="#000000:#000000/, 'contains Bonn and black:black');
 unlike ($grviz, qr/style="?solid/, "doesn't contain solid");
 
 $edge->set_attribute('style','double-dash');
 
 $grviz = $graph->as_graphviz();
-like ($grviz, qr/[^"]Bonn[^"].*color="black:black/, 'contains Bonn and black:black');
+like ($grviz, qr/[^"]Bonn[^"].*color="#000000:#000000/, 'contains Bonn and black:black');
 unlike ($grviz, qr/style="?solid/, "doesn't contain solid");
 like ($grviz, qr/style="?dashed/, 'contains solid');
 
@@ -501,6 +499,33 @@ $grviz = $graph->as_graphviz();
 like ($grviz, qr/tailport=s/, 'contains tailport=s');
 like ($grviz, qr/headport=n/, 'contains headport=n');
 
+#############################################################################
+# colorscheme support
 
+$graph = Graph::Easy->new();
 
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+
+$graph->add_group('Cities');
+
+$graph->set_attribute('node','colorscheme','pastel19');
+$graph->set_attribute('color','red');
+$edge->set_attribute('color','1');
+$berlin->set_attribute('color','1');
+$berlin->set_attribute('colorscheme','set23');
+$bonn->set_attribute('color','1');
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/graph.*color="#ff0000"/, 'contains graph color=#ff0000');
+like ($grviz, qr/Bonn.*color="#fbb4ae"/, 'contains Bonn color=#fbb4ae');
+like ($grviz, qr/Berlin.*color="#66c2a5"/, 'contains Berlin color=#66c2a5');
+like ($grviz, qr/->.*Berlin.*color="#a6cee3"/, 'contains edge with default color 1 from set312');
+
+#############################################################################
+# test inheritance of colorscheme for edges, groups and anon things:
+
+$graph->set_attribute('colorscheme','pastel19');
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/->.*Berlin.*color="#fbb4ae"/, 'contains edge with color 1 from pastel19');
 

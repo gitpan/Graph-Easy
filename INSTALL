@@ -10,7 +10,7 @@ Untar the package:
 
 	tar -xzf Graph-Easy-x.xx.tar.gz
 
-Change into the directory:
+where x.xx is the current revision. Then change into the directory:
 
 	chdir Graph-Easy-x.xx/
 
