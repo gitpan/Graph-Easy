@@ -16,6 +16,7 @@ BEGIN
 my $graph = Graph::Easy::Parser->from_file('stress/drop.txt');
 
 binmode STDOUT, ':utf8' or die ("binmode STDOUT, ':utf8' failed: $!");
+binmode STDERR, ':utf8' or die ("binmode STDERR, ':utf8' failed: $!");
 
 my $bonn = $graph->node('Bonn');
 

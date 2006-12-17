@@ -8,7 +8,7 @@ package Graph::Easy::As_txt;
 
 use vars qw/$VERSION/;
 
-$VERSION = 0.11;
+$VERSION = 0.12;
 
 #############################################################################
 #############################################################################
@@ -22,7 +22,6 @@ sub _as_txt
   my ($self) = @_;
 
   # Convert the graph to a textual representation - does not need layout().
-
   $self->_assign_ranks();
 
   # generate the class attributes first
@@ -67,7 +66,7 @@ sub _as_txt
 
   $txt .= "\n" if $txt ne '';		# insert newline
 
-  my @nodes = $self->sorted_nodes('name');
+  my @nodes = $self->sorted_nodes('name','id');
 
   my $count = 0;
   # output nodes with attributes first, sorted by their name
@@ -202,6 +201,14 @@ sub attributes_as_txt
   # XXX TODO: remove atttributes that are simple the default attributes
 
   my $new = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'encode' );
+
+  # For nodes, we do not output their group attribute, since they simple appear
+  # at the right place in the txt:
+  delete $new->{group};
+
+  # for groups inside groups, insert their group attribute
+  $new->{group} = $self->{group}->{name} 
+    if $self->isa('Graph::Easy::Group') && exists $self->{group};
 
   if (defined $self->{origin})
     {

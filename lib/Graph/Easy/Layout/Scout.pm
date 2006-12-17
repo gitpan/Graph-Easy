@@ -1,12 +1,12 @@
 #############################################################################
-# Find paths from node to node in a Manhattan-style grid.
+# Find paths from node to node in a Manhattan-style grid via A*.
 #
 # (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = 0.19;
+$VERSION = 0.20;
 
 #############################################################################
 #############################################################################
@@ -134,6 +134,9 @@ sub _find_path
   my @coords;
   my ($x,$y) = ($x0,$y0);			# starting pos
 
+  ###########################################################################
+  # below follow some shortcuts for easy things like straight paths:
+
   print STDERR "#  dx,dy: $dx,$dy\n" if $self->{debug};
 
   if ($dx == 0 || $dy == 0)
@@ -219,6 +222,9 @@ sub _find_path
       }
 
     } # end else straight path try
+
+  ###########################################################################
+  # Try paths with one bend:
 
   # ($dx != 0 && $dy != 0) => path with one bend
   # XXX TODO:
@@ -340,25 +346,57 @@ sub _find_path_loop
       EDGE_LOOP_SOUTH,
       EDGE_LOOP_WEST,
       EDGE_LOOP_NORTH,
-    ]);
+    ], 0, 90);
   
-  my @tries = (
+  my $flow = $src->flow();
+
+  # We cannot use _shuffle_dir() here, because self-loops
+  # are tried in a different order:
+
+  # the default (east)
+  my $index = [
     EDGE_LOOP_NORTH,
     EDGE_LOOP_SOUTH,
     EDGE_LOOP_WEST,
     EDGE_LOOP_EAST,
-   );
-  my $index = $src->_shuffle_dir( \@tries, $src->flow());
+   ];
 
+  # west
+  $index = [
+    EDGE_LOOP_SOUTH,
+    EDGE_LOOP_NORTH,
+    EDGE_LOOP_EAST,
+    EDGE_LOOP_WEST,
+   ] if $flow == 270;
+
+  # north
+  $index = [
+    EDGE_LOOP_WEST,
+    EDGE_LOOP_EAST,
+    EDGE_LOOP_SOUTH,
+    EDGE_LOOP_NORTH,
+   ] if $flow == 0;
+  
+  # south
+  $index = [
+    EDGE_LOOP_EAST,
+    EDGE_LOOP_WEST,
+    EDGE_LOOP_NORTH,
+    EDGE_LOOP_SOUTH,
+   ] if $flow == 180;
+  
   for my $this_try (@$index)
     {
     my $idx = 0;
     while ($idx < @places)
       {
+      print STDERR "# Trying $places[$idx+0],$places[$idx+1]\n" if $self->{debug};
       next unless $places[$idx+2] == $this_try;
       
       # build a path from the returned piece
       my @rc = ($places[$idx], $places[$idx+1], $places[$idx+2]);
+
+      print STDERR "# Trying $rc[0],$rc[1]\n" if $self->{debug};
 
       next unless $self->_path_is_clear(\@rc);
 
@@ -384,8 +422,8 @@ sub _init
   {
   my ($self,$args) = @_;
 
-  # the last elements guaranteed to be in order
   $self->{_heap} = [ ];
+  # if false, the elements on the heap are guaranteed to be in order
   $self->{_dirty} = 0;
 
   $self;
@@ -402,7 +440,6 @@ sub add
   if (@$heap == 0)
     {
     push @$heap, $elem;
-    $self->{_top} = 1;
     }
   # smaller than first elem?
   elsif ($elem->[0] < $heap->[0]->[0])
@@ -443,12 +480,49 @@ sub extract_top
 
   if ($self->{_dirty})
     {
-    # heap is dirty
-    @{$self->{_heap}} = sort { $a->[0] <=> $b->[0] } @{$self->{_heap}};
+    # heap is dirty, so sort it and mark it as clean:
+    if ($self->{_sort})
+      {
+      my $sort = $self->{_sort};
+      @$heap = sort $sort @$heap;
+      }
+    else
+      {
+      @$heap = sort { $a->[0] <=> $b->[0] } @$heap;
+      }
     $self->{_dirty} = 0;
     }
 
+  # return the top element from the heap
   shift @$heap;
+  }
+
+sub delete
+  {
+  # Find an element by $x,$y and delete it
+  my ($self, $x, $y) = @_;
+
+  my $heap = $self->{_heap};
+  
+  my $i = 0;
+  for my $e (@$heap)
+    {
+    if ($e->[1] == $x && $e->[2] == $y)
+      {
+      splice (@$heap, $i, 1);
+      return;
+      }
+    $i++;
+    }
+
+  $self;
+  }
+
+sub sort_sub
+  {
+  my ($self) = shift;
+
+  $self->{_sort} = shift;
   }
 
 #############################################################################
@@ -461,6 +535,7 @@ package Graph::Easy;
 
 sub _astar_modifier
   {
+  # calculate the cost for the path at cell x1,y1 
   my ($x1,$y1,$x,$y,$px,$py, $cells) = @_;
 
   my $add = 1;
@@ -489,6 +564,7 @@ sub _astar_modifier
 
 sub _astar_distance
   {
+  # calculate the manhattan distance between x1,y1 and x2,y2
   my ($x1,$y1,$x2,$y2) = @_;
 
   my $dx = abs($x2 - $x1);
@@ -547,7 +623,7 @@ sub _astar_edge_type
 sub _astar_near_nodes
   {
   # return possible next nodes from $nx,$ny
-  my ($nx, $ny, $cells, $open_by_pos, $closed, $min_x, $min_y, $max_x, $max_y) = @_;
+  my ($self, $nx, $ny, $cells, $open_by_pos, $closed, $min_x, $min_y, $max_x, $max_y) = @_;
 
   my @places = ();
 
@@ -577,6 +653,10 @@ sub _astar_near_nodes
     );
     }
 
+  # This loop does not check whether the position is already open or not,
+  # the caller will later check if the already-open position needs to be
+  # replaced by one with a lower cost.
+
   my $i = 0;
   while ($i < @tries)
     {
@@ -588,17 +668,12 @@ sub _astar_near_nodes
     my $p = "$x,$y";
     next if exists $closed->{$p};
 
-    # XXX TODO:
-    # If it is in open, but we reached it with a lower g(), then lower
-    # the existing value.
-    # already open?
-    next if exists $open_by_pos->{$p};
-
     if (exists $cells->{$p} && ref($cells->{$p}) && $cells->{$p}->isa('Graph::Easy::Edge'))
       {
-      # if the existing cell is an VER/HOR edge, then we may cross it
+      # If the existing cell is an VER/HOR edge, then we may cross it
       my $type = $cells->{$p}->{type};	# including flags, because only flagless edges
 					# may be crossed
+
       push @places, $x, $y if ($type == EDGE_HOR) || ($type == EDGE_VER);
       next;
       }
@@ -681,7 +756,6 @@ sub _get_joints
       next if ( ($type == EDGE_HOR()) || 
 		($type == EDGE_VER()) ) &&
 		($c->{type} & $mask);
-#      next if ($c->{type} & $mask);
 
       my $fields = $next_fields->{$type};
 
@@ -711,7 +785,7 @@ sub _get_joints
 
 sub _join_edge
   {
-  # find out whether an edge sharing a ending point with the source edge
+  # Find out whether an edge sharing an ending point with the source edge
   # runs alongside the source node, if so, convert it to a joint:
   my ($self, $node, $edge, $shared, $end) = @_;
 
@@ -774,6 +848,7 @@ sub _join_edge
 
 sub _find_path_astar
   {
+  # Find a path with the A* algorithm for the given edge (from node A to B)
   my ($self,$edge) = @_;
 
   my $cells = $self->{cells};
@@ -797,11 +872,11 @@ sub _find_path_astar
   ]; 
 
   # if the target/source node is of shape "edge", remove the endpoint
-  if ( ($edge->{to}->attribute('shape') ||'') eq 'edge')
+  if ( ($edge->{to}->attribute('shape')) eq 'edge')
     {
     $end_flags = [ 0,0,0,0 ];
     }
-  if ( ($edge->{from}->attribute('shape') ||'') eq 'edge')
+  if ( ($edge->{from}->attribute('shape')) eq 'edge')
     {
     $start_flags = [ 0,0,0,0 ];
     }
@@ -960,6 +1035,8 @@ sub _find_path_astar
 
 sub _astar
   {
+  # The core A* algorithm, finds a path from a given list of start
+  # positions @A to and of the given stop positions @B.
   my ($self, $A, $B, $edge, $per_field) = @_;
 
   my @start = @$A;
@@ -971,8 +1048,8 @@ sub _astar
   my $cells = $self->{cells};
 
   my $open = Graph::Easy::Heap->new();	# to find smallest elem fast
-  my $open_by_pos = {};			# to find node by pos
-  my $closed = {};			# a hash, indexed by "$x,$y" to find nodes by pos
+  my $open_by_pos = {};			# to find open nodes by pos
+  my $closed = {};			# to find closed nodes by pos
 
   my $elem;
 
@@ -1003,13 +1080,14 @@ sub _astar
     my $t = 0; $t = $cell->{type} & EDGE_NO_M_MASK if $rcell =~ /::Edge/;
     next if $t != 0 && $t != EDGE_HOR && $t != EDGE_VER;
 
-    # for each start point, calculate the distance to each stop point, then use
-    # the smallest as value
-
+    # For each start point, calculate the distance to each stop point, then use
+    # the smallest as value:
+    my ($lowest_x, $lowest_y);
     my $lowest = _astar_distance($sx,$sy, $stop[0], $stop[1]);
     for (my $u = $per_field; $u < $stop; $u += $per_field)
       {
       my $dist = _astar_distance($sx,$sy, $stop[$u], $stop[$u+1]);
+      ($lowest_x, $lowest_y) = ($stop[$u],$stop[$u+1]) if $dist < $lowest;
       $lowest = $dist if $dist < $lowest;
       }
 
@@ -1019,7 +1097,8 @@ sub _astar
     $open->add( [ $lowest, $sx, $sy, $px, $py, $type, 1 ] );
 
     my $o = $malus + $bias + $lowest;
-    print STDERR "#   adding open pos $sx,$sy ($o)\n" if $self->{debug};
+    print STDERR "#   adding open pos $sx,$sy ($o = $malus + $bias + $lowest) at ($lowest_x,$lowest_y)\n"
+	 if $self->{debug};
 
     # The cost to reach the starting node is obviously 0. That means that there is
     # a tie between going down/up if both possibilities are equal likely. We insert
@@ -1080,7 +1159,7 @@ sub _astar
       unless defined $x && defined $y;
       
     # get list of potential positions we need to explore from the current one
-    my @p = _astar_near_nodes($x,$y, $cells, $open_by_pos, $closed, $min_x, $min_y, $max_x, $max_y);
+    my @p = $self->_astar_near_nodes($x,$y, $cells, $open_by_pos, $closed, $min_x, $min_y, $max_x, $max_y);
     my $n = 0;
     while ($n < scalar @p)
       {
@@ -1094,6 +1173,21 @@ sub _astar
       my $lg = $g;
       $lg += _astar_modifier($px,$py,$x,$y,$nx,$ny,$cells) if defined $px && defined $py;
 
+      my $n = "$nx,$ny";
+
+      # was already open?
+      next if (exists $open_by_pos->{$n});
+
+#      print STDERR "#   Already open pos $nx,$ny with $open_by_pos->{$n} (would be $lg)\n"
+#	 if $self->{debug} && exists $open_by_pos->{$n};
+#
+#      next if exists $open_by_pos->{$n} && $open_by_pos->{$n} <= $lg; 
+#
+#      if (exists $open_by_pos->{$n})
+#        {
+#        $open->delete($nx, $ny);
+#        }
+
       # calculate distance to each possible stop position, and
       # use the lowest one
       my $lowest_distance = _astar_distance($nx, $ny, $stop[0], $stop[1]);
@@ -1103,13 +1197,16 @@ sub _astar
         $lowest_distance = $d if $d < $lowest_distance; 
         }
 
-    print STDERR "#  opening pos $nx,$ny ($lowest_distance + $lg)\n" if $self->{debug};
+      print STDERR "#   Opening pos $nx,$ny ($lowest_distance + $lg)\n" if $self->{debug};
 
       # open new position into OPEN
       $open->add( [ $lowest_distance + $lg, $nx, $ny, $x, $y, undef ] );
-      $open_by_pos->{"$nx,$ny"} = $lg;
+      $open_by_pos->{$n} = $lg;
       }
     }
+
+  ###########################################################################
+  # A* is done, now build a path from the information we computed above:
 
   # count how many steps we did in A*
   $self->{stats}->{astar_steps} += $tries;
@@ -1126,6 +1223,9 @@ sub _astar
 
   my $label_cell = 0;		# found a cell to attach the label to?
 
+  my @bends;			# record all bends in the path to straighten it out
+
+  my $idx = 0;
   # follow $elem back to the source to find the path
   while (defined $cx)
     {
@@ -1195,7 +1295,7 @@ sub _astar
       $type += _astar_edge_type($px, $py, $cx, $cy, $lx,$ly);
       }
 
-    print STDERR "#  Following back from $px,$py to $cx,$cy to $lx,$ly\n" if $self->{debug};
+    print STDERR "#  Following back from $lx,$ly over $cx,$cy to $px,$py\n" if $self->{debug};
 
     if ($px == $lx && $py == $ly && ($cx != $lx || $cy != $ly))
       {
@@ -1210,11 +1310,16 @@ sub _astar
     # if this is the first hor edge, attach the label to it
     # XXX TODO: This clearly is not optimal. Look for left-most HOR CELL
     my $t = $type & EDGE_TYPE_MASK;
-    if ($label_cell == 0 && ($t == EDGE_HOR || $t == EDGE_VER))
+
+    # Do not put the label on crossings:
+    if ($label_cell == 0 && (!exists $cells->{"$cx,$cy"}) && ($t == EDGE_HOR || $t == EDGE_VER))
       {
       $label_cell++;
       $type += EDGE_LABEL_CELL;
       }
+
+    push @bends, [ $type, $cx, $cy, -$idx ]
+	if ($type == EDGE_S_E || $t == EDGE_S_W || $t == EDGE_N_E || $t == EDGE_N_W);
 
     unshift @$path, $cx, $cy, $type;		# unshift to reverse the path
 
@@ -1222,10 +1327,174 @@ sub _astar
 
     ($lx,$ly) = ($cx,$cy);
     ($cx,$cy) = @{ $closed->{"$cx,$cy"} };	# get X,Y of next cell
+
+    $idx += 3;					# index into $path (for bends)
     }
+
+  # try to straighten unnec. inward bends
+  $self->_straighten_path($path, \@bends, $edge) if @bends >= 3;
 
   return ($path,$closed,$open_by_pos) if wantarray;
   $path;
+  }
+
+  # 1:
+  #           |             |
+  #      +----+   =>        |
+  #      |                  |
+  #  ----+            ------+
+
+  # 2:
+  #      +---         +------
+  #      |            |
+  #  +---+        =>  |
+  #  |                |
+
+  # 3:
+  #  ----+            ------+
+  #      |        =>        |
+  #      +----+             |
+  #           |             |
+
+  # 4:
+  #  |                |
+  #  +---+            |
+  #      |        =>  |
+  #      +----+       +------
+
+my $bend_patterns = [
+
+  # The patterns are duplicated to catch both directions of the path:
+
+  # First five entries must match
+  #				 dx, dy,
+  #				        coordinates for new edge
+  #				        (2 == y, 1 == x, first is
+  #				        taken from A, second from B)
+  # 						  these replace the first & last bend
+  # 1:
+  [ EDGE_N_W, EDGE_S_E, EDGE_N_W, 0, -1, 2, 1, EDGE_HOR, EDGE_VER, 1,0,  0,-1 ],
+  [ EDGE_N_W, EDGE_S_E, EDGE_N_W, -1, 0, 1, 2, EDGE_VER, EDGE_HOR, 0,1,  -1,0 ],
+
+  # 2:
+  [ EDGE_S_E, EDGE_N_W, EDGE_S_E, 0, -1, 1, 2, EDGE_VER, EDGE_HOR, 0,-1, 1,0 ],
+  [ EDGE_S_E, EDGE_N_W, EDGE_S_E, -1, 0, 2, 1, EDGE_HOR, EDGE_VER, -1,0, 0,1 ],
+
+  # 3:
+  [ EDGE_S_W, EDGE_N_E, EDGE_S_W, 0,  1, 2, 1, EDGE_HOR, EDGE_VER, 1,0, 0,1 ],
+  [ EDGE_S_W, EDGE_N_E, EDGE_S_W, -1, 0, 1, 2, EDGE_VER, EDGE_HOR, 0,1, 1,0 ],
+
+  # 4:
+  [ EDGE_N_E, EDGE_S_W, EDGE_N_E, 1,  0, 1, 2, EDGE_VER, EDGE_HOR, 0,1, 1,0 ],
+  [ EDGE_N_E, EDGE_S_W, EDGE_N_E, 0, -1, 2, 1, EDGE_HOR, EDGE_VER, 1,0, 0,1 ],
+
+  ];
+
+sub _straighten_path
+  {
+  my ($self, $path, $bends, $edge) = @_;
+
+  # XXX TODO:
+  # in case of multiple bends, removes only one of them due to overlap
+
+  my $cells = $self->{cells};
+
+  my $i = 0;
+  BEND:
+  while ($i < (scalar @$bends - 2))
+    {
+    # for each bend, check it and the next two bends
+
+    my ($a,$b,$c) = ($bends->[$i],
+		     $bends->[$i+1],
+		     $bends->[$i+2]);
+
+    my $dx = ($b->[1] - $a->[1]);
+    my $dy = ($b->[2] - $a->[2]);
+
+    for my $pattern (@$bend_patterns)
+      {
+      if ( ($a->[0] == $pattern->[0]) &&
+           ($b->[0] == $pattern->[1]) &&
+           ($c->[0] == $pattern->[2]) &&
+	   ($dx == $pattern->[3]) &&
+	   ($dy == $pattern->[4]))
+	{
+	# pattern matched
+
+#	print STDERR "# Got bends: \n";
+#	print STDERR "# @$a\n# @$b\n# @$c\n";
+
+	# check that the alternative path is empty
+
+	# new corner:
+	my $cx = $a->[$pattern->[5]];
+	my $cy = $c->[$pattern->[6]];
+
+	next BEND if exists $cells->{"$cx,$cy"};
+
+	# check from A to new corner
+	my $x = $a->[1];
+	my $y = $a->[2];
+
+	my @replace = ();
+
+	push @replace, $cx, $cy, $pattern->[0] if ($x == $cx && $y == $cy);
+
+	my $ddx = $pattern->[9];
+	my $ddy = $pattern->[10];
+	while ($x != $cx || $y != $cy)
+	  {
+	  next BEND if exists $cells->{"$x,$y"};
+	  push @replace, $x, $y, $pattern->[7];
+	  $x += $ddx;
+	  $y += $ddy;
+	  }
+
+	$x = $cx; $y = $cy;
+
+	# check from new corner to C
+	$ddx = $pattern->[11];
+	$ddy = $pattern->[12];
+	while ($x != $c->[1] || $y != $c->[2])
+	  {
+	  next BEND if exists $cells->{"$x,$y"};
+	  push @replace, $x, $y, $pattern->[8];
+	
+	  # set the correct type on the corner
+	  $replace[-1] = $pattern->[0] if ($x == $cx && $y == $cy);
+	  $x += $ddx;
+	  $y += $ddy;
+	  }
+	# insert C
+	push @replace, $x, $y, $pattern->[8];
+
+#	use Data::Dumper; print STDERR Dumper(@replace);
+#	print STDERR "# generated ", scalar @replace, " entries\n";
+#	print STDERR "# idx A $a->[3] C $c->[3]\n";
+
+	# the path is clear, so replace the inward bend with the new one
+
+	my $diff = $a->[3] - $c->[3] ? -3 : 3;
+
+	my $idx = 0; my $p_idx = $a->[3] + $diff;
+	while ($idx < @replace)
+	  {
+#	  print STDERR "# replace $p_idx .. $p_idx + 2\n";
+#	  print STDERR "# replace $path->[$p_idx] with $replace[$idx]\n";
+#	  print STDERR "# replace $path->[$p_idx+1] with $replace[$idx+1]\n";
+#	  print STDERR "# replace $path->[$p_idx+2] with $replace[$idx+2]\n";
+
+	  $path->[$p_idx] = $replace[$idx];
+	  $path->[$p_idx+1] = $replace[$idx+1];
+	  $path->[$p_idx+2] = $replace[$idx+2];
+	  $p_idx += $diff;
+	  $idx += 3;
+ 	  }
+	}
+      }
+
+    } continue { $i++; };
   }
 
 sub _map_as_html

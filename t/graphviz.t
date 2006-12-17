@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 136;
+   plan tests => 140;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -528,4 +528,29 @@ $graph->set_attribute('colorscheme','pastel19');
 
 $grviz = $graph->as_graphviz();
 like ($grviz, qr/->.*Berlin.*color="#fbb4ae"/, 'contains edge with color 1 from pastel19');
+
+#############################################################################
+# autolabel is skipped
+
+$graph->set_attribute('node','autolabel','15');
+
+$grviz = $graph->as_graphviz();
+unlike ($grviz, qr/autolabel/, "doesn't contain autolabel");
+
+#############################################################################
+# test that the attributes group, rows and columns are skipped
+
+$graph = Graph::Easy->new();
+
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+$group = $graph->add_group('Cities');
+$group->add_nodes($bonn, $berlin);
+$bonn->set_attribute('size','2,2');
+
+$graph->layout();
+$grviz = $graph->as_graphviz();
+unlike ($grviz, qr/rows=/, 'does not contain rows=');
+unlike ($grviz, qr/columns=/, 'does not contain columns=');
+unlike ($grviz, qr/group=/, 'does not contain group=');
+
 

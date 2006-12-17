@@ -3,6 +3,7 @@ bench/serie.pl
 bench/stress.pl
 bench/test.dot
 bench/test.txt
+bin/graph-easy
 CHANGES
 Build.PL
 examples/as_ascii		parse text and output it as ASCII art
@@ -122,6 +123,7 @@ t/in/2_selfloop_flow_down.txt
 t/in/2_selfloop.txt
 t/in/2_zeros.txt
 t/in/2_group_multicell.txt
+t/in/2_wrap.txt
 t/in/3_autosplit_hang.txt
 t/in/3_bend_bug.txt
 t/in/3_cluster.txt
@@ -151,6 +153,7 @@ t/in/4_att.txt
 t/in/4_autosplit_class.txt
 t/in/4_autosplit_empty.txt
 t/in/4_autosplit_offset.txt
+t/in/4_autosplit_shape.txt
 t/in/4_bend_bug.txt
 t/in/4_bug_joint_2.txt
 t/in/4_comma.txt
@@ -165,6 +168,7 @@ t/in/4_edge_types.txt
 t/in/4_endless_loop_2.txt
 t/in/4_endless_loop.txt
 t/in/4_flow.txt
+t/in/4_flow_chain.txt
 t/in/4groups_class.txt
 t/in/4groups.txt
 t/in/4_joint.txt
@@ -181,6 +185,7 @@ t/in/4_node_edge.txt
 t/in/4nodes.txt
 t/in/5_arrow_styles.txt
 t/in/5_a-star_bug.txt
+t/in/5_flow.txt
 t/in/5_group_split.txt
 t/in/5_group_repair.txt
 t/in/5_joint.txt
@@ -199,6 +204,7 @@ t/in/6_fanout.txt
 t/in/6_joint.txt
 t/in/6_multicell_offset.txt
 t/in/6_multicell.txt
+t/in/6_ranks.txt
 t/in/6_split_join_loop.txt
 t/in/7_cluster.txt
 t/in/7_star.txt
@@ -226,11 +232,15 @@ t/in/dot/2_ignore.dot
 t/in/dot/2_nospace.dot
 t/in/dot/2_no_spaces.dot
 t/in/dot/2_ports.dot
+t/in/dot/2_setlinewidth.dot
 t/in/dot/2_strict.dot
+t/in/dot/3_colors.dot
 t/in/dot/3_graph_label_long.dot
 t/in/dot/3_invis.dot
 t/in/dot/3_node_label.dot
 t/in/dot/4_compass.dot
+t/in/dot/4_cluster_labeljust.dot
+t/in/dot/4_html_like.dot
 t/in/dot/4_record.dot
 t/in/dot/4_strings.dot
 t/in/dot/4_uppercase.dot
@@ -257,6 +267,7 @@ t/layouter/state.txt
 t/layouter.t
 t/layout.t
 t/layout_r.t
+t/nesting.t
 t/node_mc.t
 t/node.t
 TODO
@@ -305,6 +316,7 @@ t/out/2_selfloop_flow_down.txt
 t/out/2_selfloop.txt
 t/out/2_zeros.txt
 t/out/2_group_multicell.txt
+t/out/2_wrap.txt
 t/out/3_autosplit_hang.txt
 t/out/3_bend_bug.txt
 t/out/3_cluster.txt
@@ -334,6 +346,7 @@ t/out/4_att.txt
 t/out/4_autosplit_class.txt
 t/out/4_autosplit_empty.txt
 t/out/4_autosplit_offset.txt
+t/out/4_autosplit_shape.txt
 t/out/4_bend_bug.txt
 t/out/4_bug_joint_2.txt
 t/out/4_comma.txt
@@ -348,6 +361,7 @@ t/out/4_edge_types.txt
 t/out/4_endless_loop_2.txt
 t/out/4_endless_loop.txt
 t/out/4_flow.txt
+t/out/4_flow_chain.txt
 t/out/4_joint.txt
 t/out/4_joint_bug_flags.txt
 t/out/4groups_class.txt
@@ -364,6 +378,7 @@ t/out/4_node_edge.txt
 t/out/4nodes.txt
 t/out/5_arrow_styles.txt
 t/out/5_a-star_bug.txt
+t/out/5_flow.txt
 t/out/5_group_split.txt
 t/out/5_group_repair.txt
 t/out/5_joint.txt
@@ -382,6 +397,7 @@ t/out/6_fanout.txt
 t/out/6_joint.txt
 t/out/6_multicell_offset.txt
 t/out/6_multicell.txt
+t/out/6_ranks.txt
 t/out/6_split_join_loop.txt
 t/out/7_cluster.txt
 t/out/7_star.txt
@@ -409,11 +425,15 @@ t/out/dot/2_ignore.txt
 t/out/dot/2_nospace.txt
 t/out/dot/2_no_spaces.txt
 t/out/dot/2_ports.txt
+t/out/dot/2_setlinewidth.txt
 t/out/dot/2_strict.txt
+t/out/dot/3_colors.txt
 t/out/dot/3_graph_label_long.txt
 t/out/dot/3_invis.txt
 t/out/dot/3_node_label.txt
 t/out/dot/4_compass.txt
+t/out/dot/4_cluster_labeljust.txt
+t/out/dot/4_html_like.txt
 t/out/dot/4_record.txt
 t/out/dot/4_strings.txt
 t/out/dot/4_uppercase.txt
@@ -512,6 +532,7 @@ t/txt/2_list_attr.txt
 t/txt/2_newlines.txt
 t/txt/2_zeros.txt
 t/txt/2_group_multicell.txt
+t/txt/2_wrap.txt
 t/txt/3_autosplit_hang.txt
 t/txt/3_cluster.txt
 t/txt/3_corrupt.txt
@@ -534,6 +555,7 @@ t/txt/4_2x2nodes.txt
 t/txt/4_autosplit_class.txt
 t/txt/4_autosplit_empty.txt
 t/txt/4_autosplit_offset.txt
+t/txt/4_autosplit_shape.txt
 t/txt/4_bug_joint_2.txt
 t/txt/4_comma.txt
 t/txt/4_collapse.txt
@@ -546,6 +568,7 @@ t/txt/4_edge_labels.txt
 t/txt/4_endless_loop_2.txt
 t/txt/4_endless_loop.txt
 t/txt/4_flow.txt
+t/txt/4_flow_chain.txt
 t/txt/4groups_class.txt
 t/txt/4groups.txt
 t/txt/4_joint_bug_flags.txt
@@ -559,6 +582,7 @@ t/txt/4_nodes_5_edges.txt
 t/txt/4_nodes_6_edges.txt
 t/txt/4_node_edge.txt
 t/txt/5_arrow_styles.txt
+t/txt/5_flow.txt
 t/txt/5_group_split.txt
 t/txt/5_joint.txt
 t/txt/5_joint_bug2.txt
@@ -576,6 +600,7 @@ t/txt/6_fanout.txt
 t/txt/6_joint.txt
 t/txt/6_multicell_offset.txt
 t/txt/6_multicell.txt
+t/txt/6_ranks.txt
 t/txt/6_split_join_loop.txt
 t/txt/7_cluster.txt
 t/txt/7_star.txt
@@ -602,11 +627,15 @@ t/txt/dot/2_ignore.txt
 t/txt/dot/2_nospace.txt
 t/txt/dot/2_no_spaces.txt
 t/txt/dot/2_ports.txt
+t/txt/dot/2_setlinewidth.txt
 t/txt/dot/2_strict.txt
+t/txt/dot/3_colors.txt
 t/txt/dot/3_graph_label_long.txt
 t/txt/dot/3_invis.txt
 t/txt/dot/3_node_label.txt
 t/txt/dot/4_compass.txt
+t/txt/dot/4_cluster_labeljust.txt
+t/txt/dot/4_html_like.txt
 t/txt/dot/4_record.txt
 t/txt/dot/4_strings.txt
 t/txt/dot/4_uppercase.txt
@@ -630,6 +659,7 @@ inc/Module/Install/Base.pm
 inc/Module/Install/Build.pm
 inc/Module/Install/Can.pm
 inc/Module/Install/Fetch.pm
+inc/Module/Install/Scripts.pm
 inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm

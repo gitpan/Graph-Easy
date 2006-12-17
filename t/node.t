@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 191;
+   plan tests => 195;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -26,6 +26,7 @@ can_ok ("Graph::Easy::Node", qw/
   predecessors
   has_predecessors
   connections
+  edges
   edges_to
   incoming
   outgoing
@@ -39,7 +40,6 @@ can_ok ("Graph::Easy::Node", qw/
   flow
   angle
 
-  grow
   parent
   pos
   offset
@@ -121,6 +121,7 @@ is ($edge->border_attribute(), '', 'border_attribute()');
 my $other = Graph::Easy::Node->new();
 
 is (scalar $node->edges_to($other), undef, 'no graph, no links');
+is (scalar $node->edges(), undef, 'no graph, no edges');
 
 #############################################################################
 # predecessors(), successors(), connections() and edges_to() tests
@@ -139,11 +140,15 @@ is (scalar $node->sorted_successors(), 1, '1 outgoing');
 is ($node->predecessors(), 0, '0 incoming');
 is (scalar $node->edges_to($other), 1, '1 link to $other');
 is ($node->connections(), 1, '1 connection');
+is (scalar $node->edges(), 1, '1 edge');
 
 my @E = $node->edges_to($other);
 
 is (scalar @E, 1, '1 link to $other');
 is ($E[0], $edge, 'first link to $other is $edge');
+
+@E = $node->edges();
+is ($E[0], $edge, '1 edge');
 
 is ($other->successors(), 0, '0 outgoing');
 is (scalar $other->sorted_successors(), 0, '0 outgoing');
@@ -370,6 +375,7 @@ my $group = Graph::Easy::Group->new( { name => 'foo' } );
 $node->add_to_group($group);
 
 is ($node->group(), $group, 'group foo');
+is ($node->attribute('group'), $group->{name}, 'group foo');
 
 #############################################################################
 # title tests
@@ -435,13 +441,14 @@ like ($node->as_ascii(), qr/label/, 'as_ascii uses label, not name');
 $node = Graph::Easy::Node->new();
 
 my $cells = { };
+my $parent = { cells => $cells };
 
-is ($node->_do_place(1,1,$cells), 1, 'node can be placed');
+is ($node->_do_place(1,1,$parent), 1, 'node can be placed');
 
 is ($cells->{"1,1"}, $node, 'node was really placed');
 is (scalar keys %$cells, 1, 'one entry');
 
-is ($node->_do_place(1,1,$cells), 0, 'node cannot be placed again');
+is ($node->_do_place(1,1,$parent), 0, 'node cannot be placed again');
 is ($cells->{"1,1"}, $node, 'node still there placed');
 is (scalar keys %$cells, 1, 'one entry');
 

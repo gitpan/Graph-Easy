@@ -2,6 +2,6 @@ node { border: double; }
 node.b { border: dotted; }
 node.c { border: dashed; }
 
-[ C|D ] { class: b; }
+[ C|D ] { class: c; }
 
 [ A|B ]

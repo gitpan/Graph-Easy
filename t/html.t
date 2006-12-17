@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 65;
+   plan tests => 66;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -315,7 +315,7 @@ $A->set_attribute('label', 'Köln\r(am Rhein)\l(NRW)\c(Deutschland)');
 $html = $graph->as_html_file();
 
 like ($html,
-  qr/class='node'>Köln<br \/><span class="r">\(am Rhein\)<\/span><br \/><span class="l">\(NRW\)<\/span><br \/>\(Deutschland\)</,
+  qr/class='node'>Köln<br><span class="r">\(am Rhein\)<\/span><br><span class="l">\(NRW\)<\/span><br>\(Deutschland\)</,
   'Köln with multiline text');
 
 $A->set_attribute('align', 'right');
@@ -323,7 +323,25 @@ $A->set_attribute('align', 'right');
 $html = $graph->as_html_file();
 
 like ($html,
-  qr/class='node' style="text-align: center"><span class="r">Köln<\/span><br \/><span class="r">\(am Rhein\)<\/span><br \/><span class="l">\(NRW\)<\/span><br \/>\(Deutschland\)</,
+  qr/class='node' style="text-align: center"><span class="r">Köln<\/span><br><span class="r">\(am Rhein\)<\/span><br><span class="l">\(NRW\)<\/span><br>\(Deutschland\)</,
+  'Köln with multiline text');
+
+#############################################################################
+# multiline labels with "textwrap: N;"
+
+$graph = Graph::Easy->new();
+
+($A,$B) = $graph->add_edge('Köln', 'Rüdesheim');
+
+$A->set_attribute('label', 'Köln\r(am Rhein)\l(NRW)\c(Deutschland)');
+$A->set_attribute('textwrap', 10);
+
+#print join (" ", $A->_label_as_html() );
+
+$html = $graph->as_html_file();
+
+like ($html,
+  qr/class='node'>Köln \(am<br>Rhein\)<br>\(NRW\)<br>\(Deutschland\)</,
   'Köln with multiline text');
 
 #############################################################################

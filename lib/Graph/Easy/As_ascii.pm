@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = 0.18;
+$VERSION = 0.19;
 
 use utf8;
 
@@ -1174,31 +1174,18 @@ sub as_ascii
   my $fb = $self->_framebuffer($self->{w}, $self->{h});
 
   # point-shaped nodes do not have a border
-  if ($shape !~ /^(point|none)\z/)
+  if ($shape ne 'point')
     {
-    my $border_style = $self->attribute('borderstyle');
-    my $EM = 14;
-    my $border_width = Graph::Easy::_border_width_in_pixels($self,$EM);
-
-    # convert overly broad borders to the correct style
-    $border_style = 'bold' if $border_width > 2;
-    $border_style = 'broad' if $border_width > $EM * 0.2 && $border_width < $EM * 0.75;
-    $border_style = 'wide' if $border_width >= $EM * 0.75;
-
-    my $style = $border_style;
-
     #########################################################################
     # draw our border into the framebuffer
 
-    if ($style ne 'none')
-      {
-      my $b_top = $style; $b_top = 'none' if $self->{no_border_top};
-      my $b_left = $style; $b_left = 'none' if $self->{no_border_left};
-      my $b_right = $style; $b_right = 'none' if $self->{no_border_right};
-      my $b_bottom = $style; $b_bottom = 'none' if $self->{no_border_bottom};
+    my $cache = $self->{_cache};
+    my $b_top = $cache->{top_border} || 'none';
+    my $b_left = $cache->{left_border} || 'none';
+    my $b_right = $cache->{right_border} || 'none';
+    my $b_bottom = $cache->{bottom_border} || 'none';
 
-      $self->_draw_border($fb, $b_right, $b_bottom, $b_left, $b_top);
-      }
+    $self->_draw_border($fb, $b_right, $b_bottom, $b_left, $b_top);
     }
 
   ###########################################################################

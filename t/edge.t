@@ -31,7 +31,7 @@ can_ok ("Graph::Easy::Edge", qw/
 
   group add_to_group
   background
-  flow port
+  edge_flow flow port
 
   start_port end_port
   from to start_at

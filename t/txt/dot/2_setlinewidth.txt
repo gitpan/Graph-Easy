@@ -1,0 +1,10 @@
+edge { arrowstyle: filled; }
+graph {
+  colorscheme: x11;
+  flow: south;
+}
+
+[ Berlin ] { shape: rect; border: broad; }
+[ Bonn ] { border: bold; }
+
+[ Bonn ] --> [ Berlin ]

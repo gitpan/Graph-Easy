@@ -12,12 +12,14 @@ BEGIN
    };
 
 can_ok ("Graph::Easy::Base", qw/
-  new error
+  new error error_as_html
   _init
   self
   class
   sub_class
   main_class
+  fatal_errors
+  no_fatal_errors
   /);
 
 #############################################################################

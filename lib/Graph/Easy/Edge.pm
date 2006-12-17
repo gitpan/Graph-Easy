@@ -7,7 +7,7 @@ package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
 @ISA = qw/Graph::Easy::Node/;		# an edge is just a special node
-$VERSION = 0.25;
+$VERSION = 0.26;
 
 use strict;
 
@@ -112,7 +112,14 @@ sub bidirectional
   {
   my $self = shift;
 
-  $self->{bidirectional} = $_[0] ? 1 : 0 if @_ > 0;
+  if (@_ > 0)
+    {
+    my $old = $self->{bidirectional} || 0;
+    $self->{bidirectional} = $_[0] ? 1 : 0; 
+
+    # invalidate layout?
+    $self->{graph}->{score} = undef if $old != $self->{bidirectional} && ref($self->{graph});
+    }
 
   $self->{bidirectional};
   }
@@ -121,7 +128,14 @@ sub undirected
   {
   my $self = shift;
 
-  $self->{undirected} = $_[0] ? 1 : 0 if @_ > 0;
+  if (@_ > 0)
+    {
+    my $old = $self->{undirected} || 0;
+    $self->{undirected} = $_[0] ? 1 : 0; 
+
+    # invalidate layout?
+    $self->{graph}->{score} = undef if $old != $self->{undirected} && ref($self->{graph});
+    }
 
   $self->{undirected};
   }
@@ -175,7 +189,7 @@ sub style
   {
   my $self = shift;
 
-  $self->{att}->{style} || $self->attribute('style') || 'solid';
+  $self->{att}->{style} || $self->attribute('style');
   }
 
 #############################################################################
@@ -388,6 +402,9 @@ sub start_at
   # add to B
   $self->{from}->{edges}->{ $self->{id} } = $self;
 
+  # invalidate layout
+  $self->{graph}->{score} = undef if ref($self->{graph});
+
   # return new start point
   $node;
   }
@@ -415,19 +432,36 @@ sub end_at
   # add to node B
   $self->{to}->{edges}->{ $self->{id} } = $self;
 
+  # invalidate layout
+  $self->{graph}->{score} = undef if ref($self->{graph});
+
   # return new end point
   $node;
   }
 
-sub flow
+sub edge_flow
   {
-  # return the flow at this edge
-  my ($self) = @_;
-
-# print STDERR "# flow from $self->{from}->{name} to $self->{to}->{name}\n";
+  # return the flow at this edge  or '' if the edge itself doesn't have a flow
+  my $self = shift;
 
   # our flow comes from ourselves
   my $flow = $self->{att}->{flow};
+  $flow = $self->raw_attribute('flow') unless defined $flow;
+
+  $flow;
+  }
+
+sub flow
+  {
+  # return the flow at this edge (including inheriting flow from node)
+  my ($self) = @_;
+
+  # print STDERR "# flow from $self->{from}->{name} to $self->{to}->{name}\n";
+
+  # our flow comes from ourselves
+  my $flow = $self->{att}->{flow};
+  # or maybe our class
+  $flow = $self->raw_attribute('flow') unless defined $flow;
 
   # if the edge doesn't have a flow, maybe the node has a default out flow
   $flow = $self->{from}->{att}->{flow} if !defined $flow;
@@ -487,6 +521,9 @@ sub flip
   my ($self) = @_;
 
   ($self->{from}, $self->{to}) = ($self->{to}, $self->{from});
+
+  # invalidate layout
+  $self->{graph}->{score} = undef if ref($self->{graph});
 
   $self;
   }
@@ -691,13 +728,23 @@ Returns the new edge end point node.
 	$edge->flip();
 
 Swaps the C<start> and C<end> nodes on this edge, e.g. reverses the direction
-of it.
+of the edge.
+
+X<transpose>
 
 =head2 flow()
 
 	my $flow = $edge->flow();
 
-Returns the flow for this edge, or undef if it has none.
+Returns the flow for this edge, honoring inheritance. An edge without
+a specific flow set will inherit the flow from the node it comes from.
+
+=head2 edge_flow()
+
+	my $flow = $edge->edge_flow();
+
+Returns the flow for this edge, or undef if it has none set on either
+the object itself or its class.
 
 =head2 port()
 

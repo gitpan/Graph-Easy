@@ -30,6 +30,8 @@ can_ok ("Graph::Easy", qw/
   del_node
   del_edge
 
+  flip_edges
+
   set_attributes
   set_attribute
   get_attribute

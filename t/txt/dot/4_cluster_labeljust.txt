@@ -1,0 +1,18 @@
+edge { arrowstyle: filled; }
+graph {
+  colorscheme: x11;
+  flow: south;
+}
+
+( cluster_0
+  [ aaaaaaaaaaaaaaaaaaa ]
+  [ b ]
+) { align: right; label: Right aligned; }
+
+( cluster_1
+  [ c ]
+  [ ddddddddddddddd ]
+) { align: left; label: Left aligned; }
+
+[ aaaaaaaaaaaaaaaaaaa ] --> [ b ]
+[ c ] --> [ ddddddddddddddd ]

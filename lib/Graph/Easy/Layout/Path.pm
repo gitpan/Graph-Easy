@@ -8,7 +8,7 @@ package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = 0.13;
+$VERSION = 0.14;
 
 #############################################################################
 #############################################################################
@@ -99,16 +99,18 @@ sub _near_places
   if ($cx + $cy == 2)
     {
     my @tries  = (
-  	$n->{x} + $d, $n->{y}, $flags->[0],   # right
-	$n->{x}, $n->{y} + $d, $flags->[1], # down
-	$n->{x} - $d, $n->{y}, $flags->[2], # left
-	$n->{x}, $n->{y} - $d, $flags->[3], # up
+  	$n->{x} + $d, $n->{y}, $flags->[0],	# right
+	$n->{x}, $n->{y} + $d, $flags->[1],	# down
+	$n->{x} - $d, $n->{y}, $flags->[2],	# left
+	$n->{x}, $n->{y} - $d, $flags->[3],	# up
       );
 
     for my $i (0..3)
       {
       my $idx = $index->[$i];
       my ($x,$y,$t) = ($tries[$idx], $tries[$idx+1], $tries[$idx+2]);
+
+#      print STDERR "# Considering place $x, $y \n";
 
       # This quick check does not take node clusters or multi-celled nodes
       # into account. These are handled in $node->_do_place() later.
@@ -392,7 +394,7 @@ sub _placed_shared
 sub _find_node_place
   {
   # Try to place a node (or node cluster). Return score (usually 0).
-  my ($self, $cells, $node, $try, $parent, $edge) = @_;
+  my ($self, $node, $try, $parent, $edge) = @_;
 
   $try ||= 0;
 
@@ -401,13 +403,36 @@ sub _find_node_place
 
   print STDERR "# called from ". join (" ", caller) . "\n" if $self->{debug};
 
+  # If the node has a user-set rank, see if we already placed another node in that
+  # row/column
+  if ($node->{rank} >= 0)
+    {
+    my $r = abs($node->{rank});
+#    print STDERR "# User-set rank for $node->{name} (rank $r)\n";
+    my $c = $self->{_rank_coord};
+#    use Data::Dumper; print STDERR "# rank_pos: \n", Dumper($self->{_rank_pos});
+    if (exists $self->{_rank_pos}->{ $r })
+      {
+      my $co = { x => 0, y => 0 };
+      $co->{$c} = $self->{_rank_pos}->{ $r };
+      while (1 < 3)
+        {
+#	print STDERR "# trying to force placement of '$node->{name}' at $co->{x} $co->{y}\n";    
+        return 0 if $node->_do_place($co->{x},$co->{y},$self);
+        $co->{$c} += 2;
+        }
+      }
+    }
+
+  my $cells = $self->{cells};
+
 #  local $self->{debug} = 1;
 
   my $min_dist = 2;
   # minlen = 0 => min_dist = 2,
   # minlen = 1 => min_dist = 2, 
   # minlen = 2 => min_dist = 3, etc
-  $min_dist = ($edge->attribute('minlen')||1) + 1 if ref($edge);
+  $min_dist = $edge->attribute('minlen') + 1 if ref($edge);
 
   # if the node has outgoing edges (which might be shared)
   if (!ref($edge))
@@ -472,7 +497,7 @@ sub _find_node_place
 	    if $self->{debug};
 
 	  next if $self->_clear_tries($node, $cells, [ $x,$y ]) == 0;
-	  last if $node->_do_place($x,$y,$cells);
+	  last if $node->_do_place($x,$y,$self);
 	  }
 	continue {
 	    $ofs += 2;
@@ -523,7 +548,7 @@ sub _find_node_place
 	    if $self->{debug};
 
 	  next if $self->_clear_tries($node, $cells, [ $x,$y ]) == 0;
-	  last if $node->_do_place($x,$y,$cells);
+	  last if $node->_do_place($x,$y,$self);
 	  }
 	continue {
 	    $ofs += 2;
@@ -553,14 +578,14 @@ sub _find_node_place
       my $y = shift @tries;
 
       print STDERR "# Trying to place $node->{name} at $x,$y\n" if $self->{debug};
-      return 0 if $node->_do_place($x,$y,$cells);
+      return 0 if $node->_do_place($x,$y,$self);
       } # for all trial positions
     }
 
   print STDERR "# Trying to place $node->{name} at 0,0\n" if $try == 0 && $self->{debug};
   # Try to place node at upper left corner (the very first node to be
   # placed will usually end up there).
-  return 0 if $try == 0 && $node->_do_place(0,0,$cells);
+  return 0 if $try == 0 && $node->_do_place(0,0,$self);
 
   # try to place node near the predecessor(s)
   my @pre_all = $node->predecessors();
@@ -659,7 +684,7 @@ sub _find_node_place
     my $y = shift @tries;
 
     print STDERR "# Trying to place $node->{name} at $x,$y\n" if $self->{debug};
-    return 0 if $node->_do_place($x,$y,$cells);
+    return 0 if $node->_do_place($x,$y,$self);
 
     } # for all trial positions
 
@@ -688,7 +713,7 @@ sub _find_node_place
   while (1)
     {
     next if $self->_clear_tries($node, $cells, [ $col,$y ]) == 0;
-    last if $node->_do_place($col,$y,$cells);
+    last if $node->_do_place($col,$y,$self);
     }
     continue {
     $y += 2;

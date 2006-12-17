@@ -9,7 +9,7 @@ use File::Spec;
 
 BEGIN
    {
-   plan tests => 95;
+   plan tests => 107;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -82,7 +82,7 @@ foreach my $f (sort {
 
   my $of = $f; $of =~ s/\.dot/\.txt/;
   my $out = readfile(File::Spec->catfile('out','dot',$of));
-  $out =~ s/(^|\n)#[^#=]{2}.*\n//g;		# remove comments
+  $out =~ s/(^|\n)#[^# ]{2}.*\n//g;		# remove comments
   $out =~ s/\n\n\z/\n/mg;			# remove empty lines
 
 # print "txt: $txt\n";

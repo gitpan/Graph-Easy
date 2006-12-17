@@ -121,7 +121,7 @@ __DATA__
 <-- Landstrasse -->|3|--
 <== Autobahn ==>|3|==
 <.. Im Bau ..>|3|..
-<- Tunnel - >|3| -
+<-  Tunnel - >|3| -
 <- Tunnel -->|-1|
 <-- Tunnel -->|3|
 <-- Landstrasse -->|3|--

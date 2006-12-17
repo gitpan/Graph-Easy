@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = 0.30;
+$VERSION = 0.31;
 
 use Graph::Easy::Base;
 use Graph::Easy::Attributes;
@@ -54,20 +54,185 @@ sub _init
   $self;
   }
 
+my $merged_borders = 
+  {
+    'dotteddashed' => 'dot-dash',
+    'dasheddotted' => 'dot-dash',
+    'double-dashdouble' => 'double',
+    'doubledouble-dash' => 'double',
+    'doublesolid' => 'double',
+    'soliddouble' => 'double',
+    'dotteddot-dash' => 'dot-dash',
+    'dot-dashdotted' => 'dot-dash',
+  };
+
+sub _collapse_borders
+  {
+  # Given a right border from node one, and the left border of node two,
+  # return what border we need to draw on node two:
+  my ($self, $one, $two, $swapem) = @_;
+
+  ($one,$two) = ($two,$one) if $swapem;
+
+#  print STDERR "# one, two: $one, $two\n";
+
+  $one = 'none' unless $one;
+  $two = 'none' unless $two;
+
+  # If the border of the left/top node is defined, we don't draw the
+  # border of the right/bottom node.
+  return 'none' if $one ne 'none' || $two ne 'none';
+
+  # otherwise, we draw simple the right border
+  $two;
+  }
+
+sub _merge_borders
+  {
+  my ($self, $one, $two) = @_;
+
+  $one = 'none' unless $one;
+  $two = 'none' unless $two;
+  
+  # "nonenone" => "none" or "dotteddotted" => "dotted"
+  return $one if $one eq $two;
+
+  # none + solid == solid + none == solid
+  return $one if $two eq 'none';
+  return $two if $one eq 'none';
+
+  for my $b (qw/broad wide bold double solid/)
+    {
+    # the stronger one overrides the weaker one
+    return $b if $one eq $b || $two eq $b;
+    }
+
+  my $both = $one . $two;
+  return $merged_borders->{$both} if exists $merged_borders->{$both};
+
+  # fallback
+  $two;
+  }
+
+sub _border_to_draw
+  {
+  # Return the border style we need to draw, taking the shape (none) into
+  # account
+  my ($self, $shape) = @_;
+
+  my $cache = $self->{_cache};
+
+  return $cache->{border_style} if defined $cache->{border_style};
+
+  $shape = $self->{att}->{shape} unless defined $shape;
+  $shape = $self->attribute('shape') unless defined $shape;
+
+  $cache->{border_style} = $self->{att}->{borderstyle};
+  $cache->{border_style} = $self->attribute('borderstyle') unless defined $cache->{border_style};
+  $cache->{border_style} = 'none' if $shape =~ /^(none|invisible)\z/;
+  $cache->{border_style};
+  }
+
 sub _border_styles
   {
-  # return the four border styles (right, bottom, left, top)
-  my $self = shift;
+  # Return the four border styles (right, bottom, left, top). This takes
+  # into account the neighbouring nodes and their borders, so that on
+  # ASCII output the borders can be properly collapsed.
+  my ($self, $border, $collapse) = @_;
 
-  my $border = $self->attribute('borderstyle');
-  my $width = $self->attribute('borderwidth');
-  my $color = $self->color_attribute('bordercolor');
+  # already computed values?
+  return if defined $self->{_cache}->{left_border};
 
-  # XXX TODO:
-  ($border, $width, $color, 
-   $border, $width, $color, 
-   $border, $width, $color, 
-   $border, $width, $color);
+  $self->{_cache}->{left_border} = $border; 
+  $self->{_cache}->{top_border} = $border;
+  $self->{_cache}->{right_border} = $border; 
+  $self->{_cache}->{bottom_border} = $border;
+
+  return unless $collapse;
+
+#  print STDERR " border_styles: $self->{name} border=$border\n";
+
+  my $EM = 14;
+  my $border_width = Graph::Easy::_border_width_in_pixels($self,$EM);
+
+  # convert overly broad borders to the correct style
+  $border = 'bold' if $border_width > 2;
+  $border = 'broad' if $border_width > $EM * 0.2 && $border_width < $EM * 0.75;
+  $border = 'wide' if $border_width >= $EM * 0.75;
+
+#  XXX TODO
+#  handle different colors, too:
+#  my $color = $self->color_attribute('bordercolor');
+
+  # Draw border on A (left), and C (left):
+  #
+  #    +---+
+  #  B | A | C 
+  #    +---+
+
+  # Ditto, plus C's border:
+  #
+  #    +---+---+
+  #  B | A | C |
+  #    +---+---+
+  #
+
+  # If no left neighbour, draw border normally
+
+  # XXX TODO: ->{parent} ?
+  my $parent = $self->{parent} || $self->{graph};
+  return unless ref $parent;
+
+  my $cells = $parent->{cells};
+  return unless ref $cells;
+
+  my $x = $self->{x}; my $y = $self->{y};
+
+  $x -= 1; my $left = $cells->{"$x,$y"};
+  $x += 1; $y-= 1; my $top = $cells->{"$x,$y"};
+  $x += 1; $y += 1; my $right = $cells->{"$x,$y"};
+  $x -= 1; $y += 1; my $bottom = $cells->{"$x,$y"};
+
+  my $cache = $self->{_cache};
+
+  # where to store the result
+  my @where = ('left', 'top', 'right', 'bottom');
+  # need to swap arguments to _collapse_borders()?
+  my @swapem = (0, 0, 1, 1);
+ 
+  for my $other ($left, $top, $right, $bottom)
+    {
+    my $side = shift @where;
+    my $swap = shift @swapem;
+  
+    # see if we have a (visible) neighbour on the left side
+    if (ref($other) && 
+      !$other->isa('Graph::Easy::Edge') &&
+      !$other->isa_cell() &&
+      !$other->isa('Graph::Easy::Node::Empty'))
+      {
+      $other = $other->{node} if ref($other->{node});
+
+#      print STDERR "$side node $other ", $other->_border_to_draw(), " vs. $border (swap $swap)\n";
+
+      if ($other->attribute('shape') ne 'invisible')
+        {
+        # yes, so take its border style
+        my $result;
+        if ($swap)
+	  {
+          $result = $self->_merge_borders($other->_border_to_draw(), $border);
+	  }
+        else
+	  {
+	  $result = $self->_collapse_borders($border, $other->_border_to_draw());
+	  }
+        $cache->{$side . '_border'} = $result;
+
+#	print STDERR "# result: $result\n";
+        }
+      }
+    }
   }
 
 sub _correct_size
@@ -78,8 +243,6 @@ sub _correct_size
   my $self = shift;
 
   return if defined $self->{w};
-
-  my $border = $self->attribute('borderstyle');
 
   my $shape = $self->attribute('shape');
 
@@ -101,58 +264,28 @@ sub _correct_size
   else
     {
     my ($w,$h) = $self->dimensions();
-    $self->{h} = $h + 2;
+    $self->{h} = $h;
     $self->{w} = $w + 2;
-    $self->{w} += 2 if $border ne 'none' && $shape ne 'none';
     }
 
-  return if $border eq 'none' || !exists $self->{autosplit};
+  my $border = $self->_border_to_draw($shape);
 
-  my ($asx, $asy) = split /,/, $self->{autosplit_xy};
+  $self->_border_styles($border, 'collapse');
 
-  # XXX TODO: base on "border-collapse: collapse;"
-  # find out whether the cell above/left of us is a node (w/ border)
-  my $cells = $self->{graph}->{cells};
-  my $x = $self->{x}; my $y = $self->{y};
+#  print STDERR "# $self->{name} $self->{w} $self->{h} $shape\n";
+#  use Data::Dumper; print Dumper($self->{_cache});
 
-  my $top = $cells->{"$x," . ($y-1)};
-  my $left = $cells->{($x-1) . ",$y"};
-
-  my $bottom = $cells->{"$x," . ($y+1)};
-  my $right = $cells->{($x+1) . ",$y"};
-  my $bottomright = $cells->{($x+1) . "," . ($y+1)};
-  
-  my $check = qr/^Graph::Easy::Node/;
-  my $check_2 = qr/^Graph::Easy::Node\z/;
-
-  # count the number of cells below and right of us (0..3)
-  $self->{rightbelow_count} = 0;
- 
-  # XXX TODO: we need to fix this 
-  $self->{rightbelow_count}++ if ref($bottom) =~ $check_2;
-  $self->{rightbelow_count}++ if ref($right) =~ $check_2;
-  $self->{rightbelow_count}++ if ref($bottomright) =~ $check_2;
-
-  $self->{have_below} = 1 if ref($bottom) =~ $check;
-#  $self->{have_above} = 1 if ref($top) =~ $check;
-#  $self->{have_left} = 1 if ref($left) =~ $check;
-  $self->{have_right} = 1 if ref($right) =~ $check;
-
-  $self->{border_collapse_bottom} = 1 if ref($bottom) =~ $check;
-  $self->{border_collapse_right} = 1 if ref($right) =~ $check;
-
-  # nodes not in first row/column are smaller
-  $self->{w}-- if $asx != 0;
-  $self->{h}-- if $asy != 0;
-
-  if (ref($top) =~ $check)
+  if ($shape !~ /^(invisible|point)/)
     {
-    $self->{no_border_top} = 1;# if $top;
+    $self->{w} ++ if $self->{_cache}->{right_border} ne 'none';
+    $self->{w} ++ if $self->{_cache}->{left_border} ne 'none';
+    $self->{h} ++ if $self->{_cache}->{top_border} ne 'none';
+    $self->{h} ++ if $self->{_cache}->{bottom_border} ne 'none';
+
+    $self->{h} += 2 if $border eq 'none' && $shape !~ /^(invisible|point)/;
     }
-  if (ref($left) =~ $check)
-    {
-    $self->{no_border_left} = 1;# if $left;
-    }
+
+  $self;
   }
 
 sub _unplace
@@ -164,6 +297,7 @@ sub _unplace
   delete $cells->{"$x,$y"};
   $self->{x} = undef;
   $self->{y} = undef;
+  $self->{cache} = {};
 
   $self->_calc_size() unless defined $self->{cx};
 
@@ -210,11 +344,11 @@ sub _mark_as_placed
 sub _place_children
   {
   # recursively place node and its children
-  my ($self, $x, $y, $cells) = @_;
+  my ($self, $x, $y, $parent) = @_;
 
   no warnings 'recursion';
 
-  return 0 unless $self->_check_place($x,$y,$cells);
+  return 0 unless $self->_check_place($x,$y,$parent);
 
   print STDERR "# placing children of $self->{name} based on $x,$y\n" if $self->{debug};
 
@@ -225,20 +359,27 @@ sub _place_children
     my $dx = $child->{dx} > 0 ? $self->{cx} - 1 : 0;
     my $dy = $child->{dy} > 0 ? $self->{cy} - 1 : 0;
 
-    my $rc = $child->_place_children($x + $dx + $child->{dx},$y + $dy + $child->{dy},$cells);
+    my $rc = $child->_place_children($x + $dx + $child->{dx},$y + $dy + $child->{dy},$parent);
     return $rc if $rc == 0;
     }
-  $self->_place($x,$y,$cells);
+  $self->_place($x,$y,$parent);
   }
 
 sub _place
   {
   # place this node at the requested position (without checking)
-  my ($self, $x, $y, $cells) = @_;
+  my ($self, $x, $y, $parent) = @_;
 
+  my $cells = $parent->{cells};
   $self->{x} = $x;
   $self->{y} = $y;
   $cells->{"$x,$y"} = $self;
+
+  # store our position if we are the first node in that rank
+  my $r = abs($self->{rank} || 0);
+  my $what = $parent->{_rank_coord} || 'x';	# 'x' or 'y'
+  $parent->{_rank_pos}->{ $r } = $self->{$what} 
+    unless defined $parent->{_rank_pos}->{ $r };
 
   # a multi-celled node will be stored like this:
   # [ node   ] [ filler ]
@@ -273,7 +414,9 @@ sub _place
 sub _check_place
   {
   # chack that a node can be placed at $x,$y (w/o checking its children)
-  my ($self,$x,$y,$cells) = @_;
+  my ($self,$x,$y,$parent) = @_;
+
+  my $cells = $parent->{cells};
 
   # node cannot be placed here
   return 0 if exists $cells->{"$x,$y"};
@@ -303,7 +446,9 @@ sub _do_place
   # checks all nodes of the cluster (and when all of them can be
   # placed simultanously, does so).
   # Returns true if the operation succeeded, otherwise false.
-  my ($self,$x,$y,$cells) = @_;
+  my ($self,$x,$y,$parent) = @_;
+
+  my $cells = $parent->{cells};
 
   # inlined from _check() for speed reasons:
 
@@ -343,11 +488,11 @@ sub _do_place
 
     # Traverse all children and check their places, place them if poss.
     # This will also place ourselves, because we are a grandchild of $grandpa
-    return $grandpa->_place_children($x + $ox,$y + $oy,$cells);
+    return $grandpa->_place_children($x + $ox,$y + $oy,$parent);
     }
 
   # finally place this node at the requested position
-  $self->_place($x,$y,$cells);
+  $self->_place($x,$y,$parent);
   }
 
 #############################################################################
@@ -355,49 +500,74 @@ sub _do_place
 sub _wrapped_label
   {
   # returns the label wrapped automatically to use the least space
-  my ($self, $name, $align) = @_;
+  my ($self, $label, $align, $wrap) = @_;
 
-  use Text::Wrap;
+  return (@{$self->{_cache}->{label}}) if $self->{_cache}->{label};
 
   # XXX TODO: handle "paragraphs"
-  $name =~ s/\\(n|r|l|c)//;		# remove line splits 
+  $label =~ s/\\(n|r|l|c)/ /g;		# replace line splits by spaces
 
-  my $cols = $self->{w};
-  if (!defined $cols)
+  # collapse multiple spaces
+  $label =~ s/\s+/ /g;
+
+  # find out where to wrap
+  if ($wrap eq 'auto')
     {
-    # find out where to wrap
-    $cols = int(sqrt(length($name)) * 1.4);
-    $cols = 2 if $cols < 2;
-
-    # print STDERR "# Wrapping: min-columns is $cols\n";
- 
-    # find longest word, and set columns to it if longer
-    my $l;
-
-    $name =~ s/([^-\s]+)/ $l = $1, $cols = length($1)+2 if length($1)+2 > $cols; $1; /eg;
-
-    # print STDERR "# longest word is '$l'\n";
+    $wrap = int(sqrt(length($label)) * 1.4);
     }
-  else
+  $wrap = 2 if $wrap < 2;
+
+  # run through the text and insert linebreaks
+  my $i = 0;
+  my $line_len = 0;
+  my $last_space = 0;
+  my $last_hyphen = 0;
+  my @lines;
+  while ($i < length($label))
     {
-    # XXX TODO: -2 if no border
-    $cols -= 2;
+    my $c = substr($label,$i,1);
+    $last_space = $i if $c eq ' ';
+    $last_hyphen = $i if $c eq '-';
+    $line_len ++;
+    if ($line_len >= $wrap && ($last_space != 0 || $last_hyphen != 0))
+      {
+#      print STDERR "# wrap at $line_len\n";
+
+      my $w = $last_space; my $replace = '';
+      if ($last_hyphen > $last_space)
+	{
+        $w = $last_hyphen; $replace = '-';
+	}
+
+#      print STDERR "# wrap at $w\n";
+
+      # "foo bar-baz" => "foo bar" (lines[0]) and "baz" (label afterwards)
+
+#      print STDERR "# first part '". substr($label, 0, $w) . "'\n";
+
+      push @lines, substr($label, 0, $w) . $replace;
+      substr($label, 0, $w+1) = '';
+      # reset counters
+      $line_len = 0;
+      $i = 0;
+      $last_space = 0;
+      $last_hyphen = 0;
+      next;
+      }
+    $i++;
     }
+  # handle what is left over
+  push @lines, $label if $label ne '';
 
-
-# $cols = length($1) if length($1) > $cols;
-
-  $Text::Wrap::columns = $cols;
-
-  $name = Text::Wrap::wrap('','',$name); 
-
+  # generate the align array
   my @aligns;
   my $al = substr($align,0,1); 
-  my @lines = split /\n/, $name;
   for my $i (0.. scalar @lines)
     {
     push @aligns, $al; 
     }
+  # cache the result to avoid costly recomputation
+  $self->{_cache}->{label} = [ \@lines, \@aligns ];
   (\@lines, \@aligns);
   }
 
@@ -411,7 +581,7 @@ sub _aligned_label
 
   my $name = $self->label();
 
-  return $self->_wrapped_label($name,$align) unless $wrap eq 'none';
+  return $self->_wrapped_label($name,$align,$wrap) unless $wrap eq 'none';
 
   my (@lines,@aligns);
   my $al = substr($align,0,1);
@@ -521,7 +691,7 @@ sub _label_as_html
   my $text_wrap = $self->attribute('textwrap');
 
   my ($lines,$aligns);
-  if ($text_wrap ne 'none')
+  if ($text_wrap eq 'auto')
     {
     # set "white-space: nowrap;" in CSS and ignore linebreaks in label
     $lines = [ $self->label() ];
@@ -529,7 +699,7 @@ sub _label_as_html
     }
   else
     {
-    ($lines,$aligns) = $self->_aligned_label($align,'none');
+    ($lines,$aligns) = $self->_aligned_label($align,$text_wrap);
     }
 
   # Since there is no "float: center;" in CSS, we must set the general
@@ -575,11 +745,11 @@ sub _label_as_html
     # insert a span to align the line unless the default already covers it
     $line = '<span class="' . $al . '">' . $line . '</span>'
       if $a ne $al;
-    $name .= "<br \/>" . $line;
+    $name .= '<br>' . $line;
 
     $i++;					# next line
     }
-  $name =~ s/^<br \/>//;			# remove first <br> 
+  $name =~ s/^<br>//;				# remove first <br> 
 
   ($name, $switch_to_center);
   }
@@ -651,7 +821,7 @@ sub as_html
     $name = $self->label();
     $name =~ s/\s/\+/g;				# space
     $name =~ s/'/%27/g;				# replace quotation marks
-    $name =~ s/\n//g;				# remove newlines
+    $name =~ s/[\x0d\x0a]//g;			# remove 0x0d0x0a and similiar
     my $t = $title; $t = $name if $t eq ''; 
     $name = "<img src='$name' alt='$t' title='$t' border='0' />";
     }
@@ -689,9 +859,9 @@ sub as_html
   # only for nodes, not for edges
   if (!$self->isa('Graph::Easy::Edge'))
     {
-    my $bc = $self->attribute('border-color');
-    my $bw = $self->attribute('border-width');
-    my $bs = $self->attribute('border-style');
+    my $bc = $self->attribute('bordercolor');
+    my $bw = $self->attribute('borderwidth');
+    my $bs = $self->attribute('borderstyle');
 
     $out->{border} = Graph::Easy::_border_attribute_as_html( $bs, $bw, $bc );
     my $DEF = $self->default_attribute('border');
@@ -854,10 +1024,10 @@ sub flow
 
   no warnings 'recursion';
 
-  return $self->{_cached_flow} if exists $self->{_cached_flow};
+  return $self->{_cache}->{flow} if exists $self->{_cache}->{flow};
 
   # detected cycle, so break it
-  return $self->{_cached_flow} = $self->_parent_flow_absolute('90') if exists $self->{_flow};
+  return $self->{_cache}->{flow} = $self->_parent_flow_absolute('90') if exists $self->{_flow};
 
   local $self->{_flow} = undef;		# endless loops really ruin our day
 
@@ -867,8 +1037,8 @@ sub flow
   $flow = $self->_parent_flow_absolute() if !defined $flow || $flow eq 'inherit';
 
   # if flow is absolute, return it early
-  return $self->{_cached_flow} = $flow if defined $flow && $flow =~ /^(0|90|180|270)\z/;
-  return $self->{_cached_flow} = Graph::Easy->_direction_as_number($flow)
+  return $self->{_cache}->{flow} = $flow if defined $flow && $flow =~ /^(0|90|180|270)\z/;
+  return $self->{_cache}->{flow} = Graph::Easy->_direction_as_number($flow)
     if defined $flow && $flow =~ /^(south|north|east|west|up|down)\z/;
   
   # for relative flows, compute the incoming flow as base flow
@@ -905,7 +1075,7 @@ sub flow
 
   $flow = Graph::Easy->_direction_as_number($in) unless defined $flow;
 
-  $self->{_cached_flow} = Graph::Easy->_flow_as_direction($in,$flow);
+  $self->{_cache}->{flow} = Graph::Easy->_flow_as_direction($in,$flow);
   }
 
 #############################################################################
@@ -935,15 +1105,12 @@ sub _calc_size
   $grow_sides;
   }
 
-sub grow
+sub _grow
   {
   # Grows the node until it has sufficient cells for all incoming/outgoing
   # edges. The initial size will be based upon the attributes 'size' (or
   # 'rows' or 'columns', depending on which is set)
   my $self = shift;
-
-  # grow() is called for every node before layout(), so uncache the flow
-  delete $self->{_cached_flow};
 
   # XXX TODO: grow the node based on its label dimensions
 #  my ($w,$h) = $self->dimensions();
@@ -973,8 +1140,14 @@ sub grow
   # number of slots we need to edges without port restrictions
   my $unspecified = 0;
 
+  # count of outgoing edges
+  my $outgoing = 0;
+
   for my $e (values %{$self->{edges}})
     {
+    # count outgoing edges
+    $outgoing++ if $e->{from} == $self;
+
     # do always both ends, because self-loops can start AND end at this node:
     for my $end (0..1)
       {
@@ -1026,6 +1199,14 @@ sub grow
     $unspecified -- if $e->{to} == $e->{from};
     }
 
+  # Shortcut, if the number of edges is < 4 and we have not restrictions,
+  # then a 1x1 node suffices
+  if ($unspecified < 4 && ($unspecified == keys %{$self->{edges}}))
+    {
+    $self->_calc_size();
+    return $self;
+    }
+ 
   my $need = {};
   my $free = {};
   for my $side (qw/north south east west/)
@@ -1037,7 +1218,7 @@ sub grow
     if ($free->{$side} < 2 * $cnt->{$side})
       {
       $need->{$side} += 2 * $cnt->{$side} - $free->{$side} - 1;
-      } 
+      }
     }
   # now $need contains for each side the absolut min. number of ports we need
 
@@ -1058,16 +1239,26 @@ sub grow
   $self->{cx} = $min_x if $min_x > $self->{cx};
   $self->{cy} = $min_y if $min_y > $self->{cy};
 
-  # now grow the node based on the general flow first VER, then HOR
   my $flow = $self->flow();
 
+  # if this is a sink node, grow it more by ignoring free ports on the front side
+  my $front_side = 'east';
+  $front_side = 'west' if $flow == 270;
+  $front_side = 'south' if $flow == 180;
+  $front_side = 'north' if $flow == 0;
+
+  # now grow the node based on the general flow first VER, then HOR
   my $grow = 0;					# index into @grow_what
   my @grow_what = sort keys %$grow_sides;	# 'cx', 'cy' or 'cx' or 'cy'
 
   if (keys %$grow_sides > 1)
     {
+    # for left/right flow, swap the growing around
     @grow_what = ( 'cy', 'cx' ) if $flow == 90 || $flow == 270;
     }
+
+  # fake a non-sink node for nodes with an offset/children
+  $outgoing = 1 if ref($self->{origin}) || keys %{$self->{children}} > 0;
 
   while ( 3 < 5 )
     {
@@ -1075,10 +1266,14 @@ sub grow
     my $free_ports = 0;
     for my $side (qw/north south/)
       {
+      # if this is a sink node, grow it more by ignoring free ports on the front side
+      next if $outgoing == 0 && $front_side eq $side;
       $free_ports += 1 + int(($self->{cx} - $cnt->{$side} - $portnr->{$side}) / 2);
       }     
     for my $side (qw/east west/)
       {
+      # if this is a sink node, grow it more by ignoring free ports on the front side
+      next if $outgoing == 0 && $front_side eq $side;
       $free_ports += 1 + int(($self->{cy} - $cnt->{$side} - $portnr->{$side}) / 2);
       }
     last if $free_ports >= $unspecified;
@@ -1287,7 +1482,7 @@ sub shape
 
   my $shape;
   $shape = $self->{att}->{shape} if exists $self->{att}->{shape};
-  $shape = $self->attribute('shape') || 'rect' unless defined $shape;
+  $shape = $self->attribute('shape') unless defined $shape;
   $shape;
   }
 
@@ -1297,7 +1492,8 @@ sub dimensions
   # label or name, in characters.
   my $self = shift;
 
-  my ($lines,$aligns) = $self->_aligned_label();
+  my $align = $self->attribute('align');
+  my ($lines,$aligns) = $self->_aligned_label($align);
 
   my $w = 0; my $h = scalar @$lines;
   foreach my $line (@$lines)
@@ -1474,7 +1670,7 @@ sub connections
   my $self = shift;
 
   return 0 unless defined $self->{graph};
- 
+
   # We need to count the connections, because "[A]->[A]" creates
   # two connections on "A", but only one edge! 
   my $con = 0;
@@ -1484,6 +1680,17 @@ sub connections
     $con ++ if $edge->{from} == $self;
     }
   $con;
+  }
+
+sub edges
+  {
+  # return all the edges
+  my $self = shift;
+
+  # no graph, no dice
+  return unless ref $self->{graph};
+
+  values %{$self->{edges}};
   }
 
 sub sorted_successors
@@ -1619,7 +1826,7 @@ sub del_attribute
   # font-size => fontsize
   $name = $att_aliases->{$name} if exists $att_aliases->{$name};
 
-  delete $self->{_cached_flow};
+  delete $self->{_cache}->{flow};
 
   my $a = $self->{att};
   delete $a->{$name};
@@ -1641,7 +1848,7 @@ sub set_attribute
   {
   my ($self, $name, $v, $class) = @_;
 
-  delete $self->{_cached_flow};
+  delete $self->{_cache}->{flow};
 
   $name = 'undef' unless defined $name;
   $v = 'undef' unless defined $v;
@@ -1773,7 +1980,6 @@ BEGIN
   *attribute = \&Graph::Easy::attribute;
   *color_attribute = \&Graph::Easy::color_attribute;
   *default_attribute = \&Graph::Easy::default_attribute;
-  *edges = \&connections;
   $att_aliases = Graph::Easy::_att_aliases();
   }
 
@@ -1790,7 +1996,7 @@ sub group
 sub add_to_group
   {
   my ($self,$group) = @_;
-
+ 
   my $graph = $self->{graph};				# shortcut
 
   # delete from old group if nec.
@@ -1798,6 +2004,9 @@ sub add_to_group
 
   # if passed a group name, create or find group object
   $group = $graph->add_group($group) if (!ref($group) && $graph);
+
+  # To make attribute('group') work:
+  $self->{att}->{group} = $group->{name};
 
   $group->add_member($self);
 
@@ -2120,27 +2329,28 @@ set from L<Graph::Easy::layout()>.
 
 Returns the node's unique ID number.
 
-=head2 grow()
-
-	$node->grow();
-
-Grows the node in C<columns()> and C<rows()> until all the outgoing/incoming
-connection fit at the borders.
-
 =head2 connections()
 
 	my $cnt = $node->connections();
 
-Returns all the incomming and outgoing edges of this node. Self-loops are
-returned only once.
+Returns the count of incoming and outgoing connections of this node.
+Self-loops count as two connections, so in the following example, node C<N>
+has B<four> connections, but only B<three> edges:
 
-In scalar context returns just the number of connections.
+	            +--+
+	            v  |
+	+---+     +------+     +---+
+	| 1 | --> |  N   | --> | 2 |
+	+---+     +------+     +---+
+
+See also L<edges()>.
 
 =head2 edges()
 
 	my $edges = $node->edges();
 
-Is an alias for L<connections>.
+Returns a list of all the edges (as L<Graph::Easy::Edge> objects) at this node,
+in no particular order.
 
 =head2 predecessors()
 

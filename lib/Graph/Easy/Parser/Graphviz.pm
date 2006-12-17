@@ -6,7 +6,7 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = 0.09;
+$VERSION = 0.10;
 use base qw/Graph::Easy::Parser/;
 
 use strict;
@@ -319,6 +319,37 @@ my %entities = (
   'hearts' => '♥',
   );
 
+sub _unquote_attribute
+  {
+  my ($self,$name,$val) = @_;
+
+  my $html_like = 0;
+  if ($name eq 'label')
+    {
+    $html_like = 1 if $val =~ /^\s*<\s*</;
+    # '< >' => ' ', ' < a > ' => ' a '
+    if ($html_like == 0 && $val =~ /\s*<(.*)>\s*\z/)
+      {
+      $val = $1; $val = ' ' if $val eq '';
+      }
+    }
+  
+  my $v = $self->_unquote($val);
+
+  # Now HTML labels always start with "<", while non-HTML labels
+  # start with " <" or anything else.
+  if ($html_like == 0)
+    {
+    $v = ' ' . $v if $v =~ /^</;
+    }
+  else
+    {
+    $v =~ s/^\s*//; $v =~ s/\s*\z//;
+    }
+
+  $v;
+  }
+
 sub _unquote
   {
   my ($self, $name) = @_;
@@ -475,14 +506,60 @@ sub _match_edge
   qr/\s*(->|--)/;
   }
 
+sub _match_html_regexps
+  {
+  # Return hash with regexps matching different parts of an HTML label.
+  my $qr = 
+  {
+    # BORDER="2"
+    attribute 	=> qr/\s*([A-Z]+)\s*=\s*"((?:\\"|[^"])*)"/,
+    # BORDER="2" COLSPAN="2"
+    attributes 	=> qr/(?:\s+(?:[A-Z]+)\s*=\s*"(?:\\"|[^"])*")*/,
+    text	=> qr/.*?/,
+    tr		=> qr/\s*<TR>/,
+    tr_end	=> qr/\s*<\/TR>/,
+    td		=> qr/\s*<TD[^>]*>/,
+    td_tag	=> qr/\s*<TD\s*/,
+    td_end	=> qr/\s*<\/TD>/,
+    table	=> qr/\s*<TABLE[^>]*>/,
+    table_tag	=> qr/\s*<TABLE\s*/,
+    table_end	=> qr/\s*<\/TABLE>/,
+  };
+  $qr->{row} = qr/$qr->{tr}(?:$qr->{td}$qr->{text}$qr->{td_end})*$qr->{tr_end}/;
+
+  $qr;
+  }
+
+sub _match_html
+  {
+  # build a giant regular expression that matches an HTML label
+
+#    label=<
+#    <TABLE BORDER="2" CELLBORDER="1" CELLSPACING="0" BGCOLOR="#ffffff">
+#      <TR><TD PORT="portname" COLSPAN="3" BGCOLOR="#aabbcc" ALIGN="CENTER">port</TD></TR>
+#      <TR><TD PORT="port2" COLSPAN="2" ALIGN="LEFT">port2</TD><TD PORT="port3" ALIGN="LEFT">port3</TD></TR>
+#    </TABLE>>
+
+  my $qr = _match_html_regexps();
+
+  # <<TABLE>..</TABLE>>
+  qr/<$qr->{table}(?:$qr->{row})*$qr->{table_end}>/;
+  }
+  
 sub _match_single_attribute
   {
+  my $qr_html = _match_html();
+
   qr/^\s*(\w+)\s*=\s*		# the attribute name (label=")
     (
       "(?:\\"|[^"])*"			# "foo"
       (?:\s*\+\s*"(?:\\"|[^"])*")*	# followed by 0 or more ' + "bar"'
     |
-      [^,\]\}\n\s;]+			# or simple 'fooobar'
+      $qr_html				# or < <TABLE>..<\/TABLE> >
+    |
+      <[^>]*>				# or something like < a >
+    |
+      [^<][^,\]\}\n\s;]*		# or simple 'fooobar'
     )
     [,\]\n\}\s;]?\s*/x;		# possible ",", "\n" etc.
   }
@@ -962,7 +1039,7 @@ sub _add_node
 
     # apply attributes from the current scope (only for new nodes)
     my $scope = $self->{scope_stack}->[-1];
-    $self->error("Scope stack is empty!") unless defined $scope;
+    return $self->error("Scope stack is empty!") unless defined $scope;
   
     my $is_group = $scope->{_is_group};
     delete $scope->{_is_group};
@@ -1090,7 +1167,7 @@ my $remap = {
     'pack' => undef,
     'packmode' => undef,
     'page' => undef,
-    'pencolor' => 'border-color',
+    'pencolor' => \&_from_graphviz_color,
     'quantum' => undef,
     'rankdir' => \&_from_graphviz_graph_rankdir,
     'ranksep' => undef,
@@ -1113,7 +1190,7 @@ my $remap = {
     },
 
   'group' => {
-#    'labeljust' => \&_graphviz_remap_graph_labeljust,
+    'labeljust' => \&_from_graphviz_graph_labeljust,
 #    'labelloc' => \&_graphviz_remap_graph_labelloc,
     'pencolor' => \&_from_graphviz_color,
     'style' => \&_from_graphviz_style,
@@ -1205,6 +1282,17 @@ sub _from_graphviz_style
       {	
       @rc = ('shape', 'rect') if $s eq 'filled';
       }
+    # convert "setlinewidth(12)" => 
+    if ($s =~ /setlinewidth\((\d+)\)/)
+      {
+      my $width = abs($1 || 1);
+      my $style = '';
+      $style = 'wide';			# > 14
+      $style = 'solid' if $width < 3;
+      $style = 'bold' if $width >= 3 && $width < 7;
+      $style = 'broad' if $width >= 7 && $width < 14;
+      push @rc, ('borderstyle',$style);
+      }
     }
 
   @rc;
@@ -1283,17 +1371,17 @@ sub _from_graphviz_font_size
   # 20 => 20px
   $size = $size . 'px' if $size =~ /^\d+\z/;
 
-  ('font-size', $size);
+  ('fontsize', $size);
   }
 
 sub _from_graphviz_graph_labelloc
   {
-  my ($self, $l, $loc) = @_;
+  my ($self, $name, $loc) = @_;
 
-  $loc = 'top' if $loc eq 't'; 
-  $loc = 'bottom' if $loc eq 'b';
+  my $l = 'top';
+  $l = 'bottom' if $loc eq 'b';
 
-  ('label-pos', $loc);
+  ('labelpos', $l);
   }
 
 sub _from_graphviz_edge_dir
@@ -1350,20 +1438,96 @@ my $color_map = {
   fontcolor => 'color',
   bgcolor => 'background',
   fillcolor => 'fill',
-  pencolor => 'border-color',
-  labelfontcolor => 'label-color',
+  pencolor => 'bordercolor',
+  labelfontcolor => 'labelcolor',
   color => 'color',
   };
+
+sub _hsv_to_rgb
+  {
+  my ($h, $s, $v) = @_;
+
+  my $e = 0.0001;
+
+  if ($s < $e)
+    {    
+    $v = abs(int(256 * $v)); $v = 255 if $v > 255;
+    return "rgb($v,$v,$v)";
+    }
+
+  my ($r,$g,$b);
+
+  # H=0..360, V=0..100, S=0..100
+  $h *= 360;
+
+  my $h1 = int($h / 60);
+  my $f = $h / 60 - $h1;
+  my $p = $v * (1 - $s);
+  my $q = $v * (1 - ($s * $f));
+  my $t = $v * (1 - ($s * (1-$f)));
+
+  if ($h1 == 0 || $h1 == 6)
+    {
+    $r = $v; $g = $t; $b = $p;
+    }
+  elsif ($h1 == 1)
+    {
+    $r = $q; $g = $v; $b = $p;
+    }
+  elsif ($h1 == 2)
+    {
+    $r = $p; $g = $v; $b = $t;
+    }
+  elsif ($h1 == 3)
+    {
+    $r = $p; $g = $q; $b = $v;
+    }
+  elsif ($h1 == 4)
+    {
+    $r = $t; $g = $p; $b = $v;
+    }
+  else
+    {
+    $r = $v; $g = $p; $b = $q;
+    }
+  # 0..1
+  $r = abs(int($r*256));
+  $g = abs(int($g*256));
+  $b = abs(int($b*256));
+  $r = 255 if $r > 255;
+  $g = 255 if $g > 255;
+  $b = 255 if $b > 255;
+
+  "rgb($r,$g,$b)";
+  }
 
 sub _from_graphviz_color
   {
   # remap the color name and value
   my ($self, $name, $color) = @_;
 
-  # "0.1 0.4 0.5" => "rgb(0.1,0.4,0.5)"
-  if ($color =~ /\s/)
+  # "//red" => "red"
+  $color =~ s/^\/\///;
+
+  my $colorscheme = 'x11';
+  if ($color =~ /^\//)
     {
-    $color =~ s/\s/,/g; $color = 'rgb(' . $color . ')';
+    # "/set9/red" => "red"
+    $color =~ s/^\/([^\/]+)\///;
+    $colorscheme = $1;
+    # map the color to the right color according to the colorscheme
+    $color = Graph::Easy->color_value($color,$colorscheme) || 'black';
+    }
+
+  # "#AA BB CC => "#AABBCC"
+  $color =~ s/\s+//g if $color =~ /^#/;
+
+  # XXX TODO: This is HSV, not RGB!
+  # "0.1 0.4 0.5" => "rgb(0.1,0.4,0.5)"
+  $color =~ s/\s+/,/g if $color =~ /\s/;
+  if ($color =~ /,/)
+    {
+    $color = _hsv_to_rgb(split (/,/, $color));
     }
 
   # XXX TODO: #ff00005f => #ff0000
@@ -1410,7 +1574,7 @@ sub _from_graphviz_graph_labeljust
 
 sub _remap_attributes
   {
-  my ($self, $att, $object) = @_;
+  my ($self, $att, $object, $r) = @_;
 
   if ($self->{debug})
     {
@@ -1418,7 +1582,215 @@ sub _remap_attributes
     print STDERR "# remapping attributes '$att'$o\n";
     }
 
-  $self->{_graph}->_remap_attributes($object, $att, $remap, 'noquote', undef, undef);
+  $r = $remap unless defined $r;
+
+  $self->{_graph}->_remap_attributes($object, $att, $r, 'noquote', undef, undef);
+  }
+
+#############################################################################
+
+my $html_remap = {
+  'node' => {
+    'bgcolor' => 'fill',
+    },
+  'table' => {
+    'bgcolor' => 'fill',
+    'cellspacing' => undef,
+    'cellpadding' => undef,
+    },
+  };
+
+sub _parse_html_attributes
+  {
+  my ($self, $text, $qr) = @_;
+
+  # "<TD ...>" => " ..."
+  $text =~ s/^$qr->{td_tag}//;
+  $text =~ s/\s*>\z//;
+
+  my $attr = {};
+#  print STDERR "# Parsing html attributes from '$text'";
+  while ($text ne '')
+    {
+#  print STDERR "# Parsing html attributes from '$text'\n"; sleep(1);
+
+    return $self->error("HTML-like attribute '$text' doesn't look valid to me.")
+      unless $text =~ s/^($qr->{attribute})//;
+
+    my $name = lc($2); my $value = $3;
+
+    $self->_unquote($value);
+
+    $value = lc($value) if $name eq 'align';
+
+    $attr->{$name} = $value;
+    }
+
+  $attr;
+  }
+
+sub _html_per_table
+  {
+  # take the HTML-like attributes found per TABLE and create a hash with them
+  # so they can be applied as default to each node
+  my ($self, $attributes) = @_;
+
+  $self->_remap_attributes($attributes,'table',$html_remap);
+  }
+
+sub _html_per_node
+  {
+  # take the HTML-like attributes found per TD and apply the to the node
+  my ($self, $attr, $node) = @_;
+
+  my $c = $attr->{colspan} || 1;
+  $node->set_attribute('columns',$c) if $c != 1;
+
+  my $r = $attr->{rowspan} || 1;
+  $node->set_attribute('rows',$r) if $r != 1;
+
+  $node->{autosplit_portname} = $attr->{port} if exists $attr->{port};
+
+  for my $k (qw/port colspan rowspan/)
+    {
+    delete $attr->{$k};
+    }
+
+  my $att = $self->_remap_attributes($attr,$node,$html_remap);
+ 
+  $node->set_attributes($att);
+
+  $self;
+  }
+
+sub _parse_html
+  {
+  # Given an HTML label, parses that into the individual parts. Returns a
+  # list of nodes.
+  my ($self, $n) = @_;
+
+  my $qr = _match_html_regexps();
+
+  my $graph = $self->{_graph};
+
+  my $label = $n->label(); $label = '' unless defined $label;
+  my $org_label = $label;
+
+  # "unquote" the HTML-like label
+  $label =~ s/^<\s*//;
+  $label =~ s/\s*>\z//;
+
+  # remove the table end
+  $label =~ s/$qr->{table_end}//;
+  # remove the table start
+  $label =~ s/($qr->{table})//;
+
+  my $table_tag = $1 || ''; 
+  $table_tag =~ /$qr->{table_tag}(.*)>/;
+  my $table_attr = $self->_parse_html_attributes($1 || '',$qr);
+
+  my $base_name = $self->_get_cluster_name('html');
+
+  my $class = $self->{use_class}->{node};
+
+#  print STDERR "# Label '$label'\n";
+
+  my $raw_attributes = $n->raw_attributes();
+  delete $raw_attributes->{label};
+  delete $raw_attributes->{shape};
+
+  my @rc; my $first_in_row;
+  my $x = 0; my $y = 0; my $idx = 0;
+  while ($label ne '')
+    {
+    $label =~ s/^\s*($qr->{row})//;
+  
+    return $self->error ("Cannot parse HTML-like label: '$label'")
+      unless defined $1;
+
+    # we now got one row:
+    my $row = $1;
+
+    # remove <TR>
+    $row =~ s/^\s*$qr->{tr}\s*//; 
+    # remove </TR>
+    $row =~ s/\s*$qr->{tr_end}\s*\z//;
+
+#    print STDERR "# Row '$row'\n";
+#    print STDERR "# Label '$label'\n";
+#    sleep(1);
+
+    my $first = 1;
+    while ($row ne '')
+      {
+      $row =~ s/^($qr->{td})($qr->{text})$qr->{td_end}//;
+      return $self->error ("Cannot parse HTML-like row: '$row'")
+        unless defined $1;
+
+      my $node_label = $2;
+      my $attr_txt = $1;
+
+      my $node_name = $base_name . '.' . $idx;
+
+      # if it doesn't exist, add it, otherwise retrieve node object to $node
+      my $node = $graph->node($node_name);
+      if (!defined $node)
+	{
+	# create node object from the correct class
+	$node = $class->new($node_name);
+        $graph->add_node($node);
+	$node->set_attributes($raw_attributes);
+        $node->{autosplit_portname} = $idx;		# some sensible default
+	}
+
+      # apply the default attributes from the table
+      $node->set_attributes($table_attr);
+
+      # parse the attributes and apply them to the node
+      $self->_html_per_node( $self->_parse_html_attributes($attr_txt,$qr), $node );
+
+#     print STDERR "# Created $node_name\n";
+ 
+      $node->{autosplit_label} = $node_label;
+      $node->{autosplit_basename} = $base_name;
+
+      push @rc, $node;
+      if (@rc == 1)
+        {
+        # for correct as_txt output
+        $node->{autosplit} = $org_label;
+        $node->{autosplit} =~ s/\s+\z//;	# strip trailing spaces
+        $node->{autosplit} =~ s/^\s+//;		# strip leading spaces
+        $first_in_row = $node;
+        }
+      else
+        {
+        # second, third etc get previous as origin
+        my ($sx,$sy) = (1,0);
+        my $origin = $rc[-2];
+	# the first node in one row is relative to the first node in the
+	# prev row
+	if ($first == 1)
+          {
+          ($sx,$sy) = (0,1); $origin = $first_in_row;
+          $first_in_row = $node;
+	  $first = 0;
+          } 
+        $node->relative_to($origin,$sx,$sy);
+	# suppress as_txt output for other parts
+	$node->{autosplit} = undef;
+        }	
+      # nec. for border-collapse
+      $node->{autosplit_xy} = "$x,$y";
+
+      $idx++;						# next node ID
+      $x++;
+      }
+
+    # next row
+    $y++;
+    }
+
   }
 
 #############################################################################
@@ -1434,12 +1806,24 @@ sub _parser_cleanup
   my $g = $self->{_graph};
   my @nodes = $g->nodes();
 
-  # for all nodes that have a shape of "record", break down their label into
-  # parts and create  these as autosplit nodes
+  # For all nodes that have a shape of "record", break down their label into
+  # parts and create these as autosplit nodes.
+  # For all nodes that have a label starting with "<", parse it as HTML.
+
   for my $n (@nodes)
     {
-    my $shape = $n->attribute('shape') || 'rect';
     my $label = $n->label();
+    my $shape = $n->attribute('shape');
+
+    if ($shape ne 'record' && $label =~ /^<\s*<.*>\z/)
+      {
+      print STDERR "# HTML-like label found: $label\n";
+      $self->_parse_html($n);
+      # remove the temp. and spurious node
+      $g->del_node($n);
+      next;
+      }
+
     if ($shape eq 'record' && $label =~ /\|/)
       {
       my $att = {};
@@ -1568,7 +1952,7 @@ sub _parser_cleanup
 	else
 	  {
 	  # uhoh...
-	  $self->error("Cannot find autosplit node for $base:$port on edge $e->{id}");
+	  return $self->error("Cannot find autosplit node for $base:$port on edge $e->{id}");
 	  }
  	}
 

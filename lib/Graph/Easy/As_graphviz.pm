@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = 0.20;
+$VERSION = 0.21;
 
 #############################################################################
 #############################################################################
@@ -32,6 +32,8 @@ my $remap = {
     'shape' => \&_graphviz_remap_node_shape,
     'title' => 'tooltip',
     'flow' => undef,
+    'rows' => undef,
+    'columns' => undef,
     },
   edge => {
     'align' => undef,
@@ -74,6 +76,7 @@ my $remap = {
     class => undef,
     'autolink' => undef,
     'autotitle' => undef,
+    'autolabel' => undef,
     'fontsize' => \&_graphviz_remap_fontsize,
     'font' => \&_graphviz_remap_font,
     'link' => \&_graphviz_remap_link,
@@ -81,12 +84,13 @@ my $remap = {
     'textstyle' => undef,
     'textwrap' => undef,
     'format' => undef,
+    'group' => undef,
     },
   always => {
-    node	=> [ qw/borderstyle link rotate/ ],
-    'node.anon' => [ qw/bordercolor borderstyle link rotate/ ],
-    edge	=> [ qw/labelcolor link color/ ],
-    graph	=> [ qw/labelpos borderstyle link/ ],
+    node	=> [ qw/borderstyle label link rotate/ ],
+    'node.anon' => [ qw/bordercolor borderstyle label link rotate/ ],
+    edge	=> [ qw/labelcolor label link color/ ],
+    graph	=> [ qw/labelpos borderstyle label link/ ],
     },
   };
 
@@ -362,6 +366,9 @@ sub _graphviz_remap_label
   my ($self, $name, $style, $node) = @_;
 
   my $s = $style;
+
+  # call label() to handle thinks like "autolabel: 15" properly
+  $s = $node->label() if ref($node);
 
   my $shape = 'rect';
   $shape = ($node->attribute('shape') || '') if ref($node);

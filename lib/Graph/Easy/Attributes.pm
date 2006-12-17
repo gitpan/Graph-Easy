@@ -6,7 +6,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = 0.23;
+$VERSION = 0.24;
 
 package Graph::Easy;
 
@@ -2701,9 +2701,9 @@ EOF
      ],
 
     textwrap => [
-     "When set to C<auto>, the label text will be wrapped to make the node size smaller, alignments on individual line breaks are ignored.. The default <code>none</code> makes the label text appear exactly as it was written, with <a href='syntax.html'>manual line breaks</a> applied.",
-     [ qw/auto none/ ],
-     'none',
+     "The default C<none> makes the label text appear exactly as it was written, with <a href='syntax.html'>manual line breaks</a> applied. When set to a positive number, the label text will be wrapped after this number of characters. When set to C<auto>, the label text will be wrapped to make the node size as small as possible, depending on output format this may even be dynamic. When not C<none>, manual line breaks and alignments on them are ignored.",
+     qr/^(auto|none|\d{1,4})/,
+     { default => 'inherit', graph => 'none' },
      'auto',
      undef,
      "node { textwrap: auto; }\n ( Nodes:\n [ Frankfurt (Oder) liegt an der\n   ostdeutschen Grenze und an der Oder ] -->\n [ Städte innerhalb der\n   Ost-Westfahlen Region mit sehr langen Namen] )",
@@ -2961,6 +2961,16 @@ EOF
 	ATTR_TEXT,
 	"( Cities: [ A ] --> [ B ] --> [ C ] --> [ D ] --> [ A ] ) { root: B; }",
      ],
+
+    group => [
+     "Puts the group inside this group, nesting the two groups inside each other.",
+     undef,
+      '',
+      'Cities',
+       undef,
+     "( Cities: [ Bonn ] ) ( Rivers: [ Rhein ] ) { group: Cities:; }",
+     ], 
+
    }, # group
 
   # These entries will be allowed temporarily during Graphviz parsing for
@@ -3528,6 +3538,9 @@ sub validate_attribute
   my @rc;
   for my $v (@values)
     {
+    # don't check empty parts for being valid
+    push @rc, undef and next if $multiples && $v eq '';
+
     if (defined $check && !ref($check))
       {
       no strict 'refs';
@@ -3676,6 +3689,7 @@ sub _remap_attributes
       $out->{$at} = $v;
       }
     }
+
   $out;
   }
 

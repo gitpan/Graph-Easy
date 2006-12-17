@@ -8,7 +8,7 @@ package Graph::Easy::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = 0.25;
+$VERSION = 0.26;
 
 #############################################################################
 #############################################################################
@@ -39,64 +39,127 @@ use Graph::Easy::Layout::Repair;	# group cells and splicing/repair
 
 sub _assign_ranks
   {
-  # assign a rank to each node, so that they can be sorted into groups
+  # Assign a rank to each node/group.
+
+  # Afterwards, every node has a rank, these range from 1..infinite for
+  # user supplied ranks, and -1..-infinite for automatically found ranks.
+  # This lets us later distinguish between autoranks and userranks, while
+  # still being able to sort nodes based on their (absolute) rank.
   my $self = shift;
 
-  # XXX TODO: we dont actually need them in sorted order
-  my @N = $self->sorted_nodes();
-  my @todo = ();
+  # a Heap to keep the todo-nodes (aka rank auto or explicit)
+  my $todo = Graph::Easy::Heap->new();
+  # sort entries based on absolute value
+  $todo->sort_sub( sub ($$) { abs($_[0]) <=> abs($_[1]) } );
 
-  # Put all nodes into rank 0 as default and gather all nodes that have
-  # outgoing connections, but no incoming ones
-  for my $n (@N, $self->groups())
+  # a list of all other nodes
+  my @also;
+
+  # XXX TODO:
+  # gather elements todo:
+  # graph: contained groups, plus non-grouped nodes
+  # groups: contained groups, contained nodes
+
+  # sort nodes on their ID to get some basic order
+  my @N = $self->sorted_nodes('id');
+  push @N, $self->groups();
+
+  my $root = $self->attribute('root');
+  $root = $self->{nodes}->{$root} if defined $root;
+
+  $todo->add([$root->{rank} = -1,$root]) if ref $root;
+
+  # Gather all nodes that have outgoing connections, but no incoming:
+  for my $n (@N)
     {
-    # if no rank set, use 0 as default
-    $n->{rank} = $n->attribute('rank');
-    $n->{rank} = 0 if !defined $n->{rank} || $n->{rank} eq 'auto';
+    # we already handled the root node above
+    next if $root && $n == $root;
 
-    # XXX TODO implement laying out in same column/row
-    $n->{rank} = 0 if $n->{rank} eq 'same';
-    
-    next if $n->{rank} != 0;
-    push @todo, $n
-      if $n->successors() > 0 && $n->predecessors() == 0;
+    # if no rank set, use 0 as default
+    my $rank_att = $n->raw_attribute('rank');
+
+    $rank_att = undef if defined $rank_att && $rank_att eq 'auto';
+    # XXX TODO: this should not happen, the parser should assign an
+    # automatic rank ID
+    $rank_att = 0 if defined $rank_att && $rank_att eq 'same';
+
+    # user defined ranks range from 1..inf
+    $rank_att++ if defined $rank_att;
+
+    # assign undef or 0, 1 etc
+    $n->{rank} = $rank_att;
+
+    # user defined ranks are "1..inf", while auto ranks are -1..-inf
+    $n->{rank} = -1 if !defined $n->{rank} && $n->predecessors() == 0;
+
+    # push "rank: X;" nodes, or nodes without predecessors
+    $todo->add([$n->{rank},$n]) if defined $n->{rank};
+    push @also, $n unless defined $n->{rank};
     }
+
+#  print STDERR "# Ranking:\n";
+#  for my $n (@{$todo->{_heap}})
+#    {
+#    print STDERR "# $n->[1]->{name} $n->[0] $n->[1]->{rank}:\n";
+#    }
+#  print STDERR "# Leftovers in \@also:\n";
+#  for my $n (@also)
+#    {
+#    print STDERR "# $n->{name}:\n";
+#    }
 
   # The above step will create a list of todo nodes that start a chain, but
   # it will miss circular chains like CDEC (e.g. only A appears in todo):
   # A -> B;  C -> D -> E -> C;
   # We fix this as last step
 
-  my $done = 0;
-  while ($done < 2)
+  while ((@also != 0) || $todo->elements() != 0)
     {
     # while we still have nodes to follow
-    while (@todo)
+    while (my $elem = $todo->extract_top())
       {
-      my $n = shift @todo;
-      my $l = $n->{rank} + 1;
+      my ($rank,$n) = @$elem;
+
+      my $l = $n->{rank};
+
+      # If the rank comes from a user-supplied rank, make the next node
+      # have an automatic rank (e.g. 4 => -4)
+      $l = -$l if $l > 0; 
+      # -4 > -5
+      $l--;
+
       for my $o ($n->successors())
         {
-        if ($o->{rank} == 0)
+        if (!defined $o->{rank})
           {
-          #print "# Set $o->{name} to $l\n";
+#	  print STDERR "# set rank $l for $o->{name}\n";
           $o->{rank} = $l;
-          # XXX TODO: check that $o is not yet on @todo
-          push @todo, $o;
+	  $todo->add([$l,$o]);
           }
         }
       }
-    # done all nodes in TODO, get nodes in circular chains
-    $done++;
 
-    last if $done == 2;			# early out
-    for my $n (@N)
+    last unless @also;
+
+    while (@also)
       {
-      # node still in rank 0, but has incoming edges
-      push @todo, $n
-        if $n->{rank} == 0 && $n->predecessors() > 0;
+      my $n = shift @also;
+      # already done? so skip it
+      next if defined $n->{rank};
+
+      $n->{rank} = -1; 
+      $todo->add([-1, $n]);
+      # leave the others for later
+      last;
       }
+
     } # while still something todo
+
+#  print STDERR "# Final ranking:\n";
+#  for my $n (@N)
+#    {
+#    print STDERR "# $n->{name} $n->{rank}:\n";
+#    }
 
   $self;
   }
@@ -147,11 +210,27 @@ sub _follow_chain
       # if it is bidirectional, and points the "wrong" way, turn it around
       $to = $e->{from} if $e->{bidirectional} && $to == $node;
 
+      # edge leads to this node instead from it?
+      next if $to == $node;
+
+#      print STDERR "# edge_flow for edge $e", $e->edge_flow() || 'undef' ,"\n";
+#      print STDERR "# flow for edge $e", $e->flow() ,"\n";
+
+      # If any of the leading out edges has a flow, stop the chain here
+      # This prevents a chain on an edge w/o a flow to be longer and thus
+      # come first instead of a flow-edge. But don't stop if there is only
+      # one edge:
+
+      if (defined $e->edge_flow())
+	{
+        %suc = ( $to->{name} => $to );		# empy any possible chain info
+        last;
+        }
+
       next if exists $to->{_c};		# backloop into current branch?
 
       next if defined $to->{_chain} &&	# ignore if it points to the same
 		$to->{_chain} == $c; 	# chain (backloop)
-
 
       # if the next node's grandparent is the same as ours, it depends on us
       next if $to->find_grandparent() == $node->find_grandparent();
@@ -271,8 +350,7 @@ sub _find_chains
     $n->{_chain} = undef;				# reset chain info
     $has_origin = 0;
     $has_origin = 1 if defined $n->{origin} && $n->{origin} != $n;
-#    $p->{$n->{name}} = [ $n->has_predecessors(), $has_origin, keys %{$n->{children}} || 0];
-    $p->{$n->{name}} = [ $n->has_predecessors(), $has_origin ];
+    $p->{$n->{name}} = [ $n->has_predecessors(), $has_origin, abs($n->{rank}) ];
     }
 
   my $done = 0; my $todo = scalar keys %{$self->{nodes}};
@@ -285,10 +363,11 @@ sub _find_chains
   for my $name ($root_name, sort {
     my $aa = $p->{$a};
     my $bb = $p->{$b};
+
+    # sort first on rank
+    $aa->[2] <=> $bb->[2] ||
     # nodes that have an origin come last
     $aa->[1] <=> $bb->[1] ||
-#    # nodes with children come first
-#    $aa->[2] <=> $bb->[2] ||
     # nodes with no predecessorts are to be prefered 
     $aa->[0] <=> $bb->[0] ||
     # last resort, alphabetically sorted
@@ -429,17 +508,19 @@ sub _layout
   ###########################################################################
   # do some assorted stuff beforehand
 
-  local $_; $_->grow() for (values %{$self->{nodes}});
-
-  $self->_assign_ranks();
-
-  foreach my $n (values %{$self->{nodes}})
+  for my $n (values %{$self->{nodes}})
     {
-    $n->{x} = undef;			# mark every node as not placed yet
-    $n->{y} = undef;
+    # empty the cache of computed values (flow, label, border etc)
+    $n->{cache} = {};
+
+    $n->{x} = undef; $n->{y} = undef;	# mark every node as not placed yet
     $n->{w} = undef;			# force size recalculation
     $n->{_todo} = undef;		# mark as todo
     }
+
+  local $_; $_->_grow() for values %{$self->{nodes}};
+
+  $self->_assign_ranks();
 
   # find (longest possible) chains of nodes to "straighten" graph
   my $root = $self->_find_chains();
@@ -475,11 +556,17 @@ sub _layout
 
   for my $chain (sort { 
 
+     # chain starting at root first
+     (($b->{start} == $root) <=> ($a->{start} == $root)) ||
+
      # longest chains first
-     $b->{len} <=> $a->{len} ||
+     ($b->{len} <=> $a->{len}) ||
+
      # chains on nodes that do have an origin come later
      (defined($a->{start}->{origin}) <=> defined ($b->{start}->{origin})) ||
-     $a->{start}->{name} cmp $b->{start}->{name} 
+
+     # last resort, sort on name of the first node in chain
+     ($a->{start}->{name} cmp $b->{start}->{name}) 
 
      } values %{$self->{chains}})
     {
@@ -561,6 +648,13 @@ sub _layout
   my $step = 0;
   my $tries = 16;
 
+  # store for each rank the initial row/coluumn
+  $self->{_rank_pos} = {};
+  # does rank_pos store rows or columns?
+  $self->{_rank_coord} = 'y';
+  my $flow = $self->flow();
+  $self->{_rank_coord} = 'x' if $flow == 0 || $flow == 180;
+
   TRY:
   while (@todo > 0)			# all actions on stack done?
     {
@@ -582,7 +676,7 @@ sub _layout
 
       $mod = 0 if defined $node->{x};
       # $action is node to be placed, generic placement at "random" location
-      $mod = $self->_find_node_place( $cells, $node, $try, undef, $edge) if (!defined $node->{x});
+      $mod = $self->_find_node_place( $node, $try, undef, $edge) unless defined $node->{x};
       }
     elsif ($action_type == ACTION_CHAIN)
       {
@@ -590,7 +684,7 @@ sub _layout
       print STDERR "# step $step: action chain '$node->{name}' from parent '$parent->{name}'\n" if $self->{debug};
 
       $mod = 0 if defined $node->{x};
-      $mod = $self->_find_node_place( $cells, $node, $try, $parent, $edge ) if (!defined $node->{x});
+      $mod = $self->_find_node_place( $node, $try, $parent, $edge ) unless defined $node->{x};
       }
     elsif ($action_type == ACTION_TRACE)
       {
@@ -604,12 +698,12 @@ sub _layout
       if (!defined $dst->{x})
         {
 #	warn ("Target node $dst->{name} not yet placed");
-        $mod = $self->_find_node_place( $cells, $dst, 0, undef, $edge );
+        $mod = $self->_find_node_place( $dst, 0, undef, $edge );
 	}        
       if (!defined $src->{x})
         {
 #	warn ("Source node $src->{name} not yet placed");
-        $mod = $self->_find_node_place( $cells, $src, 0, undef, $edge );
+        $mod = $self->_find_node_place( $src, 0, undef, $edge );
 	}        
 
       # find path (mod is score modifier, or undef if no path exists)

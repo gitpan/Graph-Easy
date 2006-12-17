@@ -22,6 +22,8 @@ license		'gpl';		# v2.0 only
 
 author		'Tels <nospam-abuse@bloodgate.com>';
 
+install_script  'bin/graph-easy';
+
 # Do not index these
 no_index	directory	=> 'examples';
 no_index	directory	=> 'bench';

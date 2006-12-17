@@ -8,7 +8,7 @@ use utf8;
 
 BEGIN
    {
-   plan tests => 86;
+   plan tests => 101;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser::Graphviz") or die($@);
@@ -136,6 +136,39 @@ EOG2
 
 is (scalar $graph->nodes(), 4, 'scopes: four nodes');
 is (scalar $graph->edges(), 3, 'scopes: three egdes');
+
+#############################################################################
+# color parsing
+
+my $tests = {
+  '1.0,0.0,1.0' 	=> 'rgb(255,255,255)',		# white
+  '1.0,0.0,0.5' 	=> 'rgb(128,128,128)',		# grey
+  '1.0,0.0,0.0' 	=> 'rgb(0,0,0)',		# black
+  '0.0,1.0,1.0'		=> 'rgb(255,0,0)',		# red
+  '1.0,1.0,1.0' 	=> 'rgb(255,0,0)',		# red
+  '1.0,1.0,0.5' 	=> 'rgb(128,0,0)',		# darkred
+  '0.1666,1.0,1.0' 	=> 'rgb(255,255,0)',		# yellow
+  '0.3333,1.0,1.0' 	=> 'rgb(0,255,0)',		# green
+  '0.3333,1.0,0.5' 	=> 'rgb(0,128,0)',		# darkgreen
+  '0.5,1.0,1.0' 	=> 'rgb(0,255,255)',		# cyan
+  '0.6666,1.0,1.0' 	=> 'rgb(0,0,255)',		# blue
+  '0.8333,1.0,1.0' 	=> 'rgb(255,0,255)',		# magenta
+
+  '0.482,0.714,0.878'	=> 'rgb(64,224,207)',		# turquoise
+  '0.051,0.718,0.627'	=> 'rgb(160,80,45)',		# sienna
+  };
+
+for my $test (keys %$tests)
+  {
+  my $color = Graph::Easy::Parser::Graphviz::_hsv_to_rgb(split/,/, $test);
+
+
+  is ($color, $tests->{$test}, "'$test' results in '$tests->{$test}'");
+  }
+  
+my $color = 
+  Graph::Easy::Parser::Graphviz->_from_graphviz_color('color',"/accent4/4");
+is ($color, '#ffff99', "/accent4/4 works");
 
 #############################################################################
 #############################################################################

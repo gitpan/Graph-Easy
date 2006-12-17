@@ -4,4 +4,4 @@ node.C { border: dashed; }
 node { border: double; }
 
 [ A|B ] { class: |B; }
-[ C|D ] { class: B|; }
+[ C|D ] { class: C|; }

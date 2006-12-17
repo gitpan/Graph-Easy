@@ -16,10 +16,10 @@ graph {
   [ s ]
 ) { label: second; }
 
+[ a ] --> [ b ]
 [ b ] --> [ q ]
 [ q ] --> [ r ]
 [ r ] --> { style: bold; } [ a ]
 [ r ] --> [ s ]
-[ a ] --> [ b ]
 [ s ] --> [ p ]
 [ p ] --> [ q ]

@@ -1,5 +1,9 @@
 #!/usr/bin/perl -w
 
+#############################################################################
+# This example is a bit outdated, please use the new bin/graph-easy script -
+# which is after "make install" available on any command line in your system.
+
 # Convert an input file containing a Graph::Easy description to
 # standalone SVG file
 

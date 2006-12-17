@@ -8,7 +8,7 @@ package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = 0.27;
+$VERSION = 0.28;
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
 
@@ -102,12 +102,13 @@ sub from_file
   # if given a reference, assume it is a glob, or something like that
   if (ref($file))
     {
+    binmode $file, ':utf8' or die ("binmode '$file', ':utf8' failed: $!");
     $doc = <$file>;
     }
   else
     {
     open my $PARSER_FILE, $file or die (ref($self).": Cannot read $file: $!");
-    binmode $PARSER_FILE, ':utf8' or die ("binmode '$file', 'utf8' failed: $!");
+    binmode $PARSER_FILE, ':utf8' or die ("binmode '$file', ':utf8' failed: $!");
     $doc = <$PARSER_FILE>;		# read entire file
     close $PARSER_FILE;
     }
@@ -237,6 +238,12 @@ sub _new_group
 
   $self->{_graph}->add_group($group);
 
+  my $group_stack = $self->{group_stack};
+  if (@$group_stack > 0)
+    {
+    $group->set_attribute('group', $group_stack->[-1]->{name});
+    }
+
   $group;
   }
 
@@ -305,7 +312,7 @@ sub _build_match_stack
 
   # node { color: red; } or 
   # node.graph { color: red; }
-  $self->_register_handler( qr/^(node|graph|edge|group)(\.\w+)?$qr_attr/,
+  $self->_register_handler( qr/^\s*(node|graph|edge|group)(\.\w+)?$qr_attr/,
     sub
       {
       my $self = shift;
@@ -441,6 +448,9 @@ sub _build_match_stack
       $edge_atr = $self->_parse_attributes($edge_atr, 'edge');
       return undef if $self->{error};
 
+      # get the last group of the stack, lest the new one gets nested in it
+      pop @{$self->{group_stack}};
+
       $self->{group_stack} = [ $self->_new_group($gn) ];
 
       # allow undefined edge labels for setting them from the class
@@ -568,6 +578,7 @@ sub from_text
 
       # convert tabs to spaces (the regexps don't expect tabs)
       $curline =~ s/\t/ /g;
+      $curline =~ s/\x0d//g;		# 0x0d0x0a => ''
       }
     
     my $line = $backbuffer . $subst . $self->_clean_line($curline);
@@ -690,6 +701,13 @@ sub _link_lists
   $style;
   }
 
+sub _unquote_attribute
+  {
+  my ($self,$name,$value) = @_;
+
+  $self->_unquote($value);
+  }
+
 sub _unquote
   {
   my ($self, $name, $no_collapse) = @_;
@@ -711,6 +729,32 @@ sub _add_node
   my ($self, $graph, $name) = @_;
 
   $graph->add_node($name);		# add unless exists
+  }
+
+sub _get_cluster_name
+  {
+  # create a unique name for an autosplit node
+  my ($self, $base_name) = @_;
+
+  # Try to find a unique cluster name in case some one get's creative and names the
+  # last part "-1":
+
+  # does work without cluster-id?
+  if (exists $self->{clusters}->{$base_name})
+    {
+    my $g = 1;
+    while ($g == 1)
+      {
+      my $base_try = $base_name; $base_try .= '-' . $self->{cluster_id} if $self->{cluster_id};
+      last if !exists $self->{clusters}->{$base_try};
+      $self->{cluster_id}++;
+      }
+    $base_name .= '-' . $self->{cluster_id} if $self->{cluster_id}; $self->{cluster_id}++;
+    }
+
+  $self->{clusters}->{$base_name} = undef;	# reserve this name
+
+  $base_name;
   }
 
 sub _autosplit_node
@@ -736,29 +780,12 @@ sub _autosplit_node
   $base_name =~ s/\s+\z//;
   $base_name =~ s/^\s+//;
 
-  my $first_in_row;			# for relative placement of new row
-
   # first one gets: "ABC", second one "ABC.1" and so on
-  # Try to find a unique cluster name in case some one get's creative and names the
-  # last part "-1":
-
-  # does work without cluster-id?
-  if (exists $self->{clusters}->{$base_name})
-    {
-    my $g = 1;
-    while ($g == 1)
-      {
-      my $base_try = $base_name; $base_try .= '-' . $self->{cluster_id} if $self->{cluster_id};
-      last if !exists $self->{clusters}->{$base_try};
-      $self->{cluster_id}++;
-      }
-    $base_name .= '-' . $self->{cluster_id} if $self->{cluster_id}; $self->{cluster_id}++;
-    }
+  $base_name = $self->_get_cluster_name($base_name);
 
   print STDERR "# Parser: Autosplitting node with basename '$base_name'\n" if $graph->{debug};
 
-  $self->{clusters}->{$base_name} = undef;	# reserve this name
-
+  my $first_in_row;			# for relative placement of new row
   my $x = 0; my $y = 0; my $idx = 0;
   my $remaining = $name; my $sep; my $last_sep = '';
   my $add = 0;
@@ -994,7 +1021,7 @@ sub _match_node
 
 sub _match_single_attribute
   {
-  qr/^\s*([^:]+?)\s*:\s*("(?:\\"|[^"])+"|[^;]+?)(?:\s*;\s*|\s*\z)/;	# "name: value"
+  qr/^\s*([^:]+?)\s*:\s*("(?:\\"|[^"])+"|(?:\\;|[^;])+?)(?:\s*;\s*|\s*\z)/;	# "name: value"
   }
 
 sub _match_group_start
@@ -1031,9 +1058,17 @@ sub _match_edge
      |					# edge with label ("-- label -->")
        (<?) 				 # optional left "<"
        ((=\s|=|-\s|-|\.\.-|\.-|\.|~)+)	 # pattern (style) of edge
-       \s*				 # followed by at least a space
+       \s+				 # followed by at least a space
        ((?:\\.|[^>\[\{])*?)		 # either \\, \[ etc, or not ">", "[", "{"
        (\s+\5)>				 # a space and pattern before ">"
+
+# inserting this needs mucking with all the code that access $5 etc
+#     |					# undirected edge (without arrows, but with label)
+#       ((=\s|=|-\s|-|\.\.-|\.-|\.|~)+)	 # pattern (style) of edge
+#       \s+				 # followed by at least a space
+#       ((?:\\.|[^>\[\{])*?)		 # either \\, \[ etc, or not ">", "[", "{"
+#       (\s+\10)				 # a space and pattern
+
      |					# undirected edge (without arrows and label)
        (\.\.-|\.-)+			 # pattern (style) of edge (at least once)
      |
@@ -1076,7 +1111,7 @@ sub _parse_attributes
 
   return {} if $text =~ /^\s*\z/;
 
-# print STDERR "attr parsing: matching against $qr_att\n";    
+# print STDERR "attr parsing: matching\n '$text'\n against $qr_att\n";    
 
   while ($text ne '')
     {
@@ -1093,7 +1128,8 @@ sub _parse_attributes
 
     my $name = $1;
     my $v = $2; $v = '' unless defined $v;	# for special attributes w/o value
-    my $val = $self->_unquote($v);
+
+    my $val = $self->_unquote_attribute($name,$v);
 
     # store
     $out->{$name} = $val;
@@ -1355,11 +1391,22 @@ C<Graph::Easy::Parser> supports the following methods:
 	use Graph::Easy::Parser;
 	my $parser = Graph::Easy::Parser->new();
 
-Creates a new parser object. The only valid parameter is debug,
-when set to true it will enable debug output to STDERR:
+Creates a new parser object. The valid parameters are:
+
+	debug
+	fatal_errors
+
+The first will enable debug output to STDERR:
 
 	my $parser = Graph::Easy::Parser->new( debug => 1 );
 	$parser->from_text('[A] -> [ B ]');
+
+Setting C<fatal_errors> to 0 will make parsing errors not die, but
+just set an error string, which can be retrieved with L<error()>.
+
+	my $parser = Graph::Easy::Parser->new( fatal_errors => 0 );
+	$parser->from_text(' foo ' );
+	print $parser->error();
 
 =head2 reset()
 

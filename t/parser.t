@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 123;
+   plan tests => 138;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -74,6 +74,13 @@ my $graph2 = $parser->from_text('invalid');
 like ($parser->error(), qr/invalid/, 'one invalid line results in error');
 
 #############################################################################
+# matching classes with space in front
+
+$graph2 = $parser->from_text("# comment\n node { color: red; }\n");
+
+is ($parser->error(), '', 'parsed ok');
+
+#############################################################################
 # matching nodes
 
 my $node_qr = $parser->_match_node();
@@ -102,14 +109,18 @@ foreach (<DATA>)
 
   my $graph = $parser->from_text($txt);		# reuse parser object
 
-  if (!defined $graph)
+  if (!defined $graph || $graph->error() || $parser->error())
     {
-    fail($parser->error(). ". Input was: $txt");
-    next;
-    }
-  if ($graph->error)
-    {
-    fail($graph->error());
+    my $error = $parser->error();
+    $error = $graph->error() if ref($graph) && $graph->error(); 
+    if ($result =~ /ERROR/)
+      {
+      isnt ($error, '', 'got some error');
+      }
+    else
+      {
+      fail("$error. Input was: $txt");
+      }
     next;
     }
  
@@ -149,6 +160,11 @@ graph { color: red; }|0
 group { color: red; }|0
 node { color: red; }|0
 edge { color: red; }|0
+# attributes with space in front
+ graph { color: red; }|0
+ group { color: red; }|0
+ node { color: red; }|0
+ edge { color: red; }|0
 # anon nodes
 []|1,#0
 []->[]|2,#0,#1
@@ -282,12 +298,18 @@ graph { background: red; } [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 ([Bonn])|1,Bonn,Group #0
 # edge labels with escaped chars
 [ Bonn ] -- \[ A \] \<\> \=\-\. --> [ Berlin ]|2+1,Berlin,Bonn,[ A ] <> =-.
-# XXX TODO: error testing
+# ERROR testing
+# no space
+[ Bonn ]--test-->[ Berlin ]|ERROR
+[ Bonn ]-- test-->[ Berlin ]|ERROR
+[ Bonn ]--test -->[ Berlin ]|ERROR
+[ Bonn ]-- test--> [ Berlin ]|ERROR
+[ Bonn ] -- test--> [ Berlin ]|ERROR
 # mismatching left/right side
-#[ Bonn ] - Auto--> [ Berlin ]|2+1,Auto--,Berlin,Bonn
-#[ Bonn ] - Auto --> [ Berlin ]|2+1,Auto --,Berlin,Bonn
-#[ Bonn ] == Auto --> [ Berlin ]|2+1,Auto --,Berlin,Bonn
+[ Bonn ] - Auto--> [ Berlin ]|ERROR
+[ Bonn ] - Auto --> [ Berlin ]|ERROR
+[ Bonn ] == Auto --> [ Berlin ]|ERROR
 # unknown edge style
-#[ Bonn ] . > [ Berlin ]\n[Berlin] -> [Frankfurt]|
-#[ Bonn ] . > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
+[ Bonn ] . > [ Berlin ]\n[Berlin] -> [Frankfurt]|ERROR
+[ Bonn ] . > [ Berlin ]\n[Berlin] -> [Frankfurt]|ERROR
 

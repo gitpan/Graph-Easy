@@ -1,0 +1,292 @@
+#!/usr/bin/perl -w
+
+use strict;
+use Graph::Easy 0.50;
+use Graph::Easy::Parser;
+use Getopt::Long;
+
+my $help_requested = 0;
+$help_requested = 1 if @ARGV == 0;
+
+my $opt = get_options();
+
+# error?
+$help_requested = 1 if !ref($opt);
+
+# no error and --help was specified
+$help_requested = 2 if ref($opt) && $opt->{help} ne '';
+
+my $copyright = "Graph::Easy v$Graph::Easy::VERSION (c) Copyright by Tels 2006. "
+	       ."Released under the GPL v2.0.\n\n";
+
+if ($help_requested > 0)
+  {
+  print $copyright;
+  require Pod::Usage;
+  Pod::Usage::pod2usage( { -exitval => 2, -verbose => $help_requested, } );
+  }
+
+my $verbose = $opt->{verbose};
+my $OUT = \*STDERR;
+
+print $OUT $copyright if $verbose;
+
+#############################################################################
+# Create the parser object
+
+my $parser_class = 'Graph::Easy::Parser';
+if ($opt->{from} eq 'graphviz')
+  {
+  require Graph::Easy::Parser::Graphviz;
+  $parser_class = 'Graph::Easy::Parser::Graphviz';
+  }
+
+print $OUT "Creating $parser_class object.\n" if $verbose;
+
+my $parser = $parser_class->new( debug => $opt->{debug} );
+
+#############################################################################
+# parse the input file
+
+print $OUT "Parsing input in $opt->{from} from $opt->{inputname}.\n" if $verbose;
+
+my $graph = $parser->from_file($opt->{input});
+
+die ("Parser error: " . $parser->error) if !$graph || $parser->error();
+
+my $method = 'as_' . $opt->{as} . '_file';
+
+#############################################################################
+# Generate the wanted output format and write it to the output:
+
+print $OUT "Writing output as $opt->{as} to $opt->{outputname}.\n" if $verbose;
+
+my $FILE = $opt->{output};
+print $FILE $graph->$method();
+
+print $OUT "Everything done. Have fun!\n\n" if $verbose;
+
+# Everything done
+
+#############################################################################
+#############################################################################
+
+sub get_options
+  {
+  # set the defaults
+  my $opt = {
+    input => undef,
+    output => undef,
+    as => '',
+    from => 'txt',
+    help => '',
+    as_ascii => '',
+    as_boxart => '',
+    as_html => '',
+    as_svg => '',
+    as_graphviz => '',
+    as_txt => '',
+    debug => 0,
+    from_txt => '',
+    from_graphviz => '',
+    verbose => 0,
+  };
+  my $formats = {
+    html => 'html',
+    txt => 'ascii',
+    svg => 'svg',
+    dot => 'graphviz',
+  };
+  my $rc = GetOptions (
+	"input=s" => \$opt->{input},
+	"output=s" => \$opt->{output},
+	"as=s" => \$opt->{as},
+	"from=s" => \$opt->{from},
+	"help|?" => \$opt->{help},
+	"verbose" => \$opt->{verbose},
+	"debug=i" => \$opt->{debug},
+	"as_ascii|ascii" => \$opt->{as_ascii},
+	"as_html|html" => \$opt->{as_html},
+	"as_svg|svg" => \$opt->{as_svg},
+	"as_txt|txt" => \$opt->{as_txt},
+	"as_graphviz|graphviz|as_dot|dot" => \$opt->{as_graphviz},
+	"as_boxart|boxart" => \$opt->{as_boxart},
+
+	"from_txt" => \$opt->{from_txt},
+	"from_graphviz" => \$opt->{from_graphviz},
+	);
+
+  return unless $rc;
+
+  # if there areguments left, they are input and possible output
+  $opt->{input} = shift @ARGV if @ARGV;
+  $opt->{output} = shift @ARGV if @ARGV;
+
+  if (!defined $opt->{input})
+    {
+    $opt->{input} = \*STDIN;
+    $opt->{inputname} = 'STDIN';
+    }
+  else 
+   {
+   $opt->{inputname} = $opt->{input};
+   }
+ 
+  if (!defined $opt->{output})
+    {
+    $opt->{outputname} = 'STDOUT';
+    $opt->{output} = \*STDOUT;
+    # default to ASCII if nothing is know
+    $opt->{as} = 'ascii' if $opt->{as} eq '';
+    }
+  else
+    {
+    my $file = $opt->{output};
+    $opt->{outputname} = $opt->{output};
+    if ($opt->{as} eq '')
+      {
+      $opt->{as} = 'ascii';		# default
+      $opt->{as} = $formats->{$1} if $file =~ /\.(html|svg|txt|dot)\z/;
+      }
+    $opt->{output} = undef;
+    open $opt->{output}, ">$file" or die ("Cannot write to $file: $!");
+    }
+
+  binmode ($opt->{output}, ':utf8') or die ("Cannot do binmode(output,':utf8')");
+
+  # This code get's confused if the user specified multiple options. Not much
+  # can be done about that except whack the user.
+  for my $format (qw/ascii boxart html svg txt graphviz/)
+    {
+    $opt->{as} = $format if $opt->{"as_$format"};
+    delete $opt->{"as_$format"};
+    } 
+  for my $format (qw/txt graphviz/)
+    {
+    $opt->{form} = $format if $opt->{"from_$format"};
+    delete $opt->{"from_$format"};
+    }
+
+  $opt;
+  }
+
+__END__
+
+=pod
+
+=head1 NAME
+
+graph-easy - render/convert graphs in/from various formats
+
+=head1 SYNOPSIS
+
+Convert between graph formats and layout/render graphs:
+
+	graph-easy [options] [inputfile [outputfile]]
+	graph-easy --input=graph.dot --as_ascii
+	graph-easy --as_html --output=graph.html graph.txt
+	graph-easy graph.txt graph.svg
+	graph-easy graph.txt --as_dot | dot -Tpng -o graph.png
+	echo "[ Bonn ] - car -> [ Berlin ]" | graph-easy --ascii
+
+=head1 ARGUMENTS
+
+=over 10
+
+=item --help
+
+Print the full documentation, not just a short overview.
+
+=item --input
+
+Specify the input file name.
+
+=item --output
+
+Specify the output file name.
+
+=item --as
+
+Specify the output format. Valid formats are:
+
+	ascii
+	boxart
+	html
+	svg
+	graphviz	the DOT language
+	txt		Graph::Easy text
+
+If unspecified, the default format will be determined by the output
+filename extension, and is C<ascii> if that was not set.
+
+Note that you can also use B<ONE> argument of the form C<--as_ascii>,
+C<--as_svg> and so on.
+
+=item --from
+
+Specify the input format. Valid formats are:
+
+	graphviz	the DOT language
+	txt		Graph::Easy text
+
+If not specified, the input format is auto-detected.
+
+Note that you can also use B<ONE> argument of the form C<--from_graphviz>
+or C<--from_txt>,
+
+=item --verbose
+
+Write info regarding the conversion process to STDERR.
+
+=item --debug
+
+Write debugging info to STDERR. Warning, this can create huge amounts
+of hard-to-understand output!
+
+=back
+
+=head1 DESCRIPTION
+
+C<graph-easy> reads descriptions of graphs and then converts them to
+the desired output format.
+
+By default, the input will be read from STDIN, and the output will go to
+STDOUT.
+
+It understands the following formats as input:
+
+	Graph::Easy	http://bloodgate.com/perl/graph/manual/
+	DOT		http://www.graphviz.org/
+
+The formats are automatically detected, regardless of the input file name,
+but you can also explicitely declare your input to be in one specific
+format.
+
+The output can either be a dump of the graph in one of the two input formats,
+or a layout (rendering) of the graph in one of the output formats
+implemented by Graph::Easy:
+
+	HTML	SVG	ASCII	BOXART
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the terms of the GPL version 2.
+
+See the LICENSE file of Graph::Easy for a copy of the GPL.
+
+This product includes color specifications and designs developed by Cynthia
+Brewer (http://colorbrewer.org/). See the LICENSE file for the full license
+text that applies to these color schemes.
+X<gpl>
+X<apache-style>
+X<cynthia>
+X<brewer>
+X<colorscheme>
+X<license>
+
+=head1 AUTHOR
+
+Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
+
+=cut

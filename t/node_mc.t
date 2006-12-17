@@ -51,7 +51,7 @@ for (1..4)
 
 is ($node->connections(), 5, '5 connections');
 
-$node->grow();
+$node->_grow();
 
 is ($node->connections(), 5, '5 connections');
 is ($node->columns(), 1, '1 column');
@@ -98,8 +98,9 @@ is ($suc[0], $other, 'one successor');
 # node placement (multi-cell)
 
 my $cells = { };
+my $parent = { cells => $cells };
 
-is ($node->_do_place(1,1,$cells), 1, 'node can be placed');
+is ($node->_do_place(1,1,$parent), 1, 'node can be placed');
 
 is (scalar keys %$cells, 3, '3 entries (3 rows)');
 is ($cells->{"1,1"}, $node, 'node was really placed');
@@ -107,7 +108,7 @@ my $filler = $cells->{"1,2"};
 is (ref($filler), 'Graph::Easy::Node::Cell', 'filler cell');
 is ($filler->node(), $node, 'filler associated with node');
 
-is ($node->_do_place(1,1,$cells), 0, 'node cannot be placed again');
+is ($node->_do_place(1,1,$parent), 0, 'node cannot be placed again');
 is ($cells->{"1,1"}, $node, 'node still there placed');
 is (scalar keys %$cells, 3, 'still three entries');
 

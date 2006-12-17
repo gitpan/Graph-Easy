@@ -1,0 +1,17 @@
+edge { arrowstyle: filled; }
+graph {
+  colorscheme: x11;
+  flow: south;
+}
+
+[ A ] { color: red; }
+[ B ] { color: #ffff99; }
+[ C ] { color: #ff0000; }
+
+( cluster_1
+  [ A ]
+  [ B ]
+) { border: dashed  #ff0000; }
+
+[ A ] --> { color: #ff0000; } [ B ]
+[ B ] --> { color: rgb(255,0,0); } [ C ]

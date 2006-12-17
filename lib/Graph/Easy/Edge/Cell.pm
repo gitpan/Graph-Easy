@@ -1252,7 +1252,9 @@ use base qw/Graph::Easy::Node::Cell/;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
+
+use constant isa_cell => 1;
 
 1;
 __END__

@@ -1,6 +1,11 @@
 #!/usr/bin/perl -w
 
 #############################################################################
+# This example is a bit outdated, please use the new bin/grapheasy script -
+# which is after "make install" available in your system as simple as
+# "grapheasy" on any command line prompt.
+
+#############################################################################
 # This script uses examples/common.pl to generate some example graphs and
 # prints them as HTML page. Use it like:
 
@@ -15,11 +20,7 @@ BEGIN { chdir 'examples' if -d 'examples'; }
 
 require "common.pl";
 
-my $graph = Graph::Easy->new(
-  html_header => '',
-  html_footer => '',
-  html_style => '',
- );
+my $graph = Graph::Easy->new();
 
 my @toc = ();
 my $html = $graph->html_page_header();

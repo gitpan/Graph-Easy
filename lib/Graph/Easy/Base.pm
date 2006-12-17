@@ -6,7 +6,7 @@
 
 package Graph::Easy::Base;
 
-$VERSION = 0.06;
+$VERSION = 0.07;
 
 use strict;
 
@@ -91,6 +91,21 @@ sub error
       if ($self->{fatal_errors}) && $self->{error} ne '';
     }
   $self->{error} || '';
+  }
+
+sub error_as_html
+  {
+  # return error() properly escaped
+  my $self = shift;
+
+  my $msg = $self->{error};
+
+  $msg =~ s/&/&amp;/g;
+  $msg =~ s/</&lt;/g;
+  $msg =~ s/>/&gt;/g;
+  $msg =~ s/"/&quot;/g;
+
+  $msg; 
   }
 
 sub warn
@@ -186,6 +201,13 @@ Returns the last error message, or '' for no error.
 
 When setting a new error message, C<$self->_croak($error)> will be called
 unless C<$object->no_fatal_errors()> is true.
+
+=head2 error_as_html()
+
+	my $error = $object->error_as_html();
+
+Returns the same error message as L<error()>, but properly escaped
+as HTML so it is safe to output to the client.
 
 =head2 warn()
 

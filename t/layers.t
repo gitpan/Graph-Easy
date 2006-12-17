@@ -1,11 +1,13 @@
 #!/usr/bin/perl -w
 
+# test ranking of nodes, especially _assign_ranks():
+
 use Test::More;
 use strict;
 
 BEGIN
    {
-   plan tests => 54;
+   plan tests => 60;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Layout") or die($@);
@@ -69,10 +71,10 @@ print "# IDs A B C D E: ".
 
 # circular path C->D->E->C
 $graph->add_edge( $E, $C );
+
 $graph->_assign_ranks();
 is_rank($A, 0); is_rank($B, 1);
-# D => 1, then E => 2, then C => 3 (since C is still 0)
-is_rank($C, 3); is_rank($D, 1); is_rank($E, 2);
+is_rank($C, 0); is_rank($D, 1); is_rank($E, 2);
 
 #############################################################################
 # looping node
@@ -81,8 +83,7 @@ $graph = Graph::Easy->new();
 $graph->add_edge( $A, $A );
 $graph->_assign_ranks();
 is ($A->connections(), 2);
-# since A = 0, it will get 1
-is_rank($A, 1);
+is_rank($A, 0);
 
 #############################################################################
 # multiedged graph
@@ -103,6 +104,10 @@ is_rank($B, 1);
 # near nodes (2 in rank 0, one in rank 1, 1 in rank 2)
 
 $graph = Graph::Easy->new();
+$graph->add_node($A);
+$graph->add_node($B);
+$graph->add_node($C);
+$graph->add_node($D);
 $graph->add_edge( $A, $B );
 $graph->add_edge( $C, $B );
 $graph->add_edge( $B, $D );
@@ -136,6 +141,29 @@ is_deeply (\@nodes, [ $C, $A, $B, $D ], 'nodes sorted on rank and name');
 @nodes = $graph->sorted_nodes('rank', 'id');
 is_deeply (\@nodes, [ $A, $C, $B, $D ], 'nodes sorted on rank and id');
 
+@nodes = $graph->sorted_nodes('name', 'id');
+is_deeply (\@nodes, [ $B, $C, $D, $A ], 'nodes sorted on name and id');
+
+#############################################################################
+# explicit set ranks
+
+$graph = Graph::Easy->new();
+$graph->add_edge( $A, $B );
+$graph->add_edge( $B, $C );
+$graph->add_edge( $C, $D );
+$graph->add_edge( $D, $E );
+
+$C->set_attribute('rank', '0');
+$E->set_attribute('rank', '5');
+
+$graph->_assign_ranks();
+
+is_rank($A, 0);
+is_rank($B, 1);
+is_rank($C, 0);
+is_rank($D, 1);
+is_rank($E, 5);
+
 1;
 
 #############################################################################
@@ -144,5 +172,10 @@ sub is_rank
   {
   my ($n, $l) = @_;
 
-  is ($n->{rank}, $l, "$n->{name} has rank $l");
+  # Rank is "-1..-inf" for automatically assigned ranks, and "1..inf" for
+  # user supplied ranks:
+  my $rank = abs($n->{rank})-1;
+
+  print STDERR "# called from: ", join(" ", caller),"\n" unless
+    is ($rank, $l, "$n->{name} has rank $l");
   }

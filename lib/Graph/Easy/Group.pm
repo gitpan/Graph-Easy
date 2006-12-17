@@ -6,9 +6,10 @@ package Graph::Easy::Group;
 
 use Graph::Easy::Group::Cell;
 use Graph::Easy;
+use Scalar::Util qw/weaken/;
 
 @ISA = qw/Graph::Easy::Node Graph::Easy/;
-$VERSION = 0.15;
+$VERSION = 0.16;
 
 use strict;
 
@@ -79,6 +80,11 @@ sub set_attribute
   $self;
   }
 
+sub shape
+  {
+  '';
+  }
+
 #############################################################################
 # node handling
 
@@ -113,6 +119,8 @@ sub add_member
     require Carp;
     Carp::confess("Cannot add non node-object $n to group '$self->{name}'");
     }
+
+  return $self->add_group($n) if $n->isa('Graph::Easy::Group');
 
   my $class = 'nodes'; my $key = 'name';
   if ($n->isa('Graph::Easy::Edge'))
@@ -178,6 +186,24 @@ sub del_node
   $self;
   }
 
+sub add_nodes
+  {
+  my $self = shift;
+
+  foreach my $n (@_)
+    {
+    if (!ref($n) || $n->isa('Graph::Easy::Group'))
+      {
+      require Carp;
+      Carp::confess("Cannot add non-object or group $n as node to group '$self->{name}'");
+      }
+    $self->{nodes}->{ $n->{name} } = $n;
+    }
+  $self;
+  }
+
+#############################################################################
+
 sub del_edge
   {
   # delete an edge from this group
@@ -207,20 +233,39 @@ sub add_edge
   $self;
   }
 
-sub add_nodes
-  {
-  my $self = shift;
+#############################################################################
 
-  foreach my $n (@_)
-    {
-    if (!ref($n) || $n->isa('Graph::Easy::Group'))
-      {
-      require Carp;
-      Carp::confess("Cannot add non-object or group $n as node to group '$self->{name}'");
-      }
-    $self->{nodes}->{ $n->{name} } = $n;
-    }
-  $self;
+sub add_group
+  {
+  # add a group to us
+  my ($self,$group) = @_;
+
+  my $uc = $self->{use_class};
+
+  # group with that name already exists?
+  my $name = $group;
+  $group = $self->{groups}->{ $group } unless ref $group;
+
+  # group with that name doesn't exist, so create new one
+  $group = $uc->{group}->new( name => $name ) unless ref $group;
+
+  # index under the group name for easier lookup
+  $self->{groups}->{ $group->{name} } = $group;
+
+  # make attribute->('group') work
+  $group->{att}->{group} = $self->{name};
+
+  # register group with the graph and ourself
+  $group->{graph} = $self->{graph};
+  $group->{group} = $self;
+  {
+    no warnings; # dont warn on already weak references
+    weaken($group->{graph});
+    weaken($group->{group});
+  }
+  $self->{graph}->{score} = undef;		# invalidate last layout
+
+  $group;
   }
 
 sub cells
@@ -438,8 +483,11 @@ specified value.
 
 	$group->add_member($node);
 	$group->add_member($edge);
+	$group->add_member($group);
 
-Add the specified node or edge to this group.
+Add the specified object to this group.
+
+Note that each object can only be a member of one group at a time.
 
 =head2 add_node()
 
@@ -447,18 +495,30 @@ Add the specified node or edge to this group.
 
 Add the specified node to this group.
 
+Note that each object can only be a member of one group at a time.
+
 =head2 add_edge()
 
 	$group->add_edge($edge);
 
 Add the specified edge to this group.
 
+Note that each object can only be a member of one group at a time.
+
+=head2 add_group()
+
+	my $inner = $group->add_group('Group name');
+	my $nested = $group->add_group($group);
+
+Add a group as subgroup to this group.
+
 =head2 del_member()
 
 	$group->del_member($node);
 	$group->del_member($edge);
+	$group->del_member($group);
 
-Delete the specified node or edge from this group.
+Delete the specified object from this group.
 
 =head2 del_node()
 
@@ -539,6 +599,12 @@ C<get_attribute()>, etc. on a group, too. For example:
 
 This routine should not be called on groups, it only works on the graph
 itself.
+
+=head2 shape()
+
+	my $shape = $group->shape();
+
+Returns the shape of the group as string.
 
 =head1 EXPORT
 

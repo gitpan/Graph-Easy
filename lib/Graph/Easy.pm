@@ -18,7 +18,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.49';
+$VERSION = '0.50';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -37,6 +37,7 @@ BEGIN
   *_aligned_label = \&Graph::Easy::Node::_aligned_label;
   *_convert_pod = \&Graph::Easy::Node::_convert_pod;
   *_label_as_html = \&Graph::Easy::Node::_label_as_html;
+  *_wrapped_label = \&Graph::Easy::Node::_wrapped_label;
   *get_color_attribute = \&color_attribute;
   $att_aliases = Graph::Easy::_att_aliases();
   }
@@ -184,6 +185,9 @@ sub _init
       }
     $self->{$k} = $args->{$k};
     }
+
+  binmode(STDERR,'utf8') or die ("Cannot do binmode(STDERR,'utf8'")
+    if $self->{debug};
 
   $self->{score} = undef;
 
@@ -404,36 +408,19 @@ sub sorted_nodes
 
   my $sort;
   $sort = sub { $a->{$f1} <=> $b->{$f1} } if $f1;
+  $sort = sub { abs($a->{$f1}) <=> abs($b->{$f1}) } if $f1 && $f1 eq 'rank';
   $sort = sub { $a->{$f1} cmp $b->{$f1} } if $f1 && $f1 =~ /^(name|title|label)$/;
   $sort = sub { $a->{$f1} <=> $b->{$f1} || $a->{$f2} <=> $b->{$f2} } if $f2;
+  $sort = sub { abs($a->{$f1}) <=> abs($b->{$f1}) || $a->{$f2} <=> $b->{$f2} } if $f2 && $f1 eq 'rank';
+  $sort = sub { $a->{$f1} <=> $b->{$f1} || abs($a->{$f2}) <=> abs($b->{$f2}) } if $f2 && $f2 eq 'rank';
   $sort = sub { $a->{$f1} <=> $b->{$f1} || $a->{$f2} cmp $b->{$f2} } if $f2 &&
            $f2 =~ /^(name|title|label)$/;
-
-  # if we have groups, sort the nodes by their groups first:
-#  if (keys %{$self->{groups}} > 0)
-  if (3 < 1)
-    {
-    $sort = sub { 
-      my $ag = 0; $ag = $a->{group}->{id} if ref $a->{group};
-      my $bg = 0; $bg = $b->{group}->{id} if ref $b->{group};
-      $ag <=> $bg || $a->{$f1} <=> $b->{$f1} 
-      } if $f1;
-    $sort = sub { 
-      my $ag = 0; $ag = $a->{group}->{id} if ref $a->{group};
-      my $bg = 0; $bg = $b->{group}->{id} if ref $b->{group};
-      $ag <=> $bg || $a->{$f1} cmp $b->{$f1} 
-      } if $f1 && $f1 =~ /^(name|title|label)$/;
-    $sort = sub {
-      my $ag = 0; $ag = $a->{group}->{id} if ref $a->{group};
-      my $bg = 0; $bg = $b->{group}->{id} if ref $b->{group};
-      $ag <=> $bg || $a->{$f1} <=> $b->{$f1} || $a->{$f2} <=> $b->{$f2} 
-      } if $f2;
-    $sort = sub { 
-      my $ag = 0; $ag = $a->{group}->{id} if ref $a->{group};
-      my $bg = 0; $bg = $b->{group}->{id} if ref $b->{group};
-      $ag <=> $bg || $a->{$f1} <=> $b->{$f1} || $a->{$f2} cmp $b->{$f2} 
-      } if $f2 && $f2 =~ /^(name|title|label)$/;
-    }
+  $sort = sub { abs($a->{$f1}) <=> abs($b->{$f1}) || $a->{$f2} cmp $b->{$f2} } if 
+           $f1 && $f1 eq 'rank' &&
+           $f2 && $f2 =~ /^(name|title|label)$/;
+  # 'name', 'id'
+  $sort = sub { $a->{$f1} cmp $b->{$f1} || $a->{$f2} <=> $b->{$f2} } if $f2 &&
+           $f2 eq 'id' && $f1 ne 'rank';
 
   # the 'return' here should not be removed
   return sort $sort values %{$self->{nodes}};
@@ -477,6 +464,28 @@ sub edge
   my @ids = $x->edges_to($y);
   
   wantarray ? @ids : $ids[0];
+  }
+
+sub flip_edges
+  {
+  # turn all edges going from $x to $y around
+  my ($self, $x, $y) = @_;
+
+  # turn plaintext scalars into objects 
+  $x = $self->{nodes}->{$x} unless ref $x;
+  $y = $self->{nodes}->{$y} unless ref $y;
+
+  # node does not exist => edge does not exist
+  # if $x == $y, return early (no need to turn selfloops)
+
+  return $self unless ref($x) && ref($y) && ($x != $y);
+
+  for my $e (values %{$x->{edges}})
+    {
+    $e->flip() if $e->{from} == $x && $e->{to} == $y;
+    }
+
+  $self;
   }
 
 sub node
@@ -610,6 +619,37 @@ sub del_attribute ($$$)
     delete $a->{bordercolor};
     }
   $self;
+  }
+
+#############################################################################
+
+# for determining the absolute graph flow
+my $p_flow =
+  {
+  'east' => 90,
+  'west' => 270,
+  'north' => 0,
+  'south' => 180,
+  'up' => 0,
+  'down' => 180,
+  'back' => 270,
+  'left' => 270,
+  'right' => 90,
+  'front' => 90,
+  'forward' => 90,
+  };
+
+sub flow
+  {
+  # return out flow as number
+  my ($self)  = @_;
+
+  my $flow = $self->{att}->{graph}->{flow};
+
+  return 90 unless defined $flow;
+
+  my $f = $p_flow->{$flow}; $f = $flow unless defined $f;
+  $f;
   }
 
 #############################################################################
@@ -797,14 +837,14 @@ sub _skip
   my ($self) = shift;
 
   # skip these for CSS
-  qr/^(basename|columns|colorscheme|flow|format|rows|root|size|offset|origin|linkbase|(auto)?(label|link|title)|auto(join|split)|(node|edge)class|shape|arrowstyle|label(color|pos)|pointstyle|textstyle|style)\z/;
+  qr/^(basename|columns|colorscheme|flow|format|group|rows|root|size|offset|origin|linkbase|(auto)?(label|link|title)|auto(join|split)|(node|edge)class|shape|arrowstyle|label(color|pos)|pointstyle|textstyle|style)\z/;
   }
 
 sub _remap_text_wrap
   {
   my ($self,$name,$style) = @_;
 
-  return (undef,undef) if $style eq 'none';
+  return (undef,undef) if $style ne 'auto';
 
   # make text wrap again
   ('white-space','normal');
@@ -1296,7 +1336,7 @@ sub _as_ascii
   my $y_start = 0;
   my $x_start = 0;
 
-  my $align = $self->attribute('align') || 'center';
+  my $align = $self->attribute('align');
 
   # get the label lines and their alignment
   my ($label,$aligns) = $self->_aligned_label($align);
@@ -1531,9 +1571,9 @@ sub add_node
     $n = $x->{name}; $n = '0' unless defined $n;
     }
 
-  $self->_croak("Cannot add node with empty name to graph.") if $n eq '';
+  return $self->_croak("Cannot add node with empty name to graph.") if $n eq '';
 
-  $self->_croak("Cannot add node $x ($n), it already belongs to another graph")
+  return $self->_croak("Cannot add node $x ($n), it already belongs to another graph")
     if ref($x) && ref($x->{graph}) && $x->{graph} != $self;
 
   my $no = $self->{nodes};
@@ -2188,6 +2228,35 @@ Returns undef when an edge between X and Y already exists.
 When called in scalar context, will return C<$edge>. In array/list context
 it will return the two nodes and the edge object.
 
+=head2 flip_edges()
+
+	my $graph = Graph::Easy->new();
+	$graph->add_edge('Bonn','Berlin');
+	$graph->add_edge('Berlin','Bonn');
+
+	print $graph->as_ascii();
+
+	#   +--------------+
+	#   v              |
+	# +--------+     +------+
+	# | Berlin | --> | Bonn |
+	# +--------+     +------+
+
+	$graph->flip_edges('Bonn', 'Berlin');
+
+	print $graph->as_ascii();
+
+	#   +--------------+
+	#   |              v
+	# +--------+     +------+
+	# | Berlin | --> | Bonn |
+	# +--------+     +------+
+
+Turn around (transpose) all edges that are going from the first node to the
+second node.
+
+X<transpose>
+
 =head2 add_node()
 
 	my $node = $graph->add_node( 'Node 1' );
@@ -2426,6 +2495,12 @@ border(style|color|width) attributes.
   	my ($style,$width,$color) = $graph->split_border_attribute($border);
 
 Split the border attribute (like "1px solid red") into the three different parts.
+
+=head2 flow()
+
+	my $flow = $graph->flow();
+
+Returns the flow of the graph, as absolute number in degress.
 
 =head2 source_nodes()
 
@@ -3118,25 +3193,6 @@ Hopefully further development will lift these.
 
 Scoring is not yet implemented, each generated graph will be the same regardless
 of the random seed.
-
-=head2 Syntax
-
-See L<http://bloodgate.com/perl/graph/> for limits of the syntax. Mostly this
-are limitations in the parser, which cannot yet handle the following features:
-
-=over 2
-
-=item nesting (graph-in-a-graph)
-
-Nested graphs are not yet possible. However, the grouping feature can simulate
-a single nesting layer like so:
-
-	( German cities:
-
-	  [ Bonn ] -> [ Berlin ]
-	)
-
-=back
 
 =head2 Layouter
 

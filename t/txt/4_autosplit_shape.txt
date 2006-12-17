@@ -1,0 +1,3 @@
+[ C|D ] { shape: none; }
+
+[ A|B ]

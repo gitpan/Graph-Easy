@@ -8,7 +8,7 @@ package Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = 0.11;
+$VERSION = 0.12;
 
 use strict;
 
@@ -166,6 +166,11 @@ sub _set_label
   $self->{has_label} = 1;
  
   $self->{name} = $self->{group}->label();
+  }
+
+sub shape
+  {
+  'rect';
   }
 
 sub attribute
