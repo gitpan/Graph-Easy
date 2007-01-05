@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 140;
+   plan tests => 143;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -516,7 +516,7 @@ $berlin->set_attribute('colorscheme','set23');
 $bonn->set_attribute('color','1');
 
 $grviz = $graph->as_graphviz();
-like ($grviz, qr/graph.*color="#ff0000"/, 'contains graph color=#ff0000');
+like ($grviz, qr/graph(.|\n)*color="#ff0000"/, 'contains graph color=#ff0000');
 like ($grviz, qr/Bonn.*color="#fbb4ae"/, 'contains Bonn color=#fbb4ae');
 like ($grviz, qr/Berlin.*color="#66c2a5"/, 'contains Berlin color=#66c2a5');
 like ($grviz, qr/->.*Berlin.*color="#a6cee3"/, 'contains edge with default color 1 from set312');
@@ -553,4 +553,34 @@ unlike ($grviz, qr/rows=/, 'does not contain rows=');
 unlike ($grviz, qr/columns=/, 'does not contain columns=');
 unlike ($grviz, qr/group=/, 'does not contain group=');
 
+#############################################################################
+# test output of fillcolor and color of groups
+
+$graph = Graph::Easy->new();
+
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+$group = $graph->add_group('Cities');
+$group->add_nodes($bonn, $berlin);
+$group->set_attribute('fill','red');
+$group->set_attribute('color','blue');
+
+$graph->layout();
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/fillcolor="#ff0000"/, 'fillcolor=red');
+like ($grviz, qr/fontcolor="#0000ff"/, 'fontcolor=blue');
+
+#############################################################################
+# test group class attributes
+
+$graph = Graph::Easy->new();
+
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+$group = $graph->add_group('Cities');
+$group->add_nodes($bonn, $berlin);
+
+$graph->set_attribute('group','fill','red');
+
+$graph->layout();
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/cluster(.|\n)*fillcolor="#ff0000"/, 'fillcolor=blue');
 

@@ -651,6 +651,7 @@ my $remap = {
     textstyle => undef,
     title => undef,
     textwrap => \&Graph::Easy::_remap_text_wrap,
+    group => undef,
     },
   };
 
@@ -1856,11 +1857,8 @@ sub set_attribute
   # font-size => fontsize
   $name = $att_aliases->{$name} if exists $att_aliases->{$name};
 
-  if (!defined $class)
-    {
-    # edge.cities => edge
-    $class = $self->{class}; $class =~ s/\..*//; # remove subclass
-    }
+  # edge.cities => edge
+  $class = $self->main_class() unless defined $class;
 
   # remove quotation marks, but not for titles, labels etc
   my $val = Graph::Easy->unquote_attribute($class,$name,$v);

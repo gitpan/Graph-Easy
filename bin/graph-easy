@@ -54,18 +54,21 @@ my $graph = $parser->from_file($opt->{input});
 
 die ("Parser error: " . $parser->error) if !$graph || $parser->error();
 
-my $method = 'as_' . $opt->{as} . '_file';
-
 #############################################################################
 # Generate the wanted output format and write it to the output:
 
-print $OUT "Writing output as $opt->{as} to $opt->{outputname}.\n" if $verbose;
+if (! $opt->{parse})
+  {
+  my $method = 'as_' . $opt->{as} . '_file';
+  print $OUT "Writing output as $opt->{as} to $opt->{outputname}.\n" if $verbose;
 
-my $FILE = $opt->{output};
-print $FILE $graph->$method();
+  my $FILE = $opt->{output};
+  print $FILE $graph->$method();
 
-print $OUT "Everything done. Have fun!\n\n" if $verbose;
+  print $OUT "Everything done. Have fun!\n\n" if $verbose;
+  }
 
+#############################################################################
 # Everything done
 
 #############################################################################
@@ -90,6 +93,7 @@ sub get_options
     from_txt => '',
     from_graphviz => '',
     verbose => 0,
+    parse => 0,
   };
   my $formats = {
     html => 'html',
@@ -105,6 +109,7 @@ sub get_options
 	"help|?" => \$opt->{help},
 	"verbose" => \$opt->{verbose},
 	"debug=i" => \$opt->{debug},
+	"parse" => \$opt->{parse},
 	"as_ascii|ascii" => \$opt->{as_ascii},
 	"as_html|html" => \$opt->{as_html},
 	"as_svg|svg" => \$opt->{as_svg},
@@ -117,6 +122,9 @@ sub get_options
 	);
 
   return unless $rc;
+
+  # allow "as=dot" for easier usage:
+  $opt->{as} = 'graphviz' if $opt->{as} eq 'dot';
 
   # if there areguments left, they are input and possible output
   $opt->{input} = shift @ARGV if @ARGV;
@@ -214,6 +222,7 @@ Specify the output format. Valid formats are:
 	html
 	svg
 	graphviz	the DOT language
+	dot		an alias for "graphviz"
 	txt		Graph::Easy text
 
 If unspecified, the default format will be determined by the output
@@ -242,6 +251,11 @@ Write info regarding the conversion process to STDERR.
 
 Write debugging info to STDERR. Warning, this can create huge amounts
 of hard-to-understand output!
+
+=item --parse
+
+When true, will only parse the input file and not output anything.
+This is usefull in combination with C<--debug=1>.
 
 =back
 

@@ -63,6 +63,7 @@ t/base.t
 t/boxart.t
 t/cell.t
 t/chain.t
+t/class.t
 t/cluster.t
 t/delete.t			test deletion of nodes/edges
 t/drop.t
@@ -92,6 +93,7 @@ t/in/0_empty_group.txt
 t/in/0_empty_groups.txt
 t/in/1_bidi_loop.txt
 t/in/1node.txt
+t/in/1_empty_group.txt
 t/in/1_selfloop_2.txt
 t/in/1_selfloop_label.txt
 t/in/1_selfloop.txt
@@ -101,6 +103,7 @@ t/in/2_autosplit_empty.txt
 t/in/2_bidi_astar.txt
 t/in/2_bidi_endpoint.txt
 t/in/2_class.txt
+t/in/2_classes.txt
 t/in/2_cluster_2.txt
 t/in/2_cluster_3.txt
 t/in/2_cluster.txt
@@ -283,6 +286,7 @@ todos/tree2.txt
 t/out/0_empty_group.txt
 t/out/0_empty_groups.txt
 t/out/1_bidi_loop.txt
+t/out/1_empty_group.txt
 t/out/1node.txt
 t/out/1_selfloop_2.txt
 t/out/1_selfloop_label.txt
@@ -293,6 +297,7 @@ t/out/2_autosplit_empty.txt
 t/out/2_bidi_astar.txt
 t/out/2_bidi_endpoint.txt
 t/out/2_class.txt
+t/out/2_classes.txt
 t/out/2_cluster_2.txt
 t/out/2_cluster_3.txt
 t/out/2_cluster.txt
@@ -514,9 +519,11 @@ t/syntax/0254.txt
 t/txt/0_empty_group.txt
 t/txt/0_empty_groups.txt
 t/txt/1_undirected_loop.txt
+t/txt/1_empty_group.txt
 t/txt/2_autolabel.txt
 t/txt/2_autosplit_empty.txt
 t/txt/2_class.txt
+t/txt/2_classes.txt
 t/txt/2_cluster_2.txt
 t/txt/2_cluster_3.txt
 t/txt/2_cluster.txt

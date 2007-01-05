@@ -1,14 +1,13 @@
 #############################################################################
 # Parse text definition into a Graph::Easy object
 #
-# (c) by Tels 2004 - 2006.
 #############################################################################
 
 package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = 0.28;
+$VERSION = 0.29;
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
 
@@ -256,7 +255,7 @@ sub _add_group_match
   my $qr_group_end   = $self->_match_group_end();
   my $qr_oatr  = $self->_match_optional_attributes();
 
-  # ( group start [
+  # "( group start [" or empty group like "( Group )"
   $self->_register_handler( qr/^$qr_group_start/,
     sub
       {
@@ -267,11 +266,21 @@ sub _add_group_match
 
       $self->{replace} = $self->{group_start} if $end eq $self->{group_start};
 
+      # create the new group
       my $group = $self->_new_group($1);
-      push @{$self->{group_stack}}, $group;
 
-      # we matched an empty group like "()", or "( group name )"
-      $self->{stack} = [ $group ] if $end eq ')';
+      if ($end eq ')')
+        {
+        # we matched an empty group like "()", or "( group name )"
+        $self->{stack} = [ $group ]; 
+        }
+      else
+        {
+	# only put the group on the stack if it is still open
+        push @{$self->{group_stack}}, $group;
+        }
+
+      print STDERR "# Seen end of group '$group->{name}'.\n" if $self->{debug};
       1;
       } );
 
@@ -283,6 +292,8 @@ sub _add_group_match
 
       my $group = pop @{$self->{group_stack}};
       return $self->parse_error(0) if !defined $group;
+
+      print STDERR "# Seen end of group '$group->{name}'.\n" if $self->{debug};
 
       my $a1 = $self->_parse_attributes($1||'', 'group', NO_MULTIPLES);
       return undef if $self->{error};
@@ -307,23 +318,25 @@ sub _build_match_stack
   my $qr_oatr  = $self->_match_optional_attributes();
   my $qr_edge  = $self->_match_edge();
   my $qr_comma = $self->_match_comma();
+  my $qr_class = $self->_match_class_selector();
 
   my $e = $self->{use_class}->{edge};
 
-  # node { color: red; } or 
-  # node.graph { color: red; }
-  $self->_register_handler( qr/^\s*(node|graph|edge|group)(\.\w+)?$qr_attr/,
+  # node { color: red; } 
+  # node.graph { ... }
+  # .foo { ... }
+  # .foo, node, edge.red { ... }
+  $self->_register_handler( qr/^\s*$qr_class$qr_attr/,
     sub
       {
       my $self = shift;
-      my $type = $1 || '';
-      my $class = lc($2 || '');
-      my $att = $self->_parse_attributes($3 || '', $type, NO_MULTIPLES );
+      my $class = lc($1 || '');
+      my $att = $self->_parse_attributes($2 || '', $class, NO_MULTIPLES );
 
       return undef unless defined $att;		# error in attributes?
 
       my $graph = $self->{_graph};
-      $graph->set_attributes ( "$type$class", $att);
+      $graph->set_attributes ( $class, $att);
 
       # forget stacks
       $self->{stack} = [];
@@ -583,7 +596,7 @@ sub from_text
     
     my $line = $backbuffer . $subst . $self->_clean_line($curline);
 
-#  print STDERR "# Line is '$line'\n";
+  print STDERR "# Line is '$line'\n" if $self->{debug} && $self->{debug} > 1;
 
     $handled = 0;
     PATTERN:
@@ -592,19 +605,20 @@ sub from_text
       $self->{replace} = '';
       my ($pattern, $handler, $replace) = @$entry;
 
-#  print STDERR "# Matching against $pattern\n";
+  print STDERR "# Matching against $pattern\n" if $self->{debug} && $self->{debug} > 1;
+
       if ($line =~ $pattern)
         {
-#  print STDERR "# Matched, calling handler\n";
+  print STDERR "# Matched, calling handler\n" if $self->{debug} && $self->{debug} > 1;
         my $rc = 1;
         $rc = &$handler($self) if defined $handler;
         if ($rc)
 	  {
           $replace = $self->{replace} unless defined $replace;
 	  $replace = &$replace($self,$line) if ref($replace);
-#  print STDERR "# Handled it successfully.\n";
+  print STDERR "# Handled it successfully.\n" if $self->{debug} && $self->{debug} > 1;
           $line =~ s/$pattern/$replace/;
-#  print STDERR "# Line is now '$line' (replaced with '$replace')\n";
+  print STDERR "# Line is now '$line' (replaced with '$replace')\n" if $self->{debug} && $self->{debug} > 1;
           $handled++; last PATTERN;
           }
         }
@@ -621,7 +635,7 @@ sub from_text
 
   return undef if $self->{error} && $self->{fatal_errors};
 
-  print STDERR "# Parsing done\n" if $graph->{debug};
+  print STDERR "# Parsing done.\n" if $graph->{debug};
 
   # Do final cleanup (for parsing Graphviz)
   $self->_parser_cleanup() if $self->can('_parser_cleanup');
@@ -1017,6 +1031,12 @@ sub _match_node
   #        v--- for empty nodes
   #         v-- normal nodes  
   qr/\s*\[(|[^\]]*?[^\\])\]/;
+  }
+
+sub _match_class_selector
+  {
+  my $class = qr/(?:\.\w+|graph|(?:edge|group|node)(?:\.\w+)?)/;
+  qr/($class(?:\s*,\s*$class)*)/;
   }
 
 sub _match_single_attribute
@@ -1542,7 +1562,7 @@ L<Graph::Easy>. L<Graph::Easy::Parser::Graphviz>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

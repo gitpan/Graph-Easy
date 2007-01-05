@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = 0.21;
+$VERSION = 0.22;
 
 #############################################################################
 #############################################################################
@@ -71,23 +71,26 @@ my $remap = {
     'color' => 'fontcolor',
     'fill' => 'fillcolor',
     'title' => 'tooltip',
+    'rank' => undef,
     },
   all => {
     class => undef,
     'autolink' => undef,
     'autotitle' => undef,
     'autolabel' => undef,
+    'flow' => undef,
     'fontsize' => \&_graphviz_remap_fontsize,
     'font' => \&_graphviz_remap_font,
+    'format' => undef,
+    'group' => undef,
     'link' => \&_graphviz_remap_link,
     'linkbase' => undef,
     'textstyle' => undef,
     'textwrap' => undef,
-    'format' => undef,
-    'group' => undef,
+    'colorscheme' => undef,
     },
   always => {
-    node	=> [ qw/borderstyle label link rotate/ ],
+    node	=> [ qw/borderstyle label link rotate color/ ],
     'node.anon' => [ qw/bordercolor borderstyle label link rotate/ ],
     edge	=> [ qw/labelcolor label link color/ ],
     graph	=> [ qw/labelpos borderstyle label link/ ],
@@ -637,7 +640,8 @@ sub _as_graphviz
   $self->{_graphviz_invis_id} = 'joint0';
 
   my $atts =  $self->{att};
-  for my $class (qw/edge graph group node/)
+  # It is not possible to set attributes for groups in the DOT language that way
+  for my $class (qw/edge graph node/)
     {
     next if $class =~ /\./;		# skip subclasses
 
@@ -655,6 +659,7 @@ sub _as_graphviz
       {
       $out->{rankdir} = 'LR' if $flow == 90 || $flow == 270;
       $out->{labelloc} = 'top' if defined $out->{label} && !defined $out->{labelloc};
+      $out->{style} = 'filled' if $groups > 0;
       }
     elsif ($class eq 'edge')
       {
@@ -676,6 +681,7 @@ sub _as_graphviz
   # insert the edges into the proper group
   $self->_edges_into_groups() if $groups > 0;
 
+  # output the groups (aka subclusters)
   my $indent = '    ';
   for my $group (sort { $a->{name} cmp $b->{name} } values %{$self->{groups}})
     {
@@ -685,22 +691,21 @@ sub _as_graphviz
     # output group attributes first
     $txt .= "  subgraph \"cluster$group->{id}\" {\n${indent}label=\"$name\";\n";
    
-    # make a copy of the attributes
+    # Make a copy of the attributes, including our class attributes:
     my $copy = {};
-    for my $a (keys %{$group->{att}})
+    my $attribs = $group->get_attributes();
+
+    for my $a (keys %$attribs)
       {
-      $copy->{$a} = $group->{att}->{$a};
+      $copy->{$a} = $attribs->{$a};
       }
     # set some defaults
     $copy->{'borderstyle'} = 'solid' unless defined $copy->{'borderstyle'};
 
     my $out = $self->_remap_attributes( $group->class(), $copy, $remap, 'noquote', undef, 'remap_colors');
 
-    # set some defaults
-    $out->{fillcolor} = '#a0d0ff' unless defined $copy->{fillcolor};
-    $out->{color} = 'black' unless defined $copy->{color};
-    $out->{style} = 'filled' unless defined $copy->{style};
-
+    # Set some defaults:
+    $out->{fillcolor} = '#a0d0ff' unless defined $out->{fillcolor};
     $out->{labeljust} = 'l';
 
     my $att = '';

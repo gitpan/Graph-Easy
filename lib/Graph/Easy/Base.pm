@@ -1,12 +1,10 @@
 #############################################################################
 # A baseclass for Graph::Easy objects like nodes, edges etc.
-#
-# (c) by Tels 2004-2006. Part of Graph::Easy
 #############################################################################
 
 package Graph::Easy::Base;
 
-$VERSION = 0.07;
+$VERSION = 0.08;
 
 use strict;
 
@@ -130,7 +128,14 @@ sub sub_class
     $self->{class} .= '.' . $_[0];	# append new one
     }
   $self->{class} =~ /\.(.*)/;
-  $1;
+
+  return $1 if defined $1;
+
+  return $self->{cache}->{subclass} if defined $self->{cache}->{subclass}; 
+
+  # Subclass not defined, so check our base class for a possible set class
+  # attribute and return this:
+  $self->{cache}->{subclass} = $self->attribute('class');
   }
 
 sub class
@@ -138,7 +143,23 @@ sub class
   # return our full class name like "node.subclass" or "node"
   my $self = shift;
 
-  $self->{class};
+  $self->{class} =~ /\.(.*)/;
+
+  return $self->{class} if defined $1;
+
+  if (defined $self->{cache}->{subclass})
+    {
+    my $sc = $self->{cache}->{subclass}; $sc = '.' . $sc if $sc ne '';
+    return $self->{class} . $sc;
+    } 
+
+  # Subclass not defined, so check our base class for a possible set class
+  # attribute and return this:
+  my $subclass = $self->attribute('class') || '';
+  $self->{cache}->{subclass} = $subclass;
+  $subclass = '.' . $subclass if $subclass ne '';
+
+  $self->{class} . $subclass;
   }
 
 sub main_class
@@ -269,7 +290,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

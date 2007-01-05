@@ -1,5 +1,5 @@
 #############################################################################
-# (c) by Tels 2004 - 2006. Part of Graph::Easy
+# Part of Graph::Easy.
 #
 #############################################################################
 
@@ -13,7 +13,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = 0.24;
+$VERSION = 0.25;
 
 use Scalar::Util qw/weaken/;
 
@@ -265,7 +265,7 @@ sub _init
   $self->{edge}->add_cell ($self, $args->{after}, $args->{before});
   # take over settings from edge
   $self->{style} = $self->{edge}->style();
-  $self->{class} = $self->{edge}->{class};
+  $self->{class} = $self->{edge}->class();
   $self->{graph} = $self->{edge}->{graph};
   $self->{group} = $self->{edge}->{group};
   weaken($self->{graph});
@@ -310,7 +310,7 @@ sub _make_cross
 
   $self->{color} = $self->get_color_attribute('color');
   $self->{style_ver} = $edge->style();
-  $self->{color_ver} = $edge->attribute('color');
+  $self->{color_ver} = $edge->get_color_attribute('color');
 
   # if we are the VER piece, switch styles around
   if ($type == EDGE_VER)
@@ -677,7 +677,7 @@ my $edge_html = {
 
   EDGE_LOOP_EAST() - EDGE_LABEL_CELL() => [
 
-    '<td rowspan=2 class="##class## eb " style="##bg##">&nbsp;</td>' . "\n" .
+    '<td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## lh" style="border-bottom: ##border##;##lc####bg##">##label##</td>' ."\n".
     ' <td rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
 
@@ -698,7 +698,7 @@ my $edge_html = {
   # E_N_S
 
   EDGE_E_N_S() => [
-    '<td colspan=2 rowspan=2 class="##class## eb " style="##bg##">&nbsp;</td>' . "\n" .
+    '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' . "\n" .
     ' <td colspan=2 rowspan=2 class="##class## eb" style="border-left: ##borderv##; border-bottom: ##border##;##bg##">&nbsp;</td>',
     '',
     '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' ."\n".
@@ -707,7 +707,7 @@ my $edge_html = {
    ],
 
   EDGE_E_N_S() + EDGE_END_E() => [
-    '<td colspan=2 rowspan=2 class="##class## eb " style="##bg##">&nbsp;</td>' . "\n" .
+    '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>' . "\n" .
     ' <td rowspan=2 class="##class## eb" style="border-left: ##borderv##; border-bottom: ##border##;##bg##">&nbsp;</td>' . "\n" .
     ' <td rowspan=4 class="##class## va"##edgecolor##>&gt;</td>',
     '',
@@ -720,9 +720,8 @@ my $edge_html = {
   # W_N_S
 
   EDGE_W_N_S() => [
-
-    '<td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>',
-    '<td colspan=2 rowspan=4 class="##class## eb " style="##bg##">&nbsp;</td>',
+    '<td colspan=2 rowspan=2 class="##class## eb" style="border-bottom: ##border##;##bg##">&nbsp;</td>' . "\n" .
+    ' <td colspan=2 rowspan=4 class="##class## eb" style="border-left: ##borderv##;##bg##">&nbsp;</td>',
     '',
     '<td colspan=2 rowspan=2 class="##class## eb" style="##bg##">&nbsp;</td>',
     '',
@@ -990,8 +989,7 @@ sub as_html
 
   my $id = $self->{graph}->{id};
 
-  # || 'black' to set a black border if "label-color" is set
-  my $color = $self->color_attribute('color');
+  my $color = $self->get_color_attribute('color');
   my $label = '';
   my $label_style = '';
 
@@ -1410,7 +1408,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

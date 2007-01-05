@@ -1,12 +1,11 @@
 #############################################################################
-# define and check attributes for a Graph::Easy textual description.
+# Define and check attributes for a Graph::Easy textual description.
 #
-# (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy::Attributes;
 
-$VERSION = 0.24;
+$VERSION = 0.25;
 
 package Graph::Easy;
 
@@ -2090,12 +2089,6 @@ sub text_styles_as_css
 
   my $fs = $self->raw_attribute('fontsize');
 
-  # get the fonts-size from the class
-#  if (defined $fontsize)
-#    {
-#    my $DEF = $self->default_attribute('fontsize') || '';
-#    $fs = '' unless $fs ne $DEF;
-#    }
   $style .= " font-size: $fs;" if $fs;
 
   if (!$align)
@@ -3276,7 +3269,10 @@ sub attribute
   else
     {
     # allow calls of the style get_attribute('background');
-    $name = $class; $class = $self->{class} || 'graph';
+    $name = $class;
+    $class = $self->{class} || 'graph' if $name eq 'class';	# avoid deep recursion
+    $class = $self->class() unless $name eq 'class';
+
     return $self->border_attribute() if $name eq 'border'; # virtual attribute
     return join (",",$self->size()) if $name eq 'size'; # virtual attribute
     }
@@ -3288,7 +3284,13 @@ sub attribute
     
   my $base_class = $class; $base_class =~ s/\.(.*)//;
   my $sub_class = $1; $sub_class = '' unless defined $sub_class;
-  return $sub_class if $name eq 'class';
+  if ($name eq 'class')
+    {
+    # "[A] { class: red; }" => "red"
+    return $sub_class if $sub_class ne '';
+    # "node { class: green; } [A]" => "green": fall through and let the code
+    # below look up the attribute or fall back to the default '':
+    }
 
   # prevent ->{special}->{node} from springing into existance
   my $s = $attributes->{special}; $s = $s->{$class} if exists $s->{$class};
@@ -3352,7 +3354,7 @@ sub attribute
   # we try them in this order:
   # node.subclass, node, graph
 
-#  print STDERR "# $self->{name} $class $val ", join(" ", caller),"\n" if $class =~ /\./ && $name eq 'color';
+#  print STDERR "# $self->{name} class=$class val=$val ", join(" ", caller),"\n" if $name eq 'color';
 
   my @tries = ();
   # skip "node.foo" if value is 'inherit'
@@ -3375,7 +3377,7 @@ sub attribute
   $val = undef;
   for my $try (@tries)
     {
-#    print STDERR "# Trying class $try for attribute $name\n";
+#    print STDERR "# Trying class $try for attribute $name\n" if $name eq 'color';
 
     my $att = $g->{att}->{$try};
 
@@ -3401,7 +3403,7 @@ sub attribute
       }
     # $val must now be defined, because default value must exist.
 
-#    print STDERR "# Found '$val' for $try ($class)\n";
+#    print STDERR "# Found '$val' for $try ($class)\n" if $name eq 'color';
 
     if ($name ne 'label')
       {
@@ -3813,7 +3815,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

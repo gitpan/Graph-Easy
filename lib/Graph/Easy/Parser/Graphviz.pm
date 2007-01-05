@@ -1,12 +1,11 @@
 #############################################################################
 # Parse graphviz/dot text into a Graph::Easy object
 #
-# (c) by Tels 2005-2006.
 #############################################################################
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = 0.10;
+$VERSION = 0.11;
 use base qw/Graph::Easy::Parser/;
 
 use strict;
@@ -358,7 +357,6 @@ sub _unquote
 
   # string concat
   # "foo" + " bar" => "foo bar"
-#  print STDERR "# name='$name'\n" and
   $name =~ s/^
     "((?:\\"|[^"])*)"			# "foo"
     \s*\+\s*"((?:\\"|[^"])*)"		# followed by ' + "bar"'
@@ -1693,8 +1691,6 @@ sub _parse_html
 
   my $class = $self->{use_class}->{node};
 
-#  print STDERR "# Label '$label'\n";
-
   my $raw_attributes = $n->raw_attributes();
   delete $raw_attributes->{label};
   delete $raw_attributes->{shape};
@@ -1715,10 +1711,6 @@ sub _parse_html
     $row =~ s/^\s*$qr->{tr}\s*//; 
     # remove </TR>
     $row =~ s/\s*$qr->{tr_end}\s*\z//;
-
-#    print STDERR "# Row '$row'\n";
-#    print STDERR "# Label '$label'\n";
-#    sleep(1);
 
     my $first = 1;
     while ($row ne '')
@@ -1817,7 +1809,7 @@ sub _parser_cleanup
 
     if ($shape ne 'record' && $label =~ /^<\s*<.*>\z/)
       {
-      print STDERR "# HTML-like label found: $label\n";
+      print STDERR "# HTML-like label found: $label\n" if $self->{debug};
       $self->_parse_html($n);
       # remove the temp. and spurious node
       $g->del_node($n);
@@ -2230,7 +2222,7 @@ L<Graph::Easy>, L<Graph::Reader::Dot>.
 
 =head1 AUTHOR
 
-Copyright (C) 2005 - 2006 by Tels L<http://bloodgate.com>
+Copyright (C) 2005 - 2007 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

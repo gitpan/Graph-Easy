@@ -5,7 +5,7 @@ See Graph::Easy under LIMITATIONS for some hot topics. In addition:
 
 Important short-term TODO:
 
-* setting size as class attribute doesn't work
+* setting "size" as class attribute doesn't work
 * setting "offset: -2,0;" causes problems for multi-row nodes because
   the offset is taken into effect before growing the node
 
@@ -20,7 +20,7 @@ Important short-term TODO:
     of the grandparent node will thus always fail
   + last-resort placing of node should first try to place it more near
     to where the edge(s) are connected
-  + allow end/start without specicyfying a side: "[ A ]--> { end: 0; } [ B ]"
+  + allow end/start without specifying a side: "[ A ]--> { end: 0; } [ B ]"
   + t/in/5_joint.txt - the rendering order is C,A,B, so that the edge
     from A to Z comes before B to Z. And since the layouter "knows" it
     should not block the last port on B, it makes a bend. In this case, tho,
@@ -32,10 +32,13 @@ Recursive layouter:
 
 * as_graphviz():
   + links to/from empty groups fail
+  + attributes should be always checked against the default attribute and
+    output if necessary, to make setting attributes in classes work -
+    currently doing edge { color: blue; } will be ignored
 
 * Parser/Graphviz:
   + see also the section CAVEATS in Graph::Easy::Parser::Graphviz
-  + style=filled should result in color => fillcolor, not color=>fontcolor
+  + style=filled should result in color => fillcolor, not color => fontcolor
   + parse input in Latin1 charset
   + parse "A|{ B|C }" (record shape with hor/ver nesting)
   + nodes with shape record, but an edge going from the aggregate node have
@@ -181,8 +184,7 @@ General:
 
 	[ Red ] { class: red green; } -> [ Green ] { class: green red; }
 
-* add pseudo-class "any { color: red; }"? Better allow class selectors.
-  + .cities (all objects of class cities)
+* Implement more class selectors:
   + #id (object with ID id)
 
 * implement pseudo-class "step" for animations (see POD)

@@ -1,7 +1,6 @@
 ############################################################################
-# Layout directed graphs as 2D boxes on a flat plane
+# Manage, and layout graphs on a flat plane.
 #
-# (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy;
@@ -18,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.50';
+$VERSION = '0.51';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -310,7 +309,7 @@ sub link
   my $self = shift;
 
   my $link = $self->attribute('link');
-  my $autolink = $self->attribute('autolink');
+  my $autolink = ''; $autolink = $self->attribute('autolink') if $link eq '';
   if ($link eq '' && $autolink ne '')
     {
     $link = $self->{name} if $autolink eq 'name';
@@ -323,8 +322,7 @@ sub link
   # prepend base only if link is relative
   if ($link ne '' && $link !~ /^([\w]{3,4}:\/\/|\/)/)
     {
-    my $base = $self->attribute('linkbase');
-    $link = $base . $link;
+    $link = $self->attribute('linkbase') . $link;
     }
 
   $link;
@@ -399,7 +397,7 @@ sub sorted_nodes
   # return all nodes as objects, sorted by $f1 or $f1 and $f2
   my ($self, $f1, $f2) = @_;
 
-  return scalar $self->nodes() unless wantarray;	# shortcut
+  return scalar keys %{$self->{nodes}} unless wantarray;	# shortcut
 
   $f1 = 'id' unless defined $f1;
   # sorting on a non-unique field alone will result in unpredictable
@@ -500,16 +498,49 @@ sub node
 #############################################################################
 # attribute handling
 
+sub _check_class
+  {
+  # Check the given class ("graph", "node.foo" etc.) or class selector
+  # (".foo") for being valid, and return a list of base classes this applies
+  # to. Handles also a list of class selectors like ".foo, .bar, node.foo".
+  my ($self, $selector) = @_;
+
+  my @parts = split /\s*,\s*/, $selector;
+
+  my @classes = ();
+  for my $class (@parts)
+    {
+    # allowed classes, subclasses (except "graph."), selectors (excpet ".")
+    return unless $class =~ /^(\.\w|node|group|edge|graph\z)/;
+    # "node." is invalid, too
+    return if $class =~ /\.\z/;
+
+    # run a loop over all classes: "node.foo" => ("node"), ".foo" => ("node","edge","group")
+    $class =~ /^(\w*)/; 
+    my $base_class = $1; 
+    if ($base_class eq '')
+      {
+      push @classes, ('edge'.$class, 'group'.$class, 'node'.$class);
+      }
+    else
+      {
+      push @classes, $class;
+      }
+    } # end for all parts
+
+  @classes;
+  }
+
 sub set_attribute
   {
-  my ($self, $class, $name, $val) = @_;
+  my ($self, $class_selector, $name, $val) = @_;
 
   # allow calling in the style of $graph->set_attribute($name,$val);
   if (@_ == 3)
     {
     $val = $name;
-    $name = $class;
-    $class = 'graph';
+    $name = $class_selector;
+    $class_selector = 'graph';
     }
 
   # font-size => fontsize
@@ -518,105 +549,121 @@ sub set_attribute
   $name = 'undef' unless defined $name;
   $val = 'undef' unless defined $val;
 
-  # allowed classes and subclasses (except graph)
-  if ($class !~ /^(node|group|edge|graph\z)/)
+  my @classes = $self->_check_class($class_selector);
+
+  return $self->error ("Illegal class '$class_selector' when trying to set attribute '$name' to '$val'")
+    if @classes == 0;
+
+  for my $class (@classes)
     {
-    return $self->error ("Illegal class '$class' when trying to set attribute '$name' to '$val'");
-    }
+    $val = $self->unquote_attribute($class,$name,$val);
 
-  $val = $self->unquote_attribute($class,$name,$val);
-
-  if ($self->{strict})
-    {
-    my ($rc, $newname, $v) = $self->validate_attribute($name,$val,$class);
-    return if defined $rc;		# error?
-
-    $val = $v;
-    }
-
-  $self->{score} = undef;	# invalidate layout to force a new layout
-
-  # handle special attribute 'gid' like in "graph { gid: 123; }"
-  if ($class eq 'graph')
-    {
-    if ($name eq 'gid')
+    if ($self->{strict})
       {
-      $self->{id} = $val;
+      my ($rc, $newname, $v) = $self->validate_attribute($name,$val,$class);
+      return if defined $rc;		# error?
+
+      $val = $v;
       }
-    # handle special attribute 'output' like in "graph { output: ascii; }"
-    if ($name eq 'output')
+
+    $self->{score} = undef;	# invalidate layout to force a new layout
+    delete $self->{cache};	# setting a class or flow must invalidate the cache
+
+    # handle special attribute 'gid' like in "graph { gid: 123; }"
+    if ($class eq 'graph')
       {
-      $self->{output_format} = $val;
+      if ($name =~ /^g?id\z/)
+        {
+        $self->{id} = $val;
+        }
+      # handle special attribute 'output' like in "graph { output: ascii; }"
+      if ($name eq 'output')
+        {
+        $self->{output_format} = $val;
+        }
       }
-    }
 
-  my $att = $self->{att};
-  # create hash if it doesn't exist yet
-  $att->{$class} = {} unless ref $att->{$class};
+    my $att = $self->{att};
+    # create hash if it doesn't exist yet
+    $att->{$class} = {} unless ref $att->{$class};
 
-  if ($name eq 'border')
-    {
-    my $c = $att->{$class};
+    if ($name eq 'border')
+      {
+      my $c = $att->{$class};
 
-    ($c->{borderstyle}, $c->{borderwidth}, $c->{bordercolor}) =
-	$self->split_border_attributes( $val );
+      ($c->{borderstyle}, $c->{borderwidth}, $c->{bordercolor}) =
+	 $self->split_border_attributes( $val );
 
-    return $val;
-    }
+      return $val;
+      }
 
-  $att->{$class}->{$name} = $val;
+    $att->{$class}->{$name} = $val;
+
+    } # end for all selected classes
+
+  $val;
   }
 
 sub set_attributes
   {
-  my ($self, $class, $att) = @_;
+  my ($self, $class_selector, $att) = @_;
 
   # if called as $graph->set_attributes( { color => blue } ), assume
   # class eq 'graph'
 
-  if (defined $class && !defined $att)
+  if (defined $class_selector && !defined $att)
     {
-    $att = $class; $class = 'graph';
+    $att = $class_selector; $class_selector = 'graph';
     }
 
-  # allowed classes and subclasses (except graph)
-  if ($class !~ /^(node|group|edge|graph\z)/)
-    {
-    return $self->error ("Illegal class '$class' when setting attributes");
-    }
+  my @classes = $self->_check_class($class_selector);
+
+  return $self->error ("Illegal class '$class_selector' when trying to set attributes")
+    if @classes == 0;
 
   foreach my $a (keys %$att)
     {
-    $self->set_attribute($class, $a, $att->{$a});
+    for my $class (@classes)
+      {
+      $self->set_attribute($class, $a, $att->{$a});
+      }
     } 
   $self;
   }
 
 sub del_attribute ($$$)
   {
-  my ($self, $class, $name) = @_;
+  my ($self, $class_selector, $name) = @_;
 
   if (@_ == 2)
     {
-    $name = $class; $class = 'graph';
+    $name = $class_selector; $class_selector = 'graph';
     }
 
   # font-size => fontsize
   $name = $att_aliases->{$name} if exists $att_aliases->{$name};
 
-  my $a = $self->{att}->{$class};
+  my @classes = $self->_check_class($class_selector);
 
-  delete $a->{$name};
-  if ($name eq 'size')
+  return $self->error ("Illegal class '$class_selector' when trying to delete attribute '$name'")
+    if @classes == 0;
+
+  for my $class (@classes)
     {
-    delete $a->{rows};
-    delete $a->{columns};
-    }
-  if ($name eq 'border')
-    {
-    delete $a->{borderstyle};
-    delete $a->{borderwidth};
-    delete $a->{bordercolor};
+    my $a = $self->{att}->{$class};
+
+    delete $a->{$name};
+    if ($name eq 'size')
+      {
+      delete $a->{rows};
+      delete $a->{columns};
+      }
+    if ($name eq 'border')
+      {
+      delete $a->{borderstyle};
+      delete $a->{borderwidth};
+      delete $a->{bordercolor};
+      }
     }
   $self;
   }
@@ -837,7 +884,7 @@ sub _skip
   my ($self) = shift;
 
   # skip these for CSS
-  qr/^(basename|columns|colorscheme|flow|format|group|rows|root|size|offset|origin|linkbase|(auto)?(label|link|title)|auto(join|split)|(node|edge)class|shape|arrowstyle|label(color|pos)|pointstyle|textstyle|style)\z/;
+  qr/^(basename|columns|colorscheme|class|flow|format|group|rows|root|size|offset|origin|linkbase|(auto)?(label|link|title)|auto(join|split)|(node|edge)class|shape|arrowstyle|label(color|pos)|pointstyle|textstyle|style)\z/;
   }
 
 sub _remap_text_wrap
@@ -963,7 +1010,7 @@ CSS
     {
     foreach my $group (@groups)
       {
-      my $class = $group->{class};
+      my $class = $group->class();
 
       my $border = $group->attribute('borderstyle'); 
 
@@ -3274,7 +3321,7 @@ Creating graphs should be easy even when the graphs are quite complex.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
 
 X<tels>
 
