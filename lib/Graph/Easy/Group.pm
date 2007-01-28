@@ -1,5 +1,6 @@
 #############################################################################
-# (c) by Tels 2004 - 2006. A group of nodes. Part of Graph::Easy.
+# A group of nodes. Part of Graph::Easy.
+#
 #############################################################################
 
 package Graph::Easy::Group;
@@ -9,7 +10,7 @@ use Graph::Easy;
 use Scalar::Util qw/weaken/;
 
 @ISA = qw/Graph::Easy::Node Graph::Easy/;
-$VERSION = 0.16;
+$VERSION = 0.17;
 
 use strict;
 
@@ -291,7 +292,9 @@ sub add_cell
   # add a cell to the list of cells this group covers
   my ($self,$cell) = @_;
 
+  $cell->_update_boundaries();
   $self->{_cells}->{"$cell->{x},$cell->{y}"} = $cell;
+  $cell;
   }
 
 sub del_cell
@@ -616,7 +619,7 @@ L<Graph::Easy>, L<Graph::Easy::Node>, L<Graph::Easy::Manual>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for more details.
 

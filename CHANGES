@@ -1,5 +1,21 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2007-01-28 v0.52 Tels 2305 tests
+ * format INSTALL in POD and add notes about Windows
+ * Group::Cell: cache attributes to avoid overly many attribute() calls
+ * attribute(): do not call class() unless neccessary
+ * Layouter:
+   + cache the boundaries of the cells array for A*, avoid excessive
+     recalculaion of the used area (make big layouts about 30% faster)
+   + fix _optimize_layout() for reversed edges, that finally fixes the
+     garbled HTML output
+ * as_html(): 
+   + "vertical-align: center" must be "vertical-align: middle" - argh!
+   + better alignment of arrows on some edge/end pieces
+   + insert missing style="..." in all edge pieces (fixes missing group
+     backgrounds on some edge cells)
+ * remove dead code in Graph::Easy::Node::Empty
+ 
 2007-01-05 v0.51 Tels 2305 tests
   * bin/graph-easy: add --parse option
   * Parser:

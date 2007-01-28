@@ -21,7 +21,11 @@ print "# input: '$file'\n";
 
 die ($parser->error()) unless defined $graph;
 
+print "# Graph has ", scalar $graph->nodes(),
+      " nodes and ", scalar $graph->edges()," edges.\n";
+
 $graph->id($id);
+$graph->timeout(240);
 $graph->layout();
 
 warn ($graph->error()) if $graph->error();

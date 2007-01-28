@@ -5,6 +5,9 @@ See Graph::Easy under LIMITATIONS for some hot topics. In addition:
 
 Important short-term TODO:
 
+* Combining table cells goes wrong if there is a "hole" in a row
+  of cells. We need to gather them with their coordinates and only
+  combine cells that are next to each other.
 * setting "size" as class attribute doesn't work
 * setting "offset: -2,0;" causes problems for multi-row nodes because
   the offset is taken into effect before growing the node
@@ -74,7 +77,6 @@ Recursive layouter:
   + define missing HTML edge pieces: CROSS sections with end/start points
   + define JOINTs with start/end pieces (6 for each joints, making 24 types)
   + implement HTML nodes as triangles, house, etc. using slanted edges
-  + t/in/dot/6_2_cluster.dot: layout is slightly garbled
 
 * fix nesting with pod-formatted labels
 

@@ -1,14 +1,13 @@
 #############################################################################
 # Path and cell management for Graph::Easy.
 #
-# (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy::Layout::Path;
 
 use vars qw/$VERSION/;
 
-$VERSION = 0.14;
+$VERSION = 0.15;
 
 #############################################################################
 #############################################################################
@@ -719,7 +718,7 @@ sub _find_node_place
     $y += 2;
     }
 
-  $node->{x} = $col; #$node->{y} = $y;
+  $node->{x} = $col; 
 
   0;							# success, score 0 
   }
@@ -909,7 +908,7 @@ Return a the C<flow()> direction shifted by X degrees to C<$dir>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for information.
 

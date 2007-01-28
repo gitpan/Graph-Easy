@@ -1,5 +1,5 @@
 #############################################################################
-# (c) by Tels 2004 - 2006. Part of Graph::Easy
+# A cell of a group during layout. Part of Graph::Easy.
 #
 #############################################################################
 
@@ -8,9 +8,14 @@ package Graph::Easy::Group::Cell;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = 0.12;
+$VERSION = 0.13;
 
 use strict;
+
+BEGIN
+  {
+  *get_attribute = \&attribute;
+  }
 
 #############################################################################
 
@@ -110,6 +115,7 @@ sub _init
     {
     # register ourselves at this group
     $self->{group}->add_cell ($self);
+    # XXX CHECK also implement sub_class()
     $self->{class} = $self->{group}->{class};
     $self->{class} = 'group' unless defined $self->{class};
     }
@@ -175,16 +181,22 @@ sub shape
 
 sub attribute
   {
-  my $self = shift;
+  my ($self, $name) = @_;
 
-  $self->{group}->attribute(@_);
-  }
+#  print STDERR "called attribute($name)\n";
+#  return $self->{group}->attribute($name);
 
-sub get_attribute
-  {
-  my $self = shift;
+  my $group = $self->{group};
 
-  $self->{group}->attribute(@_);
+  return $group->{att}->{$name} if exists $group->{att}->{$name};
+
+  $group->{cache} = {} unless exists $group->{cache};
+  $group->{cache}->{att} = {} unless exists $group->{cache}->{att};
+
+  my $cache = $group->{cache}->{att};
+  return $cache->{$name} if exists $cache->{$name};
+
+  $cache->{$name} = $group->attribute($name);
   }
 
 use constant isa_cell => 1;
@@ -198,9 +210,10 @@ sub as_ascii
 
   my $fb = $self->_framebuffer($self->{w}, $self->{h});
 
-  my $border_style = $self->{group}->attribute('borderstyle');
+  my $border_style = $self->attribute('borderstyle');
   my $EM = 14;
-  my $border_width = Graph::Easy::_border_width_in_pixels($self->{group},$EM);
+  # use $self here and not $self->{group} to engage attribute cache:
+  my $border_width = Graph::Easy::_border_width_in_pixels($self,$EM);
 
   # convert overly broad borders to the correct style
   $border_style = 'bold' if $border_width > 2;
@@ -234,12 +247,11 @@ sub as_ascii
     {
     # include our label
 
-    my $align = $self->attribute('align') || 'left';
+    my $align = $self->attribute('align');
     # the default label cell as a top border, but no left/right border
     my $ys = 0.5;
-    my $border = $self->attribute('border-style') || '';
-    $ys = 0 if $border eq 'none';
-    my $h = $self->{h} - 1; $h ++ if $border eq 'none';
+    $ys = 0 if $border_style eq 'none';
+    my $h = $self->{h} - 1; $h ++ if $border_style eq 'none';
 
     $self->_printfb_aligned ($fb, 0, $ys, $self->{w}, $h, 
 	$self->_aligned_label($align), 'middle');
@@ -267,7 +279,7 @@ sub _correct_size
 
   if (!defined $self->{w})
     {
-    my $border = $self->{group}->attribute('border-style') || 'dashed';
+    my $border = $self->attribute('borderstyle');
     $self->{w} = 0;
     $self->{h} = 0;
     # label needs space
@@ -375,23 +387,13 @@ for a cell with a bottom (gb) and right (gr) border in the class C<cities>.
 
 None.
 
-=head1 TODO
-
-=over 2
-
-=item Labels
-
-=item Borders
-
-=back
-
 =head1 SEE ALSO
 
 L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = 0.31;
+$VERSION = 0.32;
 
 use Graph::Easy::Base;
 use Graph::Easy::Attributes;
@@ -120,7 +120,7 @@ sub _border_to_draw
   # account
   my ($self, $shape) = @_;
 
-  my $cache = $self->{_cache};
+  my $cache = $self->{cache};
 
   return $cache->{border_style} if defined $cache->{border_style};
 
@@ -140,13 +140,15 @@ sub _border_styles
   # ASCII output the borders can be properly collapsed.
   my ($self, $border, $collapse) = @_;
 
-  # already computed values?
-  return if defined $self->{_cache}->{left_border};
+  my $cache = $self->{cache};
 
-  $self->{_cache}->{left_border} = $border; 
-  $self->{_cache}->{top_border} = $border;
-  $self->{_cache}->{right_border} = $border; 
-  $self->{_cache}->{bottom_border} = $border;
+  # already computed values?
+  return if defined $cache->{left_border};
+
+  $cache->{left_border} = $border; 
+  $cache->{top_border} = $border;
+  $cache->{right_border} = $border; 
+  $cache->{bottom_border} = $border;
 
   return unless $collapse;
 
@@ -192,8 +194,6 @@ sub _border_styles
   $x += 1; $y-= 1; my $top = $cells->{"$x,$y"};
   $x += 1; $y += 1; my $right = $cells->{"$x,$y"};
   $x -= 1; $y += 1; my $bottom = $cells->{"$x,$y"};
-
-  my $cache = $self->{_cache};
 
   # where to store the result
   my @where = ('left', 'top', 'right', 'bottom');
@@ -273,14 +273,14 @@ sub _correct_size
   $self->_border_styles($border, 'collapse');
 
 #  print STDERR "# $self->{name} $self->{w} $self->{h} $shape\n";
-#  use Data::Dumper; print Dumper($self->{_cache});
+#  use Data::Dumper; print Dumper($self->{cache});
 
   if ($shape !~ /^(invisible|point)/)
     {
-    $self->{w} ++ if $self->{_cache}->{right_border} ne 'none';
-    $self->{w} ++ if $self->{_cache}->{left_border} ne 'none';
-    $self->{h} ++ if $self->{_cache}->{top_border} ne 'none';
-    $self->{h} ++ if $self->{_cache}->{bottom_border} ne 'none';
+    $self->{w} ++ if $self->{cache}->{right_border} ne 'none';
+    $self->{w} ++ if $self->{cache}->{left_border} ne 'none';
+    $self->{h} ++ if $self->{cache}->{top_border} ne 'none';
+    $self->{h} ++ if $self->{cache}->{bottom_border} ne 'none';
 
     $self->{h} += 2 if $border eq 'none' && $shape !~ /^(invisible|point)/;
     }
@@ -408,6 +408,8 @@ sub _place
       }
     } # end handling of multi-celled node
 
+  $self->_update_boundaries();
+
   1;					# did place us
   } 
 
@@ -502,7 +504,7 @@ sub _wrapped_label
   # returns the label wrapped automatically to use the least space
   my ($self, $label, $align, $wrap) = @_;
 
-  return (@{$self->{_cache}->{label}}) if $self->{_cache}->{label};
+  return (@{$self->{cache}->{label}}) if $self->{cache}->{label};
 
   # XXX TODO: handle "paragraphs"
   $label =~ s/\\(n|r|l|c)/ /g;		# replace line splits by spaces
@@ -567,7 +569,7 @@ sub _wrapped_label
     push @aligns, $al; 
     }
   # cache the result to avoid costly recomputation
-  $self->{_cache}->{label} = [ \@lines, \@aligns ];
+  $self->{cache}->{label} = [ \@lines, \@aligns ];
   (\@lines, \@aligns);
   }
 
@@ -1025,10 +1027,11 @@ sub flow
 
   no warnings 'recursion';
 
-  return $self->{_cache}->{flow} if exists $self->{_cache}->{flow};
+  my $cache = $self->{cache};
+  return $cache->{flow} if exists $cache->{flow};
 
   # detected cycle, so break it
-  return $self->{_cache}->{flow} = $self->_parent_flow_absolute('90') if exists $self->{_flow};
+  return $cache->{flow} = $self->_parent_flow_absolute('90') if exists $self->{_flow};
 
   local $self->{_flow} = undef;		# endless loops really ruin our day
 
@@ -1038,8 +1041,8 @@ sub flow
   $flow = $self->_parent_flow_absolute() if !defined $flow || $flow eq 'inherit';
 
   # if flow is absolute, return it early
-  return $self->{_cache}->{flow} = $flow if defined $flow && $flow =~ /^(0|90|180|270)\z/;
-  return $self->{_cache}->{flow} = Graph::Easy->_direction_as_number($flow)
+  return $cache->{flow} = $flow if defined $flow && $flow =~ /^(0|90|180|270)\z/;
+  return $cache->{flow} = Graph::Easy->_direction_as_number($flow)
     if defined $flow && $flow =~ /^(south|north|east|west|up|down)\z/;
   
   # for relative flows, compute the incoming flow as base flow
@@ -1076,7 +1079,7 @@ sub flow
 
   $flow = Graph::Easy->_direction_as_number($in) unless defined $flow;
 
-  $self->{_cache}->{flow} = Graph::Easy->_flow_as_direction($in,$flow);
+  $cache->{flow} = Graph::Easy->_flow_as_direction($in,$flow);
   }
 
 #############################################################################
@@ -1827,7 +1830,7 @@ sub del_attribute
   # font-size => fontsize
   $name = $att_aliases->{$name} if exists $att_aliases->{$name};
 
-  delete $self->{_cache}->{flow};
+  $self->{cache} = {};
 
   my $a = $self->{att};
   delete $a->{$name};
@@ -1849,7 +1852,7 @@ sub set_attribute
   {
   my ($self, $name, $v, $class) = @_;
 
-  delete $self->{_cache}->{flow};
+  delete $self->{cache}->{flow};
 
   $name = 'undef' unless defined $name;
   $v = 'undef' unless defined $v;
@@ -2021,6 +2024,34 @@ sub parent
   $p = $self->{group} if ref($self->{group});
 
   $p;
+  }
+
+sub _update_boundaries
+  {
+  my ($self) = @_;
+
+  # XXX TODO: use current layout parent for recursive layouter:
+  #my $parent = $self->parent();
+
+  my $parent = $self->{graph};
+
+  # cache max boundaries for A* algorithmn:
+
+  my $x = $self->{x};
+  my $y = $self->{y};
+
+#  print STDERR "Update boundaries for $self (parent $parent) at $x, $y\n";
+
+  my $cache = $parent->{cache};
+  $cache->{min_x} = $x if !defined $cache->{min_x} || $x < $cache->{min_x};
+  $cache->{min_y} = $y if !defined $cache->{min_y} || $y < $cache->{min_y};
+
+  $x = $x + ($self->{cx}||1) - 1;
+  $y = $y + ($self->{cy}||1) - 1;
+  $cache->{max_x} = $x if !defined $cache->{max_x} || $x > $cache->{max_x};
+  $cache->{max_y} = $y if !defined $cache->{max_y} || $y > $cache->{max_y};
+
+  $self;
   }
 
 1;

@@ -121,6 +121,7 @@ is (scalar @$coords, 3*$e, 'u shaped path (|---^)');
 $graph->{cells}->{"2,1"} = $src;
 $graph->{cells}->{"0,1"} = $src;
 
+$graph->{cache} = {};
 $coords = $graph->_find_path( $src, $dst, $edge);
 
 #print STDERR "# " . Dumper($coords) . "\n";

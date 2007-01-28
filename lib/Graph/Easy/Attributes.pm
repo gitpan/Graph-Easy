@@ -5,7 +5,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = 0.25;
+$VERSION = 0.26;
 
 package Graph::Easy;
 
@@ -3271,13 +3271,17 @@ sub attribute
     # allow calls of the style get_attribute('background');
     $name = $class;
     $class = $self->{class} || 'graph' if $name eq 'class';	# avoid deep recursion
-    $class = $self->class() unless $name eq 'class';
+    if ($name ne 'class')
+      {
+      $class = $self->{cache}->{class};
+      $class = $self->class() unless defined $class;
+      }
 
     return $self->border_attribute() if $name eq 'border'; # virtual attribute
     return join (",",$self->size()) if $name eq 'size'; # virtual attribute
     }
 
-#  print "# called attribute($class,$name)\n";
+#  print STDERR "# called attribute($class,$name)\n";
 
   # font-size => fontsize
   $name = $att_aliases->{$name} if exists $att_aliases->{$name};
@@ -3359,11 +3363,7 @@ sub attribute
   my @tries = ();
   # skip "node.foo" if value is 'inherit'
   push @tries, $class unless defined $val;
-  if ($class =~ /\./)
-    {
-    my $parent_class = $class; $parent_class =~ s/\..*//;
-    push @tries, $parent_class;
-    }
+  push @tries, $base_class if $class =~ /\./;
   push @tries, 'graph' unless @tries && $tries[-1] eq 'graph';
 
   # If not part of a graph, we cannot have class attributes, but

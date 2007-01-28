@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.51';
+$VERSION = '0.52';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -33,6 +33,8 @@ BEGIN
   *as_ascii_file = \&as_ascii;
   *as_boxart_file = \&as_boxart;
   *as_txt_file = \&as_txt;
+
+  # a few aliases for code re-use
   *_aligned_label = \&Graph::Easy::Node::_aligned_label;
   *_convert_pod = \&Graph::Easy::Node::_convert_pod;
   *_label_as_html = \&Graph::Easy::Node::_label_as_html;
@@ -953,13 +955,12 @@ CSS
   #       or empty vertical space on hor edge starts
   # lh  - edge label horizontal
   # lv  - edge label vertical
-  # sv  - shifted arrow vertical
   # sh  - shifted arrow horizontal (right)
   # shl  - shifted arrow horizontal (left)
 
   $css .= <<CSS
 table.graph##id## .va {
-  vertical-align: center;
+  vertical-align: middle;
   line-height: 1.5em;
   width: 0.4em;
   }
@@ -972,15 +973,10 @@ table.graph##id## .lh, table.graph##id## .lv {
   font-size: 0.8em;
   padding-left: 0.4em;
   }
-table.graph##id## .v, table.graph##id## .hat, table.graph##id## .sv {
-  text-align: left;
+table.graph##id## .v, table.graph##id## .hat {
+  text-align: center;
   height: 0.5em;
   line-height: 0.6em;
-  }
-table.graph##id## .sv {
-  position: relative;
-  left: -0.5em;
-  overflow: visible;
   }
 table.graph##id## .sh, table.graph##id## .shl {
   position: relative;
@@ -1077,8 +1073,6 @@ sub html_page_footer
 sub as_html_file
   {
   my $self = shift;
-
-  $self->layout() unless defined $self->{score};
 
   $self->html_page_header() . $self->as_html() . $self->html_page_footer();
   }
@@ -1203,9 +1197,8 @@ sub as_html
 
       if (ref($h) eq 'ARRAY')
         {
-        my $i = 0;
         #print STDERR '# expected 4 rows, but got ' . scalar @$h if @$h != 4;
-	local $_;
+        local $_; my $i = 0;
         push @{$rs->[$i++]}, $_ for @$h;
         }
       else
@@ -1220,6 +1213,7 @@ sub as_html
     for my $row (@$rs)
       {
       pop @$row while (@$row > 0 && !defined $row->[-1]);
+      local $_;
       foreach (@$row)
         {
         $_ = " <td colspan=4 rowspan=4></td>\n" unless defined $_;
@@ -1229,16 +1223,16 @@ sub as_html
     # now combine equal columns to shorten output
     for my $row (@$rs)
       {
-#     next;
+#      next;
 
       # append row to output
       my $i = 0;
       while ($i < @$row)
         {
-        next if $row->[$i] =~ /border[:-]/;
+        next if $row->[$i] =~ /border(:|-left)/;
 #        next if $row->[$i] !~ />(\&nbsp;)?</;	# non-empty?
-        next if $row->[$i] =~ /span /;		# non-empty?
-        next if $row->[$i] =~ /^(\s|\n)*\z/;	# empty?
+#        next if $row->[$i] =~ /span /;		# non-empty?
+#        next if $row->[$i] =~ /^(\s|\n)*\z/;	# empty?
 
 	# Combining these cells shows wierd artefacts when using the Firefox
 	# WebDeveloper toolbar and outlining table cells, but it does not
@@ -3286,7 +3280,7 @@ X<online>
 =head1 LICENSE
 
 This library is free software; you can redistribute it and/or modify
-it under the terms of the GPL version 2.
+it under the terms of the GPL 2.0 or a later version.
 
 See the LICENSE file for a copy of the GPL.
 

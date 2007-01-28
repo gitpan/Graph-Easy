@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = 0.20;
+$VERSION = 0.21;
 
 #############################################################################
 #############################################################################
@@ -476,7 +476,7 @@ sub extract_top
 
   my $heap = $self->{_heap};
 
-  return undef if @$heap == 0;
+  return shift @$heap if @$heap <= 1;
 
   if ($self->{_dirty})
     {
@@ -691,24 +691,36 @@ sub _astar_boundaries
   # Calculate boundaries for area that A* should not leave.
   my $self = shift;
 
+  my $cache = $self->{cache};
+
+  return ( $cache->{min_x}-1, $cache->{min_y}-1, 
+	   $cache->{max_x}+1, $cache->{max_y}+1 ) if defined $cache->{min_x};
+
   my ($min_x, $min_y, $max_x, $max_y);
 
   my $cells = $self->{cells};
 
+  $min_x = 10000000;
+  $min_y = 10000000;
+  $max_x = -10000000;
+  $max_y = -10000000;
+
   for my $c (keys %$cells)
     {
     my ($x,$y) = split /,/, $c;
-    $min_x = $x if !defined $min_x || $x < $min_x;
-    $min_y = $y if !defined $min_y || $y < $min_y;
-    $max_x = $x if !defined $max_x || $x > $max_x;
-    $max_y = $y if !defined $max_y || $y > $max_y;
+    $min_x = $x if $x < $min_x;
+    $min_y = $y if $y < $min_y;
+    $max_x = $x if $x > $max_x;
+    $max_y = $y if $y > $max_y;
     }
-
-  # make the area one bigger in each direction
-  $min_x --; $min_y --; $max_x ++; $max_y ++;
 
   print STDERR "# A* working space boundaries: $min_x, $min_y, $max_x, $max_y\n" if $self->{debug};
 
+  ( $cache->{min_x}, $cache->{min_y}, $cache->{max_x}, $cache->{max_y} ) = 
+  ($min_x, $min_y, $max_x, $max_y);
+
+  # make the area one bigger in each direction
+  $min_x --; $min_y --; $max_x ++; $max_y ++;
   ($min_x, $min_y, $max_x, $max_y);
   }
 
@@ -741,6 +753,8 @@ sub _get_joints
   # from a list of shared, already placed edges, get possible start/end fields
   my ($self, $shared, $mask, $types, $cells, $next_fields) = @_;
 
+  # XXX TODO: do not do this for edges with no free places for joints
+
   # take each cell from all edges shared, already placed edges as start-point
   for my $e (@$shared)
     {
@@ -765,11 +779,12 @@ sub _get_joints
 	{
 	my ($sx,$sy, $jt) = ($fields->[$i], $fields->[$i+1], $fields->[$i+2]);
 	$sx += $px; $sy += $py; $i += 3;
+        my $sxsy = "$sx,$sy";
         # don't add the field twice
-	next if exists $cells->{"$sx,$sy"};
-	$cells->{"$sx,$sy"} = [ $sx, $sy, undef, $px, $py ];
+	next if exists $cells->{$sxsy};
+	$cells->{$sxsy} = [ $sx, $sy, undef, $px, $py ];
 	# keep eventually set start/end points on the original cell
-	$types->{"$sx,$sy"} = $jt + ($c->{type} & EDGE_FLAG_MASK);
+	$types->{$sxsy} = $jt + ($c->{type} & EDGE_FLAG_MASK);
 	} 
       }
     }

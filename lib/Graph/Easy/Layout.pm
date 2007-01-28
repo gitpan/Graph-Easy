@@ -826,6 +826,7 @@ sub _optimize_layout
       if $self->{debug};
 
     my $f = $cells->[0]; my $i = 1;
+    my ($px, $py);		# coordinates of the placeholder cell
     while ($i < @$cells)
       {
       my $c = $cells->[$i++];
@@ -835,6 +836,7 @@ sub _optimize_layout
       my $t1 = $f->{type} & EDGE_NO_M_MASK;
       my $t2 = $c->{type} & EDGE_NO_M_MASK;
 
+      # > 0: delete that cell: 1 => reverse order, 2 => with hole
       my $delete = 0;
 
       # compare $first to $c
@@ -861,8 +863,12 @@ sub _optimize_layout
 	# drop the reference from the $cells array for $c
 	delete $all_cells->{ "$c->{x},$c->{y}" };
 
+        ($px, $py) = ($c->{x}, $c->{y});
 	if ($f->{$co} > $c->{$co})
 	  {
+	  # remember coordinate of the moved cell for the placeholder
+          ($px, $py) = ($f->{x}, $f->{y});
+
 	  # move $f to the new place if it was modified
 	  delete $all_cells->{ "$f->{x},$f->{y}" };
 	  # correct start coordinate for reversed order
@@ -878,16 +884,15 @@ sub _optimize_layout
 #      print STDERR "# found hole at $i\n" if $c->{type} == EDGE_HOLE;
 
       $delete = 2 if $c->{type} == EDGE_HOLE;
-
       if ($delete)
 	{
         splice (@{$e->{cells}}, $i-1, 1);		# remove from the edge
 	if ($delete == 1)
 	  {
-	  my $xy = "$c->{x},$c->{y}";
+	  my $xy = "$px,$py";
 	  # replace with placeholder (important for HTML output)
 	  $all_cells->{$xy} = Graph::Easy::Edge::Cell::Empty->new (
-	    x => $c->{x}, y => $c->{y},
+	    x => $px, y => $py,
 	  ) unless $all_cells->{$xy};	
 
           $i--; $c = $f;				# for the next statement

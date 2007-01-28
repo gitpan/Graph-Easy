@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use Graph::Easy 0.50;
+use Graph::Easy 0.52;
 use Graph::Easy::Parser;
 use Getopt::Long;
 
@@ -16,8 +16,8 @@ $help_requested = 1 if !ref($opt);
 # no error and --help was specified
 $help_requested = 2 if ref($opt) && $opt->{help} ne '';
 
-my $copyright = "Graph::Easy v$Graph::Easy::VERSION (c) Copyright by Tels 2006. "
-	       ."Released under the GPL v2.0.\n\n";
+my $copyright = "Graph::Easy v$Graph::Easy::VERSION  (c) by Tels 2004-2007.  "
+	       ."Released under the GPL 2.0 or later.\n\n";
 
 if ($help_requested > 0)
   {
@@ -162,8 +162,8 @@ sub get_options
 
   binmode ($opt->{output}, ':utf8') or die ("Cannot do binmode(output,':utf8')");
 
-  # This code get's confused if the user specified multiple options. Not much
-  # can be done about that except whack the user.
+  # This code gets confused if the user specified multiple options. Not much
+  # can be done about that except whack the user with something heavy.
   for my $format (qw/ascii boxart html svg txt graphviz/)
     {
     $opt->{as} = $format if $opt->{"as_$format"};
@@ -226,7 +226,8 @@ Specify the output format. Valid formats are:
 	txt		Graph::Easy text
 
 If unspecified, the default format will be determined by the output
-filename extension, and is C<ascii> if that was not set.
+filename extension, and is C<ascii>, if the output filename was not
+set.
 
 Note that you can also use B<ONE> argument of the form C<--as_ascii>,
 C<--as_svg> and so on.
@@ -247,10 +248,14 @@ or C<--from_txt>,
 
 Write info regarding the conversion process to STDERR.
 
-=item --debug
+=item --debug=N
 
 Write debugging info to STDERR. Warning, this can create huge amounts
 of hard-to-understand output!
+
+Example:
+
+	graph-easy input.txt --output=test.html --debug=1
 
 =item --parse
 
@@ -301,6 +306,6 @@ X<license>
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
 
 =cut

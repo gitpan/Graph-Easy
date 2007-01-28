@@ -1179,7 +1179,7 @@ sub as_ascii
     #########################################################################
     # draw our border into the framebuffer
 
-    my $cache = $self->{_cache};
+    my $cache = $self->{cache};
     my $b_top = $cache->{top_border} || 'none';
     my $b_left = $cache->{left_border} || 'none';
     my $b_right = $cache->{right_border} || 'none';

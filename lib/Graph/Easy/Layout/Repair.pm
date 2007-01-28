@@ -3,14 +3,12 @@
 #
 # Code to repair spliced layouts (after group cells have been inserted).
 #
-# (c) by Tels 2004-2006.
 #############################################################################
 
 package Graph::Easy::Layout::Repair;
 
 use vars qw/$VERSION/;
-
-$VERSION = 0.06;
+$VERSION = 0.07;
 
 #############################################################################
 #############################################################################
@@ -262,12 +260,13 @@ sub _check_edge_cell
   # check a start/end edge cell and if nec. repair it
   my ($self, $cell, $x, $y, $flag, $type, $match, $check, $where) = @_;
 
+  my $edge = $cell->{edge};
   if (grep { exists $_->{cell_class} && $_->{cell_class} =~ $match } values %$check)
     {
     $cell->{type} &= ~ $flag;		# delete the flag
 
     $self->_new_edge_cell(
-	$self->{cells}, $cell->{edge}->{group}, $cell->{edge}, $x, $y, $where, $type + $flag);
+	$self->{cells}, $edge->{group}, $edge, $x, $y, $where, $type + $flag);
     }
   }
 
@@ -279,36 +278,38 @@ sub _repair_group_edge
   my $cells = $self->{cells};
   my ($x,$y,$doit);
 
+  my $type = $cell->{type};
+
   #########################################################################
   # check for " [ empty ] [ |---> ]"
   $x = $cell->{x} - 1; $y = $cell->{y};
 
   $self->_check_edge_cell($cell, $x, $y, EDGE_START_W, EDGE_HOR, qr/g[rl]/, $cols->{$x}, 0)
-    if (($cell->{type} & EDGE_START_MASK) == EDGE_START_W);
+    if (($type & EDGE_START_MASK) == EDGE_START_W);
 
   #########################################################################
   # check for " [ <--- ] [ empty ]"
   $x = $cell->{x} + 1;
 
   $self->_check_edge_cell($cell, $x, $y, EDGE_START_E, EDGE_HOR, qr/g[rl]/, $cols->{$x}, 0)
-    if (($cell->{type} & EDGE_START_MASK) == EDGE_START_E);
+    if (($type & EDGE_START_MASK) == EDGE_START_E);
 
   #########################################################################
   # check for " [ --> ] [ empty ]"
   $x = $cell->{x} + 1;
 
   $self->_check_edge_cell($cell, $x, $y, EDGE_END_E, EDGE_HOR, qr/g[rl]/, $cols->{$x}, -1)
-    if (($cell->{type} & EDGE_END_MASK) == EDGE_END_E);
+    if (($type & EDGE_END_MASK) == EDGE_END_E);
 
 #  $self->_check_edge_cell($cell, $x, $y, EDGE_END_E, EDGE_E_N_S, qr/g[rl]/, $cols->{$x}, -1)
-#    if (($cell->{type} & EDGE_END_MASK) == EDGE_END_E);
+#    if (($type & EDGE_END_MASK) == EDGE_END_E);
 
   #########################################################################
   # check for " [ empty ] [ <-- ]"
   $x = $cell->{x} - 1;
 
   $self->_check_edge_cell($cell, $x, $y, EDGE_END_W, EDGE_HOR, qr/g[rl]/, $cols->{$x}, -1)
-    if (($cell->{type} & EDGE_END_MASK) == EDGE_END_W);
+    if (($type & EDGE_END_MASK) == EDGE_END_W);
 
   #########################################################################
   #########################################################################
@@ -320,7 +321,7 @@ sub _repair_group_edge
   $x = $cell->{x}; $y = $cell->{y} - 1;
 
   $self->_check_edge_cell($cell, $x, $y, EDGE_START_N, EDGE_VER, qr/g[tb]/, $rows->{$y}, 0)
-    if (($cell->{type} & EDGE_START_MASK) == EDGE_START_N);
+    if (($type & EDGE_START_MASK) == EDGE_START_N);
 
   #########################################################################
   # check for [ |] 
@@ -328,7 +329,7 @@ sub _repair_group_edge
   $y = $cell->{y} + 1;
 
   $self->_check_edge_cell($cell, $x, $y, EDGE_START_S, EDGE_VER, qr/g[tb]/, $rows->{$y}, 0)
-    if (($cell->{type} & EDGE_START_MASK) == EDGE_START_S);
+    if (($type & EDGE_START_MASK) == EDGE_START_S);
 
   #########################################################################
   # check for [ v ]
@@ -336,7 +337,7 @@ sub _repair_group_edge
   $y = $cell->{y} + 1;
 
   $self->_check_edge_cell($cell, $x, $y, EDGE_END_S, EDGE_VER, qr/g[tb]/, $rows->{$y}, -1)
-    if (($cell->{type} & EDGE_END_MASK) == EDGE_END_S);
+    if (($type & EDGE_END_MASK) == EDGE_END_S);
 
   #########################################################################
   # check for [ empty ]
@@ -344,8 +345,7 @@ sub _repair_group_edge
   $y = $cell->{y} - 1;
 
   $self->_check_edge_cell($cell, $x, $y, EDGE_END_N, EDGE_VER, qr/g[tb]/, $rows->{$y}, -1)
-    if (($cell->{type} & EDGE_END_MASK) == EDGE_END_N);
-
+    if (($type & EDGE_END_MASK) == EDGE_END_N);
   }
 
 sub _repair_edge
@@ -640,7 +640,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

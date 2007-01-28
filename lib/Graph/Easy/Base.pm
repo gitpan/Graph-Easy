@@ -1,10 +1,11 @@
 #############################################################################
 # A baseclass for Graph::Easy objects like nodes, edges etc.
+#
 #############################################################################
 
 package Graph::Easy::Base;
 
-$VERSION = 0.08;
+$VERSION = 0.09;
 
 use strict;
 
@@ -135,6 +136,19 @@ sub sub_class
 
   # Subclass not defined, so check our base class for a possible set class
   # attribute and return this:
+
+  # take a shortcut
+  my $g = $self->{graph};
+  if (defined $g)
+    {
+    my $subclass = $g->{att}->{$self->{class}}->{class};
+    $subclass = '' unless defined $subclass;
+    $self->{cache}->{subclass} = $subclass;
+    $self->{cache}->{class} = $self->{class};
+    return $subclass;
+    }
+
+  # not part of a graph?
   $self->{cache}->{subclass} = $self->attribute('class');
   }
 
@@ -147,19 +161,25 @@ sub class
 
   return $self->{class} if defined $1;
 
-  if (defined $self->{cache}->{subclass})
-    {
-    my $sc = $self->{cache}->{subclass}; $sc = '.' . $sc if $sc ne '';
-    return $self->{class} . $sc;
-    } 
+  return $self->{cache}->{class} if defined $self->{cache}->{class};
 
   # Subclass not defined, so check our base class for a possible set class
   # attribute and return this:
-  my $subclass = $self->attribute('class') || '';
+
+  my $subclass;
+  # take a shortcut:
+  my $g = $self->{graph};
+  if (defined $g)
+    {
+    $subclass = $g->{att}->{$self->{class}}->{class};
+    $subclass = '' unless defined $subclass;
+    }
+
+  $subclass = $self->attribute('class') unless defined $subclass;
   $self->{cache}->{subclass} = $subclass;
   $subclass = '.' . $subclass if $subclass ne '';
 
-  $self->{class} . $subclass;
+  $self->{cache}->{class} = $self->{class} . $subclass;
   }
 
 sub main_class
