@@ -8,7 +8,7 @@ package Graph::Easy::Group::Anon;
 use Graph::Easy::Group;
 
 @ISA = qw/Graph::Easy::Group/;
-$VERSION = 0.01;
+$VERSION = '0.02';
 
 use strict;
 

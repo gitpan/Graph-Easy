@@ -10,4 +10,4 @@ graph
 [ The ] { color: #ff00ff; }
 
 [ Preserve ] --> { color: rgb(33,44,55); } [ The ]
-[ The ] --> [ Colors ]
+[ The ] --> { color: hsv(1.0,1.0,0.5); } [ Colors ] { color: hsl(300, 1.0, 1.0); }

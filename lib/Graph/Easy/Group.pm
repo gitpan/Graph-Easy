@@ -10,7 +10,7 @@ use Graph::Easy;
 use Scalar::Util qw/weaken/;
 
 @ISA = qw/Graph::Easy::Node Graph::Easy/;
-$VERSION = 0.17;
+$VERSION = '0.18';
 
 use strict;
 
@@ -397,8 +397,7 @@ sub _set_cell_types
   {
   my ($self, $cells) = @_;
 
-  # for all out cells, set the right cell class:
-
+  # Set the right cell class for all of our cells:
   for my $cell (values %{$self->{_cells}})
     {
     $cell->_set_type($cells);

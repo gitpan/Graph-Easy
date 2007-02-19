@@ -5,7 +5,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = 0.26;
+$VERSION = '0.27';
 
 package Graph::Easy;
 
@@ -15,6 +15,7 @@ use utf8;		# for examples like "Fähre"
 # to make it easier to remember the attribute names:
 my $att_aliases = {
   'arrow-style' => 'arrowstyle',
+  'arrow-shape' => 'arrowshape',
   'border-color' => 'bordercolor',
   'border-style' => 'borderstyle',
   'border-width' => 'borderwidth',
@@ -1972,6 +1973,7 @@ sub _color
   my ($self, $org_color) = @_;
 
   $org_color = lc($org_color);		# color names are case insensitive
+  $org_color =~ s/\s//g;		# remove spaces to unify format
   my $color = $org_color;
 
   if ($color =~ s/^(w3c|[a-z]+\d{0,2})\///)
@@ -1992,6 +1994,138 @@ sub _color
   defined $self->color_as_hex($color) ? $org_color : undef;
   }
 
+sub _hsv_to_rgb
+  {
+  # H=0..360, S=0..1.0, V=0..1.0
+  my ($h, $s, $v) = @_;
+
+  my $e = 0.0001;
+
+  if ($s < $e)
+    {
+    $v = abs(int(256 * $v)); $v = 255 if $v > 255;
+    return ($v,$v,$v);
+    }
+
+  my ($r,$g,$b);
+  $h *= 360;
+
+  my $h1 = int($h / 60);
+  my $f = $h / 60 - $h1;
+  my $p = $v * (1 - $s);
+  my $q = $v * (1 - ($s * $f));
+  my $t = $v * (1 - ($s * (1-$f)));
+
+  if ($h1 == 0 || $h1 == 6)
+    {
+    $r = $v; $g = $t; $b = $p;
+    }
+  elsif ($h1 == 1)
+    {
+    $r = $q; $g = $v; $b = $p;
+    }
+  elsif ($h1 == 2)
+    {
+    $r = $p; $g = $v; $b = $t;
+    }
+  elsif ($h1 == 3)
+    {
+    $r = $p; $g = $q; $b = $v;
+    }
+  elsif ($h1 == 4)
+    {
+    $r = $t; $g = $p; $b = $v;
+    }
+  else
+    {
+    $r = $v; $g = $p; $b = $q;
+    }
+  # clamp values to 0.255
+  $r = abs(int($r*256));
+  $g = abs(int($g*256));
+  $b = abs(int($b*256));
+  $r = 255 if $r > 255;
+  $g = 255 if $g > 255;
+  $b = 255 if $b > 255;
+
+  ($r,$g,$b);
+  }
+
+sub _hsl_to_rgb
+  {
+  # H=0..360, S=0..100, L=0..100
+  my ($h, $s, $l) = @_;
+
+  my $e = 0.0001;
+  if ($s < $e)
+    {
+    # achromatic or grey
+    $l = abs(int(256 * $l)); $l = 255 if $l > 255;
+    return ($l,$l,$l);
+    }
+
+  my $t2;
+  if ($l < 0.5)
+    {
+    $t2 = $l * ($s + 1);
+    }
+  else
+    {
+    $t2 = $l + $s - ($l * $s);
+    }
+  my $t1 = $l * 2 - $t2;
+
+  my ($r,$g,$b);
+
+  # 0..359
+  $h %= 360 if $h >= 360;
+
+  # $h = 0..1
+  $h /= 360;
+
+  my $tr = $h + 1/3;
+  my $tg = $h;
+  my $tb = $h - 1/3;
+
+  $tr += 1 if $tr < 0; $tr -= 1 if $tr > 1;
+  $tg += 1 if $tg < 0; $tg -= 1 if $tg > 1;
+  $tb += 1 if $tb < 0; $tb -= 1 if $tb > 1;
+
+  my $i = 0; my @temp3 = ($tr,$tg,$tb);
+  my @rc;
+  for my $c ($r,$g,$b)
+    {
+    my $t3 = $temp3[$i++];
+
+    if ($t3 < 1/6)
+      {
+      $c = $t1 + ($t2 - $t1) * 6 * $t3;
+      }
+    elsif ($t3 < 1/2)
+      {
+      $c = $t2;
+      }
+    elsif ($t3 < 2/3)
+      {
+      $c = $t1 + ($t2 - $t1) * 6 * (2/3 - $t3);
+      }
+    else
+      {
+      $c = $t1;
+      }
+    $c = int($c * 256); $c = 255 if $c > 255;
+    push @rc, $c;
+    }
+
+  @rc;
+  }
+
+my $factors = {
+  'rgb' => [ 255, 255, 255, 255 ],
+  'hsv' => [ 1, 1, 1, 255 ],
+  'hsl' => [ 360, 1, 1, 255 ],
+  };
+
 sub color_as_hex
   {
   # Turn "red" or rgb(255,0,0) or "#f00" into "#ff0000". Return undef for
@@ -2011,24 +2145,50 @@ sub color_as_hex
   return $color_names->{x11}->{$color} 
    if exists $color_names->{x11}->{$color};
 
+  my $qr_num = qr/\s*
+	((?:[0-9]{1,3}%?) |		# 12%, 10, 2 etc
+	 (?:[0-9]\.[0-9]{1,5}) )		# 0.1, 2.5 etc
+    /x;
+
   # rgb(255,100%,1.0) => '#ffffff'
-  if ($color =~ /^rgb\(\s*(\d{1,3}%?|\d\.\d{1,5})\s*,\s*(\d{1,3}%?|\d\.\d{1,5})\s*,\s*(\d{1,3}%?|\d\.\d{1,5})\s*\)$/)
+  if ($color =~ /^(rgb|hsv|hsl)\($qr_num,$qr_num,$qr_num(?:,$qr_num)?\s*\)\z/)
     {
-    my $r = $1; my $g = $2; my $b = $3;
-    for my $c ($r,$g,$b)
+    my $r = $2; my $g = $3; my $b = $4; my $a = $5; $a = 255 unless defined $a;
+    my $format = $1;
+
+    my $i = 0;
+    for my $c ($r,$g,$b,$a)
       {
-      $c = int($1 * 255 / 100) if $c =~ /^(\d+)%\z/;	# 10% => 25.5
-      $c = int($1 * 255) if $c =~ /^(\d+\.\d+)\z/;	# 0.1, 1.0 => int
+      # for the first value in HSL or HSV, use 360, otherwise 100. For RGB, use 255
+      my $factor = $factors->{$format}->[$i++];
+
+      if ($c =~ /^([0-9]+)%\z/)				# 10% => 25.5
+	{
+        $c = $1 * $factor / 100; 
+	}
+      else
+	{
+        $c = $1 * $factor if $c =~ /^([0-9]+\.[0-9]+)\z/;		# 0.1, 1.0
+        }
       }
-    $color = sprintf("#%02x%02x%02x", $r,$g,$b)
-      if $r < 256 && $g < 256 && $b < 256;
+
+    ($r,$g,$b) = Graph::Easy::_hsv_to_rgb($r,$g,$b) if $format eq 'hsv';
+    ($r,$g,$b) = Graph::Easy::_hsl_to_rgb($r,$g,$b) if $format eq 'hsl';
+
+    $a = int($a); $a = 255 if $a > 255;
+
+    # #RRGGBB or #RRGGBBAA
+    $color = sprintf("#%02x%02x%02x%02x", $r,$g,$b,$a);
     }
 
   # turn #ff0 into #ffff00
   $color = "#$1$1$2$2$3$3" if $color =~ /^#([a-f0-9])([a-f0-9])([a-f[0-9])\z/;
 
-  # check final color value to be #RRGGBB
-  return undef unless $color =~ /^#[a-f0-9]{6}\z/;
+  # #RRGGBBff => #RRGGBB (alpha value of 255 is the default)
+  $color =~ s/^(#......)ff\z/$1/i;
+
+  # check final color value to be #RRGGBB or #RRGGBBAA
+  return undef unless $color =~ /^#([a-f0-9]{6}|[a-f0-9]{8})\z/i;
 
   $color;
   }
@@ -2477,11 +2637,11 @@ my $attributes = {
     background => [
      "The background color, e.g. the color B<outside> the shape. Do not confuse with L<fill>. If set to inherit, the object will inherit the L<fill> color (B<not> the background color!) of the parent e.g. the enclosing group or graph. See the section about color names and values for reference.",
      undef,
-#     { default => 'inherit', graph => 'white', group.anon => 'white', node.anon => 'white' },
+#     { default => 'inherit', graph => 'white', 'group.anon' => 'white', 'node.anon' => 'white' },
      'inherit',
      'rgb(255,0,0)',
      ATTR_COLOR,
-     "[ Crimson ] { shape: circle; background: crimson; }\n -- Aqua Marine --> { background: #7fffd4; }\n [ Misty Rose ] { background: white; fill: rgb(255,228,221); }",
+     "[ Crimson ] { shape: circle; background: crimson; }\n -- Aqua Marine --> { background: #7fffd4; }\n [ Misty Rose ]\n  { background: white; fill: rgb(255,228,221); shape: ellipse; }",
      ],
 
     bordercolor => [
@@ -2518,6 +2678,14 @@ my $attributes = {
      "[ Normal ]\n --> [ Bold ]      { border: bold; }\n --> [ Broad ]     { border: broad; }\n --> [ Wide ]      { border: wide; }\n --> [ Bold-Dash ] { border: bold-dash; }",
      ],
 
+    class => [
+     'The subclass of the object. See the section about class names for reference.',
+      qr/^(|[a-zA-Z][a-zA-Z0-9_]*)\z/,
+     '',
+     'mynodeclass',
+     ATTR_LCTEXT,
+     ],
+
     color => [
      'The foreground/text/label color. See the section about color names and values for reference.',
      undef,
@@ -2542,22 +2710,23 @@ my $attributes = {
         . " -> \n [ 8 ] { fill: 8; }\n" ,
      ],
 
-    class => [
-     'The subclass of the object. See the section about class names for reference.',
-      qr/^(|[a-zA-Z][a-zA-Z0-9_]*)\z/,
-     '',
-     'mynodeclass',
-     ATTR_LCTEXT,
-     ],
+    comment => [
+	"A free-form text field containing a comment on this object. This will be embedded into output formats if possible, e.g. in HTML, SVG and Graphviz, but not ASCII or Boxart.",
+	undef,
+	'',
+	'(C) by Tels 2007. All rights reserved.',
+	ATTR_STRING,
+	"graph { comment: German capitals; }\n [ Bonn ] --> [ Berlin ]",
+    ],
 
     fill => [
      "The fill color, e.g. the color inside the shape. For the graph, this is the background color for the label. For edges, the color inside the arrow shape. See also L<background>. See the section about color names and values for reference.",
      undef,
      { default => 'white', graph => 'inherit', edge => 'inherit', group => '#a0d0ff', 
-	'group.anon' => 'white', 'node.anon' => 'white' },
+	'group.anon' => 'white', 'node.anon' => 'inherit' },
      'rgb(255,0,0)',
      ATTR_COLOR,
-     "[ Crimson ]\n  {\n  shape: octagon;\n  background: crimson;\n  fill: red;\n  bordercolor: slategrey;\n  }\n-- Aqua Marine -->\n  {\n  arrowstyle: filled;\n  fill: red;\n  }\n[ Two ]",
+     "[ Crimson ]\n  {\n  shape: circle;\n  background: yellow;\n  fill: red;\n  border: 3px solid blue;\n  }\n-- Aqua Marine -->\n  {\n  arrowstyle: filled;\n  fill: red;\n  }\n[ Two ]",
      ],
 
     'fontsize' => [
@@ -2814,15 +2983,6 @@ EOF
 	'123',
      ],
 
-    output => [
-	"The desired output format. Only used when calling Graph::Easy::output(), or by mediawiki-graph.",
-	[ qw/ascii html svg graphviz boxart debug/ ],
-	'',
-	'ascii',
-	ATTR_LIST,
-        "graph { output: debug; }"
-     ],
-
     labelpos => [
 	"The position of the graph label.",
 	[ qw/top bottom/ ],
@@ -2830,6 +2990,15 @@ EOF
 	'bottom',
 	ATTR_LIST,
         "graph { labelpos: bottom; label: My Graph; }\n\n [ Buxtehude ] -> [ Fuchsberg ]\n"
+     ],
+
+    output => [
+	"The desired output format. Only used when calling Graph::Easy::output(), or by mediawiki-graph.",
+	[ qw/ascii html svg graphviz boxart debug/ ],
+	'',
+	'ascii',
+	ATTR_LIST,
+        "graph { output: debug; }"
      ],
 
     root => [
@@ -2861,6 +3030,28 @@ EOF
       'closed',
       undef,
       "[ A ] -- open --> [ B ]\n -- closed --> { arrowstyle: closed; } [ C ]\n -- filled --> { arrowstyle: filled; } [ D ]\n -- filled --> { arrowstyle: filled; fill: lime; } [ E ]\n -- none --> { arrowstyle: none; } [ F ]",
+     ],
+
+    arrowshape => [
+      'The basic shape of the arrow. Can be combined with each of L<arrowstyle>.',
+      [ qw/triangle box dot inv line diamond cross x/ ],
+      'triangle',
+      'box',
+      undef,
+      "[ A ] -- triangle --> [ B ]\n -- box --> { arrowshape: box; } [ C ]\n" .
+      " -- inv --> { arrowshape: inv; } [ D ]\n -- diamond --> { arrowshape: diamond; } [ E ]\n" .
+      " -- dot --> { arrowshape: dot; } [ F ]\n" .
+      " -- line --> { arrowshape: line; } [ G ] \n" .
+      " -- plus --> { arrowshape: cross; } [ H ] \n" .
+      " -- x --> { arrowshape: x; } [ I ] \n\n" .
+      "[ a ] -- triangle --> { arrowstyle: filled; } [ b ]\n".
+      " -- box --> { arrowshape: box; arrowstyle: filled; } [ c ]\n" .
+      " -- inv --> { arrowshape: inv; arrowstyle: filled; } [ d ]\n" .
+      " -- diamond --> { arrowshape: diamond; arrowstyle: filled; } [ e ]\n" .
+      " -- dot --> { arrowshape: dot; arrowstyle: filled; } [ f ]\n" .
+      " -- line --> { arrowshape: line; arrowstyle: filled; } [ g ] \n" .
+      " -- plus --> { arrowshape: cross; arrowstyle: filled; } [ h ] \n" .
+      " -- x --> { arrowshape: x; arrowstyle: filled; } [ i ] \n",
      ],
 
     labelcolor => [
@@ -3353,12 +3544,12 @@ sub attribute
   ###########################################################################
   # Check the classes now
 
-#  print STDERR "# Called self->attribute($class,$name)\n";
+#  print STDERR "# Called self->attribute($class,$name) (#2)\n";
 
   # we try them in this order:
   # node.subclass, node, graph
 
-#  print STDERR "# $self->{name} class=$class val=$val ", join(" ", caller),"\n" if $name eq 'color';
+#  print STDERR "# $self->{name} class=$class val=$val ", join(" ", caller),"\n" if $name eq 'fill';
 
   my @tries = ();
   # skip "node.foo" if value is 'inherit'
@@ -3377,7 +3568,7 @@ sub attribute
   $val = undef;
   for my $try (@tries)
     {
-#    print STDERR "# Trying class $try for attribute $name\n" if $name eq 'color';
+#    print STDERR "# Trying class $try for attribute $name\n" if $name eq 'fill';
 
     my $att = $g->{att}->{$try};
 
@@ -3657,6 +3848,7 @@ sub _remap_attributes
     if (exists $r->{$atr} || exists $ra->{$atr})
       {
       my $rc = $r->{$atr}; $rc = $ra->{$atr} unless defined $rc;
+
       if (ref($rc) eq 'CODE')
         {
         my @rc = &{$rc}($self,$atr,$val,$object);
@@ -3678,6 +3870,7 @@ sub _remap_attributes
     for my $at (keys %$temp)
       {
       my $v = $temp->{$at};
+
       next if !defined $at || !defined $v || $v eq '';
 
       # encode critical characters (including "), but only if the value actually

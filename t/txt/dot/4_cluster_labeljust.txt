@@ -3,6 +3,10 @@ graph {
   colorscheme: x11;
   flow: south;
 }
+group {
+  align: center;
+  fill: inherit;
+}
 
 ( cluster_0
   [ aaaaaaaaaaaaaaaaaaa ]

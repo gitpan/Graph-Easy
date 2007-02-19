@@ -62,7 +62,6 @@ $edge->set_attribute('arrow-style', 'filled');
 $boxart = $graph->as_boxart();
 like ($boxart, qr/$filled/, 'contains edge with filled arrow');
 
-
 #############################################################################
 # arrow tests with dotted lines
 

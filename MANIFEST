@@ -4,16 +4,16 @@ bench/stress.pl
 bench/test.dot
 bench/test.txt
 bin/graph-easy
-CHANGES
 Build.PL
+CHANGES
 examples/as_ascii		parse text and output it as ASCII art
-examples/as_boxart_html		parse text and output it as standalone HTML page with box drawing
 examples/as_boxart		parse text and output it as box drawing using unicode
-examples/ascii.pl		examples as ASCII
+examples/as_boxart_html		parse text and output it as standalone HTML page with box drawing
 examples/as_graphviz		parse text and output as graphviz
 examples/as_html		parse text and output it as standalone HTML page
 examples/as_svg			parse text and output as standalone SVG
 examples/as_txt			parse text and output as text again
+examples/ascii.pl		examples as ASCII
 examples/base.css		needed for the output of syntax.pl
 examples/common.pl		generate example graphs
 examples/complex.txt		a complex example
@@ -23,41 +23,52 @@ examples/html.pl		examples as HTML
 examples/parse			parser for tests
 examples/syntax.pl		syntax tests
 examples/syntax.tpl		HTML template for syntax tests
+inc/Module/Install.pm
+inc/Module/Install/Base.pm
+inc/Module/Install/Build.pm
+inc/Module/Install/Can.pm
+inc/Module/Install/Fetch.pm
+inc/Module/Install/Makefile.pm
+inc/Module/Install/Metadata.pm
+inc/Module/Install/Scripts.pm
+inc/Module/Install/Win32.pm
+inc/Module/Install/WriteAll.pm
 INSTALL
-lib/Graph/Easy/As_ascii.pm		generate ASCII art
-lib/Graph/Easy/As_graphviz.pm		generate graphviz text
-lib/Graph/Easy/As_txt.pm		generate textual description
-lib/Graph/Easy/Attributes.pm		define and check attributes
-lib/Graph/Easy/Base.pm			OO base class
-lib/Graph/Easy/Edge/Cell.pm
-lib/Graph/Easy/Edge.pm
-lib/Graph/Easy/Group/Anon.pm		an anonymous (aka nameless) group
-lib/Graph/Easy/Group/Cell.pm
-lib/Graph/Easy/Group.pm
-lib/Graph/Easy/Layout/Chain.pm		a chain of nodes
-lib/Graph/Easy/Layout/Grid.pm		prepare layout
-lib/Graph/Easy/Layout/Path.pm		path management
-lib/Graph/Easy/Layout/Repair.pm		group cells splicing/repair code
-lib/Graph/Easy/Layout.pm		actual layout routines
-lib/Graph/Easy/Layout/Scout.pm		pathfinding (including A*)
-lib/Graph/Easy/Node/Anon.pm		an anonymous node
-lib/Graph/Easy/Node/Cell.pm
-lib/Graph/Easy/Node/Empty.pm		empty parts of a cluster
-lib/Graph/Easy/Node.pm
-lib/Graph/Easy/Parser.pm		parse textual descriptions
-lib/Graph/Easy/Parser/Graphviz.pm	parse dot/graphviz text
 lib/Graph/Easy.pm
+lib/Graph/Easy/As_ascii.pm	generate ASCII art
+lib/Graph/Easy/As_graphviz.pm	generate graphviz text
+lib/Graph/Easy/As_txt.pm	generate textual description
+lib/Graph/Easy/Attributes.pm	define and check attributes
+lib/Graph/Easy/Base.pm		OO base class
+lib/Graph/Easy/Edge.pm		an edge
+lib/Graph/Easy/Edge/Cell.pm	a cell during rendering the edge
+lib/Graph/Easy/Group.pm		a group of modes
+lib/Graph/Easy/Group/Anon.pm	an anonymous (aka nameless) group
+lib/Graph/Easy/Group/Cell.pm
+lib/Graph/Easy/Layout.pm	actual layout routines
+lib/Graph/Easy/Layout/Chain.pm	a chain of nodes
+lib/Graph/Easy/Layout/Grid.pm	prepare layout
+lib/Graph/Easy/Layout/Path.pm	path management
+lib/Graph/Easy/Layout/Repair.pm	group cells splicing/repair code
+lib/Graph/Easy/Layout/Scout.pm	pathfinding (including A*)
+lib/Graph/Easy/Node.pm
+lib/Graph/Easy/Node/Anon.pm	an anonymous node
+lib/Graph/Easy/Node/Cell.pm
+lib/Graph/Easy/Node/Empty.pm	empty parts of a cluster
+lib/Graph/Easy/Parser.pm	parse textual descriptions
+lib/Graph/Easy/Parser/Graphviz.pm	parse dot/graphviz text
 LICENSE
 Makefile.PL
 MANIFEST
-META.yml				Module meta-data
+MANIFEST.SKIP			enable "make manifest"		
+META.yml			Module meta-data
 README
 SIGNATURE
 t/anon.t
 t/anon_group.t
+t/as_txt.t
 t/ascii.t
 t/astar.t
-t/as_txt.t
 t/attributes.t
 t/base.t
 t/boxart.t
@@ -68,8 +79,8 @@ t/cluster.t
 t/delete.t			test deletion of nodes/edges
 t/drop.t
 t/easypm.t
-t/edge_cell.t
 t/edge.t
+t/edge_cell.t
 t/fb.t
 t/fun/0000.txt			fun with graph examples
 t/fun/0010.txt
@@ -83,37 +94,43 @@ t/fun/geek_dating.txt
 t/fun/overview.txt
 t/graph.t
 t/graphviz.t
+t/group.t
 t/group/0010.txt
 t/group/0131.txt
 t/group/0230.txt
-t/group.t
 t/gv.t
 t/html.t			HTML output
 t/in/0_empty_group.txt
 t/in/0_empty_groups.txt
+t/in/10_repair.txt
+t/in/10borders.txt
+t/in/18_multiples.txt
 t/in/1_bidi_loop.txt
-t/in/1node.txt
 t/in/1_empty_group.txt
+t/in/1_selfloop.txt
 t/in/1_selfloop_2.txt
 t/in/1_selfloop_label.txt
-t/in/1_selfloop.txt
 t/in/1_undirected_loop.txt
+t/in/1node.txt
+t/in/25_autosplit_empty.txt
 t/in/2_autolabel.txt
 t/in/2_autosplit_empty.txt
+t/in/2_autosplit_escaped.txt
 t/in/2_bidi_astar.txt
 t/in/2_bidi_endpoint.txt
 t/in/2_class.txt
 t/in/2_classes.txt
+t/in/2_cluster.txt
 t/in/2_cluster_2.txt
 t/in/2_cluster_3.txt
-t/in/2_cluster.txt
 t/in/2_dot.txt
 t/in/2_dot_dot_dash.txt
 t/in/2_edges.txt
 t/in/2_flow.txt
 t/in/2_graph_label.txt
-t/in/2_group_no_border.txt
 t/in/2_group.txt
+t/in/2_group_multicell.txt
+t/in/2_group_no_border.txt
 t/in/2_invisible_left.txt
 t/in/2_invisible_right.txt
 t/in/2_label.txt
@@ -121,12 +138,11 @@ t/in/2_label_align.txt
 t/in/2_list_attr.txt
 t/in/2_long_labels.txt
 t/in/2_newlines.txt
-t/in/2nodes.txt
-t/in/2_selfloop_flow_down.txt
 t/in/2_selfloop.txt
-t/in/2_zeros.txt
-t/in/2_group_multicell.txt
+t/in/2_selfloop_flow_down.txt
 t/in/2_wrap.txt
+t/in/2_zeros.txt
+t/in/2nodes.txt
 t/in/3_autosplit_hang.txt
 t/in/3_bend_bug.txt
 t/in/3_cluster.txt
@@ -140,17 +156,17 @@ t/in/3_flow.txt
 t/in/3_group_align_center.txt
 t/in/3_invisible_both.txt
 t/in/3_joining.txt
-t/in/3_joint_short.txt
 t/in/3_joint.txt
+t/in/3_joint_short.txt
 t/in/3_list_attr.txt
 t/in/3_lists.txt
 t/in/3_nodes_5_edges.txt
-t/in/3nodes.txt
+t/in/3_selfloop.txt
 t/in/3_selfloop_flip.txt
 t/in/3_selfloop_flow_down.txt
 t/in/3_selfloop_flow_left.txt
 t/in/3_selfloop_flow_up.txt
-t/in/3_selfloop.txt
+t/in/3nodes.txt
 t/in/4_2x2nodes.txt
 t/in/4_att.txt
 t/in/4_autosplit_class.txt
@@ -159,8 +175,8 @@ t/in/4_autosplit_offset.txt
 t/in/4_autosplit_shape.txt
 t/in/4_bend_bug.txt
 t/in/4_bug_joint_2.txt
-t/in/4_comma.txt
 t/in/4_collapse.txt
+t/in/4_comma.txt
 t/in/4_cross.txt
 t/in/4_cross_inv.txt
 t/in/4_cross_split.txt
@@ -168,36 +184,36 @@ t/in/4_cross_split_hor.txt
 t/in/4_edge_cross.txt
 t/in/4_edge_labels.txt
 t/in/4_edge_types.txt
-t/in/4_endless_loop_2.txt
 t/in/4_endless_loop.txt
+t/in/4_endless_loop_2.txt
 t/in/4_flow.txt
 t/in/4_flow_chain.txt
-t/in/4groups_class.txt
-t/in/4groups.txt
+t/in/4_invisible.txt
 t/in/4_joint.txt
 t/in/4_joint_bug_flags.txt
-t/in/4_invisible.txt
 t/in/4_list_attr.txt
 t/in/4_lists.txt
 t/in/4_minlen.txt
 t/in/4_near.txt
+t/in/4_node_edge.txt
 t/in/4_nodes_5_edges.txt
 t/in/4_nodes_6_edges.txt
 t/in/4_nodes_edge.txt
-t/in/4_node_edge.txt
+t/in/4groups.txt
+t/in/4groups_class.txt
 t/in/4nodes.txt
-t/in/5_arrow_styles.txt
 t/in/5_a-star_bug.txt
+t/in/5_arrow_styles.txt
 t/in/5_flow.txt
-t/in/5_group_split.txt
 t/in/5_group_repair.txt
+t/in/5_group_split.txt
 t/in/5_joint.txt
 t/in/5_joint_bug2.txt
 t/in/5_joint_label.txt
 t/in/5_long_edge_labels.txt
 t/in/5_multicell.txt
-t/in/5_offsets_2.txt
 t/in/5_offsets.txt
+t/in/5_offsets_2.txt
 t/in/5_rounded.txt
 t/in/5_tree_joint.txt
 t/in/6_autosplit_class.txt
@@ -205,8 +221,8 @@ t/in/6_chain_10_edges.txt
 t/in/6_chained.txt
 t/in/6_fanout.txt
 t/in/6_joint.txt
-t/in/6_multicell_offset.txt
 t/in/6_multicell.txt
+t/in/6_multicell_offset.txt
 t/in/6_ranks.txt
 t/in/6_split_join_loop.txt
 t/in/7_cluster.txt
@@ -223,17 +239,14 @@ t/in/8_points.txt
 t/in/9_chain.txt
 t/in/9_cross.txt
 t/in/9_flow_south.txt
-t/in/10borders.txt
-t/in/10_repair.txt
-t/in/18_multiples.txt
-t/in/25_autosplit_empty.txt
-t/in/README
 t/in/dot/0_empty.dot
+t/in/dot/10_numbers.dot
+t/in/dot/16_split.dot
 t/in/dot/2_bool.dot
 t/in/dot/2_graph_label_bottom.dot
 t/in/dot/2_ignore.dot
-t/in/dot/2_nospace.dot
 t/in/dot/2_no_spaces.dot
+t/in/dot/2_nospace.dot
 t/in/dot/2_ports.dot
 t/in/dot/2_setlinewidth.dot
 t/in/dot/2_strict.dot
@@ -241,73 +254,69 @@ t/in/dot/3_colors.dot
 t/in/dot/3_graph_label_long.dot
 t/in/dot/3_invis.dot
 t/in/dot/3_node_label.dot
-t/in/dot/4_compass.dot
 t/in/dot/4_cluster_labeljust.dot
+t/in/dot/4_compass.dot
 t/in/dot/4_html_like.dot
 t/in/dot/4_record.dot
 t/in/dot/4_strings.dot
 t/in/dot/4_uppercase.dot
+t/in/dot/5_scope_atr.dot
 t/in/dot/5_scopes.dot
 t/in/dot/5_scopes_chain.dot
 t/in/dot/5_scopes_uni.dot
-t/in/dot/5_scope_atr.dot
-t/in/dot/6_comments.dot
 t/in/dot/6_2_cluster.dot
+t/in/dot/6_comments.dot
+t/in/dot/6_group_align.txt
 t/in/dot/7_record.dot
 t/in/dot/9_back.dot
+t/in/dot/9_edge_styles.dot
 t/in/dot/9_stacking.dot
 t/in/dot/9_tree.dot
-t/in/dot/9_edge_styles.dot
-t/in/dot/10_numbers.dot
-t/in/dot/16_split.dot
+t/in/README
 t/layers.t
-t/layouter/edge_label.txt
-t/layouter/layouter_chain.txt
-t/layouter/layouter_loop.txt
-t/layouter/layouter.txt
-t/layouter/multiples.txt
-t/layouter/state.txt
-t/layouter.t
 t/layout.t
 t/layout_r.t
+t/layouter.t
+t/layouter/edge_label.txt
+t/layouter/layouter.txt
+t/layouter/layouter_chain.txt
+t/layouter/layouter_loop.txt
+t/layouter/multiples.txt
+t/layouter/state.txt
 t/nesting.t
-t/node_mc.t
 t/node.t
-TODO
-todos/6_cluster.txt
-todos/autosplit.txt
-todos/chain.txt
-todos/cluster.txt
-todos/hash.txt
-todos/layouter_loop_2.txt
-todos/layouter_loop.txt
-todos/tree.txt
-todos/tree2.txt
+t/node_mc.t
 t/out/0_empty_group.txt
 t/out/0_empty_groups.txt
+t/out/10_repair.txt
+t/out/10borders.txt
+t/out/18_multiples.txt
 t/out/1_bidi_loop.txt
 t/out/1_empty_group.txt
-t/out/1node.txt
+t/out/1_selfloop.txt
 t/out/1_selfloop_2.txt
 t/out/1_selfloop_label.txt
-t/out/1_selfloop.txt
 t/out/1_undirected_loop.txt
+t/out/1node.txt
+t/out/25_autosplit_empty.txt
 t/out/2_autolabel.txt
 t/out/2_autosplit_empty.txt
+t/out/2_autosplit_escaped.txt
 t/out/2_bidi_astar.txt
 t/out/2_bidi_endpoint.txt
 t/out/2_class.txt
 t/out/2_classes.txt
+t/out/2_cluster.txt
 t/out/2_cluster_2.txt
 t/out/2_cluster_3.txt
-t/out/2_cluster.txt
 t/out/2_dot.txt
 t/out/2_dot_dot_dash.txt
 t/out/2_edges.txt
 t/out/2_flow.txt
 t/out/2_graph_label.txt
-t/out/2_group_no_border.txt
 t/out/2_group.txt
+t/out/2_group_multicell.txt
+t/out/2_group_no_border.txt
 t/out/2_invisible_left.txt
 t/out/2_invisible_right.txt
 t/out/2_label.txt
@@ -316,12 +325,11 @@ t/out/2_list_attr.txt
 t/out/2_long_labels.txt
 t/out/2_newlines.txt
 t/out/2_nodes_inv.txt
-t/out/2nodes.txt
-t/out/2_selfloop_flow_down.txt
 t/out/2_selfloop.txt
-t/out/2_zeros.txt
-t/out/2_group_multicell.txt
+t/out/2_selfloop_flow_down.txt
 t/out/2_wrap.txt
+t/out/2_zeros.txt
+t/out/2nodes.txt
 t/out/3_autosplit_hang.txt
 t/out/3_bend_bug.txt
 t/out/3_cluster.txt
@@ -335,17 +343,17 @@ t/out/3_flow.txt
 t/out/3_group_align_center.txt
 t/out/3_invisible_both.txt
 t/out/3_joining.txt
-t/out/3_joint_short.txt
 t/out/3_joint.txt
+t/out/3_joint_short.txt
 t/out/3_list_attr.txt
 t/out/3_lists.txt
 t/out/3_nodes_5_edges.txt
-t/out/3nodes.txt
+t/out/3_selfloop.txt
 t/out/3_selfloop_flip.txt
 t/out/3_selfloop_flow_down.txt
 t/out/3_selfloop_flow_left.txt
 t/out/3_selfloop_flow_up.txt
-t/out/3_selfloop.txt
+t/out/3nodes.txt
 t/out/4_2x2nodes.txt
 t/out/4_att.txt
 t/out/4_autosplit_class.txt
@@ -354,8 +362,8 @@ t/out/4_autosplit_offset.txt
 t/out/4_autosplit_shape.txt
 t/out/4_bend_bug.txt
 t/out/4_bug_joint_2.txt
-t/out/4_comma.txt
 t/out/4_collapse.txt
+t/out/4_comma.txt
 t/out/4_cross.txt
 t/out/4_cross_inv.txt
 t/out/4_cross_split.txt
@@ -363,36 +371,36 @@ t/out/4_cross_split_hor.txt
 t/out/4_edge_cross.txt
 t/out/4_edge_labels.txt
 t/out/4_edge_types.txt
-t/out/4_endless_loop_2.txt
 t/out/4_endless_loop.txt
+t/out/4_endless_loop_2.txt
 t/out/4_flow.txt
 t/out/4_flow_chain.txt
+t/out/4_invisible.txt
 t/out/4_joint.txt
 t/out/4_joint_bug_flags.txt
-t/out/4groups_class.txt
-t/out/4groups.txt
-t/out/4_invisible.txt
 t/out/4_list_attr.txt
 t/out/4_lists.txt
 t/out/4_minlen.txt
 t/out/4_near.txt
+t/out/4_node_edge.txt
 t/out/4_nodes_5_edges.txt
 t/out/4_nodes_6_edges.txt
 t/out/4_nodes_edge.txt
-t/out/4_node_edge.txt
+t/out/4groups.txt
+t/out/4groups_class.txt
 t/out/4nodes.txt
-t/out/5_arrow_styles.txt
 t/out/5_a-star_bug.txt
+t/out/5_arrow_styles.txt
 t/out/5_flow.txt
-t/out/5_group_split.txt
 t/out/5_group_repair.txt
+t/out/5_group_split.txt
 t/out/5_joint.txt
 t/out/5_joint_bug2.txt
 t/out/5_joint_label.txt
 t/out/5_long_edge_labels.txt
 t/out/5_multicell.txt
-t/out/5_offsets_2.txt
 t/out/5_offsets.txt
+t/out/5_offsets_2.txt
 t/out/5_rounded.txt
 t/out/5_tree_joint.txt
 t/out/6_autosplit_class.txt
@@ -400,8 +408,8 @@ t/out/6_chain_10_edges.txt
 t/out/6_chained.txt
 t/out/6_fanout.txt
 t/out/6_joint.txt
-t/out/6_multicell_offset.txt
 t/out/6_multicell.txt
+t/out/6_multicell_offset.txt
 t/out/6_ranks.txt
 t/out/6_split_join_loop.txt
 t/out/7_cluster.txt
@@ -418,17 +426,14 @@ t/out/8_points.txt
 t/out/9_chain.txt
 t/out/9_cross.txt
 t/out/9_flow_south.txt
-t/out/10borders.txt
-t/out/10_repair.txt
-t/out/18_multiples.txt
-t/out/25_autosplit_empty.txt
-t/out/drop_result.txt
 t/out/dot/0_empty.txt
+t/out/dot/10_numbers.txt
+t/out/dot/16_split.txt
 t/out/dot/2_bool.txt
 t/out/dot/2_graph_label_bottom.txt
 t/out/dot/2_ignore.txt
-t/out/dot/2_nospace.txt
 t/out/dot/2_no_spaces.txt
+t/out/dot/2_nospace.txt
 t/out/dot/2_ports.txt
 t/out/dot/2_setlinewidth.txt
 t/out/dot/2_strict.txt
@@ -436,8 +441,8 @@ t/out/dot/3_colors.txt
 t/out/dot/3_graph_label_long.txt
 t/out/dot/3_invis.txt
 t/out/dot/3_node_label.txt
-t/out/dot/4_compass.txt
 t/out/dot/4_cluster_labeljust.txt
+t/out/dot/4_compass.txt
 t/out/dot/4_html_like.txt
 t/out/dot/4_record.txt
 t/out/dot/4_strings.txt
@@ -446,22 +451,22 @@ t/out/dot/5_scope_atr.txt
 t/out/dot/5_scopes.txt
 t/out/dot/5_scopes_chain.txt
 t/out/dot/5_scopes_uni.txt
-t/out/dot/6_comments.txt
 t/out/dot/6_2_cluster.txt
+t/out/dot/6_comments.txt
+t/out/dot/6_group_align.txt
 t/out/dot/7_record.txt
 t/out/dot/9_back.txt
 t/out/dot/9_edge_styles.txt
 t/out/dot/9_stacking.txt
 t/out/dot/9_tree.txt
-t/out/dot/10_numbers.txt
-t/out/dot/16_split.txt
+t/out/drop_result.txt
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
 t/parser.t			general Parser tests
 t/parser_dot.t			general Parser::Graphviz tests
 t/path.t
-t/pod_cov.t			test the POD for covering all subroutines
 t/pod.t				test the POD for correctness
+t/pod_cov.t			test the POD for covering all subroutines
 t/re_layout.t			test forcing a relayout/recalc
 t/split.t			[ A | B | C ] || [ D | E | F ] tests
 t/stress/0001.txt		stress-testing the layouter
@@ -518,76 +523,81 @@ t/syntax/0252.txt
 t/syntax/0254.txt
 t/txt/0_empty_group.txt
 t/txt/0_empty_groups.txt
-t/txt/1_undirected_loop.txt
+t/txt/10_repair.txt
+t/txt/10borders.txt
+t/txt/18_multiples.txt
 t/txt/1_empty_group.txt
+t/txt/1_undirected_loop.txt
+t/txt/25_autosplit_empty.txt
 t/txt/2_autolabel.txt
 t/txt/2_autosplit_empty.txt
+t/txt/2_autosplit_escaped.txt
 t/txt/2_class.txt
 t/txt/2_classes.txt
+t/txt/2_cluster.txt
 t/txt/2_cluster_2.txt
 t/txt/2_cluster_3.txt
-t/txt/2_cluster.txt
 t/txt/2_dot.txt
 t/txt/2_dot_dot_dash.txt
 t/txt/2_graph_label.txt
-t/txt/2_group_no_border.txt
 t/txt/2_group.txt
+t/txt/2_group_multicell.txt
+t/txt/2_group_no_border.txt
 t/txt/2_invisible_left.txt
 t/txt/2_invisible_right.txt
 t/txt/2_label.txt
 t/txt/2_list_attr.txt
 t/txt/2_newlines.txt
-t/txt/2_zeros.txt
-t/txt/2_group_multicell.txt
 t/txt/2_wrap.txt
+t/txt/2_zeros.txt
 t/txt/3_autosplit_hang.txt
 t/txt/3_cluster.txt
-t/txt/3_corrupt.txt
 t/txt/3_colors.txt
+t/txt/3_corrupt.txt
 t/txt/3_edge_labels_from_class.txt
 t/txt/3_edge_repair.txt
 t/txt/3_edge_start.txt
 t/txt/3_empty_group.txt
 t/txt/3_group_align_center.txt
 t/txt/3_invisible_both.txt
-t/txt/3_joint_short.txt
 t/txt/3_joint.txt
+t/txt/3_joint_short.txt
 t/txt/3_list_attr.txt
 t/txt/3_lists.txt
 t/txt/3_nodes_5_edges.txt
-t/txt/3_selfloop_flip.txt
 t/txt/3_selfloop.txt
-t/txt/4_att.txt
+t/txt/3_selfloop_flip.txt
 t/txt/4_2x2nodes.txt
+t/txt/4_att.txt
 t/txt/4_autosplit_class.txt
 t/txt/4_autosplit_empty.txt
 t/txt/4_autosplit_offset.txt
 t/txt/4_autosplit_shape.txt
 t/txt/4_bug_joint_2.txt
-t/txt/4_comma.txt
 t/txt/4_collapse.txt
+t/txt/4_comma.txt
 t/txt/4_cross.txt
 t/txt/4_cross_inv.txt
 t/txt/4_cross_split.txt
 t/txt/4_cross_split_hor.txt
 t/txt/4_edge_cross.txt
 t/txt/4_edge_labels.txt
-t/txt/4_endless_loop_2.txt
 t/txt/4_endless_loop.txt
+t/txt/4_endless_loop_2.txt
 t/txt/4_flow.txt
 t/txt/4_flow_chain.txt
-t/txt/4groups_class.txt
-t/txt/4groups.txt
-t/txt/4_joint_bug_flags.txt
-t/txt/4_joint.txt
 t/txt/4_invisible.txt
+t/txt/4_joint.txt
+t/txt/4_joint_bug_flags.txt
 t/txt/4_list_attr.txt
 t/txt/4_lists.txt
 t/txt/4_minlen.txt
 t/txt/4_near.txt
+t/txt/4_node_edge.txt
 t/txt/4_nodes_5_edges.txt
 t/txt/4_nodes_6_edges.txt
-t/txt/4_node_edge.txt
+t/txt/4groups.txt
+t/txt/4groups_class.txt
 t/txt/5_arrow_styles.txt
 t/txt/5_flow.txt
 t/txt/5_group_split.txt
@@ -596,8 +606,8 @@ t/txt/5_joint_bug2.txt
 t/txt/5_joint_label.txt
 t/txt/5_long_edge_labels.txt
 t/txt/5_multicell.txt
-t/txt/5_offsets_2.txt
 t/txt/5_offsets.txt
+t/txt/5_offsets_2.txt
 t/txt/5_rounded.txt
 t/txt/5_tree_joint.txt
 t/txt/6_autosplit_class.txt
@@ -605,8 +615,8 @@ t/txt/6_chain_10_edges.txt
 t/txt/6_chained.txt
 t/txt/6_fanout.txt
 t/txt/6_joint.txt
-t/txt/6_multicell_offset.txt
 t/txt/6_multicell.txt
+t/txt/6_multicell_offset.txt
 t/txt/6_ranks.txt
 t/txt/6_split_join_loop.txt
 t/txt/7_cluster.txt
@@ -623,16 +633,14 @@ t/txt/8_points.txt
 t/txt/9_chain.txt
 t/txt/9_cross.txt
 t/txt/9_flow_south.txt
-t/txt/10borders.txt
-t/txt/10_repair.txt
-t/txt/18_multiples.txt
-t/txt/25_autosplit_empty.txt
 t/txt/dot/0_empty.txt
+t/txt/dot/10_numbers.txt
+t/txt/dot/16_split.txt
 t/txt/dot/2_bool.txt
 t/txt/dot/2_graph_label_bottom.txt
 t/txt/dot/2_ignore.txt
-t/txt/dot/2_nospace.txt
 t/txt/dot/2_no_spaces.txt
+t/txt/dot/2_nospace.txt
 t/txt/dot/2_ports.txt
 t/txt/dot/2_setlinewidth.txt
 t/txt/dot/2_strict.txt
@@ -640,8 +648,8 @@ t/txt/dot/3_colors.txt
 t/txt/dot/3_graph_label_long.txt
 t/txt/dot/3_invis.txt
 t/txt/dot/3_node_label.txt
-t/txt/dot/4_compass.txt
 t/txt/dot/4_cluster_labeljust.txt
+t/txt/dot/4_compass.txt
 t/txt/dot/4_html_like.txt
 t/txt/dot/4_record.txt
 t/txt/dot/4_strings.txt
@@ -650,24 +658,13 @@ t/txt/dot/5_scope_atr.txt
 t/txt/dot/5_scopes.txt
 t/txt/dot/5_scopes_chain.txt
 t/txt/dot/5_scopes_uni.txt
-t/txt/dot/6_comments.txt
 t/txt/dot/6_2_cluster.txt
+t/txt/dot/6_comments.txt
+t/txt/dot/6_group_align.txt
 t/txt/dot/7_record.txt
 t/txt/dot/9_back.txt
 t/txt/dot/9_edge_styles.txt
-t/txt/dot/9_tree.txt
 t/txt/dot/9_stacking.txt
-t/txt/dot/10_numbers.txt
-t/txt/dot/16_split.txt
+t/txt/dot/9_tree.txt
 t/use_class.t			test overriding classes in the Parser
-
-inc/Module/Install.pm
-inc/Module/Install/Base.pm
-inc/Module/Install/Build.pm
-inc/Module/Install/Can.pm
-inc/Module/Install/Fetch.pm
-inc/Module/Install/Scripts.pm
-inc/Module/Install/Makefile.pm
-inc/Module/Install/Metadata.pm
-inc/Module/Install/Win32.pm
-inc/Module/Install/WriteAll.pm
+TODO

@@ -1,20 +1,59 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2007-02-19 v0.53 Tels 2342 tests
+  * add --timeout=N to graph-easy and set the default to 120 seconds
+  * handle "\|" inside nodes properly: "[ A \| B | C ]" works now
+  * add MANIFEST.SKIP to enable "make manifest"
+  * remove todos/
+  * add attribute "comment" for graphs, edges, nodes and groups
+  * add support for hsv() and hsl() colors
+  * add support for transparency (alpha channel) in colors
+  * colors are stored as input (but normalized), fixes the problem that
+    hsv() colors in graphviz were converted to RGB and thus lost precision
+  * add attribute "arrowshape" for edges, allowing triangle, dot, box, line,
+    inv, cross, x and diamond shaped arrows
+  * Base: setting a new subclass did not invalidate the cache
+  * as_html:
+    + use again "position: relative" to shift arrows to the proper place
+      (needs to be done for for most edge parts, tho)
+    + implement a few more missing edge pieces
+  * parser/Graphviz:
+    + groups have slightly different defaults in DOT, so set these: (Thanx
+      Michael Goldshteyn!)
+      + transparent background
+      + center aligned label
+  * as_graphviz:
+    + don't generate needless label attributes
+    + compound=true is the default, so we can omit it
+    + do not needless quote "#" characters
+    + handle fractional fontsizes better, and do not output wrongly "11px"
+    + output correct "labeljust" for groups (Thanx Michael Goldshteyn!)
+    + HSV colors are now preserved (formerly they were converted to RGB)
+    + the alpha channel on colors is no preserved if possible
+  * as_html/as_box_art:
+    + use LOGICAL AND and LOGICAL OR for open up/down arrows
+    + replace open arrows with nicer looking Unicode chars
+    + nodes with shape circle, rounded or ellipse are now rendered correctly
+      when having a different background color (or when inside a group)
+    + don't generate labels for nodes with empty labels (like anon nodes)
+    + default fill is white, so set it in CSS for pages with some backdrop
+  * Graph::Easy objects are now about 4K smaller (min. size was 6.5K on 64bit)
+
 2007-01-28 v0.52 Tels 2305 tests
- * format INSTALL in POD and add notes about Windows
- * Group::Cell: cache attributes to avoid overly many attribute() calls
- * attribute(): do not call class() unless neccessary
- * Layouter:
-   + cache the boundaries of the cells array for A*, avoid excessive
-     recalculaion of the used area (make big layouts about 30% faster)
-   + fix _optimize_layout() for reversed edges, that finally fixes the
-     garbled HTML output
- * as_html(): 
-   + "vertical-align: center" must be "vertical-align: middle" - argh!
-   + better alignment of arrows on some edge/end pieces
-   + insert missing style="..." in all edge pieces (fixes missing group
-     backgrounds on some edge cells)
- * remove dead code in Graph::Easy::Node::Empty
+  * format INSTALL in POD and add notes about Windows
+  * Group::Cell: cache attributes to avoid overly many attribute() calls
+  * attribute(): do not call class() unless neccessary
+  * Layouter:
+    + cache the boundaries of the cells array for A*, avoid excessive
+      recalculaion of the used area (make big layouts about 30% faster)
+    + fix _optimize_layout() for reversed edges, that finally fixes the
+      garbled HTML output
+  * as_html(): 
+    + "vertical-align: center" must be "vertical-align: middle" - argh!
+    + better alignment of arrows on some edge/end pieces
+    + insert missing style="..." in all edge pieces (fixes missing group
+      backgrounds on some edge cells)
+  * remove dead code in Graph::Easy::Node::Empty
  
 2007-01-05 v0.51 Tels 2305 tests
   * bin/graph-easy: add --parse option

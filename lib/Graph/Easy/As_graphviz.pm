@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = 0.22;
+$VERSION = '0.23';
 
 #############################################################################
 #############################################################################
@@ -20,12 +20,12 @@ my $remap = {
     'align' => undef,
     'background' => undef,   # need a way to simulate that on non-rect nodes
     'basename' => undef,
-    'bordercolor' => 'color',
+    'bordercolor' => \&_remap_color,
     'borderstyle' => \&_graphviz_remap_border_style,
     'borderwidth' => undef,
     'border' => undef,
-    'color' => 'fontcolor',
-    'fill' => 'fillcolor',
+    'color' => \&_remap_color,
+    'fill' => \&_remap_color,
     'label' => \&_graphviz_remap_label,
     'pointstyle' => undef,
     'rotate' => \&_graphviz_remap_node_rotate,
@@ -53,10 +53,11 @@ my $remap = {
   graph => {
     'align' => \&_graphviz_remap_align,
     'background' => undef,
-    'bordercolor' => 'color',
+    'bordercolor' => \&_remap_color,
     'borderstyle' => \&_graphviz_remap_border_style,
     'borderwidth' => undef,
-    'fill' => 'bgcolor',
+    'color' => \&_remap_color,
+    'fill' => \&_remap_color,
     'flow' => undef,
     'gid' => 'undef',
     'labelpos' => 'labelloc',
@@ -65,19 +66,21 @@ my $remap = {
   group => {
     'align' => \&_graphviz_remap_align,
     'background' => undef,
-    'bordercolor' => 'color',
+    'bordercolor' => \&_remap_color,
     'borderstyle' => \&_graphviz_remap_border_style,
     'borderwidth' => undef,
-    'color' => 'fontcolor',
-    'fill' => 'fillcolor',
+    'color' => \&_remap_color,
+    'fill' => \&_remap_color,
     'title' => 'tooltip',
     'rank' => undef,
     },
   all => {
-    class => undef,
+    'arrowshape' => undef,
     'autolink' => undef,
     'autotitle' => undef,
     'autolabel' => undef,
+    'class' => undef,
+    'colorscheme' => undef,
     'flow' => undef,
     'fontsize' => \&_graphviz_remap_fontsize,
     'font' => \&_graphviz_remap_font,
@@ -87,24 +90,74 @@ my $remap = {
     'linkbase' => undef,
     'textstyle' => undef,
     'textwrap' => undef,
-    'colorscheme' => undef,
     },
   always => {
     node	=> [ qw/borderstyle label link rotate color/ ],
-    'node.anon' => [ qw/bordercolor borderstyle label link rotate/ ],
+    'node.anon' => [ qw/bordercolor borderstyle label link rotate color/ ],
     edge	=> [ qw/labelcolor label link color/ ],
-    graph	=> [ qw/labelpos borderstyle label link/ ],
+    graph	=> [ qw/labelpos borderstyle label link color/ ],
     },
   };
+
+my $color_remap = {
+  bordercolor => 'color',
+  color => 'fontcolor',
+  fill => 'fillcolor',
+  };
+
+sub _remap_color
+  {
+  # remap one color value
+  my ($self, $name, $color, $object) = @_;
+
+  # guard against always doing the remap even when the attribute is not set
+  return (undef,undef) unless defined $color;
+
+  if (!ref($object) && $object eq 'graph')
+    {
+    # 'fill' => 'bgcolor';
+    $name = 'bgcolor' if $name eq 'fill';
+    }
+
+  $name = $color_remap->{$name} || $name;
+
+  $color = $self->_color_as_hex_or_hsv($object,$color);
+
+  ($name, $color);
+  }
+
+sub _color_as_hex_or_hsv
+  {
+  # Given a color in hex, hsv, hsl or rgb, will return either a hex or hsv
+  # color to preserve as much precision as possible:
+  my ($graph, $self, $color) = @_;
+
+  if ($color !~ /^#/)
+    {
+    # HSV colors with an alpha channel are not supported by graphviz, and
+    # hence converted to RGB here:
+    if ($color =~ /^hsv\(([0-9\.]+),([0-9\.]+),([0-9\.]+)\)/)
+      {
+      # hsv(1.0,1.0,1.0) => 1.0 1.0 1.0
+      $color = "$1 $2 $3";
+      }
+    else
+      {
+      my $cs = ref($self) ? $self->attribute('colorscheme') :
+			$graph->attribute($self,'colorscheme');
+      # red => hex
+      $color = $graph->color_as_hex($color, $cs);
+      }
+    }
+
+  $color;
+  }
 
 sub _graphviz_remap_align
   {
   my ($self, $name, $style) = @_;
 
-  return (undef, undef) if $style eq 'center';
-
-  my $s = 'l';		# $style eq 'left';
-  $s = 'r' if $style eq 'right';
+  my $s = lc(substr($style,0,1));		# 'l', 'r', or 'c'
 
   ('labeljust', $s);
   }
@@ -128,14 +181,13 @@ sub _graphviz_remap_edge_color
   if (!defined $color)
     {
     $color = ref($object) ? 
-      $object->color_attribute('color') : 
-      $self->color_attribute('edge','color');
+      $object->attribute('color') : 
+      $self->attribute('edge','color');
     }
 
-#  $style = '' unless defined $style;
+  $color = '#000000' unless defined $color;
+  $color = $self->_color_as_hex_or_hsv($object, $color);
 
-#  $color = '#000000' unless defined $color;
- 
   $color = $color . ':' . $color	# 'red:red'
     if $style =~ /^double/;
 
@@ -220,25 +272,25 @@ sub _graphviz_remap_fontsize
   # make sure the fontsize is in pixel or percent
   my ($self, $name, $style) = @_;
 
-  # XXX TODO: This should be 1 em
-  my $fs = '11px';
+  # XXX TODO: This should be actually 1 em
+  my $fs = '11';
 
-  if ($style =~ /^([\d.]+)em\z/)
+  if ($style =~ /^([\d\.]+)em\z/)
     {
     $fs = $1 * 11;
     }
-  elsif ($style =~ /^([\d.]+)%\z/)
+  elsif ($style =~ /^([\d\.]+)%\z/)
     {
     $fs = ($1 / 100) * 11;
     }
   # this is discouraged:
-  elsif ($style =~ /^([\d.]+)px\z/)
+  elsif ($style =~ /^([\d\.]+)px\z/)
     {
     $fs = $1;
     }
   else
     {
-    $self->_croak("Illegal font-size '$fs'");
+    $self->_croak("Illegal font-size '$style'");
     }
 
   # font-size => fontsize
@@ -321,9 +373,7 @@ sub _graphviz_remap_label_color
   # the label color falls back to the edge color
   $color = $self->attribute('color') unless defined $color;
 
-  # red => hex
-  $color = $graph->color_as_hex($color, $self->attribute('colorscheme'))
-    unless $color =~ /^#/;
+  $color = $graph->_color_as_hex_or_hsv($self,$color);
 
   ('fontcolor', $color);
   }
@@ -396,7 +446,7 @@ sub _att_as_graphviz
   {
   # convert a hash with attribute => value mappings to a string
   my ($self, $out) = @_;
- 
+
   my $att = '';
   for my $atr (keys %$out)
     {
@@ -631,9 +681,6 @@ sub _as_graphviz
   
   my $groups = $self->groups();
 
-  $txt .= "  compound=true; // allow edges between groups\n\n"
-    if $groups > 0;
-
   # to keep track of invisible helper nodes
   $self->{_graphviz_invis} = {};
   # name for invisible helper nodes
@@ -645,7 +692,7 @@ sub _as_graphviz
     {
     next if $class =~ /\./;		# skip subclasses
 
-    my $out = $self->_remap_attributes( $class, $atts->{$class}, $remap, 'noquote', undef, 'remap_colors');
+    my $out = $self->_remap_attributes( $class, $atts->{$class}, $remap, 'noquote');
 
     # per default, our nodes are rectangular, white, filled boxes
     if ($class eq 'node')
@@ -670,6 +717,7 @@ sub _as_graphviz
       }
 
     my $att = $self->_att_as_graphviz($out);
+
     $txt .= "  $class [$att];\n" if $att ne '';
     }
 
@@ -702,11 +750,11 @@ sub _as_graphviz
     # set some defaults
     $copy->{'borderstyle'} = 'solid' unless defined $copy->{'borderstyle'};
 
-    my $out = $self->_remap_attributes( $group->class(), $copy, $remap, 'noquote', undef, 'remap_colors');
+    my $out = $self->_remap_attributes( $group->class(), $copy, $remap, 'noquote');
 
     # Set some defaults:
     $out->{fillcolor} = '#a0d0ff' unless defined $out->{fillcolor};
-    $out->{labeljust} = 'l';
+    $out->{labeljust} = 'l' unless defined $out->{labeljust};
 
     my $att = '';
     # we need to output style first ("filled" and "color" need come later)
@@ -829,7 +877,7 @@ sub attributes_as_graphviz
     if ( ref($remap->{$base_class}->{$name}) ||
          ref($remap->{all}->{$name}) )
       {
-      $a->{$name} = undef;
+      $a->{$name} = $attr->{$name};
       }
     else
       {
@@ -838,7 +886,10 @@ sub attributes_as_graphviz
       }
     }
 
-  $a = $g->_remap_attributes( $self, $a, $remap, 'noquote', undef, 'remap_colors');
+  $a = $g->_remap_attributes( $self, $a, $remap, 'noquote');
+
+  # do not needlessly output labels:
+  delete $a->{label} if exists $a->{label} && $a->{label} eq $self->{name};
 
   # bidirectional and undirected edges
   if ($self->{bidirectional})
@@ -923,7 +974,7 @@ sub as_graphviz_txt
   my $name = $self->{name};
 
   # escape special chars in name (including doublequote!)
-  $name =~ s/([\[\]\(\)\{\}\#"])/\\$1/g;
+  $name =~ s/([\[\]\(\)\{\}"])/\\$1/g;
 
   # quote if necessary:
   # 2, A, A2, "2A", "2 A" etc

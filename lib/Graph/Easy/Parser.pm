@@ -7,7 +7,7 @@ package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = 0.29;
+$VERSION = '0.30';
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
 
@@ -806,9 +806,9 @@ sub _autosplit_node
   while ($remaining ne '')
     {
     # XXX TODO: parsing of "\|" and "|" in one node
-    $remaining =~ s/^([^\|]*)(\|\|?|\z)//;
+    $remaining =~ s/^((\\\||[^\|])*)(\|\|?|\z)//;
     my $part = $1 || ' ';
-    $sep = $2;
+    $sep = $3;
     my $port_name = '';
 
     # possible cleanup for this part

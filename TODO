@@ -5,6 +5,9 @@ See Graph::Easy under LIMITATIONS for some hot topics. In addition:
 
 Important short-term TODO:
 
+* graphviz parsing roundtrip:
+  + anon nodes lose their " " label
+  + border-width is wrongly dropped
 * Combining table cells goes wrong if there is a "hole" in a row
   of cells. We need to gather them with their coordinates and only
   combine cells that are next to each other.
@@ -92,16 +95,6 @@ Recursive layouter:
   implement auto-split nodes in graphviz (including <port>'s and rerouting
   edges to the ports), or use HTML labels
 
-Parser:
-
-* support for node splitting ala:
-
-    "[ A ] | [ B | C ] || [ D | E ]"
-
-* Nodes with both "|" and "\|" in their name are not parsed correctly
-* handle RGBA colors (with an alpha channel component, making transparency
-  possible, especially important for animations and graphviz)
-
 Output:
 
 * selfloop edges should counter the general flow:
@@ -122,9 +115,7 @@ Output:
    | End | <-- |      Main      | <-- | Start |
    +-----+     +----------------+     +-------+
 
-* support different edge starting point styles ala:
-
-  ----->  |----->  o----->  +----->  *----->  >>---->
+* support two different arrow shapes on bidirectional edges
 
 * as_txt(): 
   + output of node clusters and node chains is not optimal
@@ -176,6 +167,7 @@ Rendering/Layout:
   + rect
   + compact (the default, what it is now)
   + none (no background, no border, no label)
+* add attribute "opacity" to set alpha channel on entire objects more easily
 
 General:
 

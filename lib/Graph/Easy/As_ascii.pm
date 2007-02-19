@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = 0.19;
+$VERSION = '0.20';
 
 use utf8;
 
@@ -152,8 +152,18 @@ sub _arrow_style
 
   my $edge = $self->{edge};
 
-  my $as = $edge->attribute('arrow-style');
+  my $as = $edge->attribute('arrowstyle');
   $as = 'none' if $edge->{undirected};
+  $as;
+  }
+
+sub _arrow_shape
+  {
+  my $self = shift;
+
+  my $edge = $self->{edge};
+
+  my $as = $edge->attribute('arrowshape');
   $as;
   }
 
@@ -215,6 +225,9 @@ sub _draw_hor
 
   my $flags = $self->{type} & EDGE_FLAG_MASK;
 
+  my $as = $self->_arrow_style();
+  my $ashape; $ashape = $self->_arrow_shape() if $as ne 'none';
+
   my $x = 0;				# offset for the edge line
   my $xs = 1;				# offset for the edge label
   my $xr = 0;				# right offset for label
@@ -227,20 +240,19 @@ sub _draw_hor
     {
     chop($line);			# '--- '
     }
-  my $as = $self->_arrow_style();
 
   if (($flags & EDGE_END_E) != 0)
     {
     # '--> '
     chop($line);
-    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT) if $as ne 'none';
+    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT, $ashape) if $as ne 'none';
     $xr++;
     }
   if (($flags & EDGE_END_W) != 0)
     {
     # ' <--'
     substr($line,0,1) = ' ' if $as eq 'none';
-    substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT) if $as ne 'none';
+    substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT, $ashape) if $as ne 'none';
     $xs++;
     }
 
@@ -271,9 +283,10 @@ sub _draw_ver
   my $as = $self->_arrow_style();
   if ($as ne 'none')
     {
-    substr($line,0,1) = $self->_arrow($as,ARROW_UP)
+    my $ashape = $self->_arrow_shape();
+    substr($line,0,1) = $self->_arrow($as,ARROW_UP, $ashape)
       if (($flags & EDGE_END_N) != 0);
-    substr($line,-1,1) = $self->_arrow($as,ARROW_DOWN)
+    substr($line,-1,1) = $self->_arrow($as,ARROW_DOWN, $ashape)
       if (($flags & EDGE_END_S) != 0);
     }
   $self->_printfb_ver ($fb, 2, 0, $line);
@@ -310,9 +323,10 @@ sub _draw_cross
 
     if ($as ne 'none')
       {
-      substr($line,0,1) = $self->_arrow($as,ARROW_UP) 
+      my $ashape = $self->_arrow_shape();
+      substr($line,0,1) = $self->_arrow($as,ARROW_UP, $ashape) 
         if (($flags & EDGE_END_N) != 0);
-      substr($line,-1,1) = $self->_arrow($as,ARROW_DOWN) 
+      substr($line,-1,1) = $self->_arrow($as,ARROW_DOWN, $ashape)
         if (($flags & EDGE_END_S) != 0);
       }
 
@@ -327,6 +341,8 @@ sub _draw_cross
   # horizontal piece
   $style = $self->_edge_style();
   
+  my $ashape; $ashape = $self->_arrow_style() if $as ne 'none';
+
   if ($self->{style} ne 'invisible')
     {
     my $w = $self->{w};
@@ -353,14 +369,14 @@ sub _draw_cross
       {
       # '--> '
       chop($line);
-      substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT)
+      substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT, $ashape)
        if $as ne 'none';
       }
     if (($flags & EDGE_END_W) != 0)
       {
       # ' <--'
       substr($line,0,1) = ' ' if $as eq 'none';
-      substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT)
+      substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT, $ashape)
        if $as ne 'none';
       }
 
@@ -416,11 +432,13 @@ sub _draw_corner
   $line = substr($line, 0, $h) if length($line) > $h;
 
   my $as = $self->_arrow_style();
+  my $ashape;
   if ($as ne 'none')
     {
-    substr($line,0,1) = $self->_arrow($as, ARROW_UP)
+    $ashape = $self->_arrow_shape();
+    substr($line,0,1) = $self->_arrow($as, ARROW_UP, $ashape)
       if (($flags & EDGE_END_N) != 0);
-    substr($line,-1,1) = $self->_arrow($as, ARROW_DOWN)
+    substr($line,-1,1) = $self->_arrow($as, ARROW_DOWN, $ashape)
       if (($flags & EDGE_END_S) != 0);
     }
   $self->_printfb_ver ($fb, 2, $y, $line);
@@ -448,12 +466,12 @@ sub _draw_corner
   if (($flags & EDGE_END_E) != 0)
     {
     substr($line,-1,1) = ' ' if $as eq 'none';
-    substr($line,-2,2) = $self->_arrow($as, ARROW_RIGHT) . ' ' if $as ne 'none';
+    substr($line,-2,2) = $self->_arrow($as, ARROW_RIGHT, $ashape) . ' ' if $as ne 'none';
     }
   if (($flags & EDGE_END_W) != 0)
     {
     substr($line,0,1) = ' ' if $as eq 'none';
-    substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT) if $as ne 'none';
+    substr($line,0,2) = ' ' . $self->_arrow($as, ARROW_LEFT, $ashape) if $as ne 'none';
     }
 
   $self->_printfb_line ($fb, $x, $y, $line);
@@ -507,18 +525,19 @@ sub _draw_loop_hor
   $line = substr($line, 0, $h) if length($line) > $h;
   
   my $as = $self->_arrow_style();
+  my $ashape; $ashape = $self->_arrow_shape() if $as ne 'none';
 
   if ($self->{edge}->{bidirectional} && $as ne 'none')
     {
-    substr($line,0,1)  = $self->_arrow($as, ARROW_UP) if (($flags & EDGE_END_N) != 0);
-    substr($line,-1,1) = $self->_arrow($as, ARROW_DOWN) if (($flags & EDGE_END_S) != 0);
+    substr($line,0,1)  = $self->_arrow($as, ARROW_UP, $ashape) if (($flags & EDGE_END_N) != 0);
+    substr($line,-1,1) = $self->_arrow($as, ARROW_DOWN, $ashape) if (($flags & EDGE_END_S) != 0);
     }
   $self->_printfb_ver ($fb, $self->{w}-3, $y, $line);
 
   if ($as ne 'none')
     {
-    substr($line,0,1)  = $self->_arrow($as, ARROW_UP) if (($flags & EDGE_END_N) != 0);
-    substr($line,-1,1) = $self->_arrow($as, ARROW_DOWN) if (($flags & EDGE_END_S) != 0);
+    substr($line,0,1)  = $self->_arrow($as, ARROW_UP, $ashape) if (($flags & EDGE_END_N) != 0);
+    substr($line,-1,1) = $self->_arrow($as, ARROW_DOWN, $ashape) if (($flags & EDGE_END_S) != 0);
     }
   $self->_printfb_ver ($fb, 2, $y, $line);
 
@@ -605,19 +624,20 @@ sub _draw_loop_ver
   $line = substr($line, 0, $w) if length($line) > $w;
 
   my $as = $self->_arrow_style();
+  my $ashape; $ashape = $self->_arrow_shape() if $as ne 'none';
  
   if ($self->{edge}->{bidirectional} && $as ne 'none')
     {
-    substr($line,0,1)  = $self->_arrow($as, ARROW_LEFT) if (($flags & EDGE_END_W) != 0);
-    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT) if (($flags & EDGE_END_E) != 0);
+    substr($line,0,1)  = $self->_arrow($as, ARROW_LEFT, $ashape) if (($flags & EDGE_END_W) != 0);
+    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT, $ashape) if (($flags & EDGE_END_E) != 0);
     }
 
   $self->_printfb_line ($fb, $x, $y, $line);
 
   if ($as ne 'none')
     {
-    substr($line,0,1)  = $self->_arrow($as, ARROW_LEFT) if (($flags & EDGE_END_W) != 0);
-    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT) if (($flags & EDGE_END_E) != 0);
+    substr($line,0,1)  = $self->_arrow($as, ARROW_LEFT, $ashape) if (($flags & EDGE_END_W) != 0);
+    substr($line,-1,1) = $self->_arrow($as, ARROW_RIGHT, $ashape) if (($flags & EDGE_END_E) != 0);
     }
   
   $self->_printfb_line ($fb, $x, $self->{h} - 2, $line);
@@ -925,42 +945,142 @@ sub _border_style
   }
 
 #############################################################################
-# arrow styles in ASCII and boxart, in the order "right", "left", "up", "down":
+# different arrow styles and shapes in ASCII and boxart
+
+my $arrow_form =
+  {
+  normal => 0,
+  sleek => 1,			# slightly squashed
+  };
+
+my $arrow_shapes =
+  {
+  triangle => 0,
+  diamond => 1,
+  box => 2,
+  dot => 3,
+  inv => 4,			# an inverted triangle
+  line => 5,
+  cross => 6,
+  x => 7,
+  };
+
+# todo: ≪ ≫ 
 
 my $arrow_styles = 
   [
-  {
-    open   => [ '>', '<', '^', 'v' ],
-    closed => [ '>', '<', '^', 'v' ],
-    filled => [ '>', '<', '^', 'v' ],
-  },
-  {
-    # Using '2227' and '2228' for up/down does have problems with many fonts
-    # not having these characters. So we use "^" and "v", even though they
-    # do not look as "good".
-    open   => [ '>', '<', '^', 'v' ],
-    filled => [ '▶', '◀', '▲', '▼' ],
-    closed => [ '▷', '◁', '△', '▽' ],
-  },
+    [
+    # triangle
+      {
+      open   => [ '>', '<', '^', 'v' ],
+      closed => [ '>', '<', '^', 'v' ],
+      filled => [ '>', '<', '^', 'v' ],
+      },
+      {
+      open   => [ '>', '<', '∧', '∨' ],
+      closed => [ '▷', '◁', '△', '▽' ],
+      filled => [ '▶', '◀', '▲', '▼' ],
+      }
+    ], [
+    # diamond
+      {
+      open   => [ '>', '<', '^', 'v' ],
+      closed => [ '>', '<', '^', 'v' ],
+      filled => [ '>', '<', '^', 'v' ],
+      },
+      {
+      open   => [ '>', '<', '∧', '∨' ],
+      closed => [ '◇', '◇', '◇', '◇' ],
+      filled => [ '◆', '◆', '◆', '◆' ],
+      }
+    ], [
+    # box
+      {
+      open   => [ ']', '[', '°', 'u' ],
+      closed => [ 'D', 'D', 'D', 'D' ],
+      filled => [ '#', '#', '#', '#' ],
+      },
+      {
+      open   => [ '⊐', '⊐', '⊓', '⊔' ],
+      closed => [ '◻', '◻', '◻', '◻' ],
+      filled => [ '◼', '◼', '◼', '◼' ],
+      }
+    ], [
+    # dot
+      {
+      open   => [ ')', '(', '^', 'u' ],
+      closed => [ 'o', 'o', 'o', 'o' ],
+      filled => [ '*', '*', '*', '*' ],
+      },
+      {
+      open   => [ ')', '(', '◠', '◡' ],
+      closed => [ '○', '○', '○', '○' ],
+      filled => [ '●', '●', '●', '●' ],
+      }
+    ], [
+    # inv
+      {
+      open   => [ '<', '>', 'v', '^' ],
+      closed => [ '<', '>', 'v', '^' ],
+      filled => [ '<', '>', 'v', '^' ],
+      },
+      {
+      open   => [ '<', '>', '∨', '∧' ],
+      closed => [ '◁', '▷', '▽', '△' ],
+      filled => [ '◀', '▶', '▼', '▲' ],
+      }
+    ], [
+    # line
+      {
+      open   => [ '|', '|', '_', '-' ],
+      closed => [ '|', '|', '_', '-' ],
+      filled => [ '|', '|', '_', '-' ],
+      },
+      {
+      open   => [ '⎥', '⎢', '_', '¯' ],
+      closed => [ '⎥', '⎢', '_', '¯' ],
+      filled => [ '⎥', '⎢', '_', '¯' ],
+      }
+    ], [
+    # cross
+      {
+      open   => [ '+', '+', '+', '+' ],
+      closed => [ '+', '+', '+', '+' ],
+      filled => [ '+', '+', '+', '+' ],
+      },
+      {
+      open   => [ '┼', '┼', '┼', '┼' ],
+      closed => [ '┼', '┼', '┼', '┼' ],
+      filled => [ '┼', '┼', '┼', '┼' ],
+      }
+    ], [
+    # x
+      {
+      open   => [ 'x', 'x', 'x', 'x' ],
+      closed => [ 'x', 'x', 'x', 'x' ],
+      filled => [ 'x', 'x', 'x', 'x' ],
+      },
+      {
+      open   => [ 'x', 'x', 'x', 'x' ],
+      closed => [ 'x', 'x', 'x', 'x' ],
+      filled => [ '⧓', '⧓', 'x', 'x' ],
+      }
+    ]
   ];
 
 sub _arrow
   {
   # return an arror, depending on style and direction
-  my ($self, $style, $dir) = @_;
+  my ($self, $style, $dir, $shape) = @_;
+
+  $shape = '' unless defined $shape;
+  $shape = $arrow_shapes->{$shape} || 0;
 
   my $g = $self->{graph}->{_ascii_style} || 0;
-  $arrow_styles->[$g]->{$style}->[$dir];
+  $arrow_styles->[$shape]->[$g]->{$style}->[$dir];
   }
 
-sub _unicode_arrow
-  {
-  # return an arror in unicode, depending on style and direction
-  my ($self, $style, $dir) = @_;
-
-  $arrow_styles->[1]->{$style}->[$dir];
-  }
-
+# To convert an HTML arrow to Unicode:
 my $arrow_dir = {
   '&gt;' => 0,
   '&lt;' => 1,
@@ -968,12 +1088,17 @@ my $arrow_dir = {
   'v' => 3,
   };
 
-sub _arrow_to_dir
+sub _unicode_arrow
   {
-  # To convert an HTML arrow to Unicode
-  my ($self, $style) = @_;
+  # return an arror in unicode, depending on style and direction
+  my ($self, $shape, $style, $arrow_text) = @_;
 
-  $arrow_dir->{$style} || 0;
+  $shape = '' unless defined $shape;
+  $shape = $arrow_shapes->{$shape} || 0;
+
+  my $dir = $arrow_dir->{$arrow_text} || 0;
+
+  $arrow_styles->[$shape]->[1]->{$style}->[$dir];
   }
 
 #############################################################################

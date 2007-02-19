@@ -3,6 +3,10 @@ graph {
   colorscheme: x11;
   flow: south;
 }
+group {
+  align: center;
+  fill: inherit;
+}
 
 [ A ] { color: red; }
 [ B ] { color: #ffff99; }
@@ -13,5 +17,5 @@ graph {
   [ B ]
 ) { border: dashed  #ff0000; }
 
-[ A ] --> { color: #ff0000; } [ B ]
-[ B ] --> { color: rgb(255,0,0); } [ C ]
+[ A ] --> { color: #ff0000ff; } [ B ]
+[ B ] --> { color: hsv(1.0,1.0,1.0); } [ C ]

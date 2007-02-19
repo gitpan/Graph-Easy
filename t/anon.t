@@ -78,14 +78,15 @@ is ($node->as_html(), " <td colspan=4 rowspan=4 class='node_anon'></td>\n",
  'as_html');
 is ($node->as_ascii(), "   \n   \n   ", 'anon as_ascii');
 
-is ($node->as_graphviz_txt(), '"\#0"', 'anon as_graphviz');
+require Graph::Easy::As_graphviz;
+is ($node->as_graphviz_txt(), '"#0"', 'anon as_graphviz');
 
 #############################################################################
 # anon node as_graphviz
 
 my $grviz = $graph->as_graphviz();
 
-my $match = quotemeta('"\#0" [ color="#ffffff", label=" ", style=filled ]');
+my $match = quotemeta('"#0" [ color="#ffffff", label=" ", style=filled ]');
 
 like ($grviz, qr/$match/, 'anon node');
 
@@ -100,7 +101,7 @@ is ($node->as_html(), " <td colspan=4 rowspan=4 class='node_anon' style=\"border
  'as_html');
 
 $grviz = $graph->as_graphviz();
-$match = quotemeta('"\#0" [ color="#000000", label=" ", style="filled,dotted" ]');
+$match = quotemeta('"#0" [ label=" ", style="filled,dotted" ]');
 like ($grviz, qr/$match/, 'anon node as graphviz');
 
 #############################################################################

@@ -5,7 +5,7 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = 0.11;
+$VERSION = '0.12';
 use base qw/Graph::Easy::Parser/;
 
 use strict;
@@ -37,6 +37,8 @@ sub reset
   $g->set_attribute('colorscheme','x11');
   $g->set_attribute('flow','south');
   $g->set_attribute('edge','arrow-style', 'filled');
+  $g->set_attribute('group','align', 'center');
+  $g->set_attribute('group','fill', 'inherit');
 
   $self->{scope_stack} = [];
 
@@ -673,7 +675,7 @@ sub _add_group_match
       my $graph = $self->{_graph};
       my $gn = $self->_unquote($1);
       print STDERR "# Parser: found subcluster '$gn'\n" if $self->{debug};
-      push @{$self->{group_stack}}, $graph->add_group($gn);
+      push @{$self->{group_stack}}, $self->_new_group($gn);
       $self->_new_scope( 1 );
       1;
       } );
@@ -1198,7 +1200,6 @@ my $remap = {
   'all' => {
     'color' => \&_from_graphviz_color,
     'colorscheme' => undef,
-    'comment' => undef,
     'bgcolor' => \&_from_graphviz_color,
     'fillcolor' => \&_from_graphviz_color,
     'fontsize' => \&_from_graphviz_font_size,
@@ -1367,7 +1368,7 @@ sub _from_graphviz_font_size
   my ($self, $f, $size) = @_;
 
   # 20 => 20px
-  $size = $size . 'px' if $size =~ /^\d+\z/;
+  $size = $size . 'px' if $size =~ /^\d+(\.\d+)?\z/;
 
   ('fontsize', $size);
   }
@@ -1432,7 +1433,7 @@ sub _from_graphviz_arrow_style
   ('arrow-style', $style);
   }
 
-my $color_map = {
+my $color_atr_map = {
   fontcolor => 'color',
   bgcolor => 'background',
   fillcolor => 'fill',
@@ -1441,67 +1442,9 @@ my $color_map = {
   color => 'color',
   };
 
-sub _hsv_to_rgb
-  {
-  my ($h, $s, $v) = @_;
-
-  my $e = 0.0001;
-
-  if ($s < $e)
-    {    
-    $v = abs(int(256 * $v)); $v = 255 if $v > 255;
-    return "rgb($v,$v,$v)";
-    }
-
-  my ($r,$g,$b);
-
-  # H=0..360, V=0..100, S=0..100
-  $h *= 360;
-
-  my $h1 = int($h / 60);
-  my $f = $h / 60 - $h1;
-  my $p = $v * (1 - $s);
-  my $q = $v * (1 - ($s * $f));
-  my $t = $v * (1 - ($s * (1-$f)));
-
-  if ($h1 == 0 || $h1 == 6)
-    {
-    $r = $v; $g = $t; $b = $p;
-    }
-  elsif ($h1 == 1)
-    {
-    $r = $q; $g = $v; $b = $p;
-    }
-  elsif ($h1 == 2)
-    {
-    $r = $p; $g = $v; $b = $t;
-    }
-  elsif ($h1 == 3)
-    {
-    $r = $p; $g = $q; $b = $v;
-    }
-  elsif ($h1 == 4)
-    {
-    $r = $t; $g = $p; $b = $v;
-    }
-  else
-    {
-    $r = $v; $g = $p; $b = $q;
-    }
-  # 0..1
-  $r = abs(int($r*256));
-  $g = abs(int($g*256));
-  $b = abs(int($b*256));
-  $r = 255 if $r > 255;
-  $g = 255 if $g > 255;
-  $b = 255 if $b > 255;
-
-  "rgb($r,$g,$b)";
-  }
-
 sub _from_graphviz_color
   {
-  # remap the color name and value
+  # Remap the color name and value
   my ($self, $name, $color) = @_;
 
   # "//red" => "red"
@@ -1520,18 +1463,11 @@ sub _from_graphviz_color
   # "#AA BB CC => "#AABBCC"
   $color =~ s/\s+//g if $color =~ /^#/;
 
-  # XXX TODO: This is HSV, not RGB!
-  # "0.1 0.4 0.5" => "rgb(0.1,0.4,0.5)"
+  # "0.1 0.4 0.5" => "hsv(0.1,0.4,0.5)"
   $color =~ s/\s+/,/g if $color =~ /\s/;
-  if ($color =~ /,/)
-    {
-    $color = _hsv_to_rgb(split (/,/, $color));
-    }
+  $color = 'hsv(' . $color . ')' if $color =~ /,/;
 
-  # XXX TODO: #ff00005f => #ff0000
-  $color = $1 if $color =~ /^(#......)..\z/;
-
-  ($color_map->{$name}, $color);
+  ($color_atr_map->{$name}, $color);
   }
 
 sub _from_graphviz_edge_color
@@ -1553,7 +1489,7 @@ sub _from_graphviz_edge_color
     push @rc, 'style', 'double';
     }
 
-  (@rc, $color_map->{$name}, $colors[0]);
+  (@rc, $color_atr_map->{$name}, $colors[0]);
   }
 
 sub _from_graphviz_graph_labeljust
@@ -1578,6 +1514,7 @@ sub _remap_attributes
     {
     my $o = ''; $o = " for $object" if $object;
     print STDERR "# remapping attributes '$att'$o\n";
+    require Data::Dumper; print STDERR "#" , Data::Dumper::Dumper($att),"\n";
     }
 
   $r = $remap unless defined $r;
@@ -1607,10 +1544,8 @@ sub _parse_html_attributes
   $text =~ s/\s*>\z//;
 
   my $attr = {};
-#  print STDERR "# Parsing html attributes from '$text'";
   while ($text ne '')
     {
-#  print STDERR "# Parsing html attributes from '$text'\n"; sleep(1);
 
     return $self->error("HTML-like attribute '$text' doesn't look valid to me.")
       unless $text =~ s/^($qr->{attribute})//;
@@ -1618,9 +1553,7 @@ sub _parse_html_attributes
     my $name = lc($2); my $value = $3;
 
     $self->_unquote($value);
-
     $value = lc($value) if $name eq 'align';
-
     $attr->{$name} = $value;
     }
 
@@ -1757,7 +1690,7 @@ sub _parse_html
         }
       else
         {
-        # second, third etc get previous as origin
+        # second, third etc. get previous as origin
         my ($sx,$sy) = (1,0);
         my $origin = $rc[-2];
 	# the first node in one row is relative to the first node in the
@@ -2048,6 +1981,12 @@ sub _parser_cleanup
       }
     }
 
+  # cleanup if there are no groups
+  if ($g->groups() == 0)
+    {
+    $g->del_attribute('group', 'align');
+    $g->del_attribute('group', 'fill');
+    }
   $g->_drop_special_attributes();
   $g->{_warn_on_unknown_attributes} = 0;	# reset to die again
 
@@ -2179,11 +2118,6 @@ The parser has problems with the following things:
 The parser assumes the input to be C<utf-8>. Input files in <code>Latin1</code>
 are not parsed properly, even when they have the charset attribute set.
 
-=item table syntax
-
-Labels that contain the HTML table syntax (e.g. are limited by '<' and '>'
-opposed to '"') are not parsed yet.
-
 =item shape=record
 
 Nodes with shape record are only parsed properly when the label does not
@@ -2209,6 +2143,13 @@ to other objects, resulting in unnec. warnings while parsing.
 Attributes not valid in the original DOT language are silently ignored by dot,
 but result in a warning when parsing under Graph::Easy. This helps catching all
 these pesky misspellings, but it's not yet possible to disable these warnings.
+
+=item comments
+
+Comments written in the source code itself are discarded. If you want to have
+comments on the graph, clusters, nodes or edges, use the attribute C<comment>.
+These are correctly read in and stored, and then output into the different
+formats, too.
 
 =back
 

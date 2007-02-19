@@ -5,7 +5,7 @@
 
 package Graph::Easy::Base;
 
-$VERSION = 0.09;
+$VERSION = '0.10';
 
 use strict;
 
@@ -127,6 +127,10 @@ sub sub_class
     {
     $self->{class} =~ s/\..*//;		# nix subclass
     $self->{class} .= '.' . $_[0];	# append new one
+    delete $self->{cache};
+    $self->{cache}->{subclass} = $_[0];
+    $self->{cache}->{class} = $self->{class};
+    return;
     }
   $self->{class} =~ /\.(.*)/;
 

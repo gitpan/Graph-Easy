@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = 0.32;
+$VERSION = '0.33';
 
 use Graph::Easy::Base;
 use Graph::Easy::Attributes;
@@ -73,8 +73,6 @@ sub _collapse_borders
   my ($self, $one, $two, $swapem) = @_;
 
   ($one,$two) = ($two,$one) if $swapem;
-
-#  print STDERR "# one, two: $one, $two\n";
 
   $one = 'none' unless $one;
   $two = 'none' unless $two;
@@ -642,6 +640,7 @@ my $remap = {
     align => 'text-align',
     autolink => undef,
     autotitle => undef,
+    comment => undef,
     fontsize => undef,
     font => 'font-family',
     flow => undef,
@@ -757,6 +756,23 @@ sub _label_as_html
   ($name, $switch_to_center);
   }
 
+sub quoted_comment
+  {
+  # Comment of this object, quoted suitable as to be embedded into HTML/SVG
+  my $self = shift;
+
+  my $cmt = $self->attribute('comment');
+  if ($cmt ne '')
+    {
+    $cmt =~ s/&/&amp;/g;
+    $cmt =~ s/</&lt;/g;
+    $cmt =~ s/>/&gt;/g;
+    $cmt = '<!-- ' . $cmt . " -->\n";
+    }
+
+  $cmt;
+  }
+
 sub as_html
   {
   # return node as HTML
@@ -800,10 +816,8 @@ sub as_html
 
   my $c = $class; $c =~ s/\./_/g;	# node.city => node_city
 
-  my $html = " <$taga colspan=$cs rowspan=$rs##class##";
+  my $html = " <$taga colspan=$cs rowspan=$rs##class####style##";
    
-  my $link = $self->link();
-
   my $title = $self->title();
   $title =~ s/'/&#27;/g;			# replace quotation marks
 
@@ -833,31 +847,15 @@ sub as_html
     ($name,$switch_to_center) = $self->_label_as_html(); 
     }
 
+  # if the label is "", the link wouldn't be clickable
+  my $link = ''; $link = $self->link() unless $name eq '';
+
+  # the attributes in $out will be applied to either the TD, or the inner DIV,
+  # unless if we have a link, then most of them will be moved to the A HREF
   my $att = $self->raw_attributes();
   my $out = $self->{graph}->_remap_attributes( $self, $att, $remap, 'noquote', 'encode', 'remap_colors');
 
   $out->{'text-align'} = 'center' if $switch_to_center;
-
-  if ($shape eq 'rounded')
-    {
-    $out->{'-moz-border-radius'} = '15px';
-    $out->{'border-radius'} = '15px';
-    }
-  if ($shape eq 'ellipse')
-    {
-    $out->{'-moz-border-radius'} = '100%';
-    $out->{'border-radius'} = '100%';
-    }
-  if ($shape eq 'circle')
-    {
-    my ($w,$h) = $self->dimensions();
-    my $r = $w; $r = $h if $h > $w;
-    my $size = ($r * 0.7) . 'em';
-    $out->{'-moz-border-radius'} = '100%';
-    $out->{'border-radius'} = '100%';
-    $out->{width} = $size;
-    $out->{height} = $size;
-    }
 
   # only for nodes, not for edges
   if (!$self->isa('Graph::Easy::Edge'))
@@ -873,15 +871,62 @@ sub as_html
     delete $out->{border} if $class eq 'node.anon' && $out->{border} && $out->{border} eq 'none';
     }
 
+  # we compose the inner part as $inner_start . $label . $inner_end:
+  my $inner_start = '';
+  my $inner_end = '';
+
+  if ($shape =~ /(rounded|ellipse|circle)/)
+    {
+    # set the fill on the inner part, but the background and no border on the <td>:
+    my $inner_style = '';
+    my $fill = $self->color_attribute('fill');
+    $inner_style = 'background:' . $fill if $fill; 
+    $inner_style .= ';border:' . $out->{border} if $out->{border};
+    $inner_style =~ s/;\s?\z$//;				# remove '; ' at end
+
+    delete $out->{background};
+    delete $out->{border};
+
+    my $td_style = '';
+    $td_style = ' style="border: none;';
+    my $bg = $self->color_attribute('background');
+    $td_style .= "background: $bg\"";
+
+    $html =~ s/##style##/$td_style/;
+
+    $inner_end = '</span></div>';
+    my $c = substr($shape, 0, 1); $c = 'c' if $c eq 'e';	# 'r' or 'c'
+
+    my ($w,$h) = $self->dimensions();
+
+    if ($shape eq 'circle')
+      {
+      # set both to the biggest size to enforce a circle shape
+      my $r = $w;
+      $r = $h if $h > $w;
+      $w = $r; $h = $r;
+      }
+
+    $out->{top} = ($h / 2 + 0.5) . 'em';
+    $h = ($h + 2) . 'em';
+    $w = ($w + 2) . 'em';
+
+    $inner_style .= ";width: $w; height: $h";
+
+    $inner_style = " style='$inner_style'";
+    $inner_start = "<div class='$c'$inner_style><span class='c'##style##>";
+    }
+
   if ($class =~ /^group/)
     {
     delete $out->{border};
-    my $group_class = $c; $group_class =~ s/\s.*//;	# "group gt" => "group"
-    my @atr = qw/border-color border-width fill/;
+    delete $out->{background};
+    my $group_class = $class; $group_class =~ s/\s.*//;		# "group gt" => "group"
+    my @atr = qw/bordercolor borderwidth fill/;
 
     # transform "group_foo gr" to "group_foo" if border eq 'none' (for anon groups)
     my $border_style = $self->attribute('borderstyle');
-    $c = $group_class if $border_style eq 'none';
+    $c =~ s/\s+.*// if $border_style eq 'none';
 
     # only need the color for the label cell
     push @atr, 'color' if $self->{has_label};
@@ -890,6 +935,7 @@ sub as_html
       {
       my $def = $g->attribute($group_class,$b);
       my $v = $self->attribute($b);
+
       my $n = $b; $n = 'background' if $b eq 'fill';
       $out->{$n} = $v unless $v eq '' || $v eq $def;
       }
@@ -899,8 +945,7 @@ sub as_html
   # "shape: none;" or point means no border, and background instead fill color
   if ($shape =~ /^(point|none)\z/)
     {
-    my $bg = $self->color_attribute('background'); 
-    $out->{background} = $bg;
+    $out->{background} = $self->color_attribute('background'); 
     $out->{border} = 'none';
     }
 
@@ -909,8 +954,8 @@ sub as_html
     {
     if ($link ne '')
       {
-      # put certain styles not on the link, but on the TD
-      next if $atr =~ /^(background|border|border-radius|width|height|-moz-border-radius)\z/;
+      # put certain styles on the outer container, and not on the link
+      next if $atr =~ /^(background|border)\z/;
       }
     $style .= "$atr: $out->{$atr}; ";
     }
@@ -918,9 +963,10 @@ sub as_html
   # bold, italic, underline etc. (but not for empty cells)
   $style .= $self->text_styles_as_css(1,1) if $name !~ /^(|&nbsp;)\z/;
 
-  $style =~ s/;\s$//;				# remove '; ' at end
+  $style =~ s/;\s?\z$//;			# remove '; ' at end
   $style =~ s/\s+/ /g;				# '  ' => ' '
   $style =~ s/^\s+//;				# remove ' ' at front
+  $style = " style=\"$style\"" if $style;
 
   my $end_tag = "</$tagb>\n";
 
@@ -930,27 +976,28 @@ sub as_html
     $link =~ s/\s/\+/g;				# space
     $link =~ s/'/%27/g;				# replace quotation marks
 
-    # put certain styles like border and background on the table cell,
-    # but the other styles on the link
-    my $td_style = '';
-    for my $s (qw/background border border-radius height width -moz-border-radius/)
+    my $outer_style = '';
+    # put certain styles like border and background on the table cell:
+    for my $s (qw/background border/)
       {
-      $td_style .= "$s: $out->{$s};" if exists $out->{$s};
+      $outer_style .= "$s: $out->{$s};" if exists $out->{$s};
       }
-    $td_style =~ s/;\z//;				# remove last ;
-    $td_style = " style=\"$td_style\"" if $td_style;
+    $outer_style =~ s/;\s?\z$//;			# remove '; ' at end
+    $outer_style = ' style="'.$outer_style.'"' if $outer_style;
 
-    $html .= "$td_style><a href='$link'";	# put the style on "<a.."
-    $end_tag = '</a>'.$end_tag;
+    $inner_start =~ s/##style##/$outer_style/;	# remove from inner_start
+
+    $html =~ s/##style##/$outer_style/;			# or HTML, depending
+    $inner_start .= "<a href='$link'##style##>";	# and put on link
+    $inner_end = '</a>'.$inner_end;
     }
 
   $c = " class='$c'" if $c ne '';
+  $html .= ">$inner_start$name$inner_end$end_tag";
   $html =~ s/##class##/$c/;
-  $html .= " style=\"$style\"" if $style;
-  $html .= ">$name";
-  $html .= "$end_tag";
+  $html =~ s/##style##/$style/;
 
-  $html;
+  $self->quoted_comment() . $html;
   }
 
 sub angle
@@ -1852,7 +1899,7 @@ sub set_attribute
   {
   my ($self, $name, $v, $class) = @_;
 
-  delete $self->{cache}->{flow};
+  $self->{cache} = {};
 
   $name = 'undef' unless defined $name;
   $v = 'undef' unless defined $v;
@@ -2245,6 +2292,13 @@ of the node.
 
 Returns the background color. This method honours group membership and
 inheritance.
+
+=head2 quoted_comment()
+
+	my $cmt = $node->comment();
+
+Comment of this object, quoted suitable as to be embedded into HTML/SVG.
+Returns the empty string if this object doesn't have a comment set.
 
 =head2 title()
 

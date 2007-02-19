@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 138;
+   plan tests => 142;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -87,6 +87,26 @@ my $node_qr = $parser->_match_node();
 
 like ('[]', $node_qr, '[] is a node');
 like ('[ ]', $node_qr, '[ ] is a node');
+
+#############################################################################
+# check that setting a new subclass invalidates the cache in Base.pm
+
+$graph = Graph::Easy::Parser->from_text( 
+  <<EOF
+group.local { fill: yellow; }
+
+( A [A] { class: foo; }
+) { class: local; }
+EOF
+ );
+
+is ($graph->attribute('group.local','fill'), 'yellow', 'fill is yellow');
+
+my $group = $graph->group('A');
+
+is ($graph->attribute('group.local','fill'), 'yellow', 'fill is yellow');
+is ($group->attribute('fill'), 'yellow', 'fill is still yellow');
+is ($group->class(), 'group.local', 'group class is group.local');
 
 #############################################################################
 # general pattern tests

@@ -52,7 +52,11 @@ print $OUT "Parsing input in $opt->{from} from $opt->{inputname}.\n" if $verbose
 
 my $graph = $parser->from_file($opt->{input});
 
-die ("Parser error: " . $parser->error) if !$graph || $parser->error();
+my $error = '';
+$error = $parser->error() if !$graph || $parser->error();
+$error = $graph->error() if $graph && $graph->error();
+
+die ("Parser error: " . $error) if $error;
 
 #############################################################################
 # Generate the wanted output format and write it to the output:
@@ -62,6 +66,7 @@ if (! $opt->{parse})
   my $method = 'as_' . $opt->{as} . '_file';
   print $OUT "Writing output as $opt->{as} to $opt->{outputname}.\n" if $verbose;
 
+  $graph->timeout(abs($opt->{timeout} || 120));
   my $FILE = $opt->{output};
   print $FILE $graph->$method();
 
@@ -94,6 +99,7 @@ sub get_options
     from_graphviz => '',
     verbose => 0,
     parse => 0,
+    timeout => 120,
   };
   my $formats = {
     html => 'html',
@@ -116,6 +122,7 @@ sub get_options
 	"as_txt|txt" => \$opt->{as_txt},
 	"as_graphviz|graphviz|as_dot|dot" => \$opt->{as_graphviz},
 	"as_boxart|boxart" => \$opt->{as_boxart},
+	"timeout=i" => \$opt->{timeout},
 
 	"from_txt" => \$opt->{from_txt},
 	"from_graphviz" => \$opt->{from_graphviz},
@@ -261,6 +268,11 @@ Example:
 
 When true, will only parse the input file and not output anything.
 This is usefull in combination with C<--debug=1>.
+
+=item --timeout
+
+Set the timeout in seconds for the layouter. If the layout does not
+finish in this time, it will be aborted.
 
 =back
 

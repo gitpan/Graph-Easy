@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.52';
+$VERSION = '0.53';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -36,6 +36,7 @@ BEGIN
 
   # a few aliases for code re-use
   *_aligned_label = \&Graph::Easy::Node::_aligned_label;
+  *quoted_comment = \&Graph::Easy::Node::quoted_comment;
   *_convert_pod = \&Graph::Easy::Node::_convert_pod;
   *_label_as_html = \&Graph::Easy::Node::_label_as_html;
   *_wrapped_label = \&Graph::Easy::Node::_wrapped_label;
@@ -94,6 +95,54 @@ sub DESTROY
     }
   }
 
+# Attribute overlay for HTML output:
+
+my $html_att = {
+  node => {
+    borderstyle => 'solid',
+    borderwidth => '1px',
+    bordercolor => '#000000',
+    align => 'center',
+    padding => '0.2em',
+    'padding-left' => '0.3em',
+    'padding-right' => '0.3em',
+    margin => '0.1em',
+    fill => 'white',
+    },
+  'node.anon' => {
+    'borderstyle' => 'none',
+    # ' inherit' to protect the value from being replaced by the one from "node"
+    'background' => ' inherit',
+    },
+  graph => {
+    margin => '0.5em',
+    padding => '0.5em',
+    'empty-cells' => 'show',
+    },
+  edge => { 
+    border => 'none',
+    padding => '0.2em',
+    margin => '0.1em',
+    'font' => 'monospaced, courier-new, courier, sans-serif',
+    'vertical-align' => 'bottom',
+    },
+  group => { 
+    'borderstyle' => 'dashed',
+    'borderwidth' => '1',
+    'fontsize' => '0.8em',
+    fill => '#a0d0ff',
+    padding => '0.2em',
+# XXX TODO:
+# in HTML, align left is default, so we could omit this:
+    align => 'left',
+    },
+  'group.anon' => {
+    'borderstyle' => 'none',
+    background => 'white',
+    },
+  };
+
+
 sub _init
   {
   my ($self,$args) = @_;
@@ -125,48 +174,6 @@ sub _init
   # Graph::Easy will die, Graph::Easy::Parser::Graphviz will warn
   $self->{_warn_on_unknown_attributes} = 0;
   $self->{fatal_errors} = 1;
-
-  # Attribute overlay for HTML output:
-  $self->{html_att} = {
-  node => {
-    borderstyle => 'solid',
-    borderwidth => '1px',
-    bordercolor => '#000000',
-    align => 'center',
-    padding => '0.2em',
-    'padding-left' => '0.3em',
-    'padding-right' => '0.3em',
-    margin => '0.1em',
-    },
-  'node.anon' => {
-    'borderstyle' => 'none',
-    },
-  graph => {
-    margin => '0.5em',
-    padding => '0.5em',
-    'empty-cells' => 'show',
-    },
-  edge => { 
-    border => 'none',
-    padding => '0.2em',
-    margin => '0.1em',
-    'font' => 'monospaced, courier-new, courier, sans-serif',
-    },
-  group => { 
-    'borderstyle' => 'dashed',
-    'borderwidth' => '1',
-    'fontsize' => '0.8em',
-    fill => '#a0d0ff',
-    padding => '0.2em',
-# XXX TODO:
-# in HTML, align left is default, so we could omit this:
-    align => 'left',
-    },
-  'group.anon' => {
-    'borderstyle' => 'none',
-    background => 'white',
-    },
-  };
 
   # The attributes of the graph itself, _and_ the class/subclass attributes.
   # These can share a hash, because:
@@ -886,7 +893,7 @@ sub _skip
   my ($self) = shift;
 
   # skip these for CSS
-  qr/^(basename|columns|colorscheme|class|flow|format|group|rows|root|size|offset|origin|linkbase|(auto)?(label|link|title)|auto(join|split)|(node|edge)class|shape|arrowstyle|label(color|pos)|pointstyle|textstyle|style)\z/;
+  qr/^(basename|columns|colorscheme|comment|class|flow|format|group|rows|root|size|offset|origin|linkbase|(auto)?(label|link|title)|auto(join|split)|(node|edge)class|shape|arrowstyle|label(color|pos)|pointstyle|textstyle|style)\z/;
   }
 
 sub _remap_text_wrap
@@ -923,7 +930,7 @@ sub css
     },
     undef,
     undef, 
-    $self->{html_att},
+    $html_att,
     );
 
   my @groups = $self->groups();
@@ -948,15 +955,14 @@ CSS
   # append CSS for edge cells (and their parts like va (vertical arrow
   # (left/right), vertical empty), etc)
 
-  # hat - arrow pointing up
-  # eb	- empty bottom
-  # v	- arrow pointing down
+  # eb	- empty bottom or arrow pointing down/up
   # el  - (vertical) empty left space of ver edge
   #       or empty vertical space on hor edge starts
   # lh  - edge label horizontal
   # lv  - edge label vertical
-  # sh  - shifted arrow horizontal (right)
-  # shl  - shifted arrow horizontal (left)
+  # sh  - shifted arrow horizontal (shift right)
+  # shl - shifted arrow horizontal (shift left)
+  # sv  - shifted arrow vertical
 
   $css .= <<CSS
 table.graph##id## .va {
@@ -973,32 +979,32 @@ table.graph##id## .lh, table.graph##id## .lv {
   font-size: 0.8em;
   padding-left: 0.4em;
   }
-table.graph##id## .v, table.graph##id## .hat {
-  text-align: center;
-  height: 0.5em;
-  line-height: 0.6em;
-  }
-table.graph##id## .sh, table.graph##id## .shl {
+table.graph##id## .sv, table.graph##id## .sh, table.graph##id## .shl {
   position: relative;
-  top: 0.8em;
+  top: 0.75em;
   left: -0.2em;
-  vertical-align: bottom;
   overflow: visible;
   }
-table.graph##id## .shl {
-  left: 0.2em;
-  }
-table.graph##id## .hat {
-  padding-top: 0.5em;
-  line-height: 0.5em;
-  }
-table.graph##id## .eb {
-  max-height: 0.4em;
-  line-height: 0.4em;
-  }
+table.graph##id## .shl { left: 0.2em; }
+table.graph##id## .sv { left: -0.5em; top: 0; }
+table.graph##id## .eb { max-height: 0.4em; line-height: 0.4em; }
 CSS
   # if we have edges
   if keys %{$self->{edges}}  > 0;
+
+  # if we have nodes with rounded shapes:
+  my $rounded = 0;
+  for my $n (values %{$self->{nodes}})
+    {
+    $rounded ++ and last if $n->shape() =~ /circle|ellipse|rounded/;
+    }
+
+  $css .= <<CSS
+table.graph##id## span.c { position: relative; }
+table.graph##id## div.c { -moz-border-radius: 100%; border-radius: 100%; }
+table.graph##id## div.r { -moz-border-radius: 1em; border-radius: 1em; }
+CSS
+  if $rounded > 0;
 
   # append CSS for group cells (only if we actually have groups)
 
@@ -1133,8 +1139,8 @@ sub as_html
 
   $self->layout() unless defined $self->{score};
 
-  my $top = "\n";
-
+  my $top = "\n" . $self->quoted_comment();
+  
   my $cells = $self->{cells};
   my ($rows,$cols);
   
@@ -1223,7 +1229,7 @@ sub as_html
     # now combine equal columns to shorten output
     for my $row (@$rs)
       {
-#      next;
+      next;
 
       # append row to output
       my $i = 0;
@@ -2536,6 +2542,13 @@ border(style|color|width) attributes.
   	my ($style,$width,$color) = $graph->split_border_attribute($border);
 
 Split the border attribute (like "1px solid red") into the three different parts.
+
+=head2 quoted_comment()
+
+	my $cmt = $node->comment();
+
+Comment of this object, quoted suitable as to be embedded into HTML/SVG.
+Returns the empty string if this object doesn't have a comment set.
 
 =head2 flow()
 

@@ -13,6 +13,7 @@ name		'Graph-Easy';
 all_from	'lib/Graph/Easy.pm';
 
 requires	'Scalar::Util'	=> 1.13;
+requires	'perl'		=> 5.008001;
 
 recommends	'Graph::Easy::As_svg'	=> 0.22;
 

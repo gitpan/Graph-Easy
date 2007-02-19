@@ -3,6 +3,10 @@ graph {
   colorscheme: x11;
   flow: south;
 }
+group {
+  align: center;
+  fill: inherit;
+}
 
 [ a ] { border: dotted  black; }
 [ b ] { border: dotted  black; }

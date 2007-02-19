@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 66;
+   plan tests => 68;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -162,7 +162,7 @@ $edge->set_attribute('label', 'Schiff');
 # in these cases we would convert the single edge cells to HTML.
 
 my $edge_html = <<EDGE
- <td colspan=4 rowspan=4 class='edge' title='Vrooom!'><a href='http://bloodgate.com' style="color: #ffa500; text-decoration: none; font-size: 1.5em;">Schiff</a></td>
+ <td colspan=4 rowspan=4 class='edge' title='Vrooom!'><a href='http://bloodgate.com' style="color: #ffa500; text-decoration: none; font-size: 1.5em">Schiff</a></td>
 EDGE
 ;
 is ($edge->as_html(), $edge_html, 'edge->as_html()');
@@ -258,7 +258,7 @@ EOF
 
 $html = $graph->as_html_file();
 
-for my $c (qw/eb hat lh lv va el sh shl/)
+for my $c (qw/eb lh lv va el sh shl/)
   {
   like ($html, qr/table.graph \.$c/, "includes '$c'");
   }
@@ -391,4 +391,21 @@ is ($D->attribute('color'),'red', 'inherits red from graph');
 
 is ($edge->attribute('color'),'black', 'no color set, so defaults to black');
 is ($E->attribute('color'),'red', 'inherit red from graph');
+
+#############################################################################
+# comments
+
+$graph = Graph::Easy->new();
+
+($A,$B,$edge) = $graph->add_edge('green', 'blue.foo');
+
+$graph->set_attribute('comment', 'My comment --> graph');
+$A->set_attribute('comment', 'My comment --> A');
+$edge->set_attribute('comment', 'My comment --> edge');
+
+$html = $graph->as_html_file();
+
+like ($html, qr/<!-- My comment --&gt; graph -->/, 'graph comment');
+like ($html, qr/<!-- My comment --&gt; A -->/, 'node comment');
+like ($html, qr/<!-- My comment --&gt; edge -->/, 'edge comment');
 

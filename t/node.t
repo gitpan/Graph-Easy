@@ -67,6 +67,8 @@ can_ok ("Graph::Easy::Node", qw/
   nodes_sharing_start
   nodes_sharing_end
 
+  as_html
+
   _place _do_place _check_place _place_children find_grandparent
   _near_places _allowed_places
   /);

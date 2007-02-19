@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 143;
+   plan tests => 147;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -583,4 +583,39 @@ $graph->set_attribute('group','fill','red');
 $graph->layout();
 $grviz = $graph->as_graphviz();
 like ($grviz, qr/cluster(.|\n)*fillcolor="#ff0000"/, 'fillcolor=blue');
+
+#############################################################################
+# node->as_graphviz()
+
+$graph = Graph::Easy->new();
+
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+$group = $graph->add_group('Cities');
+$group->add_nodes($bonn, $berlin);
+
+$grviz = $graph->as_graphviz();
+
+unlike ($grviz, qr/Berlin.*label=.*Berlin/, "label isn't output needlessly");
+
+#############################################################################
+# HSV colors and alpha channel should be preserved in output
+
+$graph = Graph::Easy->new();
+
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+$group = $graph->add_group('Cities');
+$group->add_nodes($bonn, $berlin);
+
+# as hex (not preserved) due to alpha channel
+$bonn->set_attribute('color', 'hsv(0, 1.0, 0.5, 0.5)');
+$berlin->set_attribute('color', '#ff000080');
+
+# preserved
+$graph->set_attribute('color', 'hsv(0, 0.6, 0.7)');
+
+$grviz = $graph->as_graphviz();
+
+like ($grviz, qr/fontcolor="0 0.6 0.7"/, "graph color was preserved");
+like ($grviz, qr/Berlin.*fontcolor="#ff000080"/, "Berlin's color got converted");
+like ($grviz, qr/Bonn.*fontcolor="#8000007f"/, "Bonn's color got converted");
 

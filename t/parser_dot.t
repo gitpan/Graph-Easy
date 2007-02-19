@@ -8,7 +8,7 @@ use utf8;
 
 BEGIN
    {
-   plan tests => 101;
+   plan tests => 125;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser::Graphviz") or die($@);
@@ -160,15 +160,52 @@ my $tests = {
 
 for my $test (keys %$tests)
   {
-  my $color = Graph::Easy::Parser::Graphviz::_hsv_to_rgb(split/,/, $test);
+  my $color = 'rgb(' . join(",", Graph::Easy::_hsv_to_rgb(split/,/, $test) ) . ')';
 
+  my $result = $tests->{$test};
 
-  is ($color, $tests->{$test}, "'$test' results in '$tests->{$test}'");
+  is ($color, $result, "hsv('$test') results in '$result'");
+
+  $result =~ /([0-9]+),([0-9]+),([0-9]+)/;
+  my $hex = sprintf("#%02x%02x%02x", $1, $2, $3);
+
+  $color = Graph::Easy->color_as_hex( 'hsv(' . $test .')' );
+  is ($color, $hex, "color_as_hex(hsv($test))");
   }
   
 my $color = 
   Graph::Easy::Parser::Graphviz->_from_graphviz_color('color',"/accent4/4");
 is ($color, '#ffff99', "/accent4/4 works");
+
+#############################################################################
+# HSL colors
+
+my $hsl_tests = {
+  '0,0.0,1.0' 		=> 'rgb(255,255,255)',		# white
+  '0,0.0,0.5' 		=> 'rgb(128,128,128)',		# grey
+  '0,0.0,0.0' 		=> 'rgb(0,0,0)',		# black
+  '0,1.0,0.5'		=> 'rgb(255,0,0)',		# red
+  '0,1.0,0.75'		=> 'rgb(255,128,128)',		# lightred
+  '360,1.0,0.5'		=> 'rgb(255,0,0)',		# red
+  '120,1.0,0.75'	=> 'rgb(128,255,128)',		# light green
+  '240,1.0,0.25'	=> 'rgb(0,0,128)',		# medium blue
+  '60,1.0,0.5'		=> 'rgb(255,255,0)',		# yellow
+  '300,1.0,0.5'		=> 'rgb(255,0,255)',		# magenta
+  };
+
+for my $test (keys %$hsl_tests)
+  {
+  my $color = 'rgb(' . join(",", Graph::Easy::_hsl_to_rgb(split/,/, $test) ) . ')';
+
+  my $result = $hsl_tests->{$test};
+
+  is ($color, $result, "hsl('$test') results in '$result'");
+
+  $result =~ /([0-9]+),([0-9]+),([0-9]+)/;
+  my $hex = sprintf("#%02x%02x%02x", $1, $2, $3);
+
+  $color = Graph::Easy->color_as_hex( 'hsl(' . $test .')' );
+  }
 
 #############################################################################
 #############################################################################

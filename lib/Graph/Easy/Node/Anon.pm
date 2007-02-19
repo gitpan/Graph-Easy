@@ -8,7 +8,7 @@ package Graph::Easy::Node::Anon;
 use Graph::Easy::Node;
 
 @ISA = qw/Graph::Easy::Node/;
-$VERSION = 0.10;
+$VERSION = '0.11';
 
 use strict;
 
@@ -56,18 +56,6 @@ sub as_pure_txt
 sub _as_part_txt
   {
   '[ ]';
-  }
-
-sub as_graphviz_txt
-  {
-  my $self = shift;
-  
-  my $name = $self->{name};
-
-  # quote special chars in name
-  $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
-
-  '"' .  $name . '"';
   }
 
 sub as_txt
