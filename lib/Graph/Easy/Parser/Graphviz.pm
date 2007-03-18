@@ -426,7 +426,7 @@ sub _match_multi_line_comment
   # match a multi line comment
 
   # /* * comment * */
-  qr#(?:\s*/\*.*?\*/)+#;
+  qr#(?:\s*/\*.*?\*/\s*)+#;
   }
 
 sub _match_optional_multi_line_comment
@@ -550,7 +550,7 @@ sub _match_single_attribute
   {
   my $qr_html = _match_html();
 
-  qr/^\s*(\w+)\s*=\s*		# the attribute name (label=")
+  qr/\s*(\w+)\s*=\s*		# the attribute name (label=")
     (
       "(?:\\"|[^"])*"			# "foo"
       (?:\s*\+\s*"(?:\\"|[^"])*")*	# followed by 0 or more ' + "bar"'
@@ -567,7 +567,7 @@ sub _match_single_attribute
 sub _match_special_attribute
   {
   # match boolean attributes, these can appear without a value
-  qr/^\s*(
+  qr/\s*(
   center|
   compound|
   concentrate|
@@ -597,7 +597,12 @@ sub _match_attributes
   {
   # return a regexp that matches something like " [ color=red; ]" and returns
   # the inner text without the []
-  qr/\s*\[\s*((?:\\\]|"(?:\\"|[^"])*"|[^\]])+?)\s*\];?/;
+
+  my $qr_att = _match_single_attribute();
+  my $qr_satt = _match_special_attribute();
+  my $qr_cmt = _match_multi_line_comment();
+ 
+  qr/\s*\[\s*((?:$qr_att|$qr_satt|$qr_cmt)*)\s*\];?/;
   }
 
 sub _match_graph_attribute
@@ -611,7 +616,12 @@ sub _match_optional_attributes
   {
   # return a regexp that matches something like " [ color=red; ]" and returns
   # the inner text with the []
-  qr/(\s*\[\s*((?:\\\]|"(?:\\"|[^"])*"|[^\]])+?)\s*\])?;?/;
+
+  my $qr_att = _match_single_attribute();
+  my $qr_satt = _match_special_attribute();
+  my $qr_cmt = _match_multi_line_comment();
+ 
+  qr/\s*(\[\s*((?:$qr_att|$qr_satt|$qr_cmt)*)\s*\])?;?/;
   }
 
 sub _clean_attributes
@@ -1146,7 +1156,7 @@ my $remap = {
     'esep' => undef,
     'fontpath' => undef,
     'labeljust' => \&_from_graphviz_graph_labeljust,
-    'labelloc' => \&_from_graphviz_graph_labelloc,
+    'labelloc' => \&_from_graphviz_labelloc,
     'landscape' => undef,
     'layers' => undef,
     'layersep' => undef,
@@ -1191,7 +1201,7 @@ my $remap = {
 
   'group' => {
     'labeljust' => \&_from_graphviz_graph_labeljust,
-#    'labelloc' => \&_graphviz_remap_graph_labelloc,
+    'labelloc' => \&_from_graphviz_labelloc,
     'pencolor' => \&_from_graphviz_color,
     'style' => \&_from_graphviz_style,
     'K' => undef,
@@ -1373,12 +1383,12 @@ sub _from_graphviz_font_size
   ('fontsize', $size);
   }
 
-sub _from_graphviz_graph_labelloc
+sub _from_graphviz_labelloc
   {
   my ($self, $name, $loc) = @_;
 
   my $l = 'top';
-  $l = 'bottom' if $loc eq 'b';
+  $l = 'bottom' if $loc =~ /^b/;
 
   ('labelpos', $l);
   }
@@ -1405,6 +1415,9 @@ sub _from_graphviz_edge_style
 
   # input: solid dashed dotted bold invis
   $style = 'invisible' if $style eq 'invis';
+
+  # although "normal" is not documented, it occurs in the wild
+  $style = 'solid' if $style eq 'normal';
 
   # convert "setlinewidth(12)" => 
   if ($style =~ /setlinewidth\((\d+)\)/)

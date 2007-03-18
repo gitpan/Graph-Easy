@@ -14,6 +14,7 @@ Important short-term TODO:
 * setting "size" as class attribute doesn't work
 * setting "offset: -2,0;" causes problems for multi-row nodes because
   the offset is taken into effect before growing the node
+* [ a ] { label: a; } - remove the superflous label upon parsing
 
 * layouter:
   + implement autosplit and autojoin for edges

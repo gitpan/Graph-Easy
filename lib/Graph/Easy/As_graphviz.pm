@@ -71,8 +71,9 @@ my $remap = {
     'borderwidth' => undef,
     'color' => \&_remap_color,
     'fill' => \&_remap_color,
-    'title' => 'tooltip',
+    'labelpos' => 'labelloc',
     'rank' => undef,
+    'title' => 'tooltip',
     },
   all => {
     'arrowshape' => undef,
@@ -889,7 +890,8 @@ sub attributes_as_graphviz
   $a = $g->_remap_attributes( $self, $a, $remap, 'noquote');
 
   # do not needlessly output labels:
-  delete $a->{label} if exists $a->{label} && $a->{label} eq $self->{name};
+  delete $a->{label} if !$self->isa('Graph::Easy::Edge') &&		# not an edge
+	exists $a->{label} && $a->{label} eq $self->{name};
 
   # bidirectional and undirected edges
   if ($self->{bidirectional})

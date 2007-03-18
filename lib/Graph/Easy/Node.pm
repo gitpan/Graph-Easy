@@ -865,9 +865,15 @@ sub as_html
     my $bs = $self->attribute('borderstyle');
 
     $out->{border} = Graph::Easy::_border_attribute_as_html( $bs, $bw, $bc );
-    my $DEF = $self->default_attribute('border');
 
-    delete $out->{border} if $out->{border} =~ /^\s*\z/ || $out->{border} eq $DEF;
+    # we need to specify the border again for the inner div
+    if ($shape !~ /(rounded|ellipse|circle)/)
+      {
+      my $DEF = $self->default_attribute('border');
+
+      delete $out->{border} if $out->{border} =~ /^\s*\z/ || $out->{border} eq $DEF;
+      }
+
     delete $out->{border} if $class eq 'node.anon' && $out->{border} && $out->{border} eq 'none';
     }
 
@@ -907,7 +913,7 @@ sub as_html
       $w = $r; $h = $r;
       }
 
-    $out->{top} = ($h / 2 + 0.5) . 'em';
+    $out->{top} = ($h / 2 + 0.5) . 'em'; delete $out->{top} if $out->{top} eq '1.5em';
     $h = ($h + 2) . 'em';
     $w = ($w + 2) . 'em';
 

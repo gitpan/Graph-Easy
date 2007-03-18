@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 147;
+   plan tests => 148;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -618,4 +618,15 @@ $grviz = $graph->as_graphviz();
 like ($grviz, qr/fontcolor="0 0.6 0.7"/, "graph color was preserved");
 like ($grviz, qr/Berlin.*fontcolor="#ff000080"/, "Berlin's color got converted");
 like ($grviz, qr/Bonn.*fontcolor="#8000007f"/, "Bonn's color got converted");
+
+#############################################################################
+# edge label
+
+$graph = Graph::Easy->new();
+
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+$edge->set_attribute('label','car');
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/label=car/, "edge label appears in output");
 

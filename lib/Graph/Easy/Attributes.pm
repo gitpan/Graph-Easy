@@ -3155,6 +3155,15 @@ EOF
      "( Cities: [ Bonn ] ) ( Rivers: [ Rhein ] ) { group: Cities:; }",
      ], 
 
+    labelpos => [
+	"The position of the group label.",
+	[ qw/top bottom/ ],
+	'top',
+	'bottom',
+	ATTR_LIST,
+        "group { labelpos: bottom; }\n\n ( My Group: [ Buxtehude ] -> [ Fuchsberg ] )\n"
+     ],
+
    }, # group
 
   # These entries will be allowed temporarily during Graphviz parsing for

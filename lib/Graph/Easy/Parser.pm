@@ -1041,7 +1041,7 @@ sub _match_class_selector
 
 sub _match_single_attribute
   {
-  qr/^\s*([^:]+?)\s*:\s*("(?:\\"|[^"])+"|(?:\\;|[^;])+?)(?:\s*;\s*|\s*\z)/;	# "name: value"
+  qr/\s*([^:]+?)\s*:\s*("(?:\\"|[^"])+"|(?:\\;|[^;])+?)(?:\s*;\s*|\s*\z)/;	# "name: value"
   }
 
 sub _match_group_start
@@ -1126,6 +1126,8 @@ sub _parse_attributes
 
   $text = $self->_clean_attributes($text);
   my $qr_att  = $self->_match_single_attribute();
+  my $qr_cmt;  $qr_cmt  = $self->_match_multi_line_comment()
+   if $self->can('_match_multi_line_comment');
   my $qr_satt; $qr_satt = $self->_match_special_attribute() 
    if $self->can('_match_special_attribute');
 
@@ -1137,11 +1139,17 @@ sub _parse_attributes
     {
 # print STDERR "attr parsing: matching '$text'\n";    
 
+    # remove a possible comment
+    $text =~ s/^$qr_cmt//g if $qr_cmt;
+
+    # if the last part was a comment, we end up with an empty text here:
+    last if $text =~ /^\s*\z/;
+
     # match and remove "name: value"
-    my $done = ($text =~ s/$qr_att//) || 0;
+    my $done = ($text =~ s/^$qr_att//) || 0;
 
     # match and remove "name" if "name: value;" didn't match
-    $done++ if $done == 0 && $qr_satt && ($text =~ s/$qr_satt//);
+    $done++ if $done == 0 && $qr_satt && ($text =~ s/^$qr_satt//);
 
     return $self->error ("Error in attribute: '$text' doesn't look valid to me.")
       if $done == 0;

@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.53';
+$VERSION = '0.54';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -742,8 +742,7 @@ sub _class_styles
   # Create the style sheet with the class lists. This is used by both
   # css() and as_svg(). $skip is a qr// object that returns true for
   # attribute names to be skipped (e.g. excluded), and $map is a
-  # HASH that contains mapping for attribute names for the output (only
-  # used by As_svg()).
+  # HASH that contains mapping for attribute names for the output.
   # "$base" is the basename for classes (either "table.graph$id" if 
   # not defined, or whatever you pass in, like "" for svg).
   # $indent is a left-indenting spacer like "  ".
@@ -855,8 +854,8 @@ sub _class_styles
       # change attribute name/value?
       if (exists $map->{$att})
 	{
-        $att = $map->{$att} unless ref $map->{$att};	# change attribute name?
-        ($att,$val) = &{$map->{$att}}($self,$att,$val) if ref $map->{$att};
+        $att = $map->{$att} unless ref $map->{$att};		# change attribute name?
+        ($att,$val) = &{$map->{$att}}($self,$att,$val,$class) if ref $map->{$att};
 	}
 
       # value is "inherit"?
@@ -896,6 +895,9 @@ sub _skip
   qr/^(basename|columns|colorscheme|comment|class|flow|format|group|rows|root|size|offset|origin|linkbase|(auto)?(label|link|title)|auto(join|split)|(node|edge)class|shape|arrowstyle|label(color|pos)|pointstyle|textstyle|style)\z/;
   }
 
+#############################################################################
+# These routines are used by as_html for th generation of CSS
+
 sub _remap_text_wrap
   {
   my ($self,$name,$style) = @_;
@@ -905,6 +907,18 @@ sub _remap_text_wrap
   # make text wrap again
   ('white-space','normal');
   }
+
+sub _remap_fill
+  {
+  my ($self,$name,$color,$class) = @_;
+
+  return ('background',$color) unless $class =~ /edge/;
+
+  # for edges, the fill is ignored
+  (undef,undef);
+  }
+
+#############################################################################
 
 sub css
   {
@@ -919,7 +933,7 @@ sub css
 
   my $css = $self->_class_styles( $self->_skip(),
     {
-      fill => 'background',
+      fill => \&_remap_fill,
       textwrap => \&_remap_text_wrap,
       align => 'text-align',
       font => 'font-family',
@@ -1000,7 +1014,7 @@ CSS
     }
 
   $css .= <<CSS
-table.graph##id## span.c { position: relative; }
+table.graph##id## span.c { position: relative; top: 1.5em; }
 table.graph##id## div.c { -moz-border-radius: 100%; border-radius: 100%; }
 table.graph##id## div.r { -moz-border-radius: 1em; border-radius: 1em; }
 CSS
@@ -2858,6 +2872,8 @@ L<Graph::Easy::As_svg> first to make this work.
 
 See also L<as_svg_file()>.
 
+B<Note:> You need L<Graph::Easy::As_svg> installed for this to work!
+
 =head2 as_svg_file()
 
 	print $graph->as_svg_file();
@@ -2868,6 +2884,8 @@ suitable for storing it in a file and referencing it externally.
 After calling C<as_svg_file()> or C<as_svg()>, you can retrieve
 some SVG information, notable C<width> and C<height> via
 C<svg_information>.
+
+B<Note:> You need L<Graph::Easy::As_svg> installed for this to work!
 
 =head2 svg_information()
 
@@ -2882,6 +2900,8 @@ The following fields are set:
 
 	width		width of the SVG in pixels
 	height		height of the SVG in pixels
+
+B<Note:> You need L<Graph::Easy::As_svg> installed for this to work!
 
 =head2 sorted_nodes()
 

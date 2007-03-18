@@ -10,7 +10,7 @@ use Graph::Easy;
 use Scalar::Util qw/weaken/;
 
 @ISA = qw/Graph::Easy::Node Graph::Easy/;
-$VERSION = '0.18';
+$VERSION = '0.19';
 
 use strict;
 
@@ -315,14 +315,19 @@ sub _find_label_cell
 
   my $g = $self->{graph};
 
-  my $align = $self->attribute('align') || 'left';
+  my $align = $self->attribute('align');
+  my $loc = $self->attribute('labelpos');
+
+  # depending on whether the label should be on top or bottom:
+  my $match = qr/^\s*gt\s*\z/;
+  $match = qr/^\s*gb\s*\z/ if $loc eq 'bottom';
 
   my $lc;						# the label cell
 
   for my $c (values %{$self->{_cells}})
     {
     # find a cell where to put the label
-    next unless $c->{cell_class} =~ /^\s*gt\s*\z/;
+    next unless $c->{cell_class} =~ $match;
 
     if (defined $lc)
       {

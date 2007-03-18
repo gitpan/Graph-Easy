@@ -1,5 +1,17 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2007-03-18 v0.54 Tels 2349 tests
+  * add some examples to bin/graph-easy
+  * fix borders on rounded/circle/ellipse nodes outside groups
+  * fix fill on edge class
+  * Parser/Graphviz:
+    + handle multi-line comments inside attributes
+    * handle an unquoted/unescaped "]" inside (HTML-like) attributes
+    * handle an multi-line comment followed by space as the last part
+  * Attributes: add labelpos (top/bottom) for groups
+  * as_graphviz():
+    + reinsert the labels on edges
+
 2007-02-19 v0.53 Tels 2342 tests
   * add --timeout=N to graph-easy and set the default to 120 seconds
   * handle "\|" inside nodes properly: "[ A \| B | C ]" works now
