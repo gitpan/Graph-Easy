@@ -17,11 +17,10 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.54';
+$VERSION = '0.55';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
-use utf8;
 my $att_aliases;
 
 BEGIN 
@@ -33,10 +32,13 @@ BEGIN
   *as_ascii_file = \&as_ascii;
   *as_boxart_file = \&as_boxart;
   *as_txt_file = \&as_txt;
+  *as_vcg_file = \&as_vcg;
+  *as_gdl_file = \&as_gdl;
 
   # a few aliases for code re-use
   *_aligned_label = \&Graph::Easy::Node::_aligned_label;
   *quoted_comment = \&Graph::Easy::Node::quoted_comment;
+  *_un_escape = \&Graph::Easy::Node::_un_escape;
   *_convert_pod = \&Graph::Easy::Node::_convert_pod;
   *_label_as_html = \&Graph::Easy::Node::_label_as_html;
   *_wrapped_label = \&Graph::Easy::Node::_wrapped_label;
@@ -309,6 +311,7 @@ sub label
   my $self = shift;
 
   my $label = $self->{att}->{graph}->{label}; $label = '' unless defined $label;
+  $label = $self->_un_escape($label) if !$_[0] && $label =~ /\\[EGHNT]/;
   $label;
   }
 
@@ -333,6 +336,8 @@ sub link
     {
     $link = $self->attribute('linkbase') . $link;
     }
+
+  $link = $self->_un_escape($link) if !$_[0] && $link =~ /\\[EGHNT]/;
 
   $link;
   }
@@ -502,6 +507,42 @@ sub node
   $name = '' unless defined $name;
 
   $self->{nodes}->{$name};
+  }
+
+sub rename_node
+  {
+  # change the name of a node
+  my ($self, $node, $new_name) = @_;
+
+  if (!ref($node))
+    {
+    $node = $self->add_node($new_name);
+    }
+  else
+    {
+    if (!ref($node->{graph}))
+      {
+      # add node to ourself
+      $node->{name} = $new_name;
+      $self->add_node($node);
+      }
+    else
+      {
+      if ($node->{graph} != $self)
+        {
+	$node->{graph}->del_node($node);
+	$node->{name} = $new_name;
+	$self->add_node($node);
+	}
+      else
+	{
+	delete $self->{nodes}->{$node->{name}};
+	$node->{name} = $new_name;
+	$self->{nodes}->{$node->{name}} = $node;
+	}
+      }
+    }
+  $node;
   }
 
 #############################################################################
@@ -851,6 +892,18 @@ sub _class_styles
       # fix border-widths to be in pixel
       $val .= 'px' if $att eq 'borderwidth' && $val !~ /(px|em|%)\z/;
 
+      # for color attributes, convert to hex
+      my $entry = $self->_attribute_entry($class, $att);
+
+      if (defined $entry)
+	{
+	my $type = $entry->[ ATTR_TYPE_SLOT ] || ATTR_STRING;
+	if ($type == ATTR_COLOR)
+	  {
+	  # create as RGB color
+	  $val = $self->get_color_attribute($class,$att) || $val;
+	  }
+	}
       # change attribute name/value?
       if (exists $map->{$att})
 	{
@@ -896,7 +949,7 @@ sub _skip
   }
 
 #############################################################################
-# These routines are used by as_html for th generation of CSS
+# These routines are used by as_html for the generation of CSS
 
 sub _remap_text_wrap
   {
@@ -973,15 +1026,18 @@ CSS
   # el  - (vertical) empty left space of ver edge
   #       or empty vertical space on hor edge starts
   # lh  - edge label horizontal
+  # le  - edge label, but empty (no label)
   # lv  - edge label vertical
   # sh  - shifted arrow horizontal (shift right)
+  # sa  - shifted arrow horizontal (shift left for corners)
   # shl - shifted arrow horizontal (shift left)
-  # sv  - shifted arrow vertical
+  # sv  - shifted arrow vertical (pointing down)
+  # su  - shifted arrow vertical (pointing up)
 
   $css .= <<CSS
 table.graph##id## .va {
   vertical-align: middle;
-  line-height: 1.5em;
+  line-height: 1em;
   width: 0.4em;
   }
 table.graph##id## .el {
@@ -993,15 +1049,23 @@ table.graph##id## .lh, table.graph##id## .lv {
   font-size: 0.8em;
   padding-left: 0.4em;
   }
-table.graph##id## .sv, table.graph##id## .sh, table.graph##id## .shl {
+table.graph##id## .sv, table.graph##id## .sh, table.graph##id## .shl, table.graph##id## .sa, table.graph##id## .su {
+  max-height: 1em;
+  line-height: 1em;
   position: relative;
-  top: 0.75em;
-  left: -0.2em;
+  top: 0.55em;
+  left: -0.3em;
   overflow: visible;
   }
-table.graph##id## .shl { left: 0.2em; }
-table.graph##id## .sv { left: -0.5em; top: 0; }
-table.graph##id## .eb { max-height: 0.4em; line-height: 0.4em; }
+table.graph##id## .sv, table.graph##id## .su {
+  max-height: 0.5em;
+  line-height: 0.5em;
+  }
+table.graph##id## .shl { left: 0.3em; }
+table.graph##id## .sv { left: -0.5em; top: -0.4em; }
+table.graph##id## .su { left: -0.5em; top: 0.4em; }
+table.graph##id## .sa { left: -0.3em; top: 0; }
+table.graph##id## .eb { max-height: 0; line-height: 0; height: 0; }
 CSS
   # if we have edges
   if keys %{$self->{edges}}  > 0;
@@ -1079,6 +1143,7 @@ sub title
   $title = $self->{att}->{graph}->{label} if !defined $title;
   $title = 'Untitled graph' if !defined $title;
 
+  $title = $self->_un_escape($title, 1) if !$_[0] && $title =~ /\\[EGHNTL]/;
   $title;
   }
 
@@ -1332,7 +1397,7 @@ sub as_boxart
 
   require Graph::Easy::As_ascii;
   
-  # select unicode box drawing characters
+  # select Unicode box drawing characters
   $self->{_ascii_style} = 1;
 
   $self->_as_ascii(@_);
@@ -1484,7 +1549,14 @@ sub as_ascii_html
   }
 
 #############################################################################
-# as_txt, as_graphviz and as_svg
+# as_txt, as_debug, as_graphviz
+
+sub as_txt
+  {
+  require Graph::Easy::As_txt;
+
+  _as_txt(@_);
+  }
 
 sub as_graphviz
   {
@@ -1511,6 +1583,26 @@ sub as_debug
 
   $output . "\n# Input normalized as_txt:\n\n" . $self->_as_txt(@_);
   }
+
+#############################################################################
+# as_vcg(as_gdl
+
+sub as_vcg
+  {
+  require Graph::Easy::As_vcg;
+
+  _as_vcg(@_);
+  }
+
+sub as_gdl
+  {
+  require Graph::Easy::As_vcg;
+
+  _as_vcg(@_, { gdl => 1 });
+  }
+
+#############################################################################
+# as_svg
 
 sub as_svg
   {
@@ -1539,13 +1631,6 @@ sub svg_information
   _as_svg(@_) unless $self->{svg_info};
 
   $self->{svg_info};
-  }
-
-sub as_txt
-  {
-  require Graph::Easy::As_txt;
-
-  _as_txt(@_);
   }
 
 #############################################################################
@@ -1614,7 +1699,7 @@ sub add_edge
   $store = $nodes; $store = $groups if $y->isa('Graph::Easy::Group');
   $store->{$y->{name}} = $y;
 
-  # index edges by "id1,id2,edgeid" so we can find them fast
+  # index edges by "edgeid" so we can find them fast
   $self->{edges}->{$edge->{id}} = $edge;
 
   $self->{score} = undef;			# invalidate last layout
@@ -1651,11 +1736,12 @@ sub add_node
   # override and weaken again an already existing reference, this
   # is an O(N) operation in most Perl versions, and thus very slow.
 
-  if (!ref($x->{graph}))
-    {
-    $x->{graph} = $self;
-    weaken($x->{graph});
-    }
+  weaken($x->{graph} = $self) unless ref($x->{graph});
+#  if (!ref($x->{graph}))
+#    {
+#    $x->{graph} = $self;
+#    weaken($x->{graph});
+#    }
 
   $self->{score} = undef;			# invalidate last layout
 
@@ -2329,6 +2415,18 @@ nothing if the node already exists in the graph.
 
 It returns an L<Graph::Easy::Node> object.
 
+=head2 rename_node()
+
+	$node = $graph->rename_node($node, $new_name);
+
+Changes the name of a node. If the passed node is not part of
+this graph or just a string, it will be added with the new
+name to this graph.
+
+If the node was part of another graph, it will be deleted there
+and added to this graph with the new name, effectively moving
+the node from the old to the new graph.
+
 =head2 del_node()
 
 	$graph->del_node('Node name');
@@ -2662,7 +2760,8 @@ string is in utf-8.
 
 	print $graph->as_box();
 
-Return the graph layout as box drawing using Unicode characters in utf-8.
+Return the graph layout as box drawing using Unicode characters (in utf-8,
+as always).
 
 =head2 as_boxart_file()
 
@@ -2902,6 +3001,38 @@ The following fields are set:
 	height		height of the SVG in pixels
 
 B<Note:> You need L<Graph::Easy::As_svg> installed for this to work!
+
+=head2 as_vcg()
+
+	print $graph->as_vcg();
+
+Return the graph as VCG text. VCG is a subset of GDL (Graph Description
+Language).
+
+This does not call L<layout()> since the actual text representation
+is just a dump of the graph.
+
+=head2 as_vcg_file()
+
+	print $graph->as_vcg_file();
+
+Is an alias for L<as_vcg()>.
+
+=head2 as_gdl()
+
+	print $graph->as_gdl();
+
+Return the graph as GDL (Graph Description Language) text. GDL is a superset
+of VCG.
+
+This does not call L<layout()> since the actual text representation
+is just a dump of the graph.
+
+=head2 as_gdl_file()
+
+	print $graph->as_gdl_file();
+
+Is an alias for L<as_gdl()>.
 
 =head2 sorted_nodes()
 

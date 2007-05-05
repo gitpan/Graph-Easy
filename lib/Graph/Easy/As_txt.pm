@@ -1,12 +1,10 @@
 #############################################################################
 # Output an Graph::Easy object as textual description
 #
-# (c) by Tels 2004-2006.
-#############################################################################
 
 package Graph::Easy::As_txt;
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 #############################################################################
 #############################################################################
@@ -198,7 +196,55 @@ sub attributes_as_txt
 
   # XXX TODO: remove atttributes that are simple the default attributes
 
-  my $new = $g->_remap_attributes( $self, $self->{att}, $remap, 'noquote', 'encode' );
+  my $attributes = $self->{att};
+  if (exists $self->{autosplit})
+    {
+    # for the first node in a row of autosplit nodes, we need to create
+    # the correct attributes, e.g. "silver|red|" instead of just silver:
+    my $basename = $self->{autosplit_basename};
+    $attributes = { };
+
+    my $parts = $self->{autosplit_parts};
+    # gather all possible attribute names, otherwise an attribute set
+    # on only one part (like via "color: |red;" would not show up:
+    my $names = {};
+    for my $child ($self, @$parts)
+      {
+      for my $k (keys %{$child->{att}})
+        {
+        $names->{$k} = undef;
+        }
+      }
+
+    for my $k (keys %$names)
+      {
+      next if $k eq 'basename';
+      my $val = $self->{att}->{$k};
+      $val = '' unless defined $val;
+      my $first = $val; my $not_equal = 0;
+      $val .= '|';
+      for my $child (@$parts)
+        {
+        # only consider our own autosplit parts (check should not be nec.)
+#        next if !exists $child->{autosplit_basename} ||
+#                        $child->{autosplit_basename} ne $basename;
+
+        my $v = $child->{att}->{$k}; $v = '' if !defined $v;
+        $not_equal ++ if $v ne $first;
+        $val .= $v . '|';
+        }
+      # all parts equal, so do "red|red|red" => "red"
+      $val = $first if $not_equal == 0;
+
+      $val =~ s/\|+\z/\|/;				# "silver|||" => "silver|"
+      $val =~ s/\|\z// if $val =~ /\|.*\|/;		# "silver|" => "silver|"
+      							# but "red|blue|" => "red|blue"
+      $attributes->{$k} = $val unless $val eq '|';	# skip '|'
+      }
+    $attributes->{basename} = $self->{att}->{basename} if defined $self->{att}->{basename};
+    }
+
+  my $new = $g->_remap_attributes( $self, $attributes, $remap, 'noquote', 'encode' );
 
   # For nodes, we do not output their group attribute, since they simple appear
   # at the right place in the txt:
@@ -232,7 +278,18 @@ sub attributes_as_txt
     $att .= "$atr: $new->{$atr}; ";
     }
 
-  my $border = $self->border_attribute();
+  my $border;
+  if (!exists $self->{autosplit})
+    {
+    $border = $self->border_attribute();
+    }
+  else
+    {
+    $border = Graph::Easy::_border_attribute(
+	$attributes->{borderstyle}||'',
+	$attributes->{borderwidth}||'',
+	$attributes->{bordercolor}||'');
+    }
 
   # XXX TODO: should do this for all attributes, not only for border
   # XXX TODO: this seems wrong anyway
@@ -275,7 +332,15 @@ sub as_pure_txt
   {
   my $self = shift;
 
-  return '[ '. $self->{autosplit} .' ]' if exists $self->{autosplit} && defined $self->{autosplit};
+  if (exists $self->{autosplit} && defined $self->{autosplit})
+    {
+    my $name = $self->{autosplit};
+
+    # quote special chars in name (but not |)
+    $name =~ s/([\[\]\{\}\#])/\\$1/g;
+ 
+    return '[ '. $name .' ]' 
+    }
 
   my $name = $self->{name};
 
@@ -291,8 +356,11 @@ sub as_txt
 
   if (exists $self->{autosplit})
     {
-    return '[ ' . $self->{autosplit}.' ]' if defined $self->{autosplit};
-    return '';
+    return '' unless defined $self->{autosplit};
+    my $name = $self->{autosplit};
+    # quote special chars in name (but not |)
+    $name =~ s/([\[\]\{\}\#])/\\$1/g;
+    return '[ ' . $name . ' ]' 
     }
 
   my $name = $self->{name};
@@ -346,7 +414,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

@@ -217,15 +217,18 @@ __END__
 
 =head1 NAME
 
-Graph::Easy::Base - Baseclass for Graph::Easy objects like nodes, edges etc
+Graph::Easy::Base - base class for Graph::Easy objects like nodes, edges etc
 
 =head1 SYNOPSIS
 
-        # Used automatically by Graph::Easy - should not be used directly
+	package Graph::Easy::My::Node;
+	use Graph::Easy::Base;
+	@ISA = qw/Graph::Easy::Base/;
 
 =head1 DESCRIPTION
 
-Used automatically by Graph::Easy - should not used directly.
+Used automatically and internally by L<Graph::Easy> - should not be used
+directly.
 
 =head1 METHODS
 

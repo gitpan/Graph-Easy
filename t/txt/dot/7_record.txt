@@ -4,6 +4,7 @@ graph {
   colorscheme: x11;
   flow: south;
   label: Left aligned label;
+  title: gaph;
 }
 
 [ <f1> Aa \| <f2> Bb \| Cc ] { shape: rect; }

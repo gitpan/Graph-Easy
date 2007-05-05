@@ -2,7 +2,7 @@
 abstract: Render graphs as ASCII, HTML, SVG or via Graphviz
 author: Tels <nospam-abuse@bloodgate.com>
 build_requires: 
-  Test::More: 0.42
+  Test::More: 0.62
 distribution_type: module
 generated_by: Module::Install version 0.65
 license: gpl
@@ -22,4 +22,4 @@ recommends:
 requires: 
   Scalar::Util: 1.13
   perl: 5.8.1
-version: 0.54
+version: 0.55

@@ -14,7 +14,7 @@ $VERSION = '0.27';
 package Graph::Easy;
 
 use strict;
-use Graph::Easy::Node::Cell;
+require Graph::Easy::Node::Cell;
 use Graph::Easy::Edge::Cell qw/
   EDGE_HOR EDGE_VER
   EDGE_CROSS
@@ -22,16 +22,18 @@ use Graph::Easy::Edge::Cell qw/
   EDGE_SHORT_CELL
  /;
 
-use constant ACTION_NODE	=> 0;	# place node somewhere
-use constant ACTION_TRACE	=> 1;	# trace path from src to dest
-use constant ACTION_CHAIN	=> 2;	# place node in chain (with parent)
-use constant ACTION_EDGES	=> 3;	# trace all edges (shortes connect. first)
-use constant ACTION_SPLICE	=> 4;	# splice in the group fillers
+use constant {
+  ACTION_NODE	=> 0,	# place node somewhere
+  ACTION_TRACE	=> 1,	# trace path from src to dest
+  ACTION_CHAIN	=> 2,	# place node in chain (with parent)
+  ACTION_EDGES	=> 3,	# trace all edges (shortes connect. first)
+  ACTION_SPLICE	=> 4,	# splice in the group fillers
+  };
 
-use Graph::Easy::Layout::Chain;		# chain management
-use Graph::Easy::Layout::Scout;		# pathfinding
-use Graph::Easy::Layout::Path;		# path management
-use Graph::Easy::Layout::Repair;	# group cells and splicing/repair
+require Graph::Easy::Layout::Chain;		# chain management
+use Graph::Easy::Layout::Scout;			# pathfinding
+use Graph::Easy::Layout::Repair;		# group cells and splicing/repair
+use Graph::Easy::Layout::Path;			# path management
 
 #############################################################################
 

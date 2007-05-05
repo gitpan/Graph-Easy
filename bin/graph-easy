@@ -1,13 +1,16 @@
 #!/usr/bin/perl -w
 
 use strict;
-use Graph::Easy 0.54;
+use Graph::Easy 0.55;
 use Graph::Easy::Parser;
-use Getopt::Long;
 
 my $help_requested = 0;
-$help_requested = 1 if @ARGV == 0;
 
+# echo "[A]" | graph-easy  		# should work
+# graph-easy				# need help
+$help_requested = 1 if @ARGV == 0 && -t STDIN;
+
+my $OUT = \*STDERR;
 my $opt = get_options();
 
 # error?
@@ -23,11 +26,16 @@ if ($help_requested > 0)
   {
   print $copyright;
   require Pod::Usage;
-  Pod::Usage::pod2usage( { -exitval => 2, -verbose => $help_requested, } );
+  if ($help_requested > 1 && $Pod::Usage::VERSION < 1.35)
+    {
+    # The way old Pod::Usage executes "perldoc" might fail:
+    system('perldoc', $0);
+    exit 2;
+    }
+  Pod::Usage::pod2usage( { -exitval => 2, -verbose => $help_requested } ); 
   }
 
 my $verbose = $opt->{verbose};
-my $OUT = \*STDERR;
 
 print $OUT $copyright if $verbose;
 
@@ -39,6 +47,11 @@ if ($opt->{from} eq 'graphviz')
   {
   require Graph::Easy::Parser::Graphviz;
   $parser_class = 'Graph::Easy::Parser::Graphviz';
+  }
+elsif ($opt->{from} =~ /^(vcg|gdl)\z/)
+  {
+  require Graph::Easy::Parser::VCG;
+  $parser_class = 'Graph::Easy::Parser::VCG';
   }
 
 print $OUT "Creating $parser_class object.\n" if $verbose;
@@ -64,7 +77,17 @@ die ("Parser error: " . $error) if $error;
 if (! $opt->{parse})
   {
   my $method = 'as_' . $opt->{as} . '_file';
-  print $OUT "Writing output as $opt->{as} to $opt->{outputname}.\n" if $verbose;
+  if ($verbose)
+    {
+    if ($opt->{outputname} =~ /\.png\z/)
+      {
+      print $OUT "Piping output to 'dot -Tpng -o \"$opt->{outputname}\"'.\n";
+      }
+    else
+      {
+      print $OUT "Writing output as $opt->{as} to $opt->{outputname}.\n";
+      }
+    }
 
   $graph->timeout(abs($opt->{timeout} || 120));
   my $FILE = $opt->{output};
@@ -94,6 +117,9 @@ sub get_options
     as_svg => '',
     as_graphviz => '',
     as_txt => '',
+    as_png => '',
+    as_vcg => '',
+    as_gdl => '',
     debug => 0,
     from_txt => '',
     from_graphviz => '',
@@ -101,13 +127,23 @@ sub get_options
     parse => 0,
     timeout => 120,
   };
+  # map the output format to the method to generate the output:
   my $formats = {
     html => 'html',
     txt => 'ascii',
     svg => 'svg',
+    png => 'graphviz',
     dot => 'graphviz',
+    vcg => 'vcg',
+    gdl => 'gdl',
   };
-  my $rc = GetOptions (
+
+  # do we have some options?
+  if (@ARGV > 0)
+    {
+    require Getopt::Long;
+
+    my $rc = Getopt::Long::GetOptions (
 	"input=s" => \$opt->{input},
 	"output=s" => \$opt->{output},
 	"as=s" => \$opt->{as},
@@ -119,16 +155,18 @@ sub get_options
 	"as_ascii|ascii" => \$opt->{as_ascii},
 	"as_html|html" => \$opt->{as_html},
 	"as_svg|svg" => \$opt->{as_svg},
+	"as_png|png" => \$opt->{as_png},
 	"as_txt|txt" => \$opt->{as_txt},
+	"as_vcg|vcg" => \$opt->{as_vcg},
+	"as_gdl|gdl" => \$opt->{as_gdl},
 	"as_graphviz|graphviz|as_dot|dot" => \$opt->{as_graphviz},
 	"as_boxart|boxart" => \$opt->{as_boxart},
 	"timeout=i" => \$opt->{timeout},
-
 	"from_txt" => \$opt->{from_txt},
 	"from_graphviz" => \$opt->{from_graphviz},
 	);
-
-  return unless $rc;
+    return unless $rc;
+    }
 
   # allow "as=dot" for easier usage:
   $opt->{as} = 'graphviz' if $opt->{as} eq 'dot';
@@ -147,6 +185,22 @@ sub get_options
    $opt->{inputname} = $opt->{input};
    }
  
+  # This code gets confused if the user specified multiple options. Not much
+  # can be done about that except whack the user with something heavy.
+  for my $format (qw/ascii boxart html svg txt graphviz png vcg gdl/)
+    {
+    $opt->{as} = $format if $opt->{"as_$format"};
+    delete $opt->{"as_$format"};
+    }
+
+  if ($opt->{as} eq 'png')
+    {
+    $opt->{output} = $opt->{input};
+    # per default output it to graph.png
+    $opt->{output} = 'graph.txt' if ref($opt->{input});
+    $opt->{output} =~ s/\.(txt|dot|vcg|gdl)\z//;
+    $opt->{output} .= '.' . $opt->{as};			# example.txt => example.png
+    }
   if (!defined $opt->{output})
     {
     $opt->{outputname} = 'STDOUT';
@@ -161,26 +215,40 @@ sub get_options
     if ($opt->{as} eq '')
       {
       $opt->{as} = 'ascii';		# default
-      $opt->{as} = $formats->{$1} if $file =~ /\.(html|svg|txt|dot)\z/;
+      $opt->{as} = $formats->{$1} if $file =~ /\.(html|svg|txt|dot|png|vcg|gdl)\z/;
       }
     $opt->{output} = undef;
-    open $opt->{output}, ">$file" or die ("Cannot write to $file: $!");
+    if ($opt->{as} ne 'png')
+      {
+      # do not clobber the output file if we cannot read the input
+      return unless ref $opt->{input} || -R $opt->{input};
+
+      open $opt->{output}, ">$file" or die ("Cannot write to $file: $!");
+      }
+    else
+      {
+      # open a pipe to dot
+      my $file_save = $file;
+      $file_save =~ s/["'\|;]//g;	# remove potentially unsafe characters
+      open $opt->{output}, "|dot -Tpng -o \"$file_save\"" or die ("Cannot open pipe to dot: $!");
+      }
+    }
+    
+  if ($opt->{as} ne 'png')
+    {
+    binmode ($opt->{output}, ':utf8') or die ("Cannot do binmode(output,':utf8')");
+    }
+  else
+    {
+    $opt->{as} = 'graphviz';
     }
 
-  binmode ($opt->{output}, ':utf8') or die ("Cannot do binmode(output,':utf8')");
-
-  # This code gets confused if the user specified multiple options. Not much
-  # can be done about that except whack the user with something heavy.
-  for my $format (qw/ascii boxart html svg txt graphviz/)
+  for my $format (qw/txt graphviz dot vcg gdl/)
     {
-    $opt->{as} = $format if $opt->{"as_$format"};
-    delete $opt->{"as_$format"};
-    } 
-  for my $format (qw/txt graphviz/)
-    {
-    $opt->{form} = $format if $opt->{"from_$format"};
+    $opt->{from} = $format if $opt->{"from_$format"};
     delete $opt->{"from_$format"};
     }
+  $opt->{from} = 'graphviz' if $opt->{from} eq 'dot';
 
   $opt;
   }
@@ -198,11 +266,15 @@ graph-easy - render/convert graphs in/from various formats
 Convert between graph formats and layout/render graphs:
 
 	graph-easy [options] [inputfile [outputfile]]
+
+	echo "[ Bonn ] - car -> [ Berlin ]" | graph-easy
 	graph-easy --input=graph.dot --as_ascii
-	graph-easy --as_html --output=graph.html graph.txt
+	graph-easy --html --output=graph.html graph.txt
 	graph-easy graph.txt graph.svg
 	graph-easy graph.txt --as_dot | dot -Tpng -o graph.png
-	echo "[ Bonn ] - car -> [ Berlin ]" | graph-easy --ascii
+	graph-easy graph.txt --as_png
+	graph-easy graph.vcg --as_dot
+	graph-easy graph.dot --gdl
 
 =head1 ARGUMENTS
 
@@ -217,6 +289,9 @@ Print the full documentation, not just a short overview.
 Specify the input file name. Example:
 
 	graph-easy --input=input.txt
+
+The format of the input will be detected automatically, but you
+can override this detection with L<--from>.
 
 =item --output
 
@@ -239,6 +314,9 @@ Valid formats are:
 	graphviz	the DOT language
 	dot		an alias for "graphviz"
 	txt		Graph::Easy text
+	vcg		VCG (a subset of GDL) text
+	gdl		GDL (Graph Description Language) text
+	png		a PNG file rendered via "dot"
 
 If unspecified, the default format will be determined by the output
 filename extension, and is C<ascii>, if the output filename was not
@@ -253,11 +331,13 @@ Specify the input format. Valid formats are:
 
 	graphviz	the DOT language
 	txt		Graph::Easy text
+	vcg		VCG text
+	gdl		GDL (Graph Description Language) text
 
 If not specified, the input format is auto-detected.
 
-Note that you can also use B<ONE> argument of the form C<--from_graphviz>
-or C<--from_txt>,
+Note that you can also use B<ONE> argument of the form L<--from_graphviz>
+or L<--from_txt> instead of C<--from>.
 
 =item --verbose
 
@@ -283,42 +363,66 @@ Example:
 
 =item --timeout
 
-Set the timeout in seconds for the layouter. If the layout does not
+Set the timeout B<in seconds> for the layouter. If the layout does not
 finish in this time, it will be aborted.
 
 Example:
 
 	graph-easy input.txt --timeout=500
 
+This option is mainly intended for things that are routed through
+the layouter of Graph::Easy, because this layouter can sometimes
+get stuck and use a lot of time. Simple conversions between
+the different graph text formats are still subject to the set
+timeout, but this conversion usually finishes in way under one
+second.
+
 =back
 
 =head1 DESCRIPTION
 
-C<graph-easy> reads descriptions of graphs and then converts them to
-the desired output format.
+C<graph-easy> reads a description of a graph (a connected network of
+nodes and edges, not a pie chart :-) and then convert this to the desired
+output format.
 
 By default, the input will be read from STDIN, and the output will go to
-STDOUT.
+STDOUT. The input is expected to be exencoded in UTF-8, the output will
+also be UTF-8.
 
 It understands the following formats as input:
 
 	Graph::Easy	http://bloodgate.com/perl/graph/manual/
 	DOT		http://www.graphviz.org/
+	VCG		http://rw4.cs.uni-sb.de/~sander/html/gsvcg1.html
+	GDL		http://www.aisee.com/
 
 The formats are automatically detected, regardless of the input file name,
 but you can also explicitely declare your input to be in one specific
 format.
 
-The output can either be a dump of the graph in one of the two input formats,
-or a layout (rendering) of the graph in one of the output formats
-implemented by Graph::Easy:
+The output can either be a dump of the graph in one of the input formats
+(Graph::Easy, Graphviz, VCG/GDL), or a layout (rendering) of the graph in
+one of the following output formats implemented by C<Graph::Easy>:
 
 	HTML	SVG	ASCII	BOXART
+
+As a shortcut, you can also specify the output format as 'png', this will
+cause C<graph-easy> to pipe the input in graphviz format to dot to create a
+PNG file in one step. The following two examples are equivalent:
+
+	graph-easy graph.txt --as_dot | dot -Tpng -o graph.png
+	graph-easy graph.txt --as_png
 
 X<svg>
 X<html>
 X<ascii>
 X<boxart>
+X<png>
+X<dot>
+X<graphviz>
+X<vcg>
+X<gdl>
+X<graph description language>
 X<unicode>
 
 =head1 EXAMPLES
@@ -337,11 +441,11 @@ X<unicode>
 	| Berlin |
 	+--------+
 
-=head2 Graphviz output
+=head2 Graphviz example output
 
 	echo "[ Bonn ] -- car --> [ Berlin ], [ Ulm ]" | graph-easy --as=dot
 	digraph GRAPH_0 {
-	  // Generated by Graph::Easy 0.54 at Sat Feb 24 11:38:28 2007
+	
 	  edge [ arrowhead=open ];
 	  graph [ rankdir=LR ];
 	  node [
@@ -350,10 +454,43 @@ X<unicode>
 	    style=filled,
 	    shape=box ];
 	
-	  Bonn -> Ulm
-	  Bonn -> Berlin
+	  Bonn -> Ulm [ label=car ]
+	  Bonn -> Berlin [ label=car ]
 	
 	}
+
+=head3 VCG example output:
+
+	echo "[ Bonn ] -- car --> [ Berlin ], [ Ulm ]" | graph-easy --as=vcg
+	graph: {
+	  title: "Untitled graph"
+	
+	  node: { title: "Berlin" }
+	  node: { title: "Bonn" }
+	  node: { title: "Ulm" }
+	
+	  edge:  { label: "car" sourcename: "Bonn" targetname: "Ulm" }
+	  edge:  { label: "car" sourcename: "Bonn" targetname: "Berlin" }
+	
+	}
+
+=head3 GDL example output:
+
+GDL (Graph Description Language) is a superset of VCG, and thus the output will
+look almost the same as VCG:
+
+	echo "[ Bonn ] -- car --> [ Berlin ], [ Ulm ]" | graph-easy --as=gdl
+	graph: {
+	  title: "Untitled graph"
+	
+	  node: { title: "Berlin" }
+	  node: { title: "Bonn" }
+	  node: { title: "Ulm" }
+	
+	  edge:  { label: "car" source: "Bonn" target: "Ulm" }
+	  edge:  { label: "car" source: "Bonn" target: "Berlin" }
+
+	}	
 
 =head1 LICENSE
 
@@ -376,4 +513,9 @@ X<license>
 
 Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
 
+=head1 SEE ALSO
+
+L<Graph::Easy>
+
 =cut
+

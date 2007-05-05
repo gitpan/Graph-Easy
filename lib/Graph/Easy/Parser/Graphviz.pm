@@ -5,8 +5,9 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = '0.12';
-use base qw/Graph::Easy::Parser/;
+$VERSION = '0.13';
+use Graph::Easy::Parser;
+@ISA = qw/Graph::Easy::Parser/;
 
 use strict;
 use utf8;
@@ -496,8 +497,8 @@ sub _match_pseudo_group_start
 
 sub _match_group_end
   {
-  # return a regexp that matches something like " }".
-  qr/\s*\}\s*/;
+  # return a regexp that matches something like " }" or "} ;".
+  qr/\s*\}\s*;?\s*/;
   }
 
 sub _match_edge
@@ -707,7 +708,7 @@ sub _add_group_match
     sub
       {
       my $self = shift;
- 
+
       my $scope = pop @{$self->{scope_stack}};
       return $self->parse_error(0) if !defined $scope;
 
@@ -810,7 +811,7 @@ sub _build_match_stack
       } );
 
   # simple remove the graph start, but remember that we did this
-  $self->_register_handler( qr/^\s*((?i)strict)?$qr_ocmt((?i)digraph)$qr_ocmt\{/, 
+  $self->_register_handler( qr/^\s*(strict)?$qr_ocmt(di)?graph$qr_ocmt\{/i, 
     sub 
       {
       my $self = shift;
@@ -820,7 +821,7 @@ sub _build_match_stack
       } );
 
   # simple remove the graph start, but remember that we did this
-  $self->_register_handler( qr/^\s*strict$qr_ocmt(di)?graph$qr_ocmt\{/i, 
+  $self->_register_handler( qr/^\s*strict$qr_ocmt(di)?graph$qr_ocmt\s*\{/i, 
     sub 
       {
       my $self = shift;
@@ -1172,6 +1173,7 @@ my $remap = {
     'nslimit1' => undef,
     'ordering' => undef,
     'orientation' => undef,
+    'output' => 'output',
     'outputorder' => undef,
     'overlap' => undef,
     'pack' => undef,
@@ -1225,6 +1227,8 @@ my $remap = {
     'href' => 'link',
     },
   };
+
+sub _remap { $remap; }
 
 my $rankdir = {
   'LR' => 'east',
@@ -1296,10 +1300,10 @@ sub _from_graphviz_style
       {
       my $width = abs($1 || 1);
       my $style = '';
-      $style = 'wide';			# > 14
+      $style = 'wide';			# > 11
       $style = 'solid' if $width < 3;
-      $style = 'bold' if $width >= 3 && $width < 7;
-      $style = 'broad' if $width >= 7 && $width < 14;
+      $style = 'bold' if $width >= 3 && $width < 5;
+      $style = 'broad' if $width >= 5 && $width < 11;
       push @rc, ('borderstyle',$style);
       }
     }
@@ -1423,10 +1427,10 @@ sub _from_graphviz_edge_style
   if ($style =~ /setlinewidth\((\d+)\)/)
     {
     my $width = abs($1 || 1);
-    $style = 'wide';			# > 14
+    $style = 'wide';			# > 11
     $style = 'solid' if $width < 3;
-    $style = 'bold' if $width >= 3 && $width < 7;
-    $style = 'broad' if $width >= 7 && $width < 14;
+    $style = 'bold' if $width >= 3 && $width < 5;
+    $style = 'broad' if $width >= 5 && $width < 11;
     }
 
   ($name, $style);
@@ -1530,7 +1534,7 @@ sub _remap_attributes
     require Data::Dumper; print STDERR "#" , Data::Dumper::Dumper($att),"\n";
     }
 
-  $r = $remap unless defined $r;
+  $r = $self->_remap() unless defined $r;
 
   $self->{_graph}->_remap_attributes($object, $att, $r, 'noquote', undef, undef);
   }
@@ -1617,7 +1621,7 @@ sub _parse_html
 
   my $graph = $self->{_graph};
 
-  my $label = $n->label(); $label = '' unless defined $label;
+  my $label = $n->label(1); $label = '' unless defined $label;
   my $org_label = $label;
 
   # "unquote" the HTML-like label
@@ -1748,9 +1752,11 @@ sub _parser_cleanup
   # parts and create these as autosplit nodes.
   # For all nodes that have a label starting with "<", parse it as HTML.
 
+  # keep a record of all nodes to be deleted later:
+  my $delete = {};
   for my $n (@nodes)
     {
-    my $label = $n->label();
+    my $label = $n->label(1);
     my $shape = $n->attribute('shape');
 
     if ($shape ne 'record' && $label =~ /^<\s*<.*>\z/)
@@ -1758,6 +1764,7 @@ sub _parser_cleanup
       print STDERR "# HTML-like label found: $label\n" if $self->{debug};
       $self->_parse_html($n);
       # remove the temp. and spurious node
+      $delete->{$n->{name}} = undef;
       $g->del_node($n);
       next;
       }
@@ -1774,7 +1781,7 @@ sub _parser_cleanup
       # XXX TODO: autosplit needs to handle nesing like "{}".
 
       # Replace "{ ... | ... |  ... }" with "...|| ... || ...." as a cheat
-      # to fix one common case
+      # to fix some common cases
       if ($label =~ /^\s*\{[^\{\}]+\}\s*\z/)
 	{
         $label =~ s/[\{\}]//g;	# {..|..} => ..|..
@@ -1818,6 +1825,7 @@ sub _parser_cleanup
         $e->end_at($rc[0]) if $e->{to} == $n;
 	}
       # remove the temp. and spurious node
+      $delete->{$n->{name}} = undef;
       $g->del_node($n);
       }
     }
@@ -1835,7 +1843,7 @@ sub _parser_cleanup
   @nodes = $g->nodes();		# get a fresh list of nodes after split
   for my $e (@edges)
     {
-    # do this for both the from and to side of the edge:
+    # do this for both the "from" and "to" side of the edge:
     for my $side ('from','to')
       {
       my $n = $e->{$side};
@@ -1896,6 +1904,7 @@ sub _parser_cleanup
 
       if ($side eq 'from')
 	{
+        $delete->{$e->{from}->{name}} = undef;
   	print STDERR "# Setting new edge start point to $node->{name}\n" if $self->{debug};
 	$e->start_at($node);
   	print STDERR "# Setting new edge end point to start at $p\n" if $self->{debug} && $p;
@@ -1903,6 +1912,7 @@ sub _parser_cleanup
 	}
       else
 	{
+        $delete->{$e->{to}->{name}} = undef;
   	print STDERR "# Setting new edge end point to $node->{name}\n" if $self->{debug};
 	$e->end_at($node);
   	print STDERR "# Setting new edge end point to end at $p\n" if $self->{debug} && $p;
@@ -1916,91 +1926,26 @@ sub _parser_cleanup
   # after reconnecting all edges, we can delete temp. nodes: 
   for my $n (@nodes)
     {
-    $g->del_node($n) if exists $n->{_graphviz_portlet};
+    next unless exists $n->{_graphviz_portlet};
+    # "c:w" => "c"
+    my $name = $n->{name}; $name =~ s/:.*?\z//;
+    # add "c" unless we should delete the base node (this deletes record
+    # and autosplit nodes, but keeps loners like "c:w" around as "c":
+    $g->add_node($name) unless exists $delete->{$name};
+    # delete "c:w"
+    $g->del_node($n); 
     }
 
-  @nodes = $g->nodes();
-
-  # convert "\N" to "self->{name}", \G => graph name
-  for my $n (@nodes)
-    {
-    for my $w (qw/label title link/)
-      {
-      no strict 'refs'; 
-      my $str = $n->$w();
-      my $changed = 0;
-      if ($str =~ /\\N/)
-	{
-	my $name = $n->{name};
-	$str =~ s/\\N/$name/g;
-	$changed++;
-	}
-      if ($str =~ /\\G/)
-	{
-	my $name = $self->{_graphviz_graph_name};
-	$str =~ s/\\G/$name/g;
-	$changed++;
-	}
-      $n->set_attribute($w,$str) if $changed > 0;
-      }
-    }
-  # convert "\G" for the graph
-  for my $w (qw/label title link/)
-    {
-    no strict 'refs'; 
-    my $str = $g->$w();
-    if ($str =~ /\\G/)
-      {
-      my $name = $self->{_graphviz_graph_name};
-      $str =~ s/\\G/$name/g;
-      $g->set_attribute($w,$str);
-      }
-    }
+  # if the graph doesn't have a title, set the graph name as title
+  $g->set_attribute('title', $self->{_graphviz_graph_name})
+    unless defined $g->raw_attribute('title');
   
-  # convert "\E" to "Bonn->Berlin", handle \G, \H and \T, too
-  for my $e (@edges)
-    {
-    for my $w (qw/label title link/)
-      {
-      no strict 'refs'; 
-      my $str = $e->$w();
-      my $changed = 0;
-      if ($str =~ /\\E/)
-	{
-        my $es = '->'; $es = '--' if $e->undirected();
-	my $name = $e->{from}->{name} . $es . $e->{to}->{name};
-	$str =~ s/\\E/$name/g;
-	$changed++;
-	}
-      if ($str =~ /\\G/)
-	{
-	my $name = $self->{_graphviz_graph_name};
-	$str =~ s/\\G/$name/g;
-	$changed++;
-	}
-      if ($str =~ /\\H/)
-	{
-	my $name = $e->{from}->{name};
-	$str =~ s/\\H/$name/g;
-	$changed++;
-	}
-      if ($str =~ /\\T/)
-	{
-	my $name = $e->{to}->{name};
-	$str =~ s/\\T/$name/g;
-	$changed++;
-	}
-      $e->set_attribute($w,$str) if $changed > 0;
-      }
-    }
-
   # cleanup if there are no groups
   if ($g->groups() == 0)
     {
     $g->del_attribute('group', 'align');
     $g->del_attribute('group', 'fill');
     }
-  $g->_drop_special_attributes();
   $g->{_warn_on_unknown_attributes} = 0;	# reset to die again
 
   $self;

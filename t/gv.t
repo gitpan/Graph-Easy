@@ -9,11 +9,12 @@ use File::Spec;
 
 BEGIN
    {
-   plan tests => 116;
+   plan tests => 125;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
    use_ok ("Graph::Easy::Parser") or die($@);
+   use_ok ("Graph::Easy::Parser::Graphviz") or die($@);
    };
 
 my @warnings;
@@ -36,15 +37,23 @@ my @warnings;
 #############################################################################
 # parser object
 
-my $parser = Graph::Easy::Parser->new( debug => 0);
+my $def_parser = Graph::Easy::Parser->new(debug => 0);
 
-is (ref($parser), 'Graph::Easy::Parser');
-is ($parser->error(), '', 'no error yet');
+is (ref($def_parser), 'Graph::Easy::Parser');
+is ($def_parser->error(), '', 'no error yet');
+
+my $dot_parser = Graph::Easy::Parser::Graphviz->new(debug => 0);
+is (ref($dot_parser), 'Graph::Easy::Parser::Graphviz');
+is ($dot_parser->error(), '', 'no error yet');
 
 my $dir = File::Spec->catdir('in','dot');
 
-opendir DIR, $dir or die ("Cannot read dir 'in/grapviz': $!");
+opendir DIR, $dir or die ("Cannot read dir 'in/dot': $!");
 my @files = readdir(DIR); closedir(DIR);
+
+opendir DIR, 'dot' or die ("Cannot read dir 'dot': $!");
+push @files, readdir(DIR); closedir(DIR);
+
 
 binmode (STDERR, ':utf8') or die ("Cannot do binmode(':utf8') on STDERR: $!");
 binmode (STDOUT, ':utf8') or die ("Cannot do binmode(':utf8') on STDOUT: $!");
@@ -57,12 +66,21 @@ foreach my $f (sort {
   $a1 <=> $b1 || $a cmp $b;
   } @files)
   {
-  next unless -f "$dir/$f";			# only files
+  my $file = File::Spec->catfile($dir,$f);
+  my $parser = $def_parser;
+  if (!-f $file)
+    {
+    $file = File::Spec->catfile('dot',$f);
+    next unless -f $file; 			# only files
+    # for files in t/dot, we need to use the Graphviz parser as they
+    # look like Graph::Easy text to the normal parser, which then fails
+    $parser = $dot_parser;
+    }
   
   next unless $f =~ /\.dot/;			# ignore anything else
 
   print "# at $f\n";
-  my $txt = readfile("$dir/$f");
+  my $txt = readfile($file);
   $parser->reset();
   my $graph = $parser->from_text($txt);		# reuse parser object
 

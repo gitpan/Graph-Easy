@@ -17,7 +17,7 @@ requires	'perl'		=> 5.008001;
 
 recommends	'Graph::Easy::As_svg'	=> 0.22;
 
-build_requires	'Test::More'	=> 0.42;
+build_requires	'Test::More'	=> 0.62;
 
 license		'gpl';
 

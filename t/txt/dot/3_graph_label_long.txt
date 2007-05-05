@@ -4,6 +4,7 @@ graph {
   flow: south;
   label: Deutsche Städte am Rhein;
   labelpos: bottom;
+  title: GRAPH_0;
 }
 
 [ Köln ] --> [ Bonn ]

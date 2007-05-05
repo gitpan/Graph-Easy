@@ -1,6 +1,6 @@
 .*\.tar\.gz
 ^blib.*
-^\w+\.(html|txt|png|dot|pl|svg|old|bak|org)
+^\w+\.(html|txt|png|dot|pl|svg|old|bak|org|vcg|gdl)
 ^Makefile\z
 ^Makefile.(old|bak)\z
 ^fun\z

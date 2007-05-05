@@ -5,7 +5,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.27';
+$VERSION = '0.28';
 
 package Graph::Easy;
 
@@ -3448,6 +3448,25 @@ sub raw_color_attribute
   $color;
   }
 
+sub _attribute_entry
+  {
+  # return the entry defining an attribute, based on the attribute name
+  my ($self, $class, $name) = @_;
+
+  # font-size => fontsize
+  $name = $att_aliases->{$name} if exists $att_aliases->{$name};
+
+  my $base_class = $class; $base_class =~ s/\.(.*)//;
+
+  # prevent ->{special}->{node} from springing into existance
+  my $s = $attributes->{special}; $s = $s->{$class} if exists $s->{$class};
+  my $entry =	$s->{$name} ||
+		$attributes->{all}->{$name} ||
+		$attributes->{$base_class}->{$name};
+
+  $entry;
+  }
+
 sub attribute
   {
   my ($self, $class, $name) = @_;
@@ -3558,7 +3577,7 @@ sub attribute
   # we try them in this order:
   # node.subclass, node, graph
 
-#  print STDERR "# $self->{name} class=$class val=$val ", join(" ", caller),"\n" if $name eq 'fill';
+#  print STDERR "# $self->{name} class=$class ", join(" ", caller),"\n" if $name eq 'align';
 
   my @tries = ();
   # skip "node.foo" if value is 'inherit'
@@ -3575,15 +3594,16 @@ sub attribute
   $g = $self if $self->{class} eq 'graph';	# for the graph itself
 
   $val = undef;
-  for my $try (@tries)
+  TRY:
+   for my $try (@tries)
     {
-#    print STDERR "# Trying class $try for attribute $name\n" if $name eq 'fill';
+#    print STDERR "# Trying class $try for attribute $name\n" if $name eq 'align';
 
     my $att = $g->{att}->{$try};
 
     $val = $att->{$name} if exists $att->{$name};
 
-    # value was not defined, so get the default value
+    # value was not defined, so get the default value (but not for subclasses!)
     if (!defined $val)
       {
       my $def = $entry->[ ATTR_DEFAULT_SLOT ]; $val = $def;
@@ -3598,6 +3618,9 @@ sub attribute
 	  my $base = $try; $base =~ s/\..*//;
 	  $val = $def->{$base};
 	  }
+        # if this is not a subclass, get the default value
+        next TRY if !defined $val && $try =~ /\./;
+        
 	$val = $def->{default} unless defined $val;
 	}
       }

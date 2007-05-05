@@ -1,12 +1,12 @@
 #############################################################################
 # Find paths from node to node in a Manhattan-style grid via A*.
 #
-# (c) by Tels 2004-2006.
+# (c) by Tels - part of Graph::Easy
 #############################################################################
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.22';
+$VERSION = '0.23';
 
 #############################################################################
 #############################################################################
@@ -414,7 +414,8 @@ sub _find_path_loop
 # This package represents a simple/cheap/fast heap:
 package Graph::Easy::Heap;
 
-use base qw/Graph::Easy::Base/;
+require Graph::Easy::Base;
+our @ISA = qw/Graph::Easy::Base/;
 
 use strict;
 
@@ -1346,6 +1347,8 @@ sub _astar
     $idx += 3;					# index into $path (for bends)
     }
 
+  print STDERR "# Trying to straighten path\n" if @bends >= 3 && $self->{debug};
+
   # try to straighten unnec. inward bends
   $self->_straighten_path($path, \@bends, $edge) if @bends >= 3;
 
@@ -1420,6 +1423,8 @@ sub _straighten_path
     {
     # for each bend, check it and the next two bends
 
+#   print STDERR "Checking bend $i at $bends->[$i], $bends->[$i+1], $bends->[$i+2]\n";
+
     my ($a,$b,$c) = ($bends->[$i],
 		     $bends->[$i+1],
 		     $bends->[$i+2]);
@@ -1427,87 +1432,86 @@ sub _straighten_path
     my $dx = ($b->[1] - $a->[1]);
     my $dy = ($b->[2] - $a->[2]);
 
+    my $p = 0;
     for my $pattern (@$bend_patterns)
       {
-      if ( ($a->[0] == $pattern->[0]) &&
-           ($b->[0] == $pattern->[1]) &&
-           ($c->[0] == $pattern->[2]) &&
-	   ($dx == $pattern->[3]) &&
-	   ($dy == $pattern->[4]))
+      $p++;
+      next if ($a->[0] != $pattern->[0]) ||
+	      ($b->[0] != $pattern->[1]) ||
+	      ($c->[0] != $pattern->[2]) ||
+	      ($dx != $pattern->[3]) ||
+	      ($dy != $pattern->[4]);
+
+      # pattern matched
+#      print STDERR "# Got bends for pattern $p (@$pattern):\n";
+#      print STDERR "# @$a\n# @$b\n# @$c\n";
+
+      # check that the alternative path is empty
+
+      # new corner:
+      my $cx = $a->[$pattern->[5]];
+      my $cy = $c->[$pattern->[6]];
+      ($cx,$cy) = ($cy,$cx) if $pattern->[5] == 2;	# need to swap?
+
+      next BEND if exists $cells->{"$cx,$cy"};
+
+      # check from A to new corner
+      my $x = $a->[1];
+      my $y = $a->[2];
+
+      my @replace = ();
+      push @replace, $cx, $cy, $pattern->[0] if ($x == $cx && $y == $cy);
+
+      my $ddx = $pattern->[9];
+      my $ddy = $pattern->[10];
+      while ($x != $cx || $y != $cy)
 	{
-	# pattern matched
+	next BEND if exists $cells->{"$x,$y"};
+	push @replace, $x, $y, $pattern->[7];
+	$x += $ddx;
+	$y += $ddy;
+	}
 
-#	print STDERR "# Got bends: \n";
-#	print STDERR "# @$a\n# @$b\n# @$c\n";
+      $x = $cx; $y = $cy;
 
-	# check that the alternative path is empty
-
-	# new corner:
-	my $cx = $a->[$pattern->[5]];
-	my $cy = $c->[$pattern->[6]];
-
-	next BEND if exists $cells->{"$cx,$cy"};
-
-	# check from A to new corner
-	my $x = $a->[1];
-	my $y = $a->[2];
-
-	my @replace = ();
-
-	push @replace, $cx, $cy, $pattern->[0] if ($x == $cx && $y == $cy);
-
-	my $ddx = $pattern->[9];
-	my $ddy = $pattern->[10];
-	while ($x != $cx || $y != $cy)
-	  {
-	  next BEND if exists $cells->{"$x,$y"};
-	  push @replace, $x, $y, $pattern->[7];
-	  $x += $ddx;
-	  $y += $ddy;
-	  }
-
-	$x = $cx; $y = $cy;
-
-	# check from new corner to C
-	$ddx = $pattern->[11];
-	$ddy = $pattern->[12];
-	while ($x != $c->[1] || $y != $c->[2])
-	  {
-	  next BEND if exists $cells->{"$x,$y"};
-	  push @replace, $x, $y, $pattern->[8];
-	
-	  # set the correct type on the corner
-	  $replace[-1] = $pattern->[0] if ($x == $cx && $y == $cy);
-	  $x += $ddx;
-	  $y += $ddy;
-	  }
-	# insert C
+      # check from new corner to C
+      $ddx = $pattern->[11];
+      $ddy = $pattern->[12];
+      while ($x != $c->[1] || $y != $c->[2])
+	{
+	next BEND if exists $cells->{"$x,$y"};
 	push @replace, $x, $y, $pattern->[8];
+	
+	# set the correct type on the corner
+	$replace[-1] = $pattern->[0] if ($x == $cx && $y == $cy);
+	$x += $ddx;
+	$y += $ddy;
+        }
+      # insert Corner
+      push @replace, $x, $y, $pattern->[8];
 
 #	use Data::Dumper; print STDERR Dumper(@replace);
 #	print STDERR "# generated ", scalar @replace, " entries\n";
 #	print STDERR "# idx A $a->[3] C $c->[3]\n";
 
-	# the path is clear, so replace the inward bend with the new one
+      # the path is clear, so replace the inward bend with the new one
+      my $diff = $a->[3] - $c->[3] ? -3 : 3;
 
-	my $diff = $a->[3] - $c->[3] ? -3 : 3;
+      my $idx = 0; my $p_idx = $a->[3] + $diff;
+      while ($idx < @replace)
+	{
+#	 print STDERR "# replace $p_idx .. $p_idx + 2\n";
+#	 print STDERR "# replace $path->[$p_idx] with $replace[$idx]\n";
+#	 print STDERR "# replace $path->[$p_idx+1] with $replace[$idx+1]\n";
+#	 print STDERR "# replace $path->[$p_idx+2] with $replace[$idx+2]\n";
 
-	my $idx = 0; my $p_idx = $a->[3] + $diff;
-	while ($idx < @replace)
-	  {
-#	  print STDERR "# replace $p_idx .. $p_idx + 2\n";
-#	  print STDERR "# replace $path->[$p_idx] with $replace[$idx]\n";
-#	  print STDERR "# replace $path->[$p_idx+1] with $replace[$idx+1]\n";
-#	  print STDERR "# replace $path->[$p_idx+2] with $replace[$idx+2]\n";
-
-	  $path->[$p_idx] = $replace[$idx];
-	  $path->[$p_idx+1] = $replace[$idx+1];
-	  $path->[$p_idx+2] = $replace[$idx+2];
-	  $p_idx += $diff;
-	  $idx += 3;
- 	  }
-	}
-      }
+	$path->[$p_idx] = $replace[$idx];
+	$path->[$p_idx+1] = $replace[$idx+1];
+	$path->[$p_idx+2] = $replace[$idx+2];
+	$p_idx += $diff;
+	$idx += 3;
+ 	}
+      } # end for this pattern
 
     } continue { $i++; };
   }
@@ -1664,7 +1668,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for information.
 

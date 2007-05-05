@@ -5,7 +5,7 @@
 |     Graphname 0     |
 +---------------------+
   |
-  | 0->1 Graphname 1 0
+  | 0->1 Graphname 0 1
   v
 +---------------------+
 |     Graphname 1     |

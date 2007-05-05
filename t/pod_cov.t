@@ -7,7 +7,7 @@ my $tests;
 
 BEGIN
    {
-   $tests = 20;
+   $tests = 21;
    plan tests => $tests;
    chdir 't' if -d 't';
    use lib '../lib';
@@ -29,13 +29,13 @@ SKIP:
     Graph::Easy::As_ascii
     Graph::Easy::As_txt
     Graph::Easy::As_graphviz
+    Graph::Easy::As_vcg
     Graph::Easy::Layout::Chain
     Graph::Easy::Layout::Grid
     Graph::Easy::Layout::Path
     Graph::Easy::Layout::Scout
     Graph::Easy::Layout::Repair
     Graph::Easy::Attributes
-    Graph::Easy::As_ascii
    /)
     {
     pod_coverage_ok( $m, "$m is covered" );
@@ -75,6 +75,7 @@ SKIP:
     )\z/x ] };
   pod_coverage_ok( "Graph::Easy::Parser", $trustme );
   pod_coverage_ok( "Graph::Easy::Parser::Graphviz", $trustme );
+  pod_coverage_ok( "Graph::Easy::Parser::VCG", $trustme );
 
   }
 

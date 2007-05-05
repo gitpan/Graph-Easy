@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 68;
+   plan tests => 74;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -408,4 +408,47 @@ $html = $graph->as_html_file();
 like ($html, qr/<!-- My comment --&gt; graph -->/, 'graph comment');
 like ($html, qr/<!-- My comment --&gt; A -->/, 'node comment');
 like ($html, qr/<!-- My comment --&gt; edge -->/, 'edge comment');
+
+#############################################################################
+# colorscheme and class attributes
+
+$graph = Graph::Easy->new();
+
+($A,$B,$edge) = $graph->add_edge('A', 'B');
+
+$graph->set_attribute('colorscheme', 'pastel19');
+$graph->set_attribute('node.yellow', 'fill', '1');
+$graph->set_attribute('node.yellow', 'color', 'silver');
+
+$A->set_attribute('class', 'yellow');
+
+$html = $graph->as_html_file();
+
+like ($html, 
+      qr/node_yellow(.|\n)*background: #fbb4ae;/, 'background is not 1');
+like ($html, 
+      qr/node_yellow(.|\n)*color: silver;/, 'color is silver');
+
+#############################################################################
+# support for \N, \E, \H, \T, \G in titles and labels
+
+$graph = Graph::Easy->new();
+
+($A,$B,$edge) = $graph->add_edge('A', 'B');
+
+$graph->set_attribute('label', 'My Graph');
+$graph->set_attribute('node', 'title', 'My \N in \G');
+$graph->set_attribute('edge', 'title', 'My \E in \G (\T => \H)');
+
+$html = $graph->as_html_file();
+
+like ($html, qr/title='My A in My Graph'/, 'title with \N and \G');
+like ($html, qr/title='My B in My Graph'/, 'title with \N and \G');
+like ($html, qr/title="My A->B in My Graph \(A => B\)"/, 'title with \E, \H, \T');
+
+# support for \L in titles
+$graph->set_attribute('node', 'label', 'labeled "My \N"');
+$graph->set_attribute('node', 'title', 'My \L');
+$html = $graph->as_html_file();
+like ($html, qr/title='My labeled "My A"'/, 'title with \L');
 

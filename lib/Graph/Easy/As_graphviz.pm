@@ -1,12 +1,12 @@
 #############################################################################
 # output the graph in dot-format text
 #
-# (c) by Tels 2004-2006.
+# (c) by Tels 2004-2007.
 #############################################################################
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.23';
+$VERSION = '0.25';
 
 #############################################################################
 #############################################################################
@@ -93,7 +93,7 @@ my $remap = {
     'textwrap' => undef,
     },
   always => {
-    node	=> [ qw/borderstyle label link rotate color/ ],
+    node	=> [ qw/borderstyle label link rotate color fill/ ],
     'node.anon' => [ qw/bordercolor borderstyle label link rotate color/ ],
     edge	=> [ qw/labelcolor label link color/ ],
     graph	=> [ qw/labelpos borderstyle label link color/ ],
@@ -212,10 +212,10 @@ sub _graphviz_remap_edge_style
 
   $style = 'invis' if $style eq 'invisible';	# invisible
 
-  # XXX TODO: These should be (3, 0.5em, 1em) instead of 3,7,14
-  $style = 'setlinewidth(3), dashed' if $style =~ /^bold-dash/;
-  $style = 'setlinewidth(7)' if $style =~ /^broad/;
-  $style = 'setlinewidth(14)' if $style =~ /^wide/;
+  # XXX TODO: These should be (2, 0.5em, 1em) instead of 2,5,11
+  $style = 'setlinewidth(2), dashed' if $style =~ /^bold-dash/;
+  $style = 'setlinewidth(5)' if $style =~ /^broad/;
+  $style = 'setlinewidth(11)' if $style =~ /^wide/;
   
   return (undef, undef) if $style eq 'solid';	# default style can be suppressed
 
@@ -321,10 +321,10 @@ sub _graphviz_remap_border_style
   # borderstyle double will be handled extra with peripheries=2 later
   $style = 'solid' if $style eq 'double';
 
-  # XXX TODO: These should be (3, 0.5em, 1em) instead of 3,7,14
-  $style = 'setlinewidth(3)' if $style =~ /^bold/;
-  $style = 'setlinewidth(7)' if $style =~ /^broad/;
-  $style = 'setlinewidth(14)' if $style =~ /^wide/;
+  # XXX TODO: These should be (2, 0.5em, 1em) instead of 2,5,11
+  $style = 'setlinewidth(2)' if $style =~ /^bold/;
+  $style = 'setlinewidth(5)' if $style =~ /^broad/;
+  $style = 'setlinewidth(11)' if $style =~ /^wide/;
 
   my @rc;
   if ($style eq 'none')
@@ -842,9 +842,9 @@ sub _as_graphviz
     {
     delete $n->{_p};
     }
-  delete $self->{_graphviz_invis};		# invisible helper nodes
+  delete $self->{_graphviz_invis};		# invisible helper nodes for joints
 
-  $txt .  "\n}\n";	# close the graph again
+  $txt .  "\n}\n";				# close the graph
   }
 
 package Graph::Easy::Node;
@@ -873,12 +873,21 @@ sub attributes_as_graphviz
     {
     # for speed, try to look it up directly
 
-    # look if we have a code ref, if yes, simple set the value to undef
-    # and let the coderef handle it later:
+    # look if we have a code ref:
     if ( ref($remap->{$base_class}->{$name}) ||
          ref($remap->{all}->{$name}) )
       {
-      $a->{$name} = $attr->{$name};
+      $a->{$name} = $self->raw_attribute($name);
+      if (!defined $a->{$name})
+        {
+        my $b_attr = $g->get_attribute($base_class,$name);
+        my $c_attr = $g->get_attribute($class,$name);
+        if (defined $b_attr && defined $c_attr && $b_attr ne $c_attr)
+          {
+          $a->{$name} = $c_attr;
+          $a->{$name} = $b_attr unless defined $a->{$name};
+          }
+        }
       }
     else
       {
@@ -920,6 +929,7 @@ sub attributes_as_graphviz
     {
     my $p = $self->parent();
     $a->{fillcolor} = $p->attribute('fill');
+    $a->{fillcolor} = 'white' if $a->{fillcolor} eq 'inherit';
     }
 
   $shape = $self->attribute('shape') unless $self->isa_cell();
@@ -966,6 +976,16 @@ sub attributes_as_graphviz
   $att = ' [ ' . $att . ' ]' if $att ne '';
 
   $att;
+  }
+
+sub _as_html_like
+  {
+  # Generate a HTML-like label from one node with its relative children
+  my ($self) = @_;
+
+  my $rc = $self->_do_place(0,0, { cells => {}, cache => {} } );
+
+  my $html = '<>';
   }
 
 sub as_graphviz_txt
@@ -1030,7 +1050,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

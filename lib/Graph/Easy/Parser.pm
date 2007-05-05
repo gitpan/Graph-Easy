@@ -7,9 +7,10 @@ package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = '0.30';
+$VERSION = '0.31';
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
+use Scalar::Util qw/weaken/;
 
 use strict;
 use constant NO_MULTIPLES => 1;
@@ -171,9 +172,10 @@ sub _register_attribute_handler
       my ($a, $max_idx) = $self->_parse_attributes($1||'', $object);
       return undef if $self->{error};	# wrong attributes or empty stack?
 
+      print STDERR "max_idx = $max_idx, stack contains ", join (" , ", @$stack),"\n"
+	if $self->{debug} && $self->{debug} > 1;
       if ($max_idx != 1)
 	{
-#	print STDERR "max_idx = $max_idx, stack contains ", join (" , ", @stack),"\n";
 	my $i = 0;
         for my $n (@$stack)
 	  {
@@ -185,6 +187,18 @@ sub _register_attribute_handler
         # set attributes on all nodes/groups on stack
         for my $n (@$stack) { $n->set_attributes($a); }
 	}
+      # This happens in the case of "[ a | b ]\n { ... }", the node is consumed
+      # first, and the attributes are left over. And if we encounter a basename
+      # attribute here, the node-parts will already have been created with the
+      # wrong basename, so correct this:
+      if (defined $a->{basename})
+        {
+        for my $s (@$stack)
+          {
+          # for every node on the stack that is the primary one
+          $self->_set_new_basename($s, $a->{basename}) if exists $s->{autosplit_parts};
+          }
+        }
       1;
       } );
   }
@@ -545,6 +559,24 @@ sub from_text
     $self->{_old_self} = $old_self if ref($self);
     }
 
+  if ((ref($self)||$self) eq 'Graph::Easy::Parser' && 
+    # contains "graph: {"
+      $txt =~ /^([\s\n\t]*|\s*\/\*.*?\*\/\s*)graph\s*:\s*\{/m) 
+    {
+    require Graph::Easy::Parser::VCG;
+    # recreate ourselfes, and pass our arguments along
+    my $debug = 0;
+    my $old_self = $self;
+    if (ref($self))
+      {
+      $debug = $self->{debug};
+      $self->{fatal_errors} = 0;
+      }
+    $self = Graph::Easy::Parser::VCG->new( debug => $debug, fatal_errors => 0 );
+    $self->reset();
+    $self->{_old_self} = $old_self if ref($self);
+    }
+
   $self = $self->new() unless ref $self;
   $self->reset();
 
@@ -596,29 +628,32 @@ sub from_text
     
     my $line = $backbuffer . $subst . $self->_clean_line($curline);
 
-  print STDERR "# Line is '$line'\n" if $self->{debug} && $self->{debug} > 1;
+  print STDERR "# Line is '$line'\n" if $self->{debug} && $self->{debug} > 2;
 
     $handled = 0;
     PATTERN:
     for my $entry (@{$self->{match_stack}})
       {
+      # nothing to match against?
+      last PATTERN if $line eq '';
+
       $self->{replace} = '';
       my ($pattern, $handler, $replace) = @$entry;
 
-  print STDERR "# Matching against $pattern\n" if $self->{debug} && $self->{debug} > 1;
+  print STDERR "# Matching against $pattern\n" if $self->{debug} && $self->{debug} > 2;
 
       if ($line =~ $pattern)
         {
-  print STDERR "# Matched, calling handler\n" if $self->{debug} && $self->{debug} > 1;
+  print STDERR "# Matched, calling handler\n" if $self->{debug} && $self->{debug} > 2;
         my $rc = 1;
         $rc = &$handler($self) if defined $handler;
         if ($rc)
 	  {
           $replace = $self->{replace} unless defined $replace;
 	  $replace = &$replace($self,$line) if ref($replace);
-  print STDERR "# Handled it successfully.\n" if $self->{debug} && $self->{debug} > 1;
+  print STDERR "# Handled it successfully.\n" if $self->{debug} && $self->{debug} > 2;
           $line =~ s/$pattern/$replace/;
-  print STDERR "# Line is now '$line' (replaced with '$replace')\n" if $self->{debug} && $self->{debug} > 1;
+  print STDERR "# Line is now '$line' (replaced with '$replace')\n" if $self->{debug} && $self->{debug} > 2;
           $handled++; last PATTERN;
           }
         }
@@ -639,6 +674,7 @@ sub from_text
 
   # Do final cleanup (for parsing Graphviz)
   $self->_parser_cleanup() if $self->can('_parser_cleanup');
+  $graph->_drop_special_attributes();
 
   # turn on strict checking on returned graph
   $graph->strict(1);
@@ -771,6 +807,42 @@ sub _get_cluster_name
   $base_name;
   }
 
+sub _set_new_basename
+  {
+  # when encountering something like:
+  #   [ a | b ]
+  #   { basename: foo; }
+  # the Parser will create two nodes, ab.0 and ab.1, and then later see
+  # the "basename: foo". Sowe need to rename the already created nodes
+  # due to the changed basename:
+  my ($self, $node, $new_basename) = @_;
+
+  # nothing changes?
+  return if $node->{autosplit_basename} eq $new_basename;
+
+  my $g = $node->{graph};
+
+  my @parts = @{$node->{autosplit_parts}};
+  my $nr = 0;
+  for my $part ($node, @parts)
+    {
+    print STDERR "# Setting new basename $new_basename for node $part->{name}\n"
+      if $self->{debug} > 1;
+
+    $part->{autosplit_basename} = $new_basename;
+    $part->set_attribute('basename', $new_basename);
+  
+    # delete it from the list of nodes
+    delete $g->{nodes}->{$part->{name}};
+    $part->{name} = $new_basename . '.' . $nr; $nr++;
+    # and re-insert it with the right name
+    $g->{nodes}->{$part->{name}} = $part;
+
+    # we do not need to care for edges here, as they are stored with refs
+    # to the nodes and not the node names itself
+    }
+  }
+
 sub _autosplit_node
   {
   # Takes a node name like "a|b||c" and splits it into "a", "b", and "c".
@@ -873,22 +945,28 @@ sub _autosplit_node
       {
       # for correct as_txt output
       $node->{autosplit} = $name;
-      $node->{autosplit} =~ s/\s+\z//;	# strip trailing spaces
-      $node->{autosplit} =~ s/^\s+//;	# strip leading spaces
+      $node->{autosplit} =~ s/\s+\z//;		# strip trailing spaces
+      $node->{autosplit} =~ s/^\s+//;		# strip leading spaces
+      $node->{autosplit} =~ s/([^\|])\s+\|/$1 \|/g;	# 'foo  |' => 'foo |'
+      $node->{autosplit} =~ s/\|\s+([^\|])/\| $1/g;	# '|  foo' => '| foo'
       $node->set_attribute('basename', $att->{basename}) if defined $att->{basename};
+      # list of all autosplit parts so as_txt() can find them easily again
+      $node->{autosplit_parts} = [ ];
       $first_in_row = $node;
       }
     else
       {
-      # second, third etc get previous as origin
+      # second, third etc. get previous as origin
       my ($sx,$sy) = (1,0);
       my $origin = $rc[-2];
       if ($last_sep eq '||')
         {
         ($sx,$sy) = (0,1); $origin = $first_in_row;
         $first_in_row = $node;
-        } 
+        }
       $node->relative_to($origin,$sx,$sy);
+      push @{$rc[0]->{autosplit_parts}}, $node;
+      weaken @{$rc[0]->{autosplit_parts}}[-1];
 
       # suppress as_txt output for other parts
       $node->{autosplit} = undef;
@@ -935,7 +1013,7 @@ sub _new_node
     @rc = ( $graph->add_node($node) );
     }
   # nodes to be autosplit will be done in a sep. pass for Graphviz
-  elsif (!$self->isa('Graph::Easy::Parser::Graphviz') && $name =~ /[^\\]\|/)
+  elsif ((ref($self) eq 'Graph::Easy::Parser') && $name =~ /[^\\]\|/)
     {
     $autosplit = 1;
     @rc = $self->_autosplit_node($graph, $name, $att);
@@ -1028,9 +1106,15 @@ sub _match_node
   # return a regexp that matches something like " [ bonn ]" and returns
   # the inner text without the [] (might leave some spaces)
 
-  #        v--- for empty nodes
-  #         v-- normal nodes  
-  qr/\s*\[(|[^\]]*?[^\\])\]/;
+  qr/\s*\[				#  '[' start of the node
+    (
+     (?:				# non-capturing group
+      \\.				# either '\]' or '\N' etc.
+      |					#  or
+      [^\]\\]				# not ']' and not '\'
+     )*					# 0 times for '[]'
+    )
+    \]/x;				# followed by ']'
   }
 
 sub _match_class_selector
@@ -1133,11 +1217,11 @@ sub _parse_attributes
 
   return {} if $text =~ /^\s*\z/;
 
-# print STDERR "attr parsing: matching\n '$text'\n against $qr_att\n";    
+  print STDERR "attr parsing: matching\n '$text'\n against $qr_att\n" if $self->{debug} > 3;    
 
   while ($text ne '')
     {
-# print STDERR "attr parsing: matching '$text'\n";    
+    print STDERR "attr parsing: matching '$text'\n" if $self->{debug} > 3;    
 
     # remove a possible comment
     $text =~ s/^$qr_cmt//g if $qr_cmt;
@@ -1163,6 +1247,12 @@ sub _parse_attributes
     $out->{$name} = $val;
     }
 
+  if ($self->{debug} && $self->{debug} > 1)
+    {
+    require Data::Dumper;
+    print STDERR "# ", join (" ", caller),"\n";
+    print STDERR "# Parsed attributes into:\n", Data::Dumper::Dumper($out),"\n";
+    }
   # possible remap attributes (for parsing Graphviz)
   $out = $self->_remap_attributes($out, $object) if $self->can('_remap_attributes');
 
@@ -1173,6 +1263,8 @@ sub _parse_attributes
     my ($rc, $newname, $v) = $g->validate_attribute($name,$out->{$name},$class,$no_multiples);
 
     $self->error($g->{error}) if defined $rc;
+
+    $multiples = scalar @$v if ref($v) eq 'ARRAY';
 
     $att->{$newname} = $v if defined $v;	# undef => ignore attribute
     }
@@ -1189,8 +1281,8 @@ sub parse_error
   my $msg_nr = shift;
 
   # XXX TODO: should really use the msg nr mapping
-  my $msg = "Found unexpected group end at line $self->{line_nr}";			# 0
-  $msg = "Error in attribute: '##param2##' is not a valid attribute name for a ##param3##"			# 1
+  my $msg = "Found unexpected group end";						# 0
+  $msg = "Error in attribute: '##param2##' is not a valid attribute for a ##param3##"	# 1
         if $msg_nr == 1;
   $msg = "Error in attribute: '##param1##' is not a valid ##param2## for a ##param3##"
 	if $msg_nr == 2;								# 2
@@ -1252,6 +1344,8 @@ Example:
 	[ Bonn ]      --> [ Frankfurt ]
 	[ Bonn ]      = > [ Frankfurt ]
 
+=head3 Graphviz
+
 In addition there is a bit of magic that detects graphviz code, so
 input of the following form will also work:
 
@@ -1270,6 +1364,20 @@ at the start:
 
 See L<Graph::Easy::Parser::Graphviz> for more information about parsing
 graphs in the DOT language.
+
+=head3 VCG
+
+In addition there is a bit of magic that detects VCG code, so
+input of the following form will also work:
+
+	graph: {
+		node: { title: Bonn; }
+		node: { title: Berlin; }
+		edge: { sourcename: Bonn; targetname: Berlin; }
+	}
+
+See L<Graph::Easy::Parser::VCG> for more information about parsing
+graphs in the VCG language.
 
 =head2 Input Syntax
 

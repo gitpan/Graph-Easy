@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 148;
+   plan tests => 149;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -346,8 +346,8 @@ $bonn->set_attribute( 'border-style' => 'broad' );
 
 $grviz = $graph->as_graphviz();
 like ($grviz, qr/[^"]Bonn[^"]/, 'contains Bonn unquoted');
-like ($grviz, qr/Bonn.*style="filled,setlinewidth\(7\)"/, 
- '7 pixel for broad border');
+like ($grviz, qr/Bonn.*style="filled,setlinewidth\(5\)"/, 
+ '5 pixel for broad border');
 
 #############################################################################
 # quoting of special characters
@@ -629,4 +629,18 @@ $edge->set_attribute('label','car');
 
 $grviz = $graph->as_graphviz();
 like ($grviz, qr/label=car/, "edge label appears in output");
+
+#############################################################################
+# fill as class attribute
+
+$graph = Graph::Easy->new();
+
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+$bonn->set_attribute('class','red');
+
+$graph->set_attribute('node.red', 'fill', 'red');
+
+$grviz = $graph->as_graphviz();
+like ($grviz, qr/fillcolor="#ff0000"/, "contains fill red");
+
 

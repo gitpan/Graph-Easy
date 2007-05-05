@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 142;
+   plan tests => 146;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser") or die($@);
@@ -37,7 +37,7 @@ $parser->reset();
 
 $parser->{line_nr} = 0;
 is ($parser->parse_error(1,'foo','bar','node'),
-    "Error in attribute: 'bar' is not a valid attribute name for a node at line 0");
+    "Error in attribute: 'bar' is not a valid attribute for a node at line 0");
 
 $parser->{line_nr} = 0;
 is ($parser->parse_error(2,'boldly','style','edge'),
@@ -208,6 +208,13 @@ edge { color: red; }|0
 # unique cluster names, despite trickery in source with "ABC-1" as split node:
 [ A | B | C | -1 ] => [ A ] [ A | B | C ] => [ A ]|8,A,A,ABC-1.0,B,ABC-1.1,C,ABC-1.2,-1,ABC-1.3,A,ABC.0,B,ABC.1,C,ABC.2
 [ A | B | C | -1 ] => [ A ] [ A | B | C ] => [ A ] [ A | B | C ]|11,A,A,ABC-1.0,B,ABC-1.1,C,ABC-1.2,-1,ABC-1.3,A,ABC-2.0,B,ABC-2.1,C,ABC-2.2,A,ABC.0,B,ABC.1,C,ABC.2
+# nodes with \[\]
+[ char\[\] ]|1,char[]
+[ char\[\] ] -> [ \[\] ]|2,[],char[]
+# split nodes with \[\]
+[ char\[\] || int ]|2,char[],char[]int.0,int,char[]int.1
+# error testing (no end of node)
+[ Bonn\[\]|ERROR
 # normal tests
 [ Berlin ]|1,Berlin
 [Hamburg]|1,Hamburg

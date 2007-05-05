@@ -2,6 +2,7 @@ edge { arrowstyle: filled; }
 graph {
   colorscheme: x11;
   flow: east;
+  title: G;
 }
 
 [ 0 ] --> [ 11 ]

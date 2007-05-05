@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 112;
+   plan tests => 124;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -13,9 +13,10 @@ BEGIN
 
 can_ok ("Graph::Easy", qw/
   new
-  css as_html as_html_page as_txt
-  as_ascii as_ascii_html
-  as_graphviz as_svg
+  css as_html as_html_page as_txt as_vcg as_boxart as_gdl
+  as_ascii as_ascii_html as_graphviz as_svg
+  as_ascii_file as_html_file as_svg_file as_vcg_file
+  as_boxart_file as_gdl_file
   as_debug
   html_page_header
   html_page_footer
@@ -30,7 +31,7 @@ can_ok ("Graph::Easy", qw/
   del_node
   del_edge
 
-  flip_edges
+  flip_edges rename_node
 
   set_attributes
   set_attribute
@@ -331,6 +332,45 @@ is ($graph->nodes(), '1', 'one node');
 is ($graph->{nodes}->{0}, $node, 'got inserted with name 0');
 
 is ($graph->node('0'), $node, 'found node 0 again');
+
+#############################################################################
+# renaming nodes
+
+#############################################################################
+# node is not a reference
+
+$graph = Graph::Easy->new();
+
+$node = $graph->rename_node('abc','bcd');
+is ($graph->nodes(), '1', 'one node');
+is ($graph->{nodes}->{bcd}, $node, 'got inserted with name bcd');
+
+#############################################################################
+# node is not yet part of any graph
+
+$graph = Graph::Easy->new();
+$node = Graph::Easy::Node->new( { name => 'abc' } );
+
+my $new_node = $graph->rename_node($node,'bcd');
+is ($graph->nodes(), '1', 'one node');
+is ($new_node->{name}, 'bcd', 'got renamed');
+is ($graph->{nodes}->{bcd}, $node, 'got inserted with name bcd');
+is ($node->{graph}, $graph, 'node is part of this graph');
+is ($new_node, $node, 'returned node');
+
+#############################################################################
+# node is not part of another graph
+
+$graph = Graph::Easy->new();
+my $g2 = Graph::Easy->new();
+$node = $g2->add_node( 'abc' );
+
+$new_node = $graph->rename_node($node,'bcd');
+is ($graph->nodes(), '1', 'one node');
+is ($g2->nodes(), '0', 'other graph has now zero');
+is ($graph->{nodes}->{bcd}, $node, 'got inserted with name bcd');
+is ($node->{graph}, $graph, 'node is part of this graph');
+is ($new_node, $node, 'returned node');
 
 1; # all tests done
 

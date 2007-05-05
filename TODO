@@ -8,6 +8,7 @@ Important short-term TODO:
 * graphviz parsing roundtrip:
   + anon nodes lose their " " label
   + border-width is wrongly dropped
+  + t/in/dot/9_edge_styles.dot is wrong
 * Combining table cells goes wrong if there is a "hole" in a row
   of cells. We need to gather them with their coordinates and only
   combine cells that are next to each other.
@@ -15,6 +16,14 @@ Important short-term TODO:
 * setting "offset: -2,0;" causes problems for multi-row nodes because
   the offset is taken into effect before growing the node
 * [ a ] { label: a; } - remove the superflous label upon parsing
+
+* VCG/GDL
+  + debug, finish the a ttribute remapping and add test cases
+  + implement support for \fn \fb \fI \fu \fB (bold underline etc.)
+  + implement support for \fi035 (ISO char)
+  + implement support for \f03 (colors)
+  + implement support for \f- (hor line)
+  + implement full color-remapping support (in both directions)
 
 * layouter:
   + implement autosplit and autojoin for edges
@@ -140,17 +149,18 @@ Output:
 
 * as_boxart has some incorrect corner pieces:
    echo "[A|B|C||D]" | perl examples/as_boxart
-   ┌───┬───┬───┐
+   ┌───┐───┐───┐
    │ A │ B │ C │
-   └───┼───┴───┘
+   └───┘───┘───┘
    │ D │
    └───┘
    echo "[A| |C||D| |E]" |perl examples/as_boxart
-   ┌───┤ │───┐
-   │ A │ │ C │
-   └───┼  ───┤
-   │ D │ │ E │
-   └───┘  ───┘
+   ┌───┐   ┌───┐
+   │ A │   │ C │
+   └───┘   └───┘
+   │   │   │   │
+   │ D │   │ E │
+   └───┘   └───┘
 
 Layout:
 
@@ -183,6 +193,10 @@ General:
   + #id (object with ID id)
 
 * implement pseudo-class "step" for animations (see POD)
+
+* add some possibility to have different fonts, sizes and colors inside one
+  label ala (when labelstyle=pod):
+  FG<red|red text> BG<red|red background> FS<2em|big text>
 
 Optimizing:
 

@@ -2,6 +2,7 @@ edge { arrowstyle: filled; }
 graph {
   colorscheme: x11;
   flow: south;
+  title: G;
 }
 
 [ A ] { color: lightsalmon; font: Helvetica; fontsize: 14px; shape: rect; }

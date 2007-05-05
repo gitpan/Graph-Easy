@@ -1,5 +1,63 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2007-05-05 v0.55 Tels 2433 tests
+  * bin/graph-easy:
+    + as_png and as=png
+    + add support for VCG/GDL
+    + do not clobber output file if we cannot read input file
+    + make --help work under older Pod::Usage versions
+    + make "echo '[A]' | graph-easy" work while "graph-easy" outputs help
+    + optimize startup to be about 10% faster if we don't have arguments
+  * add support for VCG/GDL (Parser/VCG)
+  * remove a few stray "use utf8;" in files with no high-bit bytes
+    (Thanx Juerd!)
+  * add rename_node()
+  * Attributes:
+    + an unset attribute in a subclass will cause the attribute to be
+      looked up in the base class, and not just use blindly the default
+      attribute from the base class:
+        node { align: left; }
+        [ L ] { class: foo; }    # L is be left-aligned and not center!
+      Due to the way CSS inheritance works and HTML+CSS is emitted, this
+      bug showed only up in as_ascii()
+    + properly support \N, \E, \G, \T, and \H in labels, links and titles
+    + support \L links and titles
+  * as_txt():
+    + quote characters like '[' for autosplit nodes, too
+    + remove spaces inside autosplit nodes to normalize their text output:
+      "[ Some   || test  | B ]" becomes "[ Some || test | B ]"
+    + attributes for autosplit nodes were not properly output, especially
+      if they were something like "color|" or "red|blue"
+  * as_html():
+    + fix undirected edges (unitialized warning and edges sticking too close
+      to the start node)
+    + adjust alignment of the edge arrows by using more relative positioning
+    + make the spacing of edges smaller, so they don't inflate node sizes
+  * as_graphviz():
+    + fix fillcolor on nodes with shape plaintext
+    + adjust the linewidth style to not be that overly huge
+    + handle fill for nodes with subclasses correctly
+  * Parser:
+    + support "\]" in node names like so: "[ char\[\] ]"
+    + attributes ending in '|' like "color|;" on autosplit nodes were ignored
+    + autosplit nodes with the attributes following on the next line had any
+      set basename attribute ignored (see t/in/4_bug_basename.txt)
+  * Parser/Graphviz:
+    + a lone "node:port" did not result in "node" to be created
+    + set the graph name as the default graph title
+    + handle a semicolon after "}" for subgraphs and graphs
+    + handle the variant "graph { A--B }"
+    + support the "output" attribute (for the Mediawiki integration)
+    + adjust for the changed linewidth styles
+    + remove the replacement of \E, \N, \T, \H and \G now that Graph::Easy
+      knows these, too. Allows proper roundtrips of these escapes.
+  * as_html()/as_svg:
+    + setting a colorscheme on the graph and some class color attribute to
+      the color "1" didn't result in the real color, but in "color: 1;" in
+      the generated CSS code
+  * Layouter:
+    + fix endless loop in the bend-optimizer due to a swapped X and Y
+
 2007-03-18 v0.54 Tels 2349 tests
   * add some examples to bin/graph-easy
   * fix borders on rounded/circle/ellipse nodes outside groups
