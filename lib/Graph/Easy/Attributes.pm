@@ -5,7 +5,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.28';
+$VERSION = '0.29';
 
 package Graph::Easy;
 
@@ -2568,7 +2568,7 @@ sub split_border_attributes
 
 # different types of attributes with pre-defined handling
 use constant {
-  ATTR_STRING	=> 0,		# other strings 
+  ATTR_STRING	=> 0,		# an arbitrary strings 
   ATTR_COLOR	=> 1,
   ATTR_ANGLE	=> 2,
   ATTR_PORT	=> 3,
@@ -3010,6 +3010,15 @@ EOF
 	"graph { root: B; }\n # B will be at the left-most place\n [ A ] --> [ B ] --> [ C ] --> [ D ] --> [ A ]",
      ],
 
+    type => [
+	"The type of the graph, either undirected or directed.",
+	[ qw/directed undirected/ ],
+	'directed',
+	'undirected',
+	ATTR_LIST,
+	"graph { type: undirected; }\n [ A ] --> [ B ]",
+     ],
+
   }, # graph
 
   edge => {
@@ -3259,6 +3268,11 @@ sub default_attribute
   # Remap alias names without "-" to their hyphenated version:
   $name = $att_aliases->{$name} if exists $att_aliases->{$name};
 
+  # "x-foo-bar" is a custom attribute, so allow it always. The name must
+  # consist only of letters and hyphens, and end in a letter. Hyphens
+  # must be separated by letters. Custom attributes do not have a default.
+  return '' if $name =~ /^x-([a-z_]+-)*[a-z_]+\z/;
+
   # prevent ->{special}->{node} from springing into existance
   my $s = $attributes->{special}; $s = $s->{$class} if exists $s->{$class};
 
@@ -3310,6 +3324,10 @@ sub raw_attribute
 		$attributes->{all}->{$name} ||
 		$attributes->{$base_class}->{$name};
 
+  # create a fake entry for custom attributes
+  $entry = [ '', undef, '', '', ATTR_STRING, '' ]
+    if $name =~ /^x-([a-z_]+-)*[a-z_]+\z/;
+
   # Didn't found an entry:
   if (!ref($entry))
     {
@@ -3341,9 +3359,10 @@ sub raw_attribute
   $val = $self->{group}->color_attribute('fill')
     if $name eq 'background' && ref $self->{group};
 
-  return $val if !defined $val || $val ne 'inherit';
+  return $val if !defined $val || $val ne 'inherit' ||
+    $name =~ /^x-([a-z_]+-)*[a-z_]+\z/;
 
-  # $val is defined, and "inherit"
+  # $val is defined, and "inherit" (and it is not a special attribute)
 
   # for graphs, there is nothing to inherit from
   return $val if $class eq 'graph';
@@ -3520,6 +3539,10 @@ sub attribute
   my $entry =	$s->{$name} ||
 		$attributes->{all}->{$name} ||
 		$attributes->{$base_class}->{$name};
+
+  # create a fake entry for custom attributes
+  $entry = [ '', undef, '', '', ATTR_STRING, '' ]
+    if $name =~ /^x-([a-z_]+-)*[a-z_]+\z/;
 
   # Didn't found an entry:
   if (!ref($entry))
@@ -3715,6 +3738,11 @@ sub validate_attribute
   $self->error("Got reference $value as value, but expected scalar") if ref($value);
   $self->error("Got reference $name as name, but expected scalar") if ref($name);
 
+  # "x-foo-bar" is a custom attribute, so allow it always. The name must
+  # consist only of letters and hyphens, and end in a letter. Hyphens
+  # must be separated by letters.
+  return (undef, $name, $value) if $name =~ /^x-([a-z_]+-)*[a-z_]+\z/;
+
   $class = 'all' unless defined $class;
   $class =~ s/\..*\z//;		# remove subclasses
 
@@ -3733,7 +3761,7 @@ sub validate_attribute
     $self->warn("Ignoring unknown attribute '$name' for class $class") 
       if $self->{_warn_on_unknown_attributes};
     $self->error("Error in attribute: '$name' is not a valid attribute name for a $class");
-    return (1);				# return error
+    return (1,undef,undef);				# return error
     }
 
   my $check = $entry->[ATTR_MATCH_SLOT];
@@ -3832,6 +3860,7 @@ sub _remap_attributes
   my $r = $remap->{$class};
   my $ra = $remap->{all};
   my $ral = $remap->{always};
+  my $x = $remap->{x};
 
   # This loop does also handle the individual "bordercolor" attributes.
   # If the output should contain only "border", but not "bordercolor", then
@@ -3876,11 +3905,13 @@ sub _remap_attributes
 
     my $temp = { $atr => $val };
 
-    # if given a code ref, call it to remap name and/or value
-    if (exists $r->{$atr} || exists $ra->{$atr})
+    # see if there is a handler for custom attributes
+    if (exists $r->{$atr} || exists $ra->{$atr} || (defined $x && $atr =~ /^x-/))
       {
       my $rc = $r->{$atr}; $rc = $ra->{$atr} unless defined $rc;
+      $rc = $x unless defined $rc;
 
+      # if given a code ref, call it to remap name and/or value
       if (ref($rc) eq 'CODE')
         {
         my @rc = &{$rc}($self,$atr,$val,$object);

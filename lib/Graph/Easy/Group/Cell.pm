@@ -114,7 +114,7 @@ sub _init
   if (defined $self->{group})
     {
     # register ourselves at this group
-    $self->{group}->add_cell ($self);
+    $self->{group}->_add_cell ($self);
     # XXX CHECK also implement sub_class()
     $self->{class} = $self->{group}->{class};
     $self->{class} = 'group' unless defined $self->{class};

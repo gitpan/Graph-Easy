@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 47;
+   plan tests => 59;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Group") or die($@);
@@ -22,11 +22,15 @@ can_ok ("Graph::Easy::Group", qw/
   add_node
   add_nodes
   add_member
+  has_as_successor
+  has_as_predecessor
+  successors
+  predecessors
 
   nodes
   edges
 
-  add_cell del_cell
+  _add_cell _del_cell _cells _clear_cells
 
   del_node
   del_edge
@@ -147,7 +151,7 @@ is ($cell->attribute('fill'), '#a0d0ff', 'fill on group cell');
 #print join (" ", keys %{$group->{cells}}),"\n";
 
 is (scalar keys %{$group->{$c}}, 4, 'one less');
-$group->del_cell($cell);
+$group->_del_cell($cell);
 
 is (scalar keys %{$group->{$c}}, 3, 'one less');
 is ($cell->group(), undef, "no group() on deleted cell");
@@ -167,12 +171,13 @@ for my $m ($A,$B,$E)
   }
 
 is ($group->nodes(), 2, '2 nodes in group');
-is ($group->edges(), 1, '1 edge in group');
+is ($group->edges(), 0, '0 edges going from/to group');
+is ($group->edges_within(), 1, '1 edge in group');
 
 $graph->del_node($A);
 
 is ($group->nodes(), 1, '1 node in group');
-is ($group->edges(), 0, '0 edge in group');
+is ($group->edges(), 0, '0 edges in group');
 
 ($A,$B,$E) = $graph->add_edge('A','B','E');
 
@@ -180,10 +185,36 @@ $group->add_member($A);
 $group->add_member($E);
 
 is ($group->nodes(), 2, '2 nodes in group');
-is ($group->edges(), 1, '1 edge in group');
+is ($group->edges(), 0, '0 edges going from/to group');
+is ($group->edges_within(), 1, '1 edge in group');
 
 $graph->del_edge($E);
 
 is ($group->nodes(), 2, '2 nodes in group');
-is ($group->edges(), 0, '0 edge in group');
+is ($group->edges(), 0, '0 edges in group');
+is ($group->edges_within(), 0, '0 edges in group');
+
+#############################################################################
+# successors and predecessors
+
+$graph = Graph::Easy->new();
+
+$group = $graph->add_group('group');
+
+my ($g1,$bonn) = $graph->add_edge($group, 'Bonn');
+my ($berlin,$g2) = $graph->add_edge('Berlin', $group);
+
+is ($group->has_as_successor($bonn), 1, 'group -> bonn');
+is ($group->has_as_successor($berlin), 0, '! group -> berlin');
+is ($group->has_as_predecessor($berlin), 1, 'berlin -> group');
+is ($group->has_as_predecessor($bonn), 0, '! bonn -> group');
+
+is ($bonn->has_as_successor($group), 0, '! group -> bonn');
+is ($berlin->has_as_predecessor($group), 0, 'group -> berlin');
+is ($bonn->has_as_predecessor($group), 1, 'bonn -> group');
+
+my @suc = $group->successors();
+
+is (scalar @suc, 1, 'one successor');
+is ($suc[0], $bonn, 'group => bonn');
 

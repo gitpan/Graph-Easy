@@ -156,7 +156,7 @@ foreach (<DATA>)
 
   $got .= '+' . $es if $es > 0;
 
-  for my $n ( sort { $a->{name} cmp $b->{name} || ($b->{att}->{label}||'') cmp ($a->{att}->{label}||'') }
+  for my $n ( sort { $a->name() cmp $b->name() }
    ($graph->nodes(), $graph->edges()) )
     {
     $got .= "," . $n->label() unless $n->label() =~ /^\s?\z/ || $n->label() eq $n->name();
@@ -288,10 +288,10 @@ graph { background: red; } [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ], [ Berlin ], [ Ulm ] --> [ Hamburg ] [ Trier ] --> [ Ulm ]|5,Berlin,Bonn,Hamburg,Trier,Ulm
 ( Group [ Bonn ], [ Berlin ] => [ Leipzig ] ) { color: red; }|3,Berlin,Bonn,Leipzig,Group
 [ Bonn ] -> [ Berlin ]\n --> { color: red; } [ Leipzig ]|3,Berlin,Bonn,Leipzig
-[ Bonn ] --> { label: test; } [ Berlin ]|2+1,test,Berlin,Bonn
-[ Bonn ] --> { label: test; } [ Berlin ] { color: blue; }|2+1,test,Berlin,Bonn
-[ Bonn ] --> { label: test; } [ Berlin ] { color: blue; }|2+1,test,Berlin,Bonn
-[ Bonn ] --> { label: test; } [ Berlin ] { color: blue; } --> { label: test2; } [ Leipzig ]|3+2,test2,test,Berlin,Bonn,Leipzig
+[ Bonn ] --> { label: test; } [ Berlin ]|2+1,Berlin,Bonn,test
+[ Bonn ] --> { label: test; } [ Berlin ] { color: blue; }|2+1,Berlin,Bonn,test
+[ Bonn ] --> { label: test; } [ Berlin ] { color: blue; }|2+1,Berlin,Bonn,test
+[ Bonn ] --> { label: test; } [ Berlin ] { color: blue; } --> { label: test2; } [ Leipzig ]|3+2,Berlin,Bonn,Leipzig,test,test2
 # undirected edges
 [ Bonn ] -- [ Berlin ]|2,Berlin,Bonn
 [ Bonn ] -- [ Berlin ] [Ulm] --> [ Mainz]|4,Berlin,Bonn,Mainz,Ulm

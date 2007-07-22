@@ -16,9 +16,9 @@ can_ok ("Graph::Easy::Edge", qw/
   new
   error
   label
-  cells
-  add_cell
-  clear_cells
+  _cells
+  _add_cell
+  _clear_cells
   _unplace
   attribute
   undirected
@@ -108,7 +108,7 @@ is ($edge->as_txt(), ' -- train --> ', ' -- train -->');
 #############################################################################
 # cells
 
-is (scalar $edge->cells(), 0, 'no cells');
+is (scalar $edge->_cells(), 0, 'no cells');
 
 my $c = Graph::Easy::Edge::Cell->new (
     edge => $edge,
@@ -116,8 +116,8 @@ my $c = Graph::Easy::Edge::Cell->new (
     x => 1, y => 1,
     after => 0,
     );
-is (scalar $edge->cells(), 1, 'one cell');
-my @cells = $edge->cells();
+is (scalar $edge->_cells(), 1, 'one cell');
+my @cells = $edge->_cells();
 is ($cells[0], $c, 'added this cell');
 
 my $c_1 = Graph::Easy::Edge::Cell->new (
@@ -126,13 +126,13 @@ my $c_1 = Graph::Easy::Edge::Cell->new (
     x => 2, y => 1,
     after => $c,
     );
-is (scalar $edge->cells(), 2, 'two cells');
-@cells = $edge->cells();
+is (scalar $edge->_cells(), 2, 'two cells');
+@cells = $edge->_cells();
 is ($cells[0], $c, 'first cell stayed');
 is ($cells[1], $c_1, 'added after first cell');
 
-$edge->clear_cells();
-is (scalar $edge->cells(), 0, 'no cells');
+$edge->_clear_cells();
+is (scalar $edge->_cells(), 0, 'no cells');
 
 #############################################################################
 # undirected/bidirectional

@@ -545,7 +545,7 @@ sub _layout
   # mark all edges as unprocessed, so that we do not process them twice
   for my $edge (values %{$self->{edges}})
     { 
-    $edge->clear_cells();
+    $edge->_clear_cells();
     $edge->{_todo} = undef;		# mark as todo
     }
 

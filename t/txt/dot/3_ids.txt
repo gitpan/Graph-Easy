@@ -2,8 +2,8 @@ edge { arrowstyle: filled; }
 graph {
   colorscheme: x11;
   flow: south;
-  title: unnamed;
-  type: undirected;
+  title: G;
 }
 
-[ bonn ] -- [ berlin ]
+[ 123 ]
+[ abc ] --> [ test ]

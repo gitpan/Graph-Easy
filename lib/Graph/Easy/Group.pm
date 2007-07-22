@@ -10,7 +10,7 @@ use Graph::Easy;
 use Scalar::Util qw/weaken/;
 
 @ISA = qw/Graph::Easy::Node Graph::Easy/;
-$VERSION = '0.19';
+$VERSION = '0.20';
 
 use strict;
 
@@ -56,9 +56,19 @@ sub nodes
 
 sub edges
   {
+  # edges leading from/to this group
   my $self = shift;
 
   wantarray ? ( values %{$self->{edges}} ) : scalar keys %{$self->{edges}};
+  }
+
+sub edges_within
+  {
+  # edges between nodes inside this group
+  my $self = shift;
+
+  wantarray ? ( values %{$self->{edges_within}} ) : 
+		scalar keys %{$self->{edges_within}};
   }
 
 #############################################################################
@@ -112,7 +122,7 @@ sub add_node
 
 sub add_member
   {
-  # add an edge or node to this group
+  # add a node or group to this group
   my ($self,$n) = @_;
  
   if (!ref($n) || !$n->isa("Graph::Easy::Node"))
@@ -120,21 +130,21 @@ sub add_member
     require Carp;
     Carp::confess("Cannot add non node-object $n to group '$self->{name}'");
     }
+  if ($n->isa("Graph::Easy::Edge"))
+    {
+    # for an edge, we move both the start/end node into this group
+    $self->add_node($n->{from});
+    $self->add_node($n->{to});
+    # the edge itself will be added later during to the layout stage
+    return $self->_add_edge($n);
+    }
 
   return $self->add_group($n) if $n->isa('Graph::Easy::Group');
 
-  my $class = 'nodes'; my $key = 'name';
-  if ($n->isa('Graph::Easy::Edge'))
-    {
-    $class = 'edges'; $key = 'id';
-    }
-  $self->{$class}->{ $n->{$key} } = $n;
-
-  # nodes => nodeclass, edges => edgeclass
-  $class =~ s/s\z/class/;
+  $self->{nodes}->{ $n->{name} } = $n;
 
   # if defined attribute "nodeclass", put our nodes into that class
-  my $cl = $self->attribute($class) || '';
+  my $cl = $self->attribute('nodeclass');
   $n->sub_class($cl) if $cl ne '';
 
   # register ourselves with the member
@@ -145,13 +155,15 @@ sub add_member
 
 sub del_member
   {
-  # delete an edge or node from this group
+  # delete a node or group from this group
   my ($self,$n) = @_;
 
+  # XXX TOOD: groups vs. nodes
   my $class = 'nodes'; my $key = 'name';
-  if ($n->isa('Graph::Easy::Edge'))
+  if ($n->isa('Graph::Easy::Group'))
     {
-    $class = 'edges'; $key = 'id';
+    # XXX TOOD: groups vs. nodes
+    $class = 'groups'; $key = 'id';
     }
   delete $self->{$class}->{ $n->{$key} };
   delete $n->{group};			# unregister us
@@ -159,7 +171,7 @@ sub del_member
   if ($n->isa('Graph::Easy::Node'))
     {
     # find all edges that mention this node and drop them from the group
-    my $edges = $self->{edges};
+    my $edges = $self->{edges_within};
     for my $e (values %$edges)
       {
       delete $edges->{ $e->{id} } if $e->{from} == $n || $e->{to} == $n;
@@ -178,7 +190,7 @@ sub del_node
   delete $n->{group};			# unregister us
 
   # find all edges that mention this node and drop them from the group
-  my $edges = $self->{edges};
+  my $edges = $self->{edges_within};
   for my $e (values %$edges)
     {
     delete $edges->{ $e->{id} } if $e->{from} == $n || $e->{to} == $n;
@@ -199,26 +211,34 @@ sub add_nodes
       Carp::confess("Cannot add non-object or group $n as node to group '$self->{name}'");
       }
     $self->{nodes}->{ $n->{name} } = $n;
+
+#   XXX TODO TEST!
+#    # if defined attribute "nodeclass", put our nodes into that class
+#    $n->sub_class($self->{att}->{nodeclass}) if exists $self->{att}->{nodeclass};
+#
+#    # register ourselves with the member
+#    $n->{group} = $self;
     }
   $self;
   }
 
 #############################################################################
 
-sub del_edge
+sub _del_edge
   {
   # delete an edge from this group
   my ($self,$e) = @_;
 
-  delete $self->{edges}->{ $e->{id} };
+  delete $self->{edges_within}->{ $e->{id} };
   delete $e->{group};			# unregister us
 
   $self;
   }
 
-sub add_edge
+sub _add_edge
   {
-  # add an edge to this group
+  # add an edge to this group (e.g. when both from/to of this edge belong
+  # to this group)
   my ($self,$e) = @_;
 
   if (!ref($e) || !$e->isa("Graph::Easy::Edge"))
@@ -226,11 +246,15 @@ sub add_edge
     require Carp;
     Carp::confess("Cannot add non edge-object $e to group '$self->{name}'");
     }
-  $self->{edges}->{ $e->{id} } = $e;
+  $self->{edges_within}->{ $e->{id} } = $e;
 
   # if defined attribute "edgeclass", put our edges into that class
-  $e->sub_class($self->{att}->{edgeclass}) if exists $self->{att}->{edgeclass};
- 
+  my $edge_class = $self->attribute('edgeclass');
+  $e->sub_class($edge_class) if $edge_class ne '';
+
+  # register us, but don't do weaken() if the ref was already set
+  weaken($e->{group} = $self) unless defined $e->{group} && $e->{group} == $self;
+
   $self;
   }
 
@@ -269,7 +293,9 @@ sub add_group
   $group;
   }
 
-sub cells
+# cell management - used by the layouter
+
+sub _cells
   {
   # return all the cells this group currently occupies
   my $self = shift;
@@ -277,7 +303,7 @@ sub cells
   $self->{_cells};
   }
 
-sub clear_cells
+sub _clear_cells
   {
   # remove all belonging cells
   my $self = shift;
@@ -287,7 +313,7 @@ sub clear_cells
   $self;
   }
 
-sub add_cell
+sub _add_cell
   {
   # add a cell to the list of cells this group covers
   my ($self,$cell) = @_;
@@ -297,7 +323,7 @@ sub add_cell
   $cell;
   }
 
-sub del_cell
+sub _del_cell
   {
   # delete a cell from the list of cells this group covers
   my ($self,$cell) = @_;
@@ -489,7 +515,6 @@ specified value.
 =head2 add_member()
 
 	$group->add_member($node);
-	$group->add_member($edge);
 	$group->add_member($group);
 
 Add the specified object to this group.
@@ -506,11 +531,19 @@ Note that each object can only be a member of one group at a time.
 
 =head2 add_edge()
 
-	$group->add_edge($edge);
+	$group->add_edge($edge);		# Graph::Easy::Edge
+	$group->add_edge($from, $to);		# Graph::Easy::Node or
+						# Graph::Easy::Group
+	$group->add_edge('From', 'To');		# Scalars
 
-Add the specified edge to this group.
+Moves the nodes involved in this edge to the group. If the two nodes
+do not exist in the parent graph yet, they are created there.
 
-Note that each object can only be a member of one group at a time.
+This method works only on groups that are part of a graph.
+
+Note that each object can only be a member of one group at a time,
+and edges are automatically a member of a group if and only if both
+the target and the destination node are a member of the same group.
 
 =head2 add_group()
 
@@ -522,7 +555,6 @@ Add a group as subgroup to this group.
 =head2 del_member()
 
 	$group->del_member($node);
-	$group->del_member($edge);
 	$group->del_member($group);
 
 Delete the specified object from this group.
@@ -545,24 +577,6 @@ Delete the specified edge from this group.
 
 Add all the specified nodes to this group.
 
-=head2 add_cell()
-
-	$group->add_cell($cell);
-
-Add a cell to the list of cells this group covers.
-
-=head2 del_cell()
-
-	$group->del_cell($cell);
-
-Delete a cell from the list of cells this group covers.
-
-=head2 cells()
-
-	my @cells = $group->cells();
-
-Returns a list of all cells that belong to this group.
-
 =head2 nodes()
 
 	my @nodes = $group->nodes();
@@ -573,13 +587,20 @@ Returns a list of all node objects that belong to this group.
 
 	my @edges = $group->edges();
 
-Returns a list of all edge objects that belong to this group.
+Returns a list of all edge objects that lead to or from this group.
 
-=head2 clear_cells()
+Note: This does not return edges between nodes that are inside the group.
 
-	$group->clear_cells();
+=head2 edges_within()
 
-Clears the cells associated with this group.
+	my @edges_within = $group->edges_within();
+
+Returns a list of all edge objects that are I<inside> this group. Edges
+are automatically considered I<inside> a group if their starting and
+ending node both are in the same group.
+
+Note: This does not return edges between this group and other groups,
+nor edges between this group and nodes outside this group.
 
 =head2 as_txt()
 
@@ -594,6 +615,25 @@ Returns the group as Graph::Easy textual description.
 Called by the layouter once for each group. Goes through all cells of this
 group and finds one where to attach the label to. Internal usage only.
 
+=head2 get_attributes()
+
+        my $att = $object->get_attributes();
+
+Return all effective attributes on this object (graph/node/group/edge) as
+an anonymous hash ref. This respects inheritance and default values.
+
+See also L<raw_attributes()>.
+
+=head2 raw_attributes()
+
+        my $att = $object->get_attributes();
+
+Return all set attributes on this object (graph/node/group/edge) as
+an anonymous hash ref. This respects inheritance, but does not include
+default values for unset attributes.
+
+See also L<get_attributes()>.
+
 =head2 attribute related methods
 
 You can call all the various attribute related methods like C<set_attribute()>,
@@ -601,6 +641,8 @@ C<get_attribute()>, etc. on a group, too. For example:
 
 	$group->set_attribute('label', 'by train');
 	my $attr = $group->get_attributes();
+
+You can find more documentation in L<Graph::Easy>.
 
 =head2 layout()
 
@@ -612,6 +654,26 @@ itself.
 	my $shape = $group->shape();
 
 Returns the shape of the group as string.
+
+=head2 has_as_successor()
+
+	if ($node->has_as_successor($other))
+	  {
+	  ...
+	  }
+
+Returns true if C<$other> ( a node or group) is a successor of node, that is if
+there is an edge leading from node to C<$other>.
+
+=head2 has_as_predecessor()
+
+	if ($node->has_as_predecessor($other))
+	  {
+	  ...
+	  }
+
+Returns true if the node has C<$other> (a group or node) as predecessor, that
+is if there is an edge leading from C<$other> to node.
 
 =head1 EXPORT
 

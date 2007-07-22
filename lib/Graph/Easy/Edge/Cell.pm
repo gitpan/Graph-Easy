@@ -268,7 +268,7 @@ sub _init
   $self->{att} = $self->{edge}->{att};
 
   # register ourselves at this edge
-  $self->{edge}->add_cell ($self, $args->{after}, $args->{before});
+  $self->{edge}->_add_cell ($self, $args->{after}, $args->{before});
 
   $self;
   }

@@ -5,6 +5,10 @@ See Graph::Easy under LIMITATIONS for some hot topics. In addition:
 
 Important short-term TODO:
 
+* add for edges:
+  + weight,
+  + taillabel, taillink, tailtitle, headlabel, headlink, headtitle
+    (or should these be startlabel, endlabel etc.?)
 * graphviz parsing roundtrip:
   + anon nodes lose their " " label
   + border-width is wrongly dropped
@@ -18,7 +22,7 @@ Important short-term TODO:
 * [ a ] { label: a; } - remove the superflous label upon parsing
 
 * VCG/GDL
-  + debug, finish the a ttribute remapping and add test cases
+  + debug, finish the attribute remapping and add test cases
   + implement support for \fn \fb \fI \fu \fB (bold underline etc.)
   + implement support for \fi035 (ISO char)
   + implement support for \f03 (colors)
@@ -26,6 +30,7 @@ Important short-term TODO:
   + implement full color-remapping support (in both directions)
 
 * layouter:
+  + head/tail label/title and link are currently ignored
   + implement autosplit and autojoin for edges
   + don't build chains across groups
   + route multiple edges to/from a node in the proper order (shortest first)

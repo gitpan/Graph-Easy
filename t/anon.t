@@ -47,8 +47,8 @@ is (ref($node), 'Graph::Easy::Node::Anon');
 
 is ($node->error(), '', 'no error yet');
 
-is ($node->x(), 0, 'x == 0');
-is ($node->y(), 0, 'y == 0');
+is ($node->x(), undef, 'x == undef');
+is ($node->y(), undef, 'y == undef');
 is ($node->width(), undef, 'w == undef');
 is ($node->height(), undef, 'h == undef');
 is ($node->label(), ' ', 'label');

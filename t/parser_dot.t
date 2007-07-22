@@ -254,7 +254,7 @@ foreach (<DATA>)
 
   $got .= '+' . $es if $es > 0;
 
-  for my $n ( sort { $a->{name} cmp $b->{name} || $b->{att}->{label} cmp $a->{att}->{label} }
+  for my $n ( sort { $a->name() cmp $b->name() || $b->{att}->{label} cmp $a->{att}->{label} }
    ($graph->nodes(), $graph->edges()) )
     {
     $got .= "," . $n->label() unless $n->label() =~ /^\s?\z/ || $n->label() eq $n->name();

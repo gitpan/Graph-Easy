@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.25';
+$VERSION = '0.26';
 
 #############################################################################
 #############################################################################
@@ -31,7 +31,6 @@ my $remap = {
     'rotate' => \&_graphviz_remap_node_rotate,
     'shape' => \&_graphviz_remap_node_shape,
     'title' => 'tooltip',
-    'flow' => undef,
     'rows' => undef,
     'columns' => undef,
     },
@@ -43,54 +42,57 @@ my $remap = {
     'borderstyle' => undef,
     'color' => \&_graphviz_remap_edge_color,
     'end' => \&_graphviz_remap_port,
-    'flow' => undef,
+    'headtitle' => 'headtooltip',
+    'headlink' => 'headURL',
     'labelcolor' => \&_graphviz_remap_label_color,
     'start' => \&_graphviz_remap_port,
     'style' => \&_graphviz_remap_edge_style,
+    'tailtitle' => 'tailtooltip',
+    'taillink' => 'tailURL',
     'title' => 'tooltip',
     'minlen' => \&_graphviz_remap_edge_minlen,
     },
   graph => {
-    'align' => \&_graphviz_remap_align,
-    'background' => undef,
-    'bordercolor' => \&_remap_color,
-    'borderstyle' => \&_graphviz_remap_border_style,
-    'borderwidth' => undef,
-    'color' => \&_remap_color,
-    'fill' => \&_remap_color,
-    'flow' => undef,
-    'gid' => 'undef',
-    'labelpos' => 'labelloc',
-    'output' => undef,
+    align => \&_graphviz_remap_align,
+    background => undef,
+    bordercolor => \&_remap_color,
+    borderstyle => \&_graphviz_remap_border_style,
+    borderwidth => undef,
+    color => \&_remap_color,
+    fill => \&_remap_color,
+    gid => undef,
+    labelpos => 'labelloc',
+    output => undef,
+    type => undef,
     },
   group => {
-    'align' => \&_graphviz_remap_align,
-    'background' => undef,
-    'bordercolor' => \&_remap_color,
-    'borderstyle' => \&_graphviz_remap_border_style,
-    'borderwidth' => undef,
-    'color' => \&_remap_color,
-    'fill' => \&_remap_color,
-    'labelpos' => 'labelloc',
-    'rank' => undef,
-    'title' => 'tooltip',
+    align => \&_graphviz_remap_align,
+    background => undef,
+    bordercolor => \&_remap_color,
+    borderstyle => \&_graphviz_remap_border_style,
+    borderwidth => undef,
+    color => \&_remap_color,
+    fill => \&_remap_color,
+    labelpos => 'labelloc',
+    rank => undef,
+    title => 'tooltip',
     },
   all => {
-    'arrowshape' => undef,
-    'autolink' => undef,
-    'autotitle' => undef,
-    'autolabel' => undef,
-    'class' => undef,
-    'colorscheme' => undef,
-    'flow' => undef,
-    'fontsize' => \&_graphviz_remap_fontsize,
-    'font' => \&_graphviz_remap_font,
-    'format' => undef,
-    'group' => undef,
-    'link' => \&_graphviz_remap_link,
-    'linkbase' => undef,
-    'textstyle' => undef,
-    'textwrap' => undef,
+    arrowshape => undef,
+    autolink => undef,
+    autotitle => undef,
+    autolabel => undef,
+    class => undef,
+    colorscheme => undef,
+    flow => undef,
+    fontsize => \&_graphviz_remap_fontsize,
+    font => \&_graphviz_remap_font,
+    format => undef,
+    group => undef,
+    link => \&_graphviz_remap_link,
+    linkbase => undef,
+    textstyle => undef,
+    textwrap => undef,
     },
   always => {
     node	=> [ qw/borderstyle label link rotate color fill/ ],
@@ -98,7 +100,20 @@ my $remap = {
     edge	=> [ qw/labelcolor label link color/ ],
     graph	=> [ qw/labelpos borderstyle label link color/ ],
     },
+  # this routine will handle all custom "x-dot-..." attributes
+  x => \&_remap_custom_dot_attributes,
   };
+
+sub _remap_custom_dot_attributes
+  {
+  my ($self, $name, $value) = @_;
+
+  # drop anything that is not starting with "x-dot-..."
+  return (undef,undef) unless $name =~ /^x-dot-/;
+
+  $name =~ s/^x-dot-//;			# "x-dot-foo" => "foo"
+  ($name,$value);
+  }
 
 my $color_remap = {
   bordercolor => 'color',
@@ -455,7 +470,11 @@ sub _att_as_graphviz
     $v =~ s/\n/\\n/g;
 
     $v = '"' . $v . '"' if $v !~ /^[a-z0-9A-Z]+\z/;	# quote if nec.
-    $att .= "  $atr=$v,\n";
+
+    # convert "x-dot-foo" to "foo". Special case "K":
+    my $name = $atr; $name =~ s/^x-dot-//; $name = 'K' if $name eq 'k';
+
+    $att .= "  $name=$v,\n";
     }
 
   $att =~ s/,\n\z/ /;			# remove last ","
@@ -526,7 +545,7 @@ sub _generate_group_edge
       }
     }
 
-  "$indent$first -> $other$edge_att\n";		# return edge text
+  "$indent$first $self->{edge_type} $other$edge_att\n";		# return edge text
   }
 
 sub _insert_edge_attribute
@@ -536,6 +555,7 @@ sub _insert_edge_attribute
 
   return '[ $new_att ]' if $att eq '';		# '' => '[ ]'
 
+  # insert the new attribute at the end
   $att =~ s/\s?\]/,$new_att ]/;
   $att;
   }
@@ -600,11 +620,11 @@ sub _generate_edge
         $e_att = $self->_suppress_edge_attribute($e_att,'label');
 	if ($self->{_flip_edges})
 	  {
-	  $txt .= $indent . "$invis_id -> $first$e_att\n";
+	  $txt .= $indent . "$invis_id $self->{_edge_type} $first$e_att\n";
 	  }
 	else
 	  {
-	  $txt .= $indent . "$first -> $invis_id$e_att\n";
+	  $txt .= $indent . "$first $self->{_edge_type} $invis_id$e_att\n";
 	  }
 	$invis->{$key} = $invis_id;		# mark as created
 	}
@@ -632,11 +652,11 @@ sub _generate_edge
 	$txt .= $indent . "$invis_id$inv\n";
 	if ($self->{_flip_edges})
 	  {
-	  $txt .= $indent . "$other -> $invis_id$edge_att\n";
+	  $txt .= $indent . "$other $self->{_edge_type} $invis_id$edge_att\n";
 	  }
 	else
 	  {
-	  $txt .= $indent . "$invis_id -> $other$edge_att\n";
+	  $txt .= $indent . "$invis_id $self->{_edge_type} $other$edge_att\n";
 	  }
 	$invis->{$key} = $invis_id;			# mark as output
 	}
@@ -653,7 +673,7 @@ sub _generate_edge
   $edge_att = $self->_insert_edge_attribute($edge_att,$suppress)
     if $modify_edge;
 
-  $txt . "$indent$first -> $other$edge_att\n";		# return edge text
+  $txt . "$indent$first $self->{_edge_type} $other$edge_att\n";		# return edge text
   }
 
 sub _as_graphviz
@@ -663,10 +683,14 @@ sub _as_graphviz
   # convert the graph to a textual representation
   # does not need a layout() beforehand!
 
-  # generate the class attributes first
   my $name = "GRAPH_" . ($self->{gid} || '0');
 
-  my $txt = "digraph $name {\n\n" .
+  my $type = $self->attribute('type');
+  $type = $type eq 'directed' ? 'digraph' : 'graph';	# directed or undirected?
+
+  $self->{_edge_type} = $type eq 'digraph' ? '->' : '--';	# "a -- b" vs "a -> b"
+
+  my $txt = "$type $name {\n\n" .
             "  // Generated by Graph::Easy $Graph::Easy::VERSION" .
 	    " at " . scalar localtime() . "\n\n";
 
@@ -687,6 +711,7 @@ sub _as_graphviz
   # name for invisible helper nodes
   $self->{_graphviz_invis_id} = 'joint0';
 
+  # generate the class attributes first
   my $atts =  $self->{att};
   # It is not possible to set attributes for groups in the DOT language that way
   for my $class (qw/edge graph node/)
@@ -763,7 +788,11 @@ sub _as_graphviz
       {
       my $v = $out->{$atr};
       $v = '"' . $v . '"' if $v !~ /^[a-z0-9A-Z]+\z/;	# quote if nec.
-      $att .= "    $atr=$v;\n";
+
+      # convert "x-dot-foo" to "foo". Special case "K":
+      my $name = $atr; $name =~ s/^x-dot-//; $name = 'K' if $name eq 'k';
+
+      $att .= "    $name=$v;\n";
       }
     $txt .= $att . "\n" if $att ne '';
  
@@ -843,6 +872,8 @@ sub _as_graphviz
     delete $n->{_p};
     }
   delete $self->{_graphviz_invis};		# invisible helper nodes for joints
+  delete $self->{_flip_edges};
+  delete $self->{_edge_type};
 
   $txt .  "\n}\n";				# close the graph
   }
@@ -968,7 +999,11 @@ sub attributes_as_graphviz
 
     $v = '"' . $v . '"' if $v !~ /^[a-z0-9A-Z]+\z/
 	  || $atr eq 'URL';	# quote if nec.
-    $att .= "$atr=$v, ";
+
+    # convert "x-dot-foo" to "foo". Special case "K":
+    my $name = $atr; $name =~ s/^x-dot-//; $name = 'K' if $name eq 'k';
+
+    $att .= "$name=$v, ";
     }
   $att =~ s/,\s$//;             # remove last ","
 
@@ -1038,7 +1073,7 @@ Graph::Easy::As_graphviz - Generate graphviz description from graph object
 
 C<Graph::Easy::As_graphviz> contains just the code for converting a
 L<Graph::Easy|Graph::Easy> object to a textual description suitable for
-feeding it to graphviz.
+feeding it to Graphviz programs like C<dot>.
 
 =head1 EXPORT
 
@@ -1046,7 +1081,7 @@ Exports nothing.
 
 =head1 SEE ALSO
 
-L<Graph::Easy>.
+L<Graph::Easy>, L<Graph::Easy::Parser::Graphviz>.
 
 =head1 AUTHOR
 

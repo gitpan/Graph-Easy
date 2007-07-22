@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.55';
+$VERSION = '0.56';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -44,6 +44,9 @@ BEGIN
   *_wrapped_label = \&Graph::Easy::Node::_wrapped_label;
   *get_color_attribute = \&color_attribute;
   $att_aliases = Graph::Easy::_att_aliases();
+
+  # backwards compatibility
+  *is_simple_graph = \&is_simple;
   }
 
 #############################################################################
@@ -189,9 +192,13 @@ sub _init
 
   foreach my $k (keys %$args)
     {
-    if ($k !~ /^(timeout|debug|strict|fatal_errors)\z/)
+    if ($k !~ /^(timeout|debug|strict|fatal_errors|undirected)\z/)
       {
       $self->error ("Unknown option '$k'");
+      }
+    if ($k eq 'undirected' && $args->{$k})
+      {
+      $self->set_attribute('type', 'undirected'); next;
       }
     $self->{$k} = $args->{$k};
     }
@@ -233,24 +240,36 @@ sub strict
   $self->{strict};
   }
 
-sub is_simple_graph
+sub is_simple
   {
   # return true if the graph does not have multiedges
   my $self = shift;
 
-  # check each node for multi-edges
-  for my $n (values %{$self->{nodes}})
+  my %count;
+  for my $e (values %{$self->{edges}})
     {
-    my %count;
-    for my $e (values %{$n->{edges}})
-      {
-      my $id = "$e->{to}->{id},$e->{from}->{id}";
-      return 0 if exists $count{$id};
-      $count{$id} = undef;
-      }
+    my $id = "$e->{to}->{id},$e->{from}->{id}";
+    return 0 if exists $count{$id};
+    $count{$id} = undef;
     }
 
   1;					# found none
+  }
+
+sub is_directed
+  {
+  # return true if the graph is directed
+  my $self = shift;
+
+  $self->attribute('type') eq 'directed' ? 1 : 0;
+  }
+
+sub is_undirected
+  {
+  # return true if the graph is undirected
+  my $self = shift;
+
+  $self->attribute('type') eq 'undirected' ? 1 : 0;
   }
 
 sub id
@@ -395,6 +414,18 @@ sub anon_nodes
   }
 
 sub edges
+  {
+  # Return all the edges this graph contains as objects
+  my ($self) = @_;
+
+  my $e = $self->{edges};
+
+  return scalar keys %$e unless wantarray;	# shortcut
+
+  values %$e;
+  }
+
+sub edges_within
   {
   # return all the edges as objects
   my ($self) = @_;
@@ -1640,9 +1671,10 @@ sub add_edge
   my ($self,$x,$y,$edge) = @_;
  
   my $uc = $self->{use_class};
- 
-  $edge = $uc->{edge}->new() unless defined $edge;
-  $edge = $uc->{edge}->new(label => $edge) unless ref($edge);
+
+  my $ec = $uc->{edge};
+  $edge = $ec->new() unless defined $edge;
+  $edge = $ec->new(label => $edge) unless ref($edge);
 
   $self->_croak("Adding an edge object twice is not possible")
     if (exists ($self->{edges}->{$edge->{id}}));
@@ -1661,6 +1693,10 @@ sub add_edge
   $yn = $y->{name} if ref($y);
 
   # convert plain scalars to Node objects if nec.
+
+  # XXX TODO: this might be a problem when adding an edge from a group with the same
+  #           name as a node
+
   $x = $nodes->{$xn} if exists $nodes->{$xn};		# first look them up
   $y = $nodes->{$yn} if exists $nodes->{$yn};
 
@@ -1668,7 +1704,7 @@ sub add_edge
   $y = $x if !ref($y) && $y eq $xn;			# make add_edge('A','A') work
   $y = $uc->{node}->new( $y ) unless ref $y;
 
-  print STDERR "# add_edge '$x->{name}' ($x->{id}) -> '$y->{name}' ($y->{id}) (edge $edge->{id})\n" if $self->{debug};
+  print STDERR "# add_edge '$x->{name}' ($x->{id}) -> '$y->{name}' ($y->{id}) (edge $edge->{id}) ($x -> $y)\n" if $self->{debug};
 
   for my $n ($x,$y)
     {
@@ -1737,15 +1773,52 @@ sub add_node
   # is an O(N) operation in most Perl versions, and thus very slow.
 
   weaken($x->{graph} = $self) unless ref($x->{graph});
-#  if (!ref($x->{graph}))
-#    {
-#    $x->{graph} = $self;
-#    weaken($x->{graph});
-#    }
 
   $self->{score} = undef;			# invalidate last layout
 
   $x;
+  }
+
+sub add_nodes
+  {
+  my $self = shift;
+
+  my @rc;
+  for my $x (@_)
+    {
+    my $n = $x;
+    if (ref($x))
+      {
+      $n = $x->{name}; $n = '0' unless defined $n;
+      }
+
+    return $self->_croak("Cannot add node with empty name to graph.") if $n eq '';
+
+    return $self->_croak("Cannot add node $x ($n), it already belongs to another graph")
+      if ref($x) && ref($x->{graph}) && $x->{graph} != $self;
+
+    my $no = $self->{nodes};
+    return $no->{$n} if exists $no->{$n};
+
+    my $uc = $self->{use_class};
+    $x = $uc->{node}->new( $x ) unless ref $x;
+
+    # store the node
+    $no->{$n} = $x;
+
+    # Register the nodes and the edge with our graph object
+    # and weaken the references. Be carefull to not needlessly
+    # override and weaken again an already existing reference, this
+    # is an O(N) operation in most Perl versions, and thus very slow.
+
+    weaken($x->{graph} = $self) unless ref($x->{graph});
+
+    push @rc, $x;
+    }
+
+  $self->{score} = undef;			# invalidate last layout
+
+  @rc;
   }
 
 #############################################################################
@@ -1850,7 +1923,7 @@ sub del_edge
   $self->_croak("del_edge() needs an object") unless ref $edge;
 
   # if edge is part of a group, delete it there, too
-  $edge->{group}->del_edge($edge) if ref $edge->{group};
+  $edge->{group}->_del_edge($edge) if ref $edge->{group};
 
   my $to = $edge->{to}; my $from = $edge->{from};
 
@@ -1986,6 +2059,10 @@ sub animation_as_graph
 
 1;
 __END__
+
+=pod
+
+=encoding utf-8
 
 =head1 NAME
 
@@ -2155,6 +2232,23 @@ You can also add self-loops:
 
 	$graph->add_edge('Bremen','Bremen');
 
+Adding multiple nodes is easy:
+
+	my ($bonn,$rom) = Graph::Easy->add_nodes('Bonn','Rom');
+
+You can also have subgraphs (these are called groups):
+
+	my ($group) = Graph::Easy->add_group('Cities');
+
+Only nodes can be part of a group, edges are automatically considered
+to be in the group if they lead from one node inside the group to
+another node in the same group. There are multiple ways to add one or
+more nodes into a group:
+
+	$group->add_member($bonn);
+	$group->add_node($rom);
+	$group->add_nodes($rom,$bonn);
+
 For more options please see the
 L<online manual|http://bloodgate.com/perl/graph/manual/>.
 
@@ -2322,6 +2416,10 @@ Takes optinal a hash reference with a list of options. The following are
 valid options:
 
 	debug			if true, enables debug output
+	timeout			timeout (in seconds) for the layouter
+	fatal_errors		wrong attributes are fatal errors, default: true
+	strict			test attribute names for being valid, default: true
+	undirected		create an undirected graph, default: false
 
 =head2 error()
 
@@ -2415,6 +2513,16 @@ nothing if the node already exists in the graph.
 
 It returns an L<Graph::Easy::Node> object.
 
+=head2 add_nodes()
+
+	my @nodes = $graph->add_nodes( 'Node 1', 'Node 2' );
+
+Add all the given nodes to the graph. The arguments should be either a
+C<Graph::Easy::Node> object, or a unique name for the node. Will do
+nothing if the node already exists in the graph.
+
+It returns a list of L<Graph::Easy::Node> objects.
+
 =head2 rename_node()
 
 	$node = $graph->rename_node($node, $new_name);
@@ -2495,7 +2603,7 @@ Is an alias for L<color_attribute()>.
 Return all effective attributes on this object (graph/node/group/edge) as
 an anonymous hash ref. This respects inheritance and default values.
 
-See also L<get_raw_attributes()>.
+See also L<raw_attributes()>.
 
 =head2 raw_attributes()
 
@@ -2842,20 +2950,43 @@ In list context, returns all anon groups as objects, in arbitrary order.
 
 Delete the group with the given name.
 
-=head2 edges()
+=head2 edges(), edges_within()
 
 	my @edges = $graph->edges();
 
 Returns the edges of the graph as L<Graph::Easy::Edge> objects,
 in arbitrary order.
 
-=head2 is_simple_graph()
+L<edges_within()> is an alias for C<edges()>.
 
-	if ($graph->is_simple_graph())
+=head2 is_simple_graph(), is_simple()
+
+	if ($graph->is_simple())
 	  {
 	  }
 
-Returns true if the graph does not have multiedges.
+Returns true if the graph does not have multiedges, e.g. if it
+does not have more than one edge going from any node to any other
+node or group.
+
+Since this method has to look at all edges, it is costly in terms of
+both CPU and memory.
+
+=head2 is_directed()
+
+	if ($graph->is_directed())
+	  {
+	  }
+
+Returns true if the graph is directed.
+
+=head2 is_undirected()
+
+	if ($graph->is_undirected())
+	  {
+	  }
+
+Returns true if the graph is undirected.
 
 =head2 parent()
 
@@ -3427,6 +3558,20 @@ A second-stage optimizer that simplifies these layouts is not yet implemented.
 
 In addition the general placement/processing strategy as well as the local
 strategy might be improved.
+
+=item attributes
+
+The following attributes are currently ignored by the layouter:
+
+	undirected graphs
+	autosplit/autojoin for edges
+	tail/head label/title/link for edges
+
+=item groups
+
+The layouter is not fully recursive yet, so groups do not properly nest.
+
+In addition, links to/from groups are missing, too.
 
 =back
 

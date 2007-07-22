@@ -5,7 +5,7 @@
 
 package Graph::Easy::Parser::VCG;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 use Graph::Easy::Parser::Graphviz;
 @ISA = qw/Graph::Easy::Parser::Graphviz/;
 
@@ -173,7 +173,14 @@ sub _match_edge
 sub _match_single_attribute
   {
 
-  qr/\s*(?:(\w+|colorentry\s+[0-9]{1,2}))\s*:\s*
+  qr/\s*(	energetic\s\w+			# "energetic attraction" etc.
+		|
+		\w+ 				# a word
+		|
+		border\s(?:x|y)			# "border x" or "border y"
+		|
+		colorentry\s+[0-9]{1,2}		# colorentry
+	)\s*:\s*
     (
       "(?:\\"|[^"])*"				# "foo"
     |
@@ -430,63 +437,191 @@ sub _new_node
 
 my $vcg_remap = {
   'node' => {
+    iconfile => 'x-vcg-iconfile',
+    info1 => 'x-vcg-info1',
+    info2 => 'x-vcg-info2',
+    info3 => 'x-vcg-info3',
+    invisible => 'x-vcg-invisible',
+    importance => 'x-vcg-importance',
+    focus => 'x-vcg-focus',
+    margin => 'x-vcg-margin',
+    textmode => 'x-vcg-textmode',
     textcolor => \&_node_color_from_vcg,
     color => \&_node_color_from_vcg,
     bordercolor => \&_node_color_from_vcg,
     level => 'rank',
-    'horizontal_order' => undef,
+    horizontal_order => 'x-vcg-horizontal_order',
     shape => \&_vcg_node_shape,
-    'vertical_order' => undef,
+    vertical_order => 'x-vcg-vertical_order',
     },
 
   'edge' => {
-    sourcename => 'source',
-    targetname => 'target',
-    source => 'source',
-    target => 'target',
-    textcolor => \&_edge_color_from_vcg,
+    anchor => 'x-vcg-anchor',
+    right_anchor => 'x-vcg-right_anchor',
+    left_anchor => 'x-vcg-left_anchor',
+    arrowcolor => 'x-vcg-arrowcolor',
+    arrowsize => 'x-vcg-arrowsize',
+    # XXX remap this
+    arrowstyle => 'x-vcg-arrowstyle',
+    backarrowcolor => 'x-vcg-backarrowcolor',
+    backarrowsize => 'x-vcg-backarrowsize',
+    backarrowstyle => 'x-vcg-backarrowstyle',
+    class => \&_edge_class_from_vcg,
     color => \&_edge_color_from_vcg,
+    horizontal_order => 'x-vcg-horizontal_order',
     linestyle => 'style',
-    anchor => undef,
-    priority => undef,
-    thickness => undef, 		# remap to broad etc.
-    arrowcolor => undef,
-    backarrowcolor => undef,
-    horizontal_order => undef,
-    arrowsize => undef,
-    class => undef,
+    priority => 'x-vcg-priority',
+    source => 'source',
+    sourcename => 'source',
+    target => 'target',
+    targetname => 'target',
+    textcolor => \&_edge_color_from_vcg,
+    thickness => 'x-vcg-thickness', 		# remap to broad etc.
     },
 
   'graph' => {
-    x => undef,
-    y => undef,
-    xmax => undef,
-    ymax => undef,
-    xspace => undef,
-    yspace => undef,
-    xlspace => undef,
-    ylspace => undef,
-    splines => undef,
-    layoutalgorithm => undef,
-    smanhattan_edges => undef,
-    manhattan_edges => undef,
-    layout_downfactor => undef,
-    layout_upfactor => undef,
-    layout_nearfactor => undef,
+    color => \&_node_color_from_vcg,
+    bordercolor => \&_node_color_from_vcg,
+    textcolor => \&_node_color_from_vcg,
+
+    x => 'x-vcg-x',
+    y => 'x-vcg-y',
+    xmax => 'x-vcg-xmax',
+    ymax => 'x-vcg-ymax',
+    xspace => 'x-vcg-xspace',
+    yspace => 'x-vcg-yspace',
+    xlspace => 'x-vcg-xlspace',
+    ylspace => 'x-vcg-ylspace',
+    xbase => 'x-vcg-xbase',
+    ybase => 'x-vcg-ybase',
+    xlraster => 'x-vcg-xlraster',
+    xraster => 'x-vcg-xraster',
+    yraster => 'x-vcg-yraster',
+
+    amax => 'x-vcg-amax',
+    bmax => 'x-vcg-bmax',
+    cmax => 'x-vcg-cmax',
+    cmin => 'x-vcg-cmin',
+    smax => 'x-vcg-smax',
+    pmax => 'x-vcg-pmax',
+    pmin => 'x-vcg-pmin',
+    rmax => 'x-vcg-rmax',
+    rmin => 'x-vcg-rmin',
+
+    # XXX TODO: use this to remap edge classes to real class names
+    classname => 'x-vcg-classname',
+
+    splines => 'x-vcg-splines',
+    focus => 'x-vcg-focus',
+    hidden => 'x-vcg-hidden',
+    horizontal_order => 'x-vcg-horizontal_order',
+    iconfile => 'x-vcg-iconfile',
+    importance => 'x-vcg-importance',
+    ignore_singles => 'x-vcg-ignore_singles',
+    invisible => 'x-vcg-invisible',
+    info1 => 'x-vcg-info1',
+    info2 => 'x-vcg-info2',
+    info3 => 'x-vcg-info3',
+    infoname1 => 'x-vcg-infoname1',
+    infoname2 => 'x-vcg-infoname2',
+    infoname3 => 'x-vcg-infoname3',
+    level => 'x-vcg-level',
+    loc => 'x-vcg-loc',
+    layout_algorithm => 'x-vcg-layout_algorithm',
+    layout_downfactor => 'x-vcg-layout_downfactor',
+    layout_upfactor => 'x-vcg-layout_upfactor',
+    layout_nearfactor => 'x-vcg-layout_nearfactor',
+    layout_segments => 'x-vcg-layout_segments',
+    margin => 'x-vcg-margin',
+    manhattan_edges => 'x-vcg-manhattan_edges',
+    near_edges => 'x-vcg-near_edges',
+    node_alignment => 'x-vcg-node_alignment',
+    port_sharing => 'x-vcg-port_sharing',
+    priority_phase => 'x-vcg-priority_phase',
+    outport_sharing => 'x-vcg-outport_sharing',
+    shape => 'x-vcg-shape',
+    smanhattan_edges => 'x-vcg-smanhattan_edges',
+    state => 'x-vcg-state',
+    splines => 'x-vcg-splines',
+    splinefactor => 'x-vcg-splinefactor',
+    spreadlevel => 'x-vcg-spreadlevel',
+
     title => 'label',
+    textmode => 'x-vcg-textmode',
+    useractioncmd1 => 'x-vcg-useractioncmd1',
+    useractioncmd2 => 'x-vcg-useractioncmd2',
+    useractioncmd3 => 'x-vcg-useractioncmd3',
+    useractioncmd4 => 'x-vcg-useractioncmd4',
+    useractionname1 => 'x-vcg-useractionname1',
+    useractionname2 => 'x-vcg-useractionname2',
+    useractionname3 => 'x-vcg-useractionname3',
+    useractionname4 => 'x-vcg-useractionname4',
+    vertical_order => 'x-vcg-vertical_order',
+
+    display_edge_labels => 'x-vcg-display_edge_labels',
+    edges => 'x-vcg-edges',
+    nodes => 'x-vcg-nodes',
+    icons => 'x-vcg-icons',
+    iconcolors => 'x-vcg-iconcolors',
+    view => 'x-vcg-view',
+    subgraph_labels => 'x-vcg-subgraph_labels',
+    arrow_mode => 'x-vcg-arrow_mode',
+    crossing_optimization => 'x-vcg-crossing_optimization',
+    crossing_phase2 => 'x-vcg-crossing_phase2',
+    crossing_weight => 'x-vcg-crossing_weight',
+    equal_y_dist => 'x-vcg-equal_y_dist',
+    finetuning => 'x-vcg-finetuning',
+    fstraight_phase => 'x-vcg-fstraight_phase',
+    straight_phase => 'x-vcg-straight_phase',
+    import_sharing => 'x-vcg-import_sharing',
+    late_edge_labels => 'x-vcg-late_edge_labels',
+    treefactor => 'x-vcg-treefactor',
+    orientation => 'x-vcg-orientation',
+
+    attraction => 'x-vcg-attraction',
+    'border x' => 'x-vcg-border-x',
+    'border y' => 'x-vcg-border-y',
+    'energetic' => 'x-vcg-energetic',
+    'energetic attraction' => 'x-vcg-energetic-attraction',
+    'energetic border' => 'x-vcg-energetic-border',
+    'energetic crossing' => 'x-vcg-energetic-crossing',
+    'energetic gravity' => 'x-vcg-energetic gravity',
+    'energetic overlapping' => 'x-vcg-energetic overlapping',
+    'energetic repulsion' => 'x-vcg-energetic repulsion',
+    fdmax => 'x-vcg-fdmax',
+    gravity => 'x-vcg-gravity',
+
+    magnetic_field1 => 'x-vcg-magnetic_field1',
+    magnetic_field2 => 'x-vcg-magnetic_field2',
+    magnetic_force1 => 'x-vcg-magnetic_force1',
+    magnetic_force2 => 'x-vcg-magnetic_force2',
+    randomfactor => 'x-vcg-randomfactor',
+    randomimpulse => 'x-vcg-randomimpulse',
+    randomrounds => 'x-vcg-randomrounds',
+    repulsion => 'x-vcg-repulsion',
+    tempfactor => 'x-vcg-tempfactor',
+    tempmax => 'x-vcg-tempmax',
+    tempmin => 'x-vcg-tempmin'.
+    tempscheme => 'x-vcg-tempscheme'.
+    temptreshold => 'x-vcg-temptreshold',
+
+    dirty_edge_labels => 'x-vcg-dirty_edge_labels',
+    fast_icons => 'x-vcg-fast_icons',
+
     },
 
   'group' => {
     },
 
   'all' => {
-    loc => undef,
-    folding => undef,
-    scaling => undef,
-    shrink => undef,
-    stretch => undef,
-    width => undef,
-    height => undef,
+    loc => 'x-vcg-loc',
+    folding => 'x-vcg-folding',
+    scaling => 'x-vcg-scaling',
+    shrink => 'x-vcg-shrink',
+    stretch => 'x-vcg-stretch',
+    width => 'x-vcg-width',
+    height => 'x-vcg-height',
+    fontname => 'font',
     },
   };
 
@@ -515,13 +650,20 @@ sub _edge_color_from_vcg
   ($vcg_edge_color_remap->{$name} || $name, $c);
   }
 
+sub _edge_class_from_vcg
+  {
+  # remap "1" to "edgeclass1" to create a valid class name
+  my ($graph, $name, $class) = @_;
+
+  $class = 'edgeclass' . $class if $class !~ /^[a-zA-Z]/;
+
+  ('class', $class);
+  }
+
 sub _node_color_from_vcg
   {
   # remap "darkyellow" to "rgb(128 128 0)"
   my ($graph, $name, $color) = @_;
-
-#  print STDERR "node $name $color\n";
-#  print STDERR ($vcg_node_color_remap->{$name} || $name, " ", $vcg_color_by_name->{$color} || $color), "\n";
 
   my $c = $vcg_color_by_name->{$color} || $color;
   $c = $graph->{_vcg_color_map}->[$c] if $c =~ /^[0-9]+\z/ && $c < 256;
@@ -623,6 +765,14 @@ in various formats.
 The output will be a L<Graph::Easy|Graph::Easy> object (unless overrriden
 with C<use_class()>), see the documentation for Graph::Easy what you can do
 with it.
+
+=head2 Attributes
+
+Attributes will be remapped to the proper Graph::Easy attribute names and
+values, as much as possible.
+
+Anything else will be converted to custom attributes starting with "x-vcg-".
+So "dirty_edge_labels: yes" will become "x-vcg-dirty_edge_labels: yes".
 
 =head1 METHODS
 

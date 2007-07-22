@@ -1,5 +1,40 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2007-07-22 v0.56 Tels 2650 tests
+  * bin/graph-easy:
+    + add --version
+  * Parser/VCG:
+    + support more attributes, remap unknown/unsupported ones to "x-vcg-foo"
+  * Parser/Graphviz:
+    + allow style="setlinewidth(0.1)" (fractions) in attributes
+    + translate unknown or unsupported attributes into "x-dot-foo" style
+  * the following methods in Groups/Edges are only usefull during the layout
+    phase and are now internal and thus were renamed with an underscore
+    in front of them:
+    + add_cell, del_cell, clear_cells, cells
+  * POD:
+    + fix a few typos and duplicate some documentation into the
+      various POD files, as well as add some more doc
+  * Graph::Easy:
+    + add add_nodes(), is_simple(), is_directed(), is_undirected(),
+      edges_within()
+  * Graph::Easy::Group:
+    + fix add_nodes(), edges()
+    + add edges_within(), has_as_predecessor(), has_as_successor()
+  * Graph::Easy::Node:
+    + add has_as_predecessor(), has_as_successor()
+  * Misc:
+    + save a bit memory by not setting default values for edges and nodes
+  * Attributes:
+    + support "type" for graphs (directed or undirected)
+    + support custom attributes named like "x-foo", "x-bar-baz", "x-f-o-o"
+  * as_graphviz:
+    + use "--" for edges for undirected graphs
+    + translate "x-dot-foo" attributes back to "foo", making it round-trip
+  * as_vcg:
+    + translate "x-vcg-foo" attributes back to "foo", making it round-trip
+    + first stab at attribute remapping
+
 2007-05-05 v0.55 Tels 2433 tests
   * bin/graph-easy:
     + as_png and as=png

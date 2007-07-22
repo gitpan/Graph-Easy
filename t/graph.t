@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 71;
+   plan tests => 73;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -239,12 +239,14 @@ is (scalar $group->edges(), 0, 'no edge in group');
 $graph->layout();
 
 # the edge is only added in the layout stage
-is (scalar $group->edges(), 1, 'one edge in group');
+is (scalar $group->edges(), 0, 'no edge leading from/to group');
+is (scalar $group->edges_within(), 1, 'one edge in group');
 
 $graph->merge_nodes($A,$B);
 
 is (scalar $graph->edges(), 0, 'no edges in graph');
-is (scalar $group->edges(), 0, 'no edges in group');
+is (scalar $group->edges_within(), 0, 'no edges in group');
+is (scalar $group->edges(), 0, 'no edge leading from/to group');
 is (scalar $group->nodes(), 1, 'one node in group');
 is (scalar $graph->nodes(), 1, 'one node in graph');
 

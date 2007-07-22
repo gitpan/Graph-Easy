@@ -1,5 +1,5 @@
 #############################################################################
-# (c) by Tels 2004 - 2006. Part of Graph::Easy
+# An edge connecting two nodes in Graph::Easy.
 #
 #############################################################################
 
@@ -7,7 +7,7 @@ package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
 @ISA = qw/Graph::Easy::Node/;		# an edge is just a special node
-$VERSION = '0.28';
+$VERSION = '0.29';
 
 use strict;
 
@@ -32,21 +32,11 @@ sub _init
       require Carp;
       Carp::confess ("Invalid argument '$k' passed to Graph::Easy::Node->new()");
       }
-    $self->{$k} = $args->{$k};
+    my $n = $k; $n = 'label' if $k eq 'name';
+
+    $self->{att}->{$n} = $args->{$k};
     }
 
-  $self->{att}->{label} = $self->{name} unless defined $self->{att}->{label};
-  $self->{att}->{label} = $self->{label} unless defined $self->{att}->{label};
-  delete $self->{label};
-
-  $self->{name} = '' unless defined $self->{name};
-
-  # not defined => no label, thus inherit from class  
-  delete $self->{att}->{label} unless defined $self->{att}->{label};
-
-  $self->{att}->{style} = $self->{style} if $self->{style};
-  delete $self->{style};
- 
   $self;
   }
 
@@ -192,10 +182,18 @@ sub style
   $self->{att}->{style} || $self->attribute('style');
   }
 
-#############################################################################
-# cell management
+sub name
+  {
+  # returns actually the label
+  my $self = shift;
 
-sub cells
+  $self->{att}->{label} || '';
+  }
+
+#############################################################################
+# cell management - used by the cell-based layouter
+
+sub _cells
   {
   # return all the cells this edge currently occupies
   my $self = shift;
@@ -205,7 +203,7 @@ sub cells
   @{$self->{cells}};
   }
 
-sub clear_cells
+sub _clear_cells
   { 
   # remove all belonging cells
   my $self = shift;
@@ -291,7 +289,7 @@ sub _distance
   $lowest;
   }
 
-sub add_cell
+sub _add_cell
   {
   # add a cell to the list of cells this edge covers. If $after is a ref
   # to a cell, then the new cell will be inserted right after this cell.
@@ -566,8 +564,8 @@ Each edge has a direction (from source to destination, or back and forth),
 plus a style (line width and style), colors etc. It can also have a label,
 e.g. a text associated with it.
 
-Each edge also contains a list of path-elements (also called cells), which
-make up the path from source to destination.
+During the layout phase, each edge also contains a list of path-elements
+(also called cells), which make up the path from source to destination.
 
 =head1 METHODS
 
@@ -598,6 +596,14 @@ Returns the edge as a little Graph::Easy textual representation.
 
 Returns the label (also known as 'name') of the edge.
 
+=head2 name()
+
+	my $label = $edge->name();
+
+To make the interface more consistent, the C<name()> method of
+an edge can also be called, and it will returned either the edge
+label, or the empty string if the edge doesn't have a label.
+
 =head2 style()
 
 	my $style = $edge->style();
@@ -622,31 +628,6 @@ Return the nodes (that connections come from) as objects.
 
 Return all the nodes connected (in either direction) by this edge
 as objects.
-
-=head2 add_cell()
-
-	$edge->add_cell( $cell, $after );
-
-Add a new cell to the edge. C<$cell> must be an
-C<Graph::Easy::Edge::Cell> object.
-
-If the optional argument C<$after> is a ref to a cell, then the new cell will
-be inserted right after this cell. If it is defined, but not a ref, the new cell
-will be inserted at the specified position.
-
-=head2 clear_cells()
-
-	$edge->clear_cells();
-
-Removes all cells belonging to this edge.
-
-=head2 cells()
-
-	my $cells = $edge->cells();
-
-Returns a hash containing all the cells this edge currently occupies. Keys
-on the hash are of the form of C<$x,$y> e.g. C<5,3> denoting cell at X = 5 and
-Y = 3. The values of the hash are the cell objects.
 
 =head2 bidirectional()
 
@@ -760,6 +741,25 @@ returned side will be one absolute direction of C<east>, C<west>,
 C<north> or C<south>, depending on the port restriction and
 flow at that edge.
 
+=head2 get_attributes()
+
+        my $att = $object->get_attributes();
+
+Return all effective attributes on this object (graph/node/group/edge) as
+an anonymous hash ref. This respects inheritance and default values.
+
+See also L<raw_attributes()>.
+
+=head2 raw_attributes()
+
+        my $att = $object->get_attributes();
+
+Return all set attributes on this object (graph/node/group/edge) as
+an anonymous hash ref. This respects inheritance, but does not include
+default values for unset attributes.
+
+See also L<get_attributes()>.
+
 =head2 attribute related methods
 
 You can call all the various attribute related methods like C<set_attribute()>,
@@ -767,6 +767,9 @@ C<get_attribute()>, etc. on an edge, too. For example:
 
 	$edge->set_attribute('label', 'by train');
 	my $attr = $edge->get_attributes();
+	my $raw_attr = $edge->raw_attributes();
+
+You can find more documentation in L<Graph::Easy>.
 
 =head1 EXPORT
 
@@ -778,7 +781,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 195;
+   plan tests => 203;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Node") or die($@);
@@ -25,6 +25,8 @@ can_ok ("Graph::Easy::Node", qw/
   successors
   predecessors
   has_predecessors
+  has_as_predecessor
+  has_as_successor
   connections
   edges
   edges_to
@@ -81,8 +83,8 @@ is (ref($node), 'Graph::Easy::Node');
 
 is ($node->error(), '', 'no error yet');
 
-is ($node->x(), 0, 'x == 0');
-is ($node->y(), 0, 'x == 0');
+is ($node->x(), undef, 'x == undef');
+is ($node->y(), undef, 'y == undef');
 is ($node->label(), 'Node #0', 'label');
 is ($node->name(), 'Node #0', 'name');
 is ($node->class(), 'node', 'class node');
@@ -143,6 +145,16 @@ is ($node->predecessors(), 0, '0 incoming');
 is (scalar $node->edges_to($other), 1, '1 link to $other');
 is ($node->connections(), 1, '1 connection');
 is (scalar $node->edges(), 1, '1 edge');
+
+is ($node->has_as_successor($other), 1, 'node -> other');
+is ($node->has_as_successor($node), 0, '! node -> node');
+is ($node->has_as_predecessor($node), 0, '! node -> node');
+is ($node->has_as_predecessor($other), 0, '! node -> node');
+
+is ($other->has_as_successor($other), 0, '! other -> node');
+is ($other->has_as_successor($node), 0, '! other -> other');
+is ($other->has_as_predecessor($node), 1, ' node -> other');
+is ($other->has_as_predecessor($other), 0, '! other -> other');
 
 my @E = $node->edges_to($other);
 

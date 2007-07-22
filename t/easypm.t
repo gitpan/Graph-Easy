@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 124;
+   plan tests => 135;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -21,7 +21,7 @@ can_ok ("Graph::Easy", qw/
   html_page_header
   html_page_footer
   error
-  edge node nodes edges anon_nodes
+  edge node nodes edges edges_within anon_nodes
 
   svg_information
 
@@ -47,6 +47,9 @@ can_ok ("Graph::Easy", qw/
   id
   group groups add_group del_group
   is_simple_graph
+  is_simple
+  is_directed
+  is_undirected
 
   text_style
   text_styles
@@ -64,6 +67,8 @@ is (ref($graph), 'Graph::Easy');
 
 is ($graph->error(), '', 'no error yet');
 is ($graph->is_simple_graph(), 1, 'simple graph (0 nodes)');
+is ($graph->is_simple(), 1, 'simple graph (0 nodes)');
+is ($graph->is_directed(), 1, 'directed graph');
 
 my $node = Graph::Easy::Node->new( name => 'Bonn' );
 my $node2 = Graph::Easy::Node->new( name => 'Berlin' );
@@ -371,6 +376,27 @@ is ($g2->nodes(), '0', 'other graph has now zero');
 is ($graph->{nodes}->{bcd}, $node, 'got inserted with name bcd');
 is ($node->{graph}, $graph, 'node is part of this graph');
 is ($new_node, $node, 'returned node');
+
+#############################################################################
+# directed/undirected
+
+$graph = Graph::Easy->new();
+is ($graph->is_directed(), 1, 'directed graph');
+is ($graph->is_undirected(), 0, 'directed graph');
+
+$graph->set_attribute('type','directed');
+is ($graph->is_directed(), 1, 'directed graph');
+is ($graph->is_undirected(), 0, 'directed graph');
+
+$graph->set_attribute('type','undirected');
+is ($graph->is_directed(), 0, 'undirected graph');
+is ($graph->is_undirected(), 1, 'undirected graph');
+
+my $ge = Graph::Easy->new( undirected => 1 );
+
+is (ref($ge), 'Graph::Easy');
+is ($ge->attribute('type'), 'undirected', 'is undirected');
+is ($ge->is_undirected(), 1, 'is undirected');
 
 1; # all tests done
 

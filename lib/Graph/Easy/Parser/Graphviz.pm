@@ -5,7 +5,7 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 use Graph::Easy::Parser;
 @ISA = qw/Graph::Easy::Parser/;
 
@@ -807,6 +807,7 @@ sub _build_match_stack
       my $self = shift;
       $self->{_graphviz_graph_name} = $3; 
       $self->_new_scope(1);
+      $self->{_graph}->set_attribute('type','undirected') if lc($2) eq 'graph';
       1;
       } );
 
@@ -817,16 +818,7 @@ sub _build_match_stack
       my $self = shift;
       $self->{_graphviz_graph_name} = 'unnamed'; 
       $self->_new_scope(1);
-      1;
-      } );
-
-  # simple remove the graph start, but remember that we did this
-  $self->_register_handler( qr/^\s*strict$qr_ocmt(di)?graph$qr_ocmt\s*\{/i, 
-    sub 
-      {
-      my $self = shift;
-      $self->{_graphviz_graph_name} = 'unnamed'; 
-      $self->_new_scope(1);
+      $self->{_graph}->set_attribute('type','undirected') if lc($2) ne 'di';
       1;
       } );
 
@@ -1065,140 +1057,139 @@ sub _add_node
 # attribute remapping
 
 # undef => drop that attribute
-# not listed attributes are simple copied unmodified
+# not listed attributes will result in "x-dot-$attribute" and a warning
 
 my $remap = {
   'node' => {
-    'distortion' => undef,
+    'distortion' => 'x-dot-distortion',
 
     'fixedsize' => undef,
-    'group' => undef,
-    'height' => undef,
+    'group' => 'x-dot-group',
+    'height' => 'x-dot-height',
 
     # XXX TODO: ignore non-node attributes set in a scope
     'dir' => undef,
 
-    'layer' => undef,
-    'margin' => undef,
+    'layer' => 'x-dot-layer',
+    'margin' => 'x-dot-margin',
     'orientation' => \&_from_graphviz_node_orientation,
     'peripheries' => \&_from_graphviz_node_peripheries,
-    'pin' => undef,
-    'pos' => undef,
+    'pin' => 'x-dot-pin',
+    'pos' => 'x-dot-pos',
     # XXX TODO: rank=0 should make that node the root node
-    'rank' => undef,
-    'rects' => undef,
-    'regular' => undef,
-    'root' => undef,
-    'sides' => undef,
-    'shapefile' => undef,
+#   'rank' => undef,
+    'rects' => 'x-dot-rects',
+    'regular' => 'x-dot-regular',
+#    'root' => undef,
+    'sides' => 'x-dot-sides',
+    'shapefile' => 'x-dot-shapefile',
     'shape' => \&_from_graphviz_node_shape,
-    'skew' => undef,
+    'skew' => 'x-dot-skew',
     'style' => \&_from_graphviz_style,
-    'width' => undef,
-    'z' => undef,
+    'width' => 'x-dot-width',
+    'z' => 'x-dot-z',
     },
 
   'edge' => {
-    'arrowsize' => undef,
+    'arrowsize' => 'x-dot-arrowsize',
     'arrowhead' => \&_from_graphviz_arrow_style,
-    'arrowtail' => undef,
+    'arrowtail' => 'x-dot-arrowtail',
      # important for color lists like "red:red" => double edge
     'color' => \&_from_graphviz_edge_color,
-    'constraint' => undef,
+    'constraint' => 'x-dot-constraint',
     'dir' => \&_from_graphviz_edge_dir,
-    'decorate' => undef,
-    'f' => undef,
-    'headclip' => undef,
-    'headhref' => undef,
-    'headurl' => undef,
+    'decorate' => 'x-dot-decorate',
+    'f' => 'x-dot-f',
+    'headclip' => 'x-dot-headclip',
+    'headhref' => 'headlink',
+    'headurl' => 'headlink',
     'headport' => \&_from_graphviz_headport,
-    'headlabel' => undef,
-    'headtarget' => undef,
-    'headtooltip' => undef,
-    'labelangle' => undef,
-    'labeldistance' => undef,
-    'labelfloat' => undef,
+    'headlabel' => 'headlabel',
+    'headtarget' => 'x-dot-headtarget',
+    'headtooltip' => 'headtitle',
+    'labelangle' => 'x-dot-labelangle',
+    'labeldistance' => 'x-dot-labeldistance',
+    'labelfloat' => 'x-dot-labelfloat',
     'labelfontcolor' => \&_from_graphviz_color,
     'labelfontname' => 'font',
     'labelfontsize' => 'font-size',
-    'layer' => undef,
-    'len' => undef,
-    'lhead' => undef,
-    'ltail' => undef,
+    'layer' => 'x-dot-layer',
+    'len' => 'x-dot-len',
+    'lhead' => 'x-dot-lhead',
+    'ltail' => 'x-dot-tail',
     'minlen' => \&_from_graphviz_edge_minlen,
-    'pos' => undef,
-    'samehead' => undef,
-    'samearrowhead' => undef,
-    'sametail' => undef,
+    'pos' => 'x-dot-pos',
+    'samehead' => 'x-dot-samehead',
+    'samearrowhead' => 'x-dot-samearrowhead',
+    'sametail' => 'x-dot-sametail',
     'style' => \&_from_graphviz_edge_style,
-    'tailclip' => undef,
-    'tailhref' => undef,
-    'tailurl' => undef,
+    'tailclip' => 'x-dot-tailclip',
+    'tailhref' => 'taillink',
+    'tailurl' => 'taillink',
     'tailport' => \&_from_graphviz_tailport,
-    'taillabel' => undef,
-    'tailtarget' => undef,
-    'tailtooltip' => undef,
-    'weight' => undef,
+    'taillabel' => 'taillabel',
+    'tailtarget' => 'x-dot-tailtarget',
+    'tailtooltip' => 'tailtitle',
     },
 
   'graph' => {
-    'damping' => undef,
-    'K' => undef,
-    'bb' => undef,
-    'center' => undef,
+    'damping' => 'x-dot-damping',
+    'K' => 'x-dot-k',
+    'bb' => 'x-dot-bb',
+    'center' => 'x-dot-center',
+    # will be handles automatically:
     'charset' => undef,
-    'clusterrank' => undef,
-    'compound' => undef,
-    'concentrate' => undef,
-    'defaultdist' => undef,
-    'dim' => undef,
-    'dpi' => undef,
-    'epsilon' => undef,
-    'esep' => undef,
-    'fontpath' => undef,
+    'clusterrank' => 'x-dot-clusterrank',
+    'compound' => 'x-dot-compound',
+    'concentrate' => 'x-dot-concentrate',
+    'defaultdist' => 'x-dot-defaultdist',
+    'dim' => 'x-dot-dim',
+    'dpi' => 'x-dot-dpi',
+    'epsilon' => 'x-dot-epsilon',
+    'esep' => 'x-dot-esep',
+    'fontpath' => 'x-dot-fontpath',
     'labeljust' => \&_from_graphviz_graph_labeljust,
     'labelloc' => \&_from_graphviz_labelloc,
-    'landscape' => undef,
-    'layers' => undef,
-    'layersep' => undef,
-    'levelsgap' => undef,
-    'margin' => undef,
-    'mclimit' => undef,
-    'mindist' => undef,
-    'mode' => undef,
-    'model' => undef,
-    'nodesep' => undef,
-    'normalize' => undef,
-    'nslimit' => undef,
-    'nslimit1' => undef,
-    'ordering' => undef,
-    'orientation' => undef,
+    'landscape' => 'x-dot-landscape',
+    'layers' => 'x-dot-layers',
+    'layersep' => 'x-dot-layersep',
+    'levelsgap' => 'x-dot-levelsgap',
+    'margin' => 'x-dot-margin',
+    'mclimit' => 'x-dot-mclimit',
+    'mindist' => 'x-dot-mindist',
+    'mode' => 'x-dot-mode',
+    'model' => 'x-dot-model',
+    'nodesep' => 'x-dot-nodesep',
+    'normalize' => 'x-dot-normalize',
+    'nslimit' => 'x-dot-nslimit',
+    'nslimit1' => 'x-dot-nslimit1',
+    'ordering' => 'x-dot-ordering',
+    'orientation' => 'x-dot-orientation',
     'output' => 'output',
-    'outputorder' => undef,
-    'overlap' => undef,
-    'pack' => undef,
-    'packmode' => undef,
-    'page' => undef,
+    'outputorder' => 'x-dot-outputorder',
+    'overlap' => 'x-dot-overlap',
+    'pack' => 'x-dot-pack',
+    'packmode' => 'x-dot-packmode',
+    'page' => 'x-dot-page',
     'pencolor' => \&_from_graphviz_color,
-    'quantum' => undef,
+    'quantum' => 'x-dot-quantum',
     'rankdir' => \&_from_graphviz_graph_rankdir,
-    'ranksep' => undef,
-    'ratio' => undef,
-    'remincross' => undef,
-    'resolution' => undef,
-    'rotate' => undef,
-    'samplepoints' => undef,
-    'searchsize' => undef,
-    'sep' => undef,
-    'sep' => undef,
-    'size' => undef,
-    'splines' => undef,
-    'start' => undef,
+    'ranksep' => 'x-dot-ranksep',
+    'ratio' => 'x-dot-ratio',
+    'remincross' => 'x-dot-remincross',
+    'resolution' => 'x-dot-resolution',
+    'rotate' => 'x-dot-rotate',
+    'samplepoints' => 'x-dot-samplepoints',
+    'searchsize' => 'x-dot-searchsize',
+    'sep' => 'x-dot-sep',
+    'size' => 'x-dot-size',
+    'splines' => 'x-dot-splines',
+    'start' => 'x-dot-start',
     'style' => \&_from_graphviz_style,
-    'stylesheet' => undef,
-    'truecolor' => undef,
-    'viewport' => undef,
-    'voro-margin' => undef,
+    'stylesheet' => 'x-dot-stylesheet',
+    'truecolor' => 'x-dot-truecolor',
+    'viewport' => 'x-dot-viewport',
+    'voro-margin' => 'x-dot-voro-margin',
     },
 
   'group' => {
@@ -1206,22 +1197,22 @@ my $remap = {
     'labelloc' => \&_from_graphviz_labelloc,
     'pencolor' => \&_from_graphviz_color,
     'style' => \&_from_graphviz_style,
-    'K' => undef,
+    'K' => 'x-dot-k',
     },
 
   'all' => {
     'color' => \&_from_graphviz_color,
-    'colorscheme' => undef,
+    'colorscheme' => 'x-colorscheme',
     'bgcolor' => \&_from_graphviz_color,
     'fillcolor' => \&_from_graphviz_color,
     'fontsize' => \&_from_graphviz_font_size,
     'fontcolor' => \&_from_graphviz_color,
     'fontname' => 'font',
-    'lp' => undef,
-    'nojustify' => undef,
-    'rank' => undef,
-    'showboxes' => undef,
-    'target' => undef,
+    'lp' => 'x-dot-lp',
+    'nojustify' => 'x-dot-nojustify',
+    'rank' => 'x-dot-rank',
+    'showboxes' => 'x-dot-showboxes',
+    'target' => 'x-dot-target',
     'tooltip' => 'title',
     'URL' => 'link',
     'href' => 'link',
@@ -1296,7 +1287,7 @@ sub _from_graphviz_style
       @rc = ('shape', 'rect') if $s eq 'filled';
       }
     # convert "setlinewidth(12)" => 
-    if ($s =~ /setlinewidth\((\d+)\)/)
+    if ($s =~ /setlinewidth\((\d+|\d*\.\d+)\)/)
       {
       my $width = abs($1 || 1);
       my $style = '';
@@ -1424,7 +1415,7 @@ sub _from_graphviz_edge_style
   $style = 'solid' if $style eq 'normal';
 
   # convert "setlinewidth(12)" => 
-  if ($style =~ /setlinewidth\((\d+)\)/)
+  if ($style =~ /setlinewidth\((\d+|\d*\.\d+)\)/)
     {
     my $width = abs($1 || 1);
     $style = 'wide';			# > 11
@@ -1989,6 +1980,14 @@ rules of the DOT language.
 The output will be a L<Graph::Easy|Graph::Easy> object (unless overrriden
 with C<use_class()>), see the documentation for Graph::Easy what you can do
 with it.
+
+=head2 Attributes
+
+Attributes will be remapped to the proper Graph::Easy attribute names and
+values, as much as possible.
+
+Anything else will be converted to custom attributes starting with "x-dot-".
+So "ranksep: 2" will become "x-dot-ranksep: 2".
 
 =head1 METHODS
 

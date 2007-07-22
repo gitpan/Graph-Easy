@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_vcg;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 #############################################################################
 #############################################################################
@@ -17,19 +17,96 @@ use strict;
 
 my $vcg_remap = {
   node => {
+    align => undef,
+    autolabel => undef,
+    autolink => undef,
+    autotitle => undef,
+    background => undef, 
+    basename => undef,
+    class => undef,
+    colorscheme => undef,
+    columns => undef,
+    flow => undef,
+    fontsize => undef,
+    format => undef,
+    group => undef,
+    id => undef,
+    link => undef,
+    linkbase => undef,
+    offset => undef,
+    origin => undef,
+    pointstyle => undef,
+    rank => 'level',
+    rotate => undef,
+    rows => undef,
+    shape => undef,
+    size => undef,
+    textstyle => undef,
+    textwrap => undef,
+    title => undef,
     },
   edge => {
+    color => 'color',			# this entry overrides 'all'!
+    align => undef,
+    arrowshape => undef,
+    arrowstyle => undef,
+    autojoin => undef,
+    autolabel => undef,
+    autolink => undef,
+    autosplit => undef,
+    autotitle => undef,
+    border => undef,
+    bordercolor => undef,
+    borderstyle => undef,
+    borderwidth => undef,
+    # XXX TODO map to edgeclass and graph.classname
+    class => undef,
+    colorscheme => undef,
+    end => undef,
+    fontsize => undef,
+    format => undef,
+    id => undef,
+    labelcolor => 'textcolor',
+    link => undef,
+    linkbase => undef,
+    minlen => undef,
+    start => undef,
+    # XXX TODO: remap unknown styles
+    style => 'linestyle',
+    textstyle => undef,
+    textwrap => undef,
+    title => undef, 
     },
   graph => {
+    flow => undef,
     label => 'title',
+    type => undef,
     },
   group => {
     },
   all => {
+    background => undef,
+    color => 'textcolor',
+    comment => undef,
+    fill => 'color',
+    font => 'fontname',
     },
   always => {
     },
+  # this routine will handle all custom "x-dot-..." attributes
+  x => \&_remap_custom_vcg_attributes,
   };
+
+sub _remap_custom_vcg_attributes
+  {
+  my ($self, $name, $value) = @_;
+
+  # drop anything that is not starting with "x-vcg-..."
+  return (undef,undef) unless $name =~ /^x-vcg-/;
+
+  $name =~ s/^x-vcg-//;			# "x-vcg-foo" => "foo"
+  ($name,$value);
+  }
 
 sub _vcg_remap_align
   {

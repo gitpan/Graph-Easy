@@ -27,7 +27,7 @@ sub _edges_into_groups
     my $gf = $edge->{from}->group();
     my $gt = $edge->{to}->group();
 
-    $edge->add_to_group($gf) if defined $gf && defined $gt && $gf == $gt;
+    $gf->_add_edge($edge) if defined $gf && defined $gt && $gf == $gt;
     }
 
   $self;
@@ -250,7 +250,7 @@ sub _new_edge_cell
 
   my $e_cell = Graph::Easy::Edge::Cell->new( 
 	  type => $type, edge => $edge, x => $x, y => $y, after => $after);
-  $group->del_cell($e_cell) if defined $group;
+  $group->_del_cell($e_cell) if defined $group;
   $cells->{"$x,$y"} = $e_cell;
   }
 
