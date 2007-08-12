@@ -234,6 +234,7 @@ t/in/6_group_align.txt
 t/in/6_joint.txt
 t/in/6_multicell.txt
 t/in/6_multicell_offset.txt
+t/in/6_nested_groups.txt
 t/in/6_ranks.txt
 t/in/6_split_join_loop.txt
 t/in/7_cluster.txt
@@ -434,6 +435,7 @@ t/out/6_group_align.txt
 t/out/6_joint.txt
 t/out/6_multicell.txt
 t/out/6_multicell_offset.txt
+t/out/6_nested_groups.txt
 t/out/6_ranks.txt
 t/out/6_split_join_loop.txt
 t/out/7_cluster.txt
@@ -655,6 +657,7 @@ t/txt/6_group_align.txt
 t/txt/6_joint.txt
 t/txt/6_multicell.txt
 t/txt/6_multicell_offset.txt
+t/txt/6_nested_groups.txt
 t/txt/6_ranks.txt
 t/txt/6_split_join_loop.txt
 t/txt/7_cluster.txt
@@ -713,5 +716,5 @@ t/txt/dot/9_edge_styles.txt
 t/txt/dot/9_stacking.txt
 t/txt/dot/9_tree.txt
 t/use_class.t			test overriding classes in the Parser
-t/vcg.t
+t/vcg.t				test Parser/VCG
 TODO

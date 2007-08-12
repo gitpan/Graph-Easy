@@ -2926,20 +2926,33 @@ EOF
      'Cluster A',
      ],
 
-    pointstyle => [
+    pointshape => [
      "Controls the style of a node that has a L<shape> of 'point'.",
-     [ qw/circle cross diamond dot invisible square star/ ],
+     [ qw/star square dot circle cross diamond invisible x/ ],
       'star',
       'square',
       undef,
      "node { shape: point; }\n\n [ A ]".
-     "\n -> [ B ] { pointstyle: circle; }" .
-     "\n -> [ C ] { pointstyle: cross; }" . 
-     "\n -> [ D ] { pointstyle: diamond; }" . 
-     "\n -> [ E ] { pointstyle: dot; }" . 
-     "\n -> [ F ] { pointstyle: invisible; }" . 
-     "\n -> [ G ] { pointstyle: square; }" . 
-     "\n -> [ H ] { pointstyle: star; }"
+     "\n -> [ B ] { pointshape: circle; }" .
+     "\n -> [ C ] { pointshape: cross; }" . 
+     "\n -> [ D ] { pointshape: diamond; }" . 
+     "\n -> [ E ] { pointshape: dot; }" . 
+     "\n -> [ F ] { pointshape: invisible; }" . 
+     "\n -> [ G ] { pointshape: square; }" . 
+     "\n -> [ H ] { pointshape: star; }" .
+     "\n -> [ I ] { pointshape: x; }" .
+     "\n -> [ ☯ ] { shape: none; }"
+     ], 
+
+    pointstyle => [
+     "Controls the style of the L<pointshape> of a node that has a L<shape> of 'point'. " .
+     "Note for backwards compatibility reasons, the shape names 'star', 'square', 'dot', 'circle', 'cross', 'diamond' and 'invisible' ".
+     "are also supported, but should not be used here, instead set them via L<pointshape>.",
+     [ qw/closed filled star square dot circle cross diamond invisible x/ ],
+      'filled',
+      'open',
+      undef,
+     "node { shape: point; pointstyle: closed; pointshape: diamond; }\n\n [ A ] --> [ B ] { pointstyle: filled; }",
      ], 
 
     rank => [
@@ -2963,7 +2976,7 @@ EOF
      ],
 
     shape => [
-     "The shape of the node. Nodes with shape 'point' (see L<pointstyle>) have a fixed size and do not display their label. The border of such a node is the outline of the C<pointshape>, and the fill is the inside of the C<pointshape>. When the C<shape> is set to the value 'img', the L<label> will be interpreted as an external image resource to display. In this case attributes like L<color>, L<fontsize> etc. are ignored.",
+     "The shape of the node. Nodes with shape 'point' (see L<pointshape>) have a fixed size and do not display their label. The border of such a node is the outline of the C<pointshape>, and the fill is the inside of the C<pointshape>. When the C<shape> is set to the value 'img', the L<label> will be interpreted as an external image resource to display. In this case attributes like L<color>, L<fontsize> etc. are ignored.",
        [ qw/ circle diamond edge ellipse hexagon house invisible invhouse invtrapezium invtriangle octagon parallelogram pentagon
              point triangle trapezium septagon rect rounded none img/ ],
       'rect',

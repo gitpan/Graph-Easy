@@ -31,7 +31,8 @@ can_ok ("Graph::Easy", qw/
   del_node
   del_edge
 
-  flip_edges rename_node
+  flip_edges
+  rename_node rename_group
 
   set_attributes
   set_attribute

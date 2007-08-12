@@ -1,7 +1,7 @@
 #############################################################################
 # Layout directed graphs on a flat plane. Part of Graph::Easy.
 #
-# (c) by Tels 2004-2006.
+# (c) by Tels 2004-2007.
 #############################################################################
 
 package Graph::Easy::Layout;
@@ -201,6 +201,7 @@ sub _follow_chain
       # ignore self-loops
       next if $e->{from} == $e->{to};
 
+      # XXX TODO
       # skip links from/to groups
       next if $e->{to}->isa('Graph::Easy::Group') ||
               $e->{from}->isa('Graph::Easy::Group');
@@ -345,7 +346,8 @@ sub _find_chains
   # compute predecessors for all nodes: O(1)
   my $p;
   my $has_origin = 0;
-  for my $n (values %{$self->{nodes}})
+  foreach my $n (values %{$self->{nodes}}, values %{$self->{groups}})
+#  for my $n (values %{$self->{nodes}})
     {
     $n->{_chain} = undef;				# reset chain info
     $has_origin = 0;
@@ -471,6 +473,8 @@ sub layout
     local $SIG{ALRM} = sub { die "layout did not finish in time\n" };
     alarm(abs($self->{timeout} || 5)) unless defined $DB::single; # debugger?
 
+    print STDERR "#\n# Starting layout.\n" if $self->{debug};
+
     # Reset the sequence of the random generator, so that for the same
     # seed, the same layout will occur. Both for testing and repeatable
     # layouts based on max score.
@@ -478,8 +482,6 @@ sub layout
 
     $self->_edges_into_groups();
 
-    # XXX TODO: 
-    # call this for all groups, then assemble groups/nodes into graph
     $self->_layout();
 
     };					# eval {}; -- end of timeout protected code
@@ -488,7 +490,7 @@ sub layout
 
   # cleanup
   $self->{chains} = undef;		# drop chain info
-  foreach my $n (values %{$self->{nodes}})
+  foreach my $n (values %{$self->{nodes}}, values %{$self->{groups}})
     {
     # drop old chain info
     $n->{_next} = undef;
@@ -501,15 +503,17 @@ sub layout
   die $@ if $@;				# propagate errors
   }
 
-sub _layout
+sub _drop_caches
   {
+  # before the layout phase, we drop cached information from the last run
   my $self = shift;
-
-  ###########################################################################
-  # do some assorted stuff beforehand
 
   for my $n (values %{$self->{nodes}})
     {
+    # XXX after we laid out the individual groups:    
+    # skip nodes that are not part of the current group
+    #next if $n->{group} && !$self->{graph};
+
     # empty the cache of computed values (flow, label, border etc)
     $n->{cache} = {};
 
@@ -517,6 +521,46 @@ sub _layout
     $n->{w} = undef;			# force size recalculation
     $n->{_todo} = undef;		# mark as todo
     }
+  for my $g (values %{$self->{groups}})
+    {
+    $g->{x} = undef; $g->{y} = undef;	# mark every group as not placed yet
+    $g->{_todo} = undef;		# mark as todo
+    }
+  }
+
+sub _layout
+  {
+  my $self = shift;
+
+  ###########################################################################
+  # do some assorted stuff beforehand
+
+  print STDERR "# Doing layout for ", 
+	(defined $self->{name} ? 'group ' . $self->{name} : 'main graph'),
+	"\n" if $self->{debug};
+
+  # XXX TODO: 
+  # for each primary group
+#  my @groups = $self->groups_within(0);
+#
+#  if (@groups > 0 && $self->{debug})
+#    {
+#    print STDERR "# Found the following top-level groups:\n";
+#    for my $g (@groups)
+#      {
+#      print STDERR "# $g $g->{name}\n";
+#      }
+#    }
+#
+#  # layout each group on its own, recursively:
+#  foreach my $g (@groups)
+#    {
+#    $g->_layout();
+#    }
+
+  # finally assembly everything together
+
+  $self->_drop_caches();
 
   local $_; $_->_grow() for values %{$self->{nodes}};
 
@@ -970,6 +1014,10 @@ Layout the actual graph.
 Used by C<layout()> to assign each node a rank, so they can be sorted
 and grouped on these.
 
+=head2 _optimize_layout
+
+Used by C<layout()> to optimize the layout as a last step.
+
 =head1 EXPORT
 
 Exports nothing.
@@ -980,7 +1028,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

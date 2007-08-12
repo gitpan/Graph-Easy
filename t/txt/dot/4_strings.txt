@@ -6,9 +6,9 @@ graph {
 }
 
 [ Cottbus ] { label: Cottbus; }
-[ berlin ] { label: Berlin  Ost; }
-[ bonn ] { label: Bonn  am Rhein; }
-[ bonntest ] { label: Bonn (Rhei   n); }
+[ berlin ] { label: Berlin Ost; }
+[ bonn ] { label: Bonn am Rhein; }
+[ bonntest ] { label: Bonn (Rhei  n); }
 
 [ bonn ] -- train (ICE) --> [ berlin ]
 [ bonntest ] --> [ Cottbus ]

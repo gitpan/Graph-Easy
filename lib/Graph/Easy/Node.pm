@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.35';
+$VERSION = '0.36';
 
 use Graph::Easy::Base;
 use Graph::Easy::Attributes;
@@ -247,7 +247,8 @@ sub _correct_size
     $self->{w} = 5;
     $self->{h} = 3;
     my $style = $self->attribute('pointstyle');
-    if ($style eq 'invisible')
+    my $shape = $self->attribute('pointshape');
+    if ($style eq 'invisible' || $shape eq 'invisible')
       {
       $self->{w} = 0; $self->{h} = 0; return; 
       }
@@ -626,6 +627,7 @@ my $remap = {
     origin => undef,
     offset => undef, 
     pointstyle => undef,
+    pointshape => undef,
     rows => undef, 
     size => undef,
     shape => undef,
@@ -828,7 +830,7 @@ sub as_html
     require Graph::Easy::As_ascii;		# for _u8 and point-style
 
     local $self->{graph}->{_ascii_style} = 1;	# use utf-8
-    $name = $self->_point_style( $self->attribute('pointstyle') );
+    $name = $self->_point_style( $self->attribute('pointshape'), $self->attribute('pointstyle') );
     }
   elsif ($shape eq 'img')
     {
@@ -1457,7 +1459,9 @@ sub label
   {
   my $self = shift;
 
-  my $label = $self->attribute('label');
+  # shortcut to speed it up a bit:
+  my $label = $self->{att}->{label};
+  $label = $self->attribute('label') unless defined $label;
 
   # for autosplit nodes, use their auto-label first (unless already got 
   # a label from the class):

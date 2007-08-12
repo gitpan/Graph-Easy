@@ -10,7 +10,7 @@ use Graph::Easy;
 use Scalar::Util qw/weaken/;
 
 @ISA = qw/Graph::Easy::Node Graph::Easy/;
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 use strict;
 
@@ -69,6 +69,22 @@ sub edges_within
 
   wantarray ? ( values %{$self->{edges_within}} ) : 
 		scalar keys %{$self->{edges_within}};
+  }
+
+sub _groups_within
+  {
+  my ($self, $level, $max_level, $cur) = @_;
+
+  no warnings 'recursion';
+
+  push @$cur, values %{$self->{groups}};
+
+  return if $level >= $max_level;
+
+  for my $g (values %{$self->{groups}})
+    {
+    $g->_groups_within($level+1,$max_level, $cur) if scalar keys %{$g->{groups}} > 0;
+    }
   }
 
 #############################################################################
@@ -265,14 +281,12 @@ sub add_group
   # add a group to us
   my ($self,$group) = @_;
 
-  my $uc = $self->{use_class};
-
   # group with that name already exists?
   my $name = $group;
   $group = $self->{groups}->{ $group } unless ref $group;
 
   # group with that name doesn't exist, so create new one
-  $group = $uc->{group}->new( name => $name ) unless ref $group;
+  $group = $self->{graph}->add_group($name) unless ref $group;
 
   # index under the group name for easier lookup
   $self->{groups}->{ $group->{name} } = $group;
@@ -601,6 +615,29 @@ ending node both are in the same group.
 
 Note: This does not return edges between this group and other groups,
 nor edges between this group and nodes outside this group.
+
+=head2 groups()
+
+	my @groups = $group->groups();
+
+Returns the contained groups of this group as L<Graph::Easy::Group> objects,
+in arbitrary order.
+  
+=head2 groups_within()
+
+	# equivalent to $group->groups():
+	my @groups = $group->groups_within();		# all
+	my @toplevel_groups = $group->groups_within(0);	# level 0 only
+
+Return the groups that are inside this group, up to the specified level,
+in arbitrary order.
+
+The default level is -1, indicating no bounds and thus all contained
+groups are returned.
+
+A level of 0 means only the direct children, and hence only the toplevel
+groups will be returned. A level 1 means the toplevel groups and their
+toplevel children, and so on.
 
 =head2 as_txt()
 

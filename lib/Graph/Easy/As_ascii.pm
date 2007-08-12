@@ -1,12 +1,12 @@
 #############################################################################
 # Render Nodes/Edges/Cells as ASCII/Unicode box drawing art
 #
-# (c) by Tels 2004-2006. Part of Graph::Easy
+# (c) by Tels 2004-2007. Part of Graph::Easy
 #############################################################################
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 use utf8;
 
@@ -359,7 +359,7 @@ sub _draw_cross
     my $x = 0;
     if (($flags & EDGE_START_W) != 0)
       {
-      $x++; chop($line);			# ' ---'
+      $x++; chop($line);		# ' ---'
       }
     if (($flags & EDGE_START_E) != 0)
       {
@@ -885,38 +885,105 @@ my $border_styles =
 
 my $rounded_edges = [ '╭', '╮', '╯', '╰', ]; 
 
- # ASCII and box art: the different point styles
+ # for ASCII/boxart drawing slopes/slants
+ #             lower-left to upper right (repeated twice)
+ #                   lower-right to upper left (repeated twice)
+my $slants = [
+  # ascii
+  {                    
+  solid	 	 => [ '/'  , '\\'   ],
+  dotted	 => [ '.' , '.'     ],
+  dashed	 => [ '/ ', '\\ '   ],
+  'dot-dash'	 => [ './', '.\\'   ],
+  'dot-dot-dash' => [ '../', '..\\' ],
+  bold	 	 => [ '#' , '#'     ],
+  'bold-dash' 	 => [ '# ' , '# '   ],
+  'double' 	 => [ '/' , '\\'    ],
+  'double-dash'	 => [ '/ ' , '\\ '  ],
+  wave	 	 => [ '/ ' , '\\ '  ],
+  broad	 	 => [ '#' , '#'     ],
+  wide	 	 => [ '#' , '#'     ],
+  },
+  # boxart
+  {                     
+  solid	 	 => [ '╱'  , '╲'   ],
+  dotted	 => [ '⋰' , '⋱'    ],
+  dashed	 => [ '╱ ', '╲ '   ],
+  'dot-dash'	 => [ '.╱', '.╲'   ],
+  'dot-dot-dash' => [ '⋰╱', '⋱╲' ],
+  bold	 	 => [ '#' , '#'    ],
+  'bold-dash' 	 => [ '# ' , '# '  ],
+  'double' 	 => [ '╱' , '╲'    ],
+  'double-dash'	 => [ '╱ ' , '╲ '  ],
+  wave	 	 => [ '╱ ' , '╲ '  ],
+  broad	 	 => [ '#' , '#'    ],
+  wide	 	 => [ '#' , '#'    ],
+  },
+  ];
 
-my $point_styles = 
-  [
-  {
-  'star'	=> '*',
-  'square'	=> '#',
-  'dot'		=> '.',
-  'circle'	=> 'o',  # unfortunately, there is no filled o in ASCII
-  'cross'	=> '+',
-  'diamond'	=> '<>',
-  'x'		=> 'X',
-  'invisible'	=> '',
-  },
-  {
-  'star'	=> '★',
-  'square'	=> '■',
-  'dot'		=> '·',
-  'circle'	=> '●',
-  'cross'	=> '+',
-  'diamond'	=> '◆',
-  'x'		=> '╳',
-  'invisible'	=> '',
-  },
+ # ASCII and box art: the different point shapes and styles
+my $point_shapes = 
+  [ {
+    filled => 
+      {
+      'star'		=> '*',
+      'square'		=> '#',
+      'dot'		=> '.',
+      'circle'		=> 'o',  # unfortunately, there is no filled o in ASCII
+      'cross'		=> '+',
+      'diamond'		=> '<>',
+      'x'		=> 'X',
+      },
+    closed => 
+      {
+      'star'		=> '*',
+      'square'		=> '#',
+      'dot'		=> '.',
+      'circle'		=> 'o',
+      'cross'		=> '+',
+      'diamond'		=> '<>',
+      'x'		=> 'X',
+      },
+    },
+    {
+    filled =>
+      {
+      'star'		=> '★',
+      'square'		=> '■',
+      'dot'		=> '·',
+      'circle'		=> '●',
+      'cross'		=> '+',
+      'diamond'		=> '◆',
+      'x'		=> '╳',
+      },
+    closed => 
+      {
+      'star'		=> '☆',
+      'square'		=> '□',
+      'dot'		=> '·',
+      'circle'		=> '○',
+      'cross'		=> '+',
+      'diamond'		=> '◇',
+      'x'		=> '╳',
+      },
+    }
   ];  
 
 sub _point_style
   {
-  my ($self, $style) = @_;
+  my ($self, $shape, $style) = @_;
 
+  return '' if $shape eq 'invisible';
+
+  if ($style =~ /^(star|square|dot|circle|cross|diamond)\z/)
+    {
+    # support the old "pointstyle: diamond" notion:
+    $shape = $style; $style = 'filled';
+    }
+
+  $style = 'filled' unless defined $style;
   my $g = $self->{graph}->{_ascii_style} || 0;
-  $point_styles->[$g]->{$style};
+  $point_shapes->[$g]->{$style}->{$shape};
   }
 
 sub _border_style
@@ -1245,8 +1312,9 @@ sub _draw_label
   if ($shape eq 'point')
     {
     # point-shaped nodes do not show their label in ASCII
-    my $style = $self->attribute('point-style');
-    my $l = $self->_point_style($style);
+    my $style = $self->attribute('pointstyle');
+    my $shape = $self->attribute('pointshape');
+    my $l = $self->_point_style($shape,$style);
 
     $self->_printfb_line ($fb, 2, $self->{h} - 2, $l) if $l;
     return;

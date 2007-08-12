@@ -5,13 +5,14 @@
 
 package Graph::Easy::Parser::VCG;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 use Graph::Easy::Parser::Graphviz;
 @ISA = qw/Graph::Easy::Parser::Graphviz/;
 
 use strict;
 use utf8;
 use constant NO_MULTIPLES => 1;
+use Encode qw/decode/;
 
 sub _init
   {
@@ -94,6 +95,9 @@ sub reset
 
   $g->{_warn_on_unknown_attributes} = 1;
 
+  # a hack to support multiline labels
+  $self->{_in_vcg_multi_line_label} = 0;
+
   $self;
   }
 
@@ -136,7 +140,7 @@ sub _match_multi_line_comment
   # match a multi line comment
 
   # /* * comment * */
-  qr#(?:\s*/\*.*?\*/\s*)+#;
+  qr#^\s*/\*.*?\*/\s*#;
   }
 
 sub _match_optional_multi_line_comment
@@ -149,25 +153,25 @@ sub _match_optional_multi_line_comment
 
 sub _match_node
   {
-  # Return a regexp that matches something like '"bonn"' or 'bonn' or 'bonn:f1'
+  # Return a regexp that matches a node at the start of the buffer
   my $self = shift;
 
   my $attr = $self->_match_attributes();
 
   # Examples: "node: { title: "a" }"
-  qr/\s*node:\s*$attr/;
+  qr/^\s*node:\s*$attr/;
   }
 
 sub _match_edge
   {
-  # Matches an edge
+  # Matches an edge at the start of the buffer
   my $self = shift;
 
   my $attr = $self->_match_attributes();
 
   # Examples: "edge: { sourcename: "a" targetname: "b" }"
   #           "backedge: { sourcename: "a" targetname: "b" }"
-  qr/\s*(|near|bentnear|back)edge:\s*$attr/;
+  qr/^\s*(|near|bentnear|back)edge:\s*$attr/;
   }
 
 sub _match_single_attribute
@@ -243,8 +247,58 @@ sub _clean_attributes
 
 sub _match_group_end
   {
-  # return a regexp that matches something like " }"
-  qr/\s*\}\s*\s*/;
+  # return a regexp that matches something like " }" at the beginning
+  qr/^\s*\}\s*/;
+  }
+
+sub _match_group_start
+  {
+  # return a regexp that matches something like "graph {" at the beginning
+  qr/^\s*graph:\s+\{\s*/;
+  }
+
+sub _clean_line
+  { 
+  # do some cleanups on a line before handling it
+  my ($self,$line) = @_;
+
+  chomp($line);
+
+  # collapse white space at start
+  $line =~ s/^\s+//;
+
+  if ($self->{_in_vcg_multi_line_label})
+    {
+    if ($line =~ /\"\s*\z/)
+      {
+      # '"\n'
+      $self->{_in_vcg_multi_line_label} = 0;
+      }
+    else
+      {
+      # hack: convert "a" to \"a\" to fix faulty inputs
+      $line =~ s/([^\\])\"/$1\\\"/g;
+      }
+    }
+  # a line like 'label: "...\n' means a multi-line label
+  elsif ($line =~ /^label:\s+\"[^\"]+\z/)
+    {
+    $self->{_in_vcg_multi_line_label} = 1;
+    }
+
+  $line;
+  }
+
+sub _line_insert
+  {
+  # What to insert between two lines.
+  my ($self) = @_;
+
+  # multiline labels => '\n'
+  return '\n' if $self->{_in_vcg_multi_line_label};
+
+  # the default is ' '
+  ' ';
   }
 
 #############################################################################
@@ -301,30 +355,51 @@ sub _build_match_stack
   my $qr_oatr  = $self->_match_optional_attributes();
   my $qr_edge  = $self->_match_edge();
   my $qr_class = $self->_match_class_attribute();
-  my $qr_grend = $self->_match_group_end();
+
+  my $qr_group_end   = $self->_match_group_end();
+  my $qr_group_start = $self->_match_group_start();
 
   # remove multi line comments /* comment */
-  $self->_register_handler( qr/^$qr_cmt/, undef );
+  $self->_register_handler( $qr_cmt, undef );
   
   # remove single line comment // comment
   $self->_register_handler( qr/^\s*\/\/.*/, undef );
-  
-  # simple remove the graph start, but remember that we did this
-  $self->_register_handler( qr/^\s*graph:\s*\{/i, 
-    sub 
+
+  # "graph: {"
+  $self->_register_handler( $qr_group_start,
+    sub
       {
       my $self = shift;
-      $self->{_vcg_graph_name} = 'unnamed'; 
-      $self->_new_scope(1);
+
+      # the main graph
+      if (@{$self->{scope_stack}} == 0)
+        {
+        print STDERR "# Parser: found main graph\n" if $self->{debug};
+	$self->{_vcg_graph_name} = 'unnamed'; 
+	$self->_new_scope(1);
+        }
+      else
+	{
+        print STDERR "# Parser: found subgraph\n" if $self->{debug};
+	# a new subgraph
+        push @{$self->{group_stack}}, $self->_new_group();
+	}
       1;
       } );
 
-#  # end-of-statement
-#  $self->_register_handler( qr/^\s*;/, undef );
+  # graph or subgraph end "}"
+  $self->_register_handler( $qr_group_end,
+    sub
+      {
+      my $self = shift;
 
-  # subgraph "graph: { .. }"
-  # subgraph end: "}"
-#  $self->_add_group_match();
+      print STDERR "# Parser: found end of (sub-)graph\n" if $self->{debug};
+      
+      my $scope = pop @{$self->{scope_stack}};
+      return $self->parse_error(0) if !defined $scope;
+
+      1;
+      } );
 
   # edge.color: 10
   $self->_register_handler( $qr_class,
@@ -341,8 +416,7 @@ sub _build_match_stack
       });
 
   # node: { ... }
-  # The "(?i)" makes the keywords match case-insensitive. 
-  $self->_register_handler( qr/^\s*node:$qr_ocmt$qr_attr/,
+  $self->_register_handler( $qr_node,
     sub {
       my $self = shift;
       my $att = $self->_parse_attributes($1 || '', 'node', NO_MULTIPLES );
@@ -352,14 +426,13 @@ sub _build_match_stack
 
 #      print STDERR "Found node with name $name\n";
 
-      my $node = $self->_new_node($self->{_graph}, $name, [], $att, []);
+      my $node = $self->_new_node($self->{_graph}, $name, $self->{group_stack}, $att, []);
       $node->set_attributes ($att);
       1;
       } );
 
-  # edge: { ... }
-  # The "(?i)" makes the keywords match case-insensitive. 
-  $self->_register_handler( qr/^\s*$qr_edge/,
+  # "edge: { ... }"
+  $self->_register_handler( $qr_edge,
     sub {
       my $self = shift;
       my $type = $1 || 'edge';
@@ -378,18 +451,6 @@ sub _build_match_stack
       1;
       } );
 
-  # "}" # graph end
-  $self->_register_handler( qr/^$qr_grend/,
-    sub
-      {
-      my $self = shift;
-
-      my $scope = pop @{$self->{scope_stack}};
-      return $self->parse_error(0) if !defined $scope;
-
-      1;
-      } );
-
   # color: red (for graphs or subgraphs)
   $self->_register_attribute_handler($qr_gatr, 'parent');
 
@@ -400,13 +461,6 @@ sub _new_node
   {
   # add a node to the graph, overridable by subclasses
   my ($self, $graph, $name, $group_stack, $att, $stack) = @_;
-
-  # "a -- clusterB" should not create a spurious node named "clusterB"
-#  my @groups = $graph->groups();
-#  for my $g (@groups)
-#    {
-#    return $g if $g->{name} eq $name;
-#    }
 
 #  print STDERR "add_node $name\n";
 
@@ -424,6 +478,10 @@ sub _new_node
     delete $scope->{_is_group};
     $node->set_attributes($scope->{node});
     $scope->{_is_group} = $is_group if $is_group;
+
+    my $group = $self->{group_stack}->[-1];
+
+    $node->add_to_group($group) if $group;
     }
 
   $node;
@@ -611,6 +669,8 @@ my $vcg_remap = {
     },
 
   'group' => {
+    hidden => 'x-vcg-hidden',
+    title => \&_group_name_from_vcg,
     },
 
   'all' => {
@@ -692,6 +752,19 @@ sub _vcg_node_shape
   (@rc, $name, $s);
   }
 
+sub _group_name_from_vcg
+  {
+  my ($self, $attr, $name, $object) = @_;
+
+  print STDERR "# Renaming anon group '$object->{name}' to '$name'\n"
+	if $self->{debug} > 0;
+
+  $self->rename_group($object, $name);
+
+  # name was set, so drop the "title: name" pair
+  (undef, undef);
+  }
+
 #############################################################################
 
 sub _remap_attributes
@@ -706,6 +779,11 @@ sub _remap_attributes
       # put the color into the current color map
       $self->_vcg_color_map_entry($1, $att->{$key});
       delete $att->{$key}; 
+      }
+    elsif ($att->{$key} =~ /\\fi[0-9]{3}/)
+      {
+      # remap \fi065 to 'A'
+      $att->{$key} =~ s/\\fi([0-9]{3})/ decode('iso-8859-1', chr($1)); /eg;
       }
     }
   $self->SUPER::_remap_attributes($att,$object,$r);

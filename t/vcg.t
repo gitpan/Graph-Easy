@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 31;
+   plan tests => 36;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -149,5 +149,32 @@ $vcg = $graph->as_vcg();
 unlike ($vcg, qr/x-/, 'no custom attributs were output');
 like ($vcg, qr/fontname/, 'no custom attributs were output');
 unlike ($vcg, qr/font:/, 'font => fontname');
+
+#############################################################################
+# Parsing multi-line labels and \fiXXX in strings
+
+$graph = $parser->from_text( <<EOG
+// test
+graph: {
+	node: { title: "A" label: "\\fi065" }
+	node: { 
+	title: "\\fi066" 
+	label: "foo
+	bar
+	baz"
+}
+	edge: { sourcename: "A" targetname: "B" }
+}
+EOG
+);
+
+is ($parser->error(), '', 'no error');
+
+is (ref($graph), 'Graph::Easy', 'Parsing worked');
+
+is (scalar $graph->nodes(), 2, 'two nodes');
+is ($graph->node('B')->label(), 'foo\nbar\nbaz', 'label of B');
+# unquoted from \f064 to A
+is ($graph->node('A')->label(), 'A', 'label of A');
 
 

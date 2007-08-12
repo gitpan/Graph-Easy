@@ -1,5 +1,41 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2007-08-12 v0.57 Tels 2673 tests
+  * bin/graph-easy:
+    + don't die on non-fatal parser errors (good for unknown dot attributes)
+    + warn if both --as=txt and --as_foo or more than one --as_foo are given
+    + add --stats option: output various statistics about the input graph
+  * Graph:
+    + add rename_group()
+    + rename_node() turns anon nodes into normal nodes (with a name)
+  * Graph/Group:
+    + add a groups_within() method that returns recursively the contained
+      groups up to the specified level (-1 - infinite, 0 => level 0 etc.)
+  * Group:
+    + fix add_group() when called with a scalar as group name
+  * Parser:
+    + parse nested groups: "( Outer ( Inner [ A ] ) [ B ] )"
+  * Parser/VCG:
+    + support for multi-line labels (Thanx Ohad Ben-Cohen for the testcase)
+    + work around faulty inputs with unescaped double quotes in labels
+      (gconv, I am looking at you!) (Thanx Ohad Ben-Cohen for the testcase)
+    + speed up parsing of large graphs by ca. 50% by simplifying regexps
+    + add support for \fi065 (ISO-8859-1 characters)
+    + support subgraphs (aka nested graphs)
+  * Parser/Graphviz:
+    + speed up parsing of large graphs by ca. 45% by direct attribute lookup
+  * as_vcg:
+    + generate classname attribute for edge classes if nec.
+  * Attributes:
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!! ATTENTION !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    The attribute "pointstyle" has been redefined as to make it consistent
+    with "arrowshape" and "arrowstyle". The attribute "pointstyle" is now one
+    of "closed", or "filled" and the shape can be set with "pointshape" as
+    "dimaond", "cross" etc.
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!! ATTENTION !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  * Misc:
+    + fix SYNOPSIS (Thanx Donuvi Tanoga!)
+
 2007-07-22 v0.56 Tels 2650 tests
   * bin/graph-easy:
     + add --version

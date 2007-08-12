@@ -5,7 +5,7 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 use Graph::Easy::Parser;
 @ISA = qw/Graph::Easy::Parser/;
 
@@ -394,7 +394,7 @@ sub _clean_line
 
   # collapse white space at start
   $line =~ s/^\s+//;
-  # line ending in "\" means a continuation
+  # line ending in '\' means a continuation
   $line =~ s/\\\z//;
 
   $line;
@@ -484,21 +484,29 @@ sub _match_node
 
 sub _match_group_start
   {
+  # match a subgraph at the beginning (f.i. "graph { ")
   my $self = shift;
   my $qr_n = $self->_match_name();
 
-  qr/\s*(?:strict\s+)?(?:(?i)digraph|subgraph|graph)\s+$qr_n\s*\{/i;
+  qr/^\s*(?:strict\s+)?(?:(?i)digraph|subgraph|graph)\s+$qr_n\s*\{/i;
+  }
+
+sub _match_pseudo_group_start_at_beginning
+  {
+  # match an anonymous group start at the beginning (aka " { ")
+  qr/^\s*\{/;
   }
 
 sub _match_pseudo_group_start
   {
+  # match an anonymous group start (aka " { ")
   qr/\s*\{/;
   }
 
 sub _match_group_end
   {
   # return a regexp that matches something like " }" or "} ;".
-  qr/\s*\}\s*;?\s*/;
+  qr/^\s*\}\s*;?\s*/;
   }
 
 sub _match_edge
@@ -543,8 +551,8 @@ sub _match_html
 
   my $qr = _match_html_regexps();
 
-  # <<TABLE>..</TABLE>>
-  qr/<$qr->{table}(?:$qr->{row})*$qr->{table_end}>/;
+  # < <TABLE> .. </TABLE> >
+  qr/<$qr->{table}(?:$qr->{row})*$qr->{table_end}\s*>/;
   }
   
 sub _match_single_attribute
@@ -672,14 +680,14 @@ sub _add_group_match
   # register handlers for group start/end
   my $self = shift;
 
-  my $qr_pseudo_group_start = $self->_match_pseudo_group_start();
+  my $qr_pseudo_group_start = $self->_match_pseudo_group_start_at_beginning();
   my $qr_group_start = $self->_match_group_start();
   my $qr_group_end   = $self->_match_group_end();
   my $qr_edge  = $self->_match_edge();
   my $qr_ocmt  = $self->_match_optional_multi_line_comment();
 
   # "subgraph G {"
-  $self->_register_handler( qr/^$qr_group_start/,
+  $self->_register_handler( $qr_group_start,
     sub
       {
       my $self = shift;
@@ -692,7 +700,7 @@ sub _add_group_match
       } );
   
   # "{ "
-  $self->_register_handler( qr/^$qr_pseudo_group_start/,
+  $self->_register_handler( $qr_pseudo_group_start,
     sub
       {
       my $self = shift;
@@ -704,7 +712,7 @@ sub _add_group_match
       } );
 
   # "} -> " group/cluster/scope end with an edge
-  $self->_register_handler( qr/^$qr_group_end$qr_ocmt$qr_edge/,
+  $self->_register_handler( qr/$qr_group_end$qr_ocmt$qr_edge/,
     sub
       {
       my $self = shift;
@@ -722,12 +730,12 @@ sub _add_group_match
     sub
       {
       my ($self, $line) = @_;
-      $line =~ qr/^$qr_group_end$qr_edge/;
+      $line =~ qr/$qr_group_end$qr_edge/;
       $1 . ' ';
       } );
 
   # "}" group/cluster/scope end
-  $self->_register_handler( qr/^$qr_group_end/,
+  $self->_register_handler( $qr_group_end,
     sub
       {
       my $self = shift;
@@ -1540,6 +1548,7 @@ my $html_remap = {
     'bgcolor' => 'fill',
     'cellspacing' => undef,
     'cellpadding' => undef,
+    'cellborder' => 'border',
     },
   };
 
@@ -1606,27 +1615,35 @@ sub _parse_html
   {
   # Given an HTML label, parses that into the individual parts. Returns a
   # list of nodes.
-  my ($self, $n) = @_;
-
-  my $qr = _match_html_regexps();
+  my ($self, $n, $qr) = @_;
 
   my $graph = $self->{_graph};
 
   my $label = $n->label(1); $label = '' unless defined $label;
   my $org_label = $label;
 
+#  print STDERR "# 1 HTML-like label is now: $label\n";
+
   # "unquote" the HTML-like label
   $label =~ s/^<\s*//;
   $label =~ s/\s*>\z//;
 
-  # remove the table end
-  $label =~ s/$qr->{table_end}//;
+#  print STDERR "# 2 HTML-like label is now: $label\n";
+
+  # remove the table end (at the end)
+  $label =~ s/$qr->{table_end}\s*\z//;
+#  print STDERR "# 2.a HTML-like label is now: $label\n";
   # remove the table start
   $label =~ s/($qr->{table})//;
 
+#  print STDERR "# 3 HTML-like label is now: $label\n";
+
   my $table_tag = $1 || ''; 
-  $table_tag =~ /$qr->{table_tag}(.*)>/;
+  $table_tag =~ /$qr->{table_tag}(.*?)>/;
   my $table_attr = $self->_parse_html_attributes($1 || '',$qr);
+
+#  use Data::Dumper;
+#  print STDERR "# 3 HTML-like table-tag attributes are: ", Dumper($table_attr),"\n";
 
   my $base_name = $self->_get_cluster_name('html');
 
@@ -1647,6 +1664,8 @@ sub _parse_html
 
     # we now got one row:
     my $row = $1;
+
+#  print STDERR "# 3 HTML-like row is $row\n";
 
     # remove <TR>
     $row =~ s/^\s*$qr->{tr}\s*//; 
@@ -1745,15 +1764,19 @@ sub _parser_cleanup
 
   # keep a record of all nodes to be deleted later:
   my $delete = {};
+
+  my $html_regexps = $self->_match_html_regexps();
+  my $graph_flow = $g->attribute('flow');
   for my $n (@nodes)
     {
     my $label = $n->label(1);
-    my $shape = $n->attribute('shape');
+    # we can get away with a direct lookup, since DOT does not have classes
+    my $shape = $n->{att}->{shape} || 'rect';
 
     if ($shape ne 'record' && $label =~ /^<\s*<.*>\z/)
       {
       print STDERR "# HTML-like label found: $label\n" if $self->{debug};
-      $self->_parse_html($n);
+      $self->_parse_html($n, $html_regexps);
       # remove the temp. and spurious node
       $delete->{$n->{name}} = undef;
       $g->del_node($n);
@@ -1778,7 +1801,7 @@ sub _parser_cleanup
         $label =~ s/[\{\}]//g;	# {..|..} => ..|..
         $label =~ s/\|/\|\|/g	# ..|.. => ..||..
 	  # if the graph flows left->right or right->left
-	  if (($g->attribute('flow') || 'east') =~ /^(east|west)/);
+	  if ($graph_flow =~ /^(east|west)/);
 	}
       my @rc = $self->_autosplit_node($g, $label, $att, 0 );
       my $group = $n->group();
@@ -1947,7 +1970,7 @@ __END__
 
 =head1 NAME
 
-Graph::Easy::Parser::Graphviz - Parse graphviz text into Graph::Easy
+Graph::Easy::Parser::Graphviz - Parse Graphviz text into Graph::Easy
 
 =head1 SYNOPSIS
 

@@ -179,7 +179,8 @@ sub class
     $subclass = '' unless defined $subclass;
     }
 
-  $subclass = $self->attribute('class') unless defined $subclass;
+  $subclass = $self->{att}->{class} unless defined $subclass;
+  $subclass = '' unless defined $subclass;
   $self->{cache}->{subclass} = $subclass;
   $subclass = '.' . $subclass if $subclass ne '';
 

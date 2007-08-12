@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.26';
+$VERSION = '0.27';
 
 #############################################################################
 #############################################################################
@@ -28,6 +28,7 @@ my $remap = {
     'fill' => \&_remap_color,
     'label' => \&_graphviz_remap_label,
     'pointstyle' => undef,
+    'pointshape' => undef,
     'rotate' => \&_graphviz_remap_node_rotate,
     'shape' => \&_graphviz_remap_node_shape,
     'title' => 'tooltip',
@@ -970,7 +971,9 @@ sub attributes_as_graphviz
     {
     require Graph::Easy::As_ascii;		# for _u8 and point-style
 
-    my $style = $self->_point_style( $self->attribute('pointstyle') );
+    my $style = $self->_point_style( 
+	$self->attribute('pointshape'), 
+	$self->attribute('pointstyle') );
 
     $a->{label} = $style;
     # for point-shaped invisible nodes, set height/width = 0

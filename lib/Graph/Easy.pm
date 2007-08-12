@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.56';
+$VERSION = '0.57';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -573,7 +573,57 @@ sub rename_node
 	}
       }
     }
+  if ($node->is_anon())
+    {
+    # turn anon nodes into a normal node (since it got a new name):
+    bless $node, $self->{use_class}->{node} || 'Graph::Easy::Node';
+    delete $node->{att}->{label} if $node->{att}->{label} eq ' ';
+    $node->{class} = 'group';
+    }
   $node;
+  }
+
+sub rename_group
+  {
+  # change the name of a group
+  my ($self, $group, $new_name) = @_;
+
+  if (!ref($group))
+    {
+    $group = $self->add_group($new_name);
+    }
+  else
+    {
+    if (!ref($group->{graph}))
+      {
+      # add node to ourself
+      $group->{name} = $new_name;
+      $self->add_group($group);
+      }
+    else
+      {
+      if ($group->{graph} != $self)
+        {
+	$group->{graph}->del_group($group);
+	$group->{name} = $new_name;
+	$self->add_group($group);
+	}
+      else
+	{
+	delete $self->{groups}->{$group->{name}};
+	$group->{name} = $new_name;
+	$self->{groups}->{$group->{name}} = $group;
+	}
+      }
+    }
+  if ($group->is_anon())
+    {
+    # turn anon groups into a normal group (since it got a new name):
+    bless $group, $self->{use_class}->{group} || 'Graph::Easy::Group';
+    delete $group->{att}->{label} if $group->{att}->{label} eq '';
+    $group->{class} = 'group';
+    }
+  $group;
   }
 
 #############################################################################
@@ -712,8 +762,9 @@ sub set_attributes
   $self;
   }
 
-sub del_attribute ($$$)
+sub del_attribute
   {
+  # delete the attribute with the name in the selected class(es)
   my ($self, $class_selector, $name) = @_;
 
   if (@_ == 2)
@@ -976,7 +1027,7 @@ sub _skip
   my ($self) = shift;
 
   # skip these for CSS
-  qr/^(basename|columns|colorscheme|comment|class|flow|format|group|rows|root|size|offset|origin|linkbase|(auto)?(label|link|title)|auto(join|split)|(node|edge)class|shape|arrowstyle|label(color|pos)|pointstyle|textstyle|style)\z/;
+  qr/^(basename|columns|colorscheme|comment|class|flow|format|group|rows|root|size|offset|origin|linkbase|(auto)?(label|link|title)|auto(join|split)|(node|edge)class|shape|arrowstyle|label(color|pos)|point(style|shape)|textstyle|style)\z/;
   }
 
 #############################################################################
@@ -2002,6 +2053,51 @@ sub groups
   scalar keys %{$self->{groups}};
   }
 
+sub groups_within
+  {
+  # Return the groups that are directly inside this graph/group. The optional
+  # level is either -1 (meaning return all groups contained within), or a
+  # positive number indicating how many levels down we need to go.
+  my ($self, $level) = @_;
+
+  $level = -1 if !defined $level || $level < 0;
+
+  # inline call to $self->groups;
+  if ($level == -1)
+    {
+    return sort { $a->{name} cmp $b->{name} } values %{$self->{groups}}
+      if wantarray;
+
+    return scalar keys %{$self->{groups}};
+    }
+
+  my $are_graph = $self->{graph} ? 0 : 1;
+
+  # get the groups at level 0
+  my $current = 0;
+  my @todo;
+  for my $g (values %{$self->{groups}})
+    {
+    # no group set => belongs to graph, set to ourself => belongs to ourself
+    push @todo, $g if ( ($are_graph && !defined $g->{group}) || $g->{group} == $self);
+    }
+
+  if ($level == 0)
+    {
+    return wantarray ? @todo : scalar @todo;
+    }
+
+  # we need to recursively count groups until the wanted level is reached
+  my @cur = @todo;
+  for my $g (@todo)
+    {
+    # _groups_within() is defined in Graph::Easy::Group
+    $g->_groups_within(1, $level, \@cur);
+    }
+
+  wantarray ? @cur : scalar @cur;
+  }
+
 sub anon_groups
   {
   # return all anon groups as objects
@@ -2151,7 +2247,11 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or via Graphviz
 
 	# Graphviz:
 	my $graphviz = $graph->as_graphviz();
-	`dot -Tpng -o graph.png $graphviz`;
+	open $DOT, '|dot -Tpng -o graph.png' or die ("Cannot open pipe to dot: $!");
+	print $DOT $graphviz;
+	close $DOT;
+
+	# Please see also the graph-easy utility includedin Graph::Easy
 
 =head1 DESCRIPTION
 
@@ -2531,9 +2631,9 @@ Changes the name of a node. If the passed node is not part of
 this graph or just a string, it will be added with the new
 name to this graph.
 
-If the node was part of another graph, it will be deleted there
-and added to this graph with the new name, effectively moving
-the node from the old to the new graph.
+If the node was part of another graph, it will be deleted there and added
+to this graph with the new name, effectively moving the node from the old
+to the new graph and renaming it at the same time.
 
 =head2 del_node()
 
@@ -2928,12 +3028,40 @@ Add a group to the graph and return it as L<Graph::Easy::Group> object.
 
 Returns the group with the name C<Name> as L<Graph::Easy::Group> object.
 
+=head2 rename_group()
+
+	$group = $graph->rename_group($group, $new_name);
+
+Changes the name of the given group. If the passed group is not part of
+this graph or just a string, it will be added with the new
+name to this graph.
+
+If the group was part of another graph, it will be deleted there and added
+to this graph with the new name, effectively moving the group from the old
+to the new graph and renaming it at the same time.
+
 =head2 groups()
 
 	my @groups = $graph->groups();
 
 Returns the groups of the graph as L<Graph::Easy::Group> objects,
 in arbitrary order.
+  
+=head2 groups_within()
+
+	# equivalent to $graph->groups():
+	my @groups = $graph->groups_within();		# all
+	my @toplevel_groups = $graph->groups_within(0);	# level 0 only
+
+Return the groups that are inside this graph, up to the specified level,
+in arbitrary order.
+
+The default level is -1, indicating no bounds and thus all contained
+groups are returned.
+
+A level of 0 means only the direct children, and hence only the toplevel
+groups will be returned. A level 1 means the toplevel groups and their
+toplevel children, and so on.
 
 =head2 anon_groups()
 

@@ -24,10 +24,10 @@ Important short-term TODO:
 * VCG/GDL
   + debug, finish the attribute remapping and add test cases
   + implement support for \fn \fb \fI \fu \fB (bold underline etc.)
-  + implement support for \fi035 (ISO char)
   + implement support for \f03 (colors)
   + implement support for \f- (hor line)
   + implement full color-remapping support (in both directions)
+  + implement parsing of classname attribute (output already works)
 
 * layouter:
   + head/tail label/title and link are currently ignored

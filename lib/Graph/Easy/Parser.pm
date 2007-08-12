@@ -7,7 +7,7 @@ package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = '0.31';
+$VERSION = '0.32';
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
 use Scalar::Util qw/weaken/;
@@ -34,8 +34,6 @@ sub _init
     $self->{$k} = $args->{$k};
     }
 
-  # to repair parsing of group starts (the '[' would else be missing)
-  $self->{group_start} = '[';
   # what to replace the matched text with
   $self->{replace} = '';
   $self->{attr_sep} = ':';
@@ -278,7 +276,9 @@ sub _add_group_match
 
       my $end = $2; $end = '' unless defined $end;
 
-      $self->{replace} = $self->{group_start} if $end eq $self->{group_start};
+      # repair the start of the next node/group
+      $self->{replace} = '[' if $end eq '[';
+      $self->{replace} = '(' if $end eq '(';
 
       # create the new group
       my $group = $self->_new_group($1);
@@ -287,6 +287,7 @@ sub _add_group_match
         {
         # we matched an empty group like "()", or "( group name )"
         $self->{stack} = [ $group ]; 
+         print STDERR "# Seen end of group '$group->{name}'.\n" if $self->{debug};
         }
       else
         {
@@ -294,7 +295,6 @@ sub _add_group_match
         push @{$self->{group_stack}}, $group;
         }
 
-      print STDERR "# Seen end of group '$group->{name}'.\n" if $self->{debug};
       1;
       } );
 
@@ -469,8 +469,9 @@ sub _build_match_stack
       my $edge_atr = $11 || '';				# save edge attributes
 
       my $gn = $12; 
-      # matched "-> ( Group ["
-      $self->{replace} = $self->{group_start} if defined $13 && $13 eq $self->{group_start};
+      # matched "-> ( Group [" or "-> ( Group ("
+      $self->{replace} = '[' if defined $13 && $13 eq '[';
+      $self->{replace} = '(' if defined $13 && $13 eq '(';
 
       $edge_atr = $self->_parse_attributes($edge_atr, 'edge');
       return undef if $self->{error};
@@ -599,34 +600,31 @@ sub from_text
 
   $self->_build_match_stack();
 
-  # what to insert between two lines
-  my $subst = $self->_line_insert();
-
   ###########################################################################
   # main parsing loop
 
   my $handled = 0;		# did we handle a fragment?
+  my $line;
 
   LINE:
   while (@lines > 0 || $backbuffer ne '')
     {
-    my $curline = '';
-    
     # only accumulate more text if we didnt handle a fragment
     if (@lines > 0 && $handled == 0)
       {
       $self->{line_nr}++;
-      $curline = shift @lines;
+      my $curline = shift @lines;
 
       # both Graph::Easy and Graphviz discard lines starting with '#'
       next if $curline =~ /^\s*($self->{qr_comment}|^#|\z)/;   # comment or empty?
 
       # convert tabs to spaces (the regexps don't expect tabs)
       $curline =~ s/\t/ /g;
-      $curline =~ s/\x0d//g;		# 0x0d0x0a => ''
+      $curline =~ s/\x0d//g;		# 0x0d0x0a => 0x0a
+
+      # combine backbuffer, what to insert between two lines and next line:
+      $line = $backbuffer . $self->_line_insert() . $self->_clean_line($curline);
       }
-    
-    my $line = $backbuffer . $subst . $self->_clean_line($curline);
 
   print STDERR "# Line is '$line'\n" if $self->{debug} && $self->{debug} > 2;
 
@@ -637,7 +635,7 @@ sub from_text
       # nothing to match against?
       last PATTERN if $line eq '';
 
-      $self->{replace} = '';
+      $self->{replace} = '';	# as default just remove the matched text
       my ($pattern, $handler, $replace) = @$entry;
 
   print STDERR "# Matching against $pattern\n" if $self->{debug} && $self->{debug} > 2;
@@ -1133,7 +1131,7 @@ sub _match_group_start
   # Return a regexp that matches something like " ( group [" and returns
   # the text between "(" and "[". Also matches empty groups like "( group )"
   # or even "()":
-  qr/\s*\(\s*([^\[\)]*?)\s*([\[\)])/;
+  qr/\s*\(\s*([^\[\)\(]*?)\s*([\[\)\(])/;
   }
 
 sub _match_group_end
@@ -1307,7 +1305,7 @@ __END__
 
 =head1 NAME
 
-Graph::Easy::Parser - Parse graph from textual description
+Graph::Easy::Parser - Parse Graph::Easy from textual description
 
 =head1 SYNOPSIS
 
@@ -1674,7 +1672,7 @@ Exports nothing.
 
 =head1 SEE ALSO
 
-L<Graph::Easy>. L<Graph::Easy::Parser::Graphviz>.
+L<Graph::Easy>. L<Graph::Easy::Parser::Graphviz> and L<Graph::Easy::Parser::VCG>.
 
 =head1 AUTHOR
 
