@@ -1,12 +1,12 @@
 #############################################################################
-# Represents one node in a Graph::Easy
+# Represents one node in a Graph::Easy graph.
 #
-# (c) by Tels 2004-2007. Part of Graph::Easy
+# (c) by Tels 2004-2007. Part of Graph::Easy.
 #############################################################################
 
 package Graph::Easy::Node;
 
-$VERSION = '0.36';
+$VERSION = '0.37';
 
 use Graph::Easy::Base;
 use Graph::Easy::Attributes;
@@ -42,7 +42,7 @@ sub _init
   #  $self->{children} = {};
   #  $self->{dx} = 0;		# relative to no other node
   #  $self->{dy} = 0;
-  #  $self->{origin} = 0;
+  #  $self->{origin} = undef;	# parent node (for relative placement)
   #  $self->{group} = undef;
   #  $self->{parent} = $graph or $group;
   # Mark as not yet laid out: 
@@ -2742,7 +2742,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2006 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

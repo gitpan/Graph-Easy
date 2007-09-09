@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout;
 
-$VERSION = '0.27';
+$VERSION = '0.28';
 
 #############################################################################
 #############################################################################
@@ -64,8 +64,7 @@ sub _assign_ranks
   my @N = $self->sorted_nodes('id');
   push @N, $self->groups();
 
-  my $root = $self->attribute('root');
-  $root = $self->{nodes}->{$root} if defined $root;
+  my $root = $self->root_node();
 
   $todo->add([$root->{rank} = -1,$root]) if ref $root;
 
@@ -358,7 +357,7 @@ sub _find_chains
   my $done = 0; my $todo = scalar keys %{$self->{nodes}};
 
   # the node where the layout should start, as name
-  my $root_name = $self->raw_attribute('root');
+  my $root_name = $self->{attr}->{root};
   $self->{_root} = undef;				# as ref to a Node object
 
   # Start at nodes with no predecessors (starting points) and then do the rest:
@@ -468,21 +467,39 @@ sub layout
   {
   my $self = shift;
 
+  # ( { type => 'force' } )
+  my $args = $_[0];
+  # ( type => 'force' )
+  $args = { @_ } if @_ > 1;
+
+  my $type = 'adhoc';
+  $type = 'force' if $args->{type} && $args->{type} eq 'force';
+
   # protect the layout with a timeout, unless run under the debugger:
   eval {
     local $SIG{ALRM} = sub { die "layout did not finish in time\n" };
-    alarm(abs($self->{timeout} || 5)) unless defined $DB::single; # debugger?
+    alarm(abs( $args->{timeout} || $self->{timeout} || 5))
+	unless defined $DB::single; # no timeout under the debugger
 
-    print STDERR "#\n# Starting layout.\n" if $self->{debug};
+    print STDERR "#\n# Starting $type-based layout.\n" if $self->{debug};
 
     # Reset the sequence of the random generator, so that for the same
     # seed, the same layout will occur. Both for testing and repeatable
     # layouts based on max score.
     srand($self->{seed});
 
-    $self->_edges_into_groups();
+    if ($type eq 'force')
+      {
+      require Graph::Easy::Layout::Force;
+      $self->error("Force-directed layouts are not yet implemented.");
+      $self->_layout_force();
+      }
+    else
+      {
+      $self->_edges_into_groups();
 
-    $self->_layout();
+      $self->_layout();
+      }
 
     };					# eval {}; -- end of timeout protected code
 

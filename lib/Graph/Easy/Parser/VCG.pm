@@ -5,7 +5,7 @@
 
 package Graph::Easy::Parser::VCG;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 use Graph::Easy::Parser::Graphviz;
 @ISA = qw/Graph::Easy::Parser::Graphviz/;
 
@@ -127,12 +127,10 @@ sub _unquote
 
 #############################################################################
 
-sub _match_comment
+sub _match_commented_line
   {
-  # match the start of a comment
-
-  # // comment
-  qr#(:[^\\]|)//#;
+  # matches only empty lines
+  qr/^\s*\z/;
   }
 
 sub _match_multi_line_comment
@@ -273,6 +271,9 @@ sub _clean_line
       {
       # '"\n'
       $self->{_in_vcg_multi_line_label} = 0;
+      # restore the match stack
+      $self->{match_stack} = $self->{_match_stack};
+      delete $self->{_match_stack};
       }
     else
       {
@@ -284,6 +285,10 @@ sub _clean_line
   elsif ($line =~ /^label:\s+\"[^\"]+\z/)
     {
     $self->{_in_vcg_multi_line_label} = 1;
+    # remove the match stack since we just wait for the end of the
+    # label
+    $self->{_match_stack} = $self->{match_stack};
+    delete $self->{match_stack};
     }
 
   $line;
@@ -359,12 +364,6 @@ sub _build_match_stack
   my $qr_group_end   = $self->_match_group_end();
   my $qr_group_start = $self->_match_group_start();
 
-  # remove multi line comments /* comment */
-  $self->_register_handler( $qr_cmt, undef );
-  
-  # remove single line comment // comment
-  $self->_register_handler( qr/^\s*\/\/.*/, undef );
-
   # "graph: {"
   $self->_register_handler( $qr_group_start,
     sub
@@ -400,20 +399,6 @@ sub _build_match_stack
 
       1;
       } );
-
-  # edge.color: 10
-  $self->_register_handler( $qr_class,
-    sub {
-      my $self = shift;
-      my $type = $1;
-      my $name = $2;
-      my $val = $3;
-
-      my $att = $self->{_graph}->_remap_attributes($type, { $name => $val }, $self->_remap(), 'noquote', undef, undef);
-
-      $self->{_graph}->set_attributes ($type, $att);
-      1;
-      });
 
   # node: { ... }
   $self->_register_handler( $qr_node,
@@ -453,6 +438,26 @@ sub _build_match_stack
 
   # color: red (for graphs or subgraphs)
   $self->_register_attribute_handler($qr_gatr, 'parent');
+
+  # edge.color: 10
+  $self->_register_handler( $qr_class,
+    sub {
+      my $self = shift;
+      my $type = $1;
+      my $name = $2;
+      my $val = $3;
+
+      my $att = $self->{_graph}->_remap_attributes($type, { $name => $val }, $self->_remap(), 'noquote', undef, undef);
+
+      $self->{_graph}->set_attributes ($type, $att);
+      1;
+      });
+
+  # remove multi line comments /* comment */
+  $self->_register_handler( $qr_cmt, undef );
+  
+  # remove single line comment // comment
+  $self->_register_handler( qr/^\s*\/\/.*/, undef );
 
   $self;
   }

@@ -7,7 +7,7 @@ package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = '0.32';
+$VERSION = '0.33';
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
 use Scalar::Util qw/weaken/;
@@ -596,7 +596,10 @@ sub from_text
 
   my $backbuffer = '';	# left over fragments to be combined with next line
 
+  my $qr_comment = $self->_match_commented_line();
   $self->{qr_comment} = $self->_match_comment();
+  # cache the value of this since it can be expensive to construct:
+  $self->{_match_single_attribute} = $self->_match_single_attribute();
 
   $self->_build_match_stack();
 
@@ -606,6 +609,7 @@ sub from_text
   my $handled = 0;		# did we handle a fragment?
   my $line;
 
+#  my $counts = {};
   LINE:
   while (@lines > 0 || $backbuffer ne '')
     {
@@ -615,12 +619,12 @@ sub from_text
       $self->{line_nr}++;
       my $curline = shift @lines;
 
-      # both Graph::Easy and Graphviz discard lines starting with '#'
-      next if $curline =~ /^\s*($self->{qr_comment}|^#|\z)/;   # comment or empty?
+      # discard empty lines, or completely commented out lines
+      next if $curline =~ $qr_comment;
 
       # convert tabs to spaces (the regexps don't expect tabs)
-      $curline =~ s/\t/ /g;
-      $curline =~ s/\x0d//g;		# 0x0d0x0a => 0x0a
+      # and remove any \x0d
+      $curline =~ tr/\t\x0d/ /d;
 
       # combine backbuffer, what to insert between two lines and next line:
       $line = $backbuffer . $self->_line_insert() . $self->_clean_line($curline);
@@ -629,6 +633,7 @@ sub from_text
   print STDERR "# Line is '$line'\n" if $self->{debug} && $self->{debug} > 2;
 
     $handled = 0;
+#debug my $count = 0;
     PATTERN:
     for my $entry (@{$self->{match_stack}})
       {
@@ -642,6 +647,7 @@ sub from_text
 
       if ($line =~ $pattern)
         {
+#debug $counts->{$count}++;
   print STDERR "# Matched, calling handler\n" if $self->{debug} && $self->{debug} > 2;
         my $rc = 1;
         $rc = &$handler($self) if defined $handler;
@@ -655,8 +661,11 @@ sub from_text
           $handled++; last PATTERN;
           }
         }
+#debug $count ++;
+
       }
 
+#debug    if ($handled == 0) { $counts->{'-1'}++; }
     # couldn't handle that fragement, so accumulate it and try again
     $backbuffer = $line;
 
@@ -667,6 +676,8 @@ sub from_text
   $self->error("'$backbuffer' not recognized by " . ref($self)) if $backbuffer ne '';
 
   return undef if $self->{error} && $self->{fatal_errors};
+
+#debug  use Data::Dumper; print Dumper($counts);
 
   print STDERR "# Parsing done.\n" if $graph->{debug};
 
@@ -1085,6 +1096,12 @@ sub _match_comment
   qr/(^|[^\\])#/;
   }
 
+sub _match_commented_line
+  {
+  # match empty lines or a completely commented out line
+  qr/^\s*(#|\z)/;
+  }
+
 sub _match_attributes
   {
   # return a regexp that matches something like " { color: red; }" and returns
@@ -1207,7 +1224,7 @@ sub _parse_attributes
   my $multiples = 0;
 
   $text = $self->_clean_attributes($text);
-  my $qr_att  = $self->_match_single_attribute();
+  my $qr_att  = $self->{_match_single_attribute};
   my $qr_cmt;  $qr_cmt  = $self->_match_multi_line_comment()
    if $self->can('_match_multi_line_comment');
   my $qr_satt; $qr_satt = $self->_match_special_attribute() 
@@ -1542,6 +1559,8 @@ just set an error string, which can be retrieved with L<error()>.
 	$parser->from_text(' foo ' );
 	print $parser->error();
 
+See also L<catch_messages()> for how to catch errors and warnings.
+
 =head2 reset()
 
 	$parser->reset();
@@ -1566,7 +1585,6 @@ appropriate base class:
 
 	package Graph::Easy::MyNode;
 
-	use Graph::Easy::Node;
 	use base qw/Graph::Easy::Node/;
 
 	# override here methods for your node class
@@ -1576,7 +1594,6 @@ appropriate base class:
 
 	package Graph::Easy::MyNode::Anon;
 
-	use Graph::Easy::MyNode;
 	use base qw/Graph::Easy::MyNode/;
 	use base qw/Graph::Easy::Node::Anon/;
 
@@ -1585,7 +1602,6 @@ appropriate base class:
 
 	package Graph::Easy::MyNode::Empty;
 
-	use Graph::Easy::MyNode;
 	use base qw/Graph::Easy::MyNode/;
 
 	######################################################
@@ -1644,6 +1660,29 @@ with L<error()> when using the first calling style.
 	my $error = $parser->error();
 
 Returns the last error, or the empty string if no error occured.
+
+If you want to catch warnings from the parser, enable catching
+of warnings or errors:
+
+	$parser->catch_messages(1);
+
+	# Or individually:
+	# $parser->catch_warnings(1);
+	# $parser->catch_errors(1);
+
+	# something which warns or throws an error:
+	...
+
+	if ($parser->error())
+	  {
+	  my @errors = $parser->errors();
+	  }
+	if ($parser->warning())
+	  {
+	  my @warnings = $parser->warnings();
+	  }
+
+See L<Graph::Easy::Base> for more details on error/warning message capture.
 
 =head2 parse_error()
 

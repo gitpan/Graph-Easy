@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.57';
+$VERSION = '0.58';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -34,6 +34,7 @@ BEGIN
   *as_txt_file = \&as_txt;
   *as_vcg_file = \&as_vcg;
   *as_gdl_file = \&as_gdl;
+  *as_graphml_file = \&as_graphml;
 
   # a few aliases for code re-use
   *_aligned_label = \&Graph::Easy::Node::_aligned_label;
@@ -240,6 +241,14 @@ sub strict
   $self->{strict};
   }
 
+sub type
+  {
+  # return the type of the graph, "undirected" or "directed"
+  my $self = shift;
+
+  $self->{att}->{type} || 'directed';
+  }
+
 sub is_simple
   {
   # return true if the graph does not have multiedges
@@ -295,6 +304,17 @@ sub randomize
   $self->{seed} = rand(2 ** 31);
 
   $self->{seed};
+  }
+
+sub root_node
+  {
+  # Return the root node
+  my $self = shift;
+  
+  my $root = $self->{att}->{root};
+  $root = $self->{nodes}->{$root} if defined $root;
+
+  $root;
   }
 
 sub source_nodes
@@ -544,6 +564,8 @@ sub rename_node
   {
   # change the name of a node
   my ($self, $node, $new_name) = @_;
+
+  $node = $self->{nodes}->{$node} unless ref($node);
 
   if (!ref($node))
     {
@@ -833,7 +855,8 @@ sub flow
 
 #############################################################################
 #############################################################################
-# output (as_ascii, as_html) routines; as_txt() is in As_txt.pm
+# Output (as_ascii, as_html) routines; as_txt() is in As_txt.pm, as_graphml
+# is in As_graphml.pm
 
 sub output_format
   {
@@ -1012,7 +1035,7 @@ sub _class_styles
 	  }
 	}
 
-      $css_txt .= "$indent2$att: $val;\n" if defined $att;
+      $css_txt .= "$indent2$att: $val;\n" if defined $att && defined $val;
       }
 
     $css_txt .= "$indent}\n";
@@ -1713,6 +1736,16 @@ sub svg_information
   _as_svg(@_) unless $self->{svg_info};
 
   $self->{svg_info};
+  }
+
+#############################################################################
+# as_graphml
+
+sub as_graphml
+  {
+  require Graph::Easy::As_graphml;
+
+  _as_graphml(@_);
   }
 
 #############################################################################
@@ -2530,6 +2563,45 @@ Optionally, takes an error message to be set.
 
 	$graph->error( 'Expected Foo, but found Bar.' );
 
+See L<warn()> on how to catch error messages. See also L<non_fatal_errors()>
+on how to turn errors into warnings.
+
+=head2 warn()
+
+	my $warning = $graph->warn();
+
+Returns the last warning or '' for none.
+Optionally, takes a warning message to be output to STDERR:
+
+	$graph->warn( 'Expected Foo, but found Bar.' );
+
+If you want to catch warnings from the layouter, enable catching
+of warnings or errors:
+
+	$graph->catch_messages(1);
+
+	# Or individually:
+	# $graph->catch_warnings(1);
+	# $graph->catch_errors(1);
+
+	# something which warns or throws an error:
+	...
+
+	if ($graph->error())
+	  {
+	  my @errors = $graph->errors();
+	  }
+	if ($graph->warning())
+	  {
+	  my @warnings = $graph->warnings();
+	  }
+
+See L<Graph::Easy::Base> for more details on error/warning message capture.
+
+=head2 add_edge()
+
+	my ($first, $second, $edge) = $graph->add_edge( 'node 1', 'node 2');
+
 =head2 add_edge()
 
 	my ($first, $second, $edge) = $graph->add_edge( 'node 1', 'node 2');
@@ -2707,11 +2779,27 @@ See also L<raw_attributes()>.
 
 =head2 raw_attributes()
 
-	my $att = $object->get_attributes();
+	my $att = $object->raw_attributes();
 
-Return all set attributes on this object (graph/node/group/edge) as
-an anonymous hash ref. This respects inheritance, but does not include
-default values for unset attributes.
+Return all set attributes on this object (graph, node, group or edge) as
+an anonymous hash ref. Thus you get all the locally active attributes
+for this object.
+
+Inheritance is respected, e.g. attributes that have the value "inherit"
+and are inheritable, will be inherited from the base class.
+
+But default values for unset attributes are skipped. Here is an example:
+
+	node { color: red; }
+
+	[ A ] { class: foo; color: inherit; }
+
+This will return:
+
+	{ class => foo, color => red }
+
+As you can see, attributes like C<background> etc. are not included, while
+the color value was inherited properly.
 
 See also L<get_attributes()>.
 
@@ -2848,7 +2936,9 @@ graph directly, for instance:
 	# returns 'red'
 	my $color = $self->unquote_attribute('node','color','"red"');
 
-Return the attribute unquoted except for labels and titles.
+Return the attribute unquoted except for labels and titles, that is it removes
+double quotes at the start and the end of the string, unless these are
+escaped with a backslash.
 
 =head2 border_attribute()
 
@@ -2901,6 +2991,13 @@ See also L<source_nodes()>.
 
 In scalar context, returns the number of predecessorless nodes.
 
+=head2 root_node()
+
+	my $root = $graph->root_node();
+
+Return the root node as L<Graph::Easy::Node> object, if it was
+set with the 'root' attribute.
+
 =head2 timeout()
 
 	print $graph->timeout(), " seconds timeout for layouts.\n";
@@ -2919,14 +3016,28 @@ values will be strictly checked and unknown/invalid one will be rejected.
 
 This option is on by default.
 
+=head2 type()
+
+	print "Graph is " . $graph->type() . "\n";
+
+Returns the type of the graph as string, either "directed" or "undirected".
+
 =head2 layout()
 
 	$graph->layout();
+	$graph->layout( type => 'force', timeout => 60 );
 
 Creates the internal structures to layout the graph. 
 
-This methods will be called automatically when you call any of the
+This method will be called automatically when you call any of the
 C<as_FOO> methods or C<output()> as described below.
+
+The options are:
+
+	type		the type of the layout, possible values:
+			'force'		- force based layouter
+			'adhoc'		- the default layouter
+	timeout		timeout in seconds
 
 See also: L<timeout()>.
 
@@ -3292,6 +3403,25 @@ is just a dump of the graph.
 	print $graph->as_gdl_file();
 
 Is an alias for L<as_gdl()>.
+
+=head2 as_graphml()
+
+	print $graph->as_graphml();
+
+Return the graph as a GraphML representation.
+
+This does not call L<layout()> since the actual text representation
+is just a dump of the graph.
+
+The output contains only the set attributes, e.g. default attribute values
+are not specifically mentioned. The attribute names and values are the
+in the format that C<Graph::Easy> defines.
+
+=head2 as_graphml_file()
+
+	print $graph->as_graphml_file();
+
+Is an alias for L<as_graphml()>.
 
 =head2 sorted_nodes()
 

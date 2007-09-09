@@ -7,7 +7,7 @@ package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
 @ISA = qw/Graph::Easy::Node/;		# an edge is just a special node
-$VERSION = '0.29';
+$VERSION = '0.30';
 
 use strict;
 
@@ -40,68 +40,13 @@ sub _init
   $self;
   }
 
-my $styles = {
-  solid => '--',
-  dotted => '..',
-  double => '==',
-  'double-dash' => '= ',
-  dashed => '- ',
-  'dot-dash' => '.-',
-  'dot-dot-dash' => '..-',
-  wave => '~~',
-  };
-
-sub as_txt
-  {
-  my $self = shift;
-
-  # '- Name ' or ''
-  my $n = $self->{att}->{label}; $n = '' unless defined $n;
-
-  my $left = ' '; $left = ' <' if $self->{bidirectional};
-  my $right = '> '; $right = ' ' if $self->{undirected};
-  
-  my $s = $self->style() || 'solid';
-
-  my $style = '--';
-
-  # suppress border on edges
-  my $suppress = { all => { label => undef } };
-  if ($s =~ /^(bold|bold-dash|broad|wide|invisible)\z/)
-    {
-    # output "--> { style: XXX; }"
-    $style = '--';
-    }
-  else
-    {
-    # output "-->" or "..>" etc
-    $suppress->{all}->{style} = undef;
-
-    $style = $styles->{ $s };
-    if (!defined $style)
-      {
-      require Carp;
-      Carp::confess ("Unknown edge style '$s'\n");
-      }
-    }
- 
-  $n = $style . " $n " if $n ne '';
-
-  # make " -  " into " - -  "
-  $style = $style . $style if $self->{undirected} && substr($style,1,1) eq ' ';
-
-  # ' - Name -->' or ' --> ' or ' -- '
-  my $a = $self->attributes_as_txt($suppress) . ' '; $a =~ s/^\s//;
-  $left . $n . $style . $right . $a;
-  }
-
 #############################################################################
 # accessor methods
 
 sub bidirectional
   {
   my $self = shift;
-
+ 
   if (@_ > 0)
     {
     my $old = $self->{bidirectional} || 0;

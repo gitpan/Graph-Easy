@@ -5,7 +5,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.29';
+$VERSION = '0.30';
 
 package Graph::Easy;
 
@@ -2568,10 +2568,10 @@ sub split_border_attributes
 
 # different types of attributes with pre-defined handling
 use constant {
-  ATTR_STRING	=> 0,		# an arbitrary strings 
-  ATTR_COLOR	=> 1,
-  ATTR_ANGLE	=> 2,
-  ATTR_PORT	=> 3,
+  ATTR_STRING	=> 0,		# an arbitrary string
+  ATTR_COLOR	=> 1,		# color name or value like rgb(1,1,1)
+  ATTR_ANGLE	=> 2,		# 0 .. 359.99
+  ATTR_PORT	=> 3,		# east, etc.
   ATTR_UINT	=> 4,		# a "small" unsigned integer
   ATTR_URL	=> 5,
 
@@ -4029,6 +4029,8 @@ sub get_attributes
   # Return all effective attributes on this object (graph/node/group/edge) as
   # an anonymous hash ref. This respects inheritance and default values.
   my $self = shift;
+
+  $self->error("get_attributes() doesn't take arguments") if @_ > 0;
 
   my $att = {};
   my $class = $self->main_class();

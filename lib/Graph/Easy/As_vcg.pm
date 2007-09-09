@@ -503,7 +503,7 @@ Exports nothing.
 
 =head1 SEE ALSO
 
-L<Graph::Easy>.
+L<Graph::Easy>, L<http://rw4.cs.uni-sb.de/~sander/html/gsvcg1.html>.
 
 =head1 AUTHOR
 

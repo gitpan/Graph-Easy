@@ -36,6 +36,7 @@ inc/Module/Install/WriteAll.pm
 INSTALL
 lib/Graph/Easy.pm
 lib/Graph/Easy/As_ascii.pm	generate ASCII art
+lib/Graph/Easy/As_graphml.pm
 lib/Graph/Easy/As_graphviz.pm	generate graphviz text
 lib/Graph/Easy/As_txt.pm	generate textual description
 lib/Graph/Easy/As_vcg.pm
@@ -48,6 +49,7 @@ lib/Graph/Easy/Group/Anon.pm	an anonymous (aka nameless) group
 lib/Graph/Easy/Group/Cell.pm
 lib/Graph/Easy/Layout.pm	actual layout routines
 lib/Graph/Easy/Layout/Chain.pm	a chain of nodes
+lib/Graph/Easy/Layout/Force.pm
 lib/Graph/Easy/Layout/Grid.pm	prepare layout
 lib/Graph/Easy/Layout/Path.pm	path management
 lib/Graph/Easy/Layout/Repair.pm	group cells splicing/repair code
@@ -98,6 +100,7 @@ t/fun/biofuel.txt
 t/fun/geek_dating.txt
 t/fun/overview.txt
 t/graph.t
+t/graphml.t
 t/graphviz.t
 t/group.t
 t/group/0010.txt
@@ -302,6 +305,7 @@ t/layouter/layouter_chain.txt
 t/layouter/layouter_loop.txt
 t/layouter/multiples.txt
 t/layouter/state.txt
+t/messages.t
 t/nesting.t
 t/node.t
 t/node_mc.t

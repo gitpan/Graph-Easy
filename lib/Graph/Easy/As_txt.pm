@@ -4,7 +4,7 @@
 
 package Graph::Easy::As_txt;
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 #############################################################################
 #############################################################################
@@ -141,8 +141,6 @@ use strict;
 sub as_txt
   {
   my $self = shift;
-
-  require Graph::Easy::As_txt;
 
   my $n = '';
   if (!$self->isa('Graph::Easy::Group::Anon'))
@@ -370,7 +368,66 @@ sub as_txt
 
   '[ ' .  $name . ' ]' . $self->attributes_as_txt();
   }
+
+#############################################################################
+
+package Graph::Easy::Edge;
+
+my $styles = {
+  solid => '--',
+  dotted => '..',
+  double => '==',
+  'double-dash' => '= ',
+  dashed => '- ',
+  'dot-dash' => '.-',
+  'dot-dot-dash' => '..-',
+  wave => '~~',
+  };
+
+sub as_txt
+  {
+  my $self = shift;
+
+  # '- Name ' or ''
+  my $n = $self->{att}->{label}; $n = '' unless defined $n;
+
+  my $left = ' '; $left = ' <' if $self->{bidirectional};
+  my $right = '> '; $right = ' ' if $self->{undirected};
+  
+  my $s = $self->style() || 'solid';
+
+  my $style = '--';
+
+  # suppress border on edges
+  my $suppress = { all => { label => undef } };
+  if ($s =~ /^(bold|bold-dash|broad|wide|invisible)\z/)
+    {
+    # output "--> { style: XXX; }"
+    $style = '--';
+    }
+  else
+    {
+    # output "-->" or "..>" etc
+    $suppress->{all}->{style} = undef;
+
+    $style = $styles->{ $s };
+    if (!defined $style)
+      {
+      require Carp;
+      Carp::confess ("Unknown edge style '$s'\n");
+      }
+    }
  
+  $n = $style . " $n " if $n ne '';
+
+  # make " -  " into " - -  "
+  $style = $style . $style if $self->{undirected} && substr($style,1,1) eq ' ';
+
+  # ' - Name -->' or ' --> ' or ' -- '
+  my $a = $self->attributes_as_txt($suppress) . ' '; $a =~ s/^\s//;
+  $left . $n . $style . $right . $a;
+  }
+
 1;
 __END__
 

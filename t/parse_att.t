@@ -47,6 +47,9 @@ foreach (<DATA>)
   $class = 'edge' if $txt =~ /^(start|end|labelcolor|arrow)/;
   $class = 'graph' if $txt =~ /^labelpos/;
 
+  # need to cache this value
+  $parser->{_match_single_attribute} = $parser->_match_single_attribute();
+
   my $att = $parser->_parse_attributes($txt, $class);	# reuse parser object
 
   if ($parser->error())

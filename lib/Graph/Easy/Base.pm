@@ -5,7 +5,7 @@
 
 package Graph::Easy::Base;
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 use strict;
 
@@ -86,8 +86,15 @@ sub error
   if (defined $_[0])
     {
     $self->{error} = $_[0];
-    $self->_croak($self->{error}, 2)
-      if ($self->{fatal_errors}) && $self->{error} ne '';
+    if ($self->{_catch_errors})
+      {
+      push @{$self->{_errors}}, $self->{error};
+      }
+    else
+      {
+      $self->_croak($self->{error}, 2)
+        if ($self->{fatal_errors}) && $self->{error} ne '';
+      }
     }
   $self->{error} || '';
   }
@@ -107,12 +114,101 @@ sub error_as_html
   $msg; 
   }
 
+sub catch_messages
+  {
+  # Catch all warnings (and errors if no_fatal_errors() was used)
+  # these can later be retrieved with warnings() and errors():
+  my $self = shift;
+
+  if (@_ > 0)
+    {
+    if ($_[0])
+      {
+      $self->{_catch_warnings} = 1;
+      $self->{_catch_errors} = 1;
+      $self->{_warnings} = [];
+      $self->{_errors} = [];
+      }
+    else
+      {
+      $self->{_catch_warnings} = 0;
+      $self->{_catch_errors} = 0;
+      }
+    }
+  $self;
+  }
+
+sub catch_warnings
+  {
+  # Catch all warnings
+  # these can later be retrieved with warnings():
+  my $self = shift;
+
+  if (@_ > 0)
+    {
+    if ($_[0])
+      {
+      $self->{_catch_warnings} = 1;
+      $self->{_warnings} = [];
+      }
+    else
+      {
+      $self->{_catch_warnings} = 0;
+      }
+    }
+  $self->{_catch_warnings};
+  }
+
+sub catch_errors
+  {
+  # Catch all errors
+  # these can later be retrieved with errors():
+  my $self = shift;
+
+  if (@_ > 0)
+    {
+    if ($_[0])
+      {
+      $self->{_catch_errors} = 1;
+      $self->{_errors} = [];
+      }
+    else
+      {
+      $self->{_catch_errors} = 0;
+      }
+    }
+  $self->{_catch_errors};
+  }
+
+sub warnings
+  {
+  # return all warnings that occured after catch_messages(1)
+  my $self = shift;
+
+  @{$self->{_warnings}};
+  }
+
+sub errors
+  {
+  # return all errors that occured after catch_messages(1)
+  my $self = shift;
+
+  @{$self->{_errors}};
+  }
+
 sub warn
   {
   my ($self, $msg) = @_;
 
-  require Carp;
-  Carp::carp($msg);
+  if ($self->{_catch_warnings})
+    {
+    push @{$self->{_warnings}}, $msg;
+    }
+  else
+    {
+    require Carp;
+    Carp::carp($msg);
+    }
   }
 
 #############################################################################
@@ -283,6 +379,67 @@ Set/get the flag that determines whether setting an error message
 via C<error()> is fatal, e.g. results in a call to C<_croak()>.
 
 A true value makes errors fatal.
+
+=head2 catch_errors()
+
+	my $catch_errors = $object->catch_errors();	# query
+	$object->catch_errors(1);			# enable
+
+	$object->...();					# some error
+	if ($object->error())
+	  {
+	  my @errors = $object->errors();		# retrieve
+	  }
+
+Enable/disable catching of all error messages. When enabled,
+all previously caught error messages are thrown away, and from this
+poin on new errors are non-fatal and stored internally. You can
+retrieve these errors later with the errors() method.
+
+=head2 catch_warnings()
+
+	my $catch_warns = $object->catch_warnings();	# query
+	$object->catch_warnings(1);			# enable
+
+	$object->...();					# some error
+	if ($object->warning())
+	  {
+	  my @warnings = $object->warnings();		# retrieve
+	  }
+
+Enable/disable catching of all warnings. When enabled, all previously
+caught warning messages are thrown away, and from this poin on new
+warnings are stored internally. You can retrieve these errors later
+with the errors() method.
+
+=head2 catch_messages()
+
+	# catch errors and warnings
+	$object->catch_messages(1);
+	# stop catching errors and warnings
+	$object->catch_messages(0);
+
+A true parameter is equivalent to:
+
+	$object->catch_warnings(1);
+	$object->catch_errors(1);
+	
+See also: L<catch_warnings()> and L<catch_errors()> as well as
+L<errors()> and L<warnings()>.
+
+=head2 errors()
+
+	my @errors = $object->errors();
+
+Return all error messages that occured after L<catch_messages()> was
+called.
+
+=head2 warnings()
+
+	my @warnings = $object->warnings();
+
+Return all warning messages that occured after L<catch_messages()>
+or L<catch_errors()> was called.
 
 =head2 self()
 

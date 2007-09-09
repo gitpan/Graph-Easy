@@ -17,6 +17,9 @@ can_ok ("Graph::Easy", qw/
   as_ascii as_ascii_html as_graphviz as_svg
   as_ascii_file as_html_file as_svg_file as_vcg_file
   as_boxart_file as_gdl_file
+
+  as_graphml as_graphml_file
+
   as_debug
   html_page_header
   html_page_footer

@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.23';
+$VERSION = '0.24';
 
 #############################################################################
 #############################################################################
@@ -1391,20 +1391,20 @@ my $bend_patterns = [
   #				        taken from A, second from B)
   # 						  these replace the first & last bend
   # 1:
-  [ EDGE_N_W, EDGE_S_E, EDGE_N_W, 0, -1, 2, 1, EDGE_HOR, EDGE_VER, 1,0,  0,-1 ],
-  [ EDGE_N_W, EDGE_S_E, EDGE_N_W, -1, 0, 1, 2, EDGE_VER, EDGE_HOR, 0,1,  -1,0 ],
+  [ EDGE_N_W, EDGE_S_E, EDGE_N_W, 0, -1, 2, 1, EDGE_HOR, EDGE_VER, 1,0,  0,-1 ],	# 0
+  [ EDGE_N_W, EDGE_S_E, EDGE_N_W, -1, 0, 1, 2, EDGE_VER, EDGE_HOR, 0,1,  -1,0 ],	# 1
 
   # 2:
-  [ EDGE_S_E, EDGE_N_W, EDGE_S_E, 0, -1, 1, 2, EDGE_VER, EDGE_HOR, 0,-1, 1,0 ],
-  [ EDGE_S_E, EDGE_N_W, EDGE_S_E, -1, 0, 2, 1, EDGE_HOR, EDGE_VER, -1,0, 0,1 ],
+  [ EDGE_S_E, EDGE_N_W, EDGE_S_E, 0, -1, 1, 2, EDGE_VER, EDGE_HOR, 0,-1, 1,0 ],		# 2
+  [ EDGE_S_E, EDGE_N_W, EDGE_S_E, -1, 0, 2, 1, EDGE_HOR, EDGE_VER, -1,0, 0,1 ],		# 3
 
   # 3:
-  [ EDGE_S_W, EDGE_N_E, EDGE_S_W, 0,  1, 2, 1, EDGE_HOR, EDGE_VER, 1,0, 0,1 ],
-  [ EDGE_S_W, EDGE_N_E, EDGE_S_W, -1, 0, 1, 2, EDGE_VER, EDGE_HOR, 0,1, 1,0 ],
+  [ EDGE_S_W, EDGE_N_E, EDGE_S_W, 0,  1, 2, 1, EDGE_HOR, EDGE_VER, 1,0, 0,1 ],		# 4
+  [ EDGE_S_W, EDGE_N_E, EDGE_S_W, -1, 0, 1, 2, EDGE_VER, EDGE_HOR, 0,-1, -1,0 ],	# 5
 
   # 4:
-  [ EDGE_N_E, EDGE_S_W, EDGE_N_E, 1,  0, 1, 2, EDGE_VER, EDGE_HOR, 0,1, 1,0 ],
-  [ EDGE_N_E, EDGE_S_W, EDGE_N_E, 0, -1, 2, 1, EDGE_HOR, EDGE_VER, 1,0, 0,1 ],
+  [ EDGE_N_E, EDGE_S_W, EDGE_N_E, 1,  0, 1, 2, EDGE_VER, EDGE_HOR, 0,1, 1,0 ],		# 6
+  [ EDGE_N_E, EDGE_S_W, EDGE_N_E, 0, -1, 2, 1, EDGE_HOR, EDGE_VER, -1,0, 0,-1 ],	# 7
 
   ];
 
@@ -1443,8 +1443,8 @@ sub _straighten_path
 	      ($dy != $pattern->[4]);
 
       # pattern matched
-#      print STDERR "# Got bends for pattern $p (@$pattern):\n";
-#      print STDERR "# @$a\n# @$b\n# @$c\n";
+#      print STDERR "# Got bends for pattern ", $p-1," (@$pattern):\n";
+#      print STDERR "# type x,y,\n# @$a\n# @$b\n# @$c\n";
 
       # check that the alternative path is empty
 
@@ -1455,6 +1455,8 @@ sub _straighten_path
 
       next BEND if exists $cells->{"$cx,$cy"};
 
+#      print STDERR "# new corner at $cx,$cy (swap: $pattern->[5])\n";
+
       # check from A to new corner
       my $x = $a->[1];
       my $y = $a->[2];
@@ -1464,9 +1466,11 @@ sub _straighten_path
 
       my $ddx = $pattern->[9];
       my $ddy = $pattern->[10];
+#      print STDERR "# dx,dy: $ddx,$ddy\n";
       while ($x != $cx || $y != $cy)
 	{
 	next BEND if exists $cells->{"$x,$y"};
+#        print STDERR "# at $x $y (go to $cx,$cy)\n"; sleep(1);
 	push @replace, $x, $y, $pattern->[7];
 	$x += $ddx;
 	$y += $ddy;
@@ -1480,6 +1484,7 @@ sub _straighten_path
       while ($x != $c->[1] || $y != $c->[2])
 	{
 	next BEND if exists $cells->{"$x,$y"};
+#        print STDERR "# at $x $y (go to $cx,$cy)\n"; sleep(1);
 	push @replace, $x, $y, $pattern->[8];
 	
 	# set the correct type on the corner

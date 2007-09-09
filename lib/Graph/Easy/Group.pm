@@ -694,23 +694,30 @@ Returns the shape of the group as string.
 
 =head2 has_as_successor()
 
-	if ($node->has_as_successor($other))
+	if ($group->has_as_successor($other))
 	  {
 	  ...
 	  }
 
-Returns true if C<$other> ( a node or group) is a successor of node, that is if
-there is an edge leading from node to C<$other>.
+Returns true if C<$other> (a node or group) is a successor of this group, e.g.
+if there is an edge leading from this group to C<$other>.
 
 =head2 has_as_predecessor()
 
-	if ($node->has_as_predecessor($other))
+	if ($group->has_as_predecessor($other))
 	  {
 	  ...
 	  }
 
-Returns true if the node has C<$other> (a group or node) as predecessor, that
-is if there is an edge leading from C<$other> to node.
+Returns true if the group has C<$other> (a group or node) as predecessor, that
+is if there is an edge leading from C<$other> to this group.
+
+=head2 root_node()
+
+	my $root = $group->root_node();
+
+Return the root node as L<Graph::Easy::Node> object, if it was
+set with the 'root' attribute.
 
 =head1 EXPORT
 

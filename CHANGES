@@ -1,5 +1,34 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2007-09-09 v0.58 Tels 2686 tests
+  * add Graph/Easy/As_graphml.pm - output graph as GraphML text
+  * bin/graph-easy:
+    + make "graph-easy --png input.txt output.png" work
+    + fix POD structure for example outputs
+    + expand section about conversion limits and problems
+  * Parser: speed up all parsers by:
+    + making the regexp for empty/commented lines simpler and by combining
+      two regexps to replace/remove tabs and 0x0d into one tr// (~ 5%)
+    + cache regexps needed for _parse_attributes() as these calls can be
+      expensive and occur frequently per graph (~ 10% for Graphviz)
+  * Parser/VCG:
+    + about 3x as fast by swapping out the matchstack while we are in
+      matching multi-line labels. The speedup depends on how many lines
+      are in multi-line labels compared to the rest of the graph.
+  * Graph:
+    + fix rename_node() to work with plain node names
+  * Graph::Easy and Graph::Easy::Group:
+    + add: root_node(), type()
+  * Base:
+    + add:
+      + catch_messages(), catch_errors(), catch_warnings(), errors(), warnings()
+  * Layout:
+    + add a stub for force-directed layouts (doesn't work yet)
+    + fix bug #29039: hang in path-straighten code (Thanx mperilstein!)
+      (also fixes the hang reported in bug #27759)
+  * as_html:
+    + fix undef warning in Graph/Easy.pm line 1038
+
 2007-08-12 v0.57 Tels 2673 tests
   * bin/graph-easy:
     + don't die on non-fatal parser errors (good for unknown dot attributes)
@@ -31,7 +60,7 @@ Revision history for Graph::Easy (formerly known as Graph::Simple):
     The attribute "pointstyle" has been redefined as to make it consistent
     with "arrowshape" and "arrowstyle". The attribute "pointstyle" is now one
     of "closed", or "filled" and the shape can be set with "pointshape" as
-    "dimaond", "cross" etc.
+    "diamond", "cross" etc.
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!! ATTENTION !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   * Misc:
     + fix SYNOPSIS (Thanx Donuvi Tanoga!)
@@ -212,7 +241,7 @@ Revision history for Graph::Easy (formerly known as Graph::Simple):
   * attributes:
     + setting the attribute "class" on a primary class puts all objects
       without a specifically set class attributes into that class, so:
-        node { class: red; } node.red { color: red; }
+        node { class: red; } node.red { color: green; }
       colors all nodes without a specific subclass red.
 
 2006-12-17 v0.50 Tels 2273 tests

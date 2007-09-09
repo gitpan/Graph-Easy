@@ -22,4 +22,4 @@ recommends:
 requires: 
   Scalar::Util: 1.13
   perl: 5.8.1
-version: 0.57
+version: 0.58

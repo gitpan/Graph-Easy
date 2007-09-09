@@ -46,6 +46,8 @@ Important short-term TODO:
     from A to Z comes before B to Z. And since the layouter "knows" it
     should not block the last port on B, it makes a bend. In this case, tho,
     it could just go along B, because the edges join each other anyway.
+  + handle the special case where a node relative to another belongs to
+    a different group than the parent/child  
 
 Recursive layouter:
   + an empty group should consist of one cell (with the label and border)
