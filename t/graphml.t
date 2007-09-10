@@ -71,6 +71,7 @@ my $result = <<EOT
     <node id="A"/>
       <data key="d0">red</data>
     <node id="B"/>
+
     <edge source="A" target="B"/>
       <data key="d1">blue</data>
   </graph>
@@ -106,6 +107,7 @@ $result = <<EOT2
     <node id="A"/>
       <data key="d0">red</data>
     <node id="B"/>
+
     <edge source="A" target="B"/>
       <data key="d1">blue</data>
       <data key="d2">train-station &amp; &lt;Überlingen &quot;Süd&quot;&gt;</data>
@@ -140,6 +142,7 @@ $result = <<EOT3
     <node id="&lt;&amp;&apos;&quot;&gt;"/>
       <data key="d0">red</data>
     <node id="B"/>
+
     <edge source="&lt;&amp;&apos;&quot;&gt;" target="B"/>
       <data key="d1">blue</data>
       <data key="d2">train-station &amp; &lt;Überlingen &quot;Süd&quot;&gt;</data>
@@ -173,6 +176,7 @@ $result = <<EOT4
     <node id="A"/>
     <node id="B"/>
     <node id="C"/>
+
     <edge source="A" target="B"/>
       <data key="d0">car</data>
     <edge source="A" target="C"/>

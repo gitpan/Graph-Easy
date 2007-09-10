@@ -1,5 +1,8 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2007-09-10 v0.59 Tels 2686 tests
+  * fix test failures in t/graphml.t (oops)
+
 2007-09-09 v0.58 Tels 2686 tests
   * add Graph/Easy/As_graphml.pm - output graph as GraphML text
   * bin/graph-easy:
