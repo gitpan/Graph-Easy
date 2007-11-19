@@ -13,15 +13,15 @@ examples/as_graphviz		parse text and output as graphviz
 examples/as_html		parse text and output it as standalone HTML page
 examples/as_svg			parse text and output as standalone SVG
 examples/as_txt			parse text and output as text again
-examples/ascii.pl		examples as ASCII
+examples/ascii.pl
 examples/base.css		needed for the output of syntax.pl
-examples/common.pl		generate example graphs
+examples/common.pl
 examples/complex.txt		a complex example
 examples/fun.tpl
 examples/history.txt		test-graph for version comparisations
-examples/html.pl		examples as HTML
+examples/html.pl
 examples/parse			parser for tests
-examples/syntax.pl		syntax tests
+examples/syntax.pl
 examples/syntax.tpl		HTML template for syntax tests
 inc/Module/Install.pm
 inc/Module/Install/Base.pm
@@ -155,6 +155,7 @@ t/in/2_zeros.txt
 t/in/2nodes.txt
 t/in/3_autosplit_hang.txt
 t/in/3_bend_bug.txt
+t/in/3_cache_bug.txt
 t/in/3_cluster.txt
 t/in/3_colors.txt
 t/in/3_corrupt.txt
@@ -357,6 +358,7 @@ t/out/2_zeros.txt
 t/out/2nodes.txt
 t/out/3_autosplit_hang.txt
 t/out/3_bend_bug.txt
+t/out/3_cache_bug.txt
 t/out/3_cluster.txt
 t/out/3_colors.txt
 t/out/3_corrupt.txt
@@ -591,6 +593,7 @@ t/txt/2_split_bug.txt
 t/txt/2_wrap.txt
 t/txt/2_zeros.txt
 t/txt/3_autosplit_hang.txt
+t/txt/3_cache_bug.txt
 t/txt/3_cluster.txt
 t/txt/3_colors.txt
 t/txt/3_corrupt.txt

@@ -1,5 +1,36 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2007-11-19 v0.60 Tels 2700 tests
+  * Base:
+    + prepend 'Warning: ' to warnings    
+  * Graph::Easy:
+    + add add_anon_node()
+    + _class_styles(): allow extra class names in overlay (for SVG)
+    + fix typo in SYNOPSIS (thanx skim!)
+  * Graph::Easy::Node:
+    + set attributes for origin/offset properly, too, so that get_attribute()
+      works for these (Thanx Amanda B Hickman!)
+    + allow numbers on custom attributes so "infoname1" in VCG works correctly
+  * Parser:
+    + warn on nodes with offset, but no origin (Thanx Amanda B Hickman!)
+  * Parser/VCG:
+    + allow "layoutalgorithm" (Thanx Sid Touati for the report!)
+    + handle 'classname 1: "foo"' correctly (Thanx Sid Touati again!)
+  * Layout:
+    + remove one call to ->attribute() per Node by re-using the shape
+    + fix A* boundaries cache: create it if it doesn't exist yet, otherwise
+      edges went missing (see t/in/3_cache_bug.txt for an example)
+  * as_vcg:
+    + output classname attributes correctly (Thanx Sid Touati!)
+  * as_graphviz:
+    + remap "\c" to "\n" since graphviz doesn't know "\c"
+  * Tests:
+    + fix test failures in t/graphml.t when second changes while comparing
+      as_graphml() and as_graphml_file() output
+    + fix test failures with Pod-Coverage v0.19 - a few alias routines in
+      Graph::Easy::Node need to have POD replicated from Graph::Easy
+    + require Pod-Coverage v0.19
+
 2007-09-10 v0.59 Tels 2686 tests
   * fix test failures in t/graphml.t (oops)
 

@@ -1921,6 +1921,8 @@ sub relative_to
   $self->{origin} = $parent;
   $self->{dx} = $dx if defined $dx;
   $self->{dy} = $dy if defined $dy;
+  $self->{dx} = 0 unless defined $self->{dx};
+  $self->{dy} = 0 unless defined $self->{dy};
 
   # register us as a new child
   $parent->{children}->{$self->{id}} = $self;
@@ -2062,6 +2064,9 @@ sub set_attribute
       # if it doesn't exist, add it
       my $org = $self->{graph}->add_node($val);
       $self->relative_to($org);
+  
+      # set the attributes, too, so get_attribute('origin') works, too:
+      $self->{att}->{origin} = $org->{name};
       }
     else
       {
@@ -2077,6 +2082,9 @@ sub set_attribute
         }
       $self->{dx} = $x;
       $self->{dy} = $y;
+
+      # set the attributes, too, so get_attribute('origin') works, too:
+      $self->{att}->{offset} = "$self->{dx},$self->{dy}";
       }
     return $self;
     }
@@ -2175,9 +2183,20 @@ sub _update_boundaries
   my $x = $self->{x};
   my $y = $self->{y};
 
-#  print STDERR "Update boundaries for $self (parent $parent) at $x, $y\n";
+  # create the cache if it doesn't already exist
+  $parent->{cache} = {} unless ref($parent->{cache});
 
   my $cache = $parent->{cache};
+  
+  if (($parent->{debug}||0) > 1)
+    {
+    my $n = $self->{name}; $n = $self unless defined $n;
+    print STDERR "Update boundaries for $n (parent $parent) at $x, $y\n";
+  
+    print STDERR "Boundaries are now: " .
+		 "$cache->{min_x},$cache->{min_y} => $cache->{max_x},$cache->{max_y}\n";
+    }
+
   $cache->{min_x} = $x if !defined $cache->{min_x} || $x < $cache->{min_x};
   $cache->{min_y} = $y if !defined $cache->{min_y} || $y < $cache->{min_y};
 
@@ -2282,7 +2301,7 @@ a C< style="" > parameter.
 
 Return the node as HTML code.
 
-=head2 attribute()
+=head2 attribute(), get_attribute()
 
 	$node->attribute('border-style');
 
@@ -2308,6 +2327,36 @@ an anonymous hash ref. This respects inheritance, but does not include
 default values for unset attributes.
 
 See also L<get_attributes()>.
+
+=head2 default_attribute()
+
+	my $def = $graph->default_attribute($class, 'fill');
+
+Returns the default value for the given attribute B<in the class>
+of the object.
+
+The default attribute is the value that will be used if
+the attribute on the object itself, as well as the attribute
+on the class is unset.
+
+To find out what attribute is on the class, use the three-arg form
+of L<attribute> on the graph:
+
+	my $g = Graph::Easy->new();
+	my $node = $g->add_node('Berlin');
+
+	print $node->attribute('fill'), "\n";		# print "white"
+	print $node->default_attribute('fill'), "\n";	# print "white"
+	print $g->attribute('node','fill'), "\n";	# print "white"
+
+	$g->set_attribute('node','fill','red');		# class is "red"
+	$node->set_attribute('fill','green');		# this object is "green"
+
+	print $node->attribute('fill'), "\n";		# print "green"
+	print $node->default_attribute('fill'), "\n";	# print "white"
+	print $g->attribute('node','fill'), "\n";	# print "red"
+
+See also L<raw_attribute()>.
 
 =head2 attributes_as_txt
 
@@ -2355,6 +2404,38 @@ using the current colorscheme.
 =head2 get_color_attribute()
 
 Is an alias for L<color_attribute()>.
+
+=head2 raw_attribute()
+
+	my $value = $object->raw_attribute( $name );
+
+Return the value of attribute C<$name> from the object it this
+method is called on (graph, node, edge, group etc.). If the
+attribute is not set on the object itself, returns undef.
+
+This method respects inheritance, so an attribute value of 'inherit'
+on an object will make the method return the inherited value:
+
+	my $g = Graph::Easy->new();
+	my $n = $g->add_node('A');
+
+	$g->set_attribute('color','red');
+
+	print $n->raw_attribute('color');		# undef
+	$n->set_attribute('color','inherit');
+	print $n->raw_attribute('color');		# 'red'
+
+See also L<attribute()>.
+
+=head2 raw_color_attribute()
+
+	# returns f.i. #ff0000
+	my $color = $graph->raw_color_attribute('color' );
+
+Just like L<raw_attribute()>, but only for colors, and returns them as hex,
+using the current colorscheme.
+
+If the attribute is not set on the object, returns C<undef>.
 
 =head2 text_styles()
 

@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 149;
+   plan tests => 150;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -643,4 +643,17 @@ $graph->set_attribute('node.red', 'fill', 'red');
 $grviz = $graph->as_graphviz();
 like ($grviz, qr/fillcolor="#ff0000"/, "contains fill red");
 
+#############################################################################
+# \c in labels
+
+$graph = Graph::Easy->new();
+
+$graph->set_attribute('label', 'foo\cbar');
+
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+
+$bonn->set_attribute('label', 'bar\cbar');
+
+$grviz = $graph->as_graphviz();
+unlike ($grviz, qr/\\c/, "no \\c in output");
 

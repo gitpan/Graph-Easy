@@ -5,7 +5,7 @@
 
 package Graph::Easy::Parser::VCG;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 use Graph::Easy::Parser::Graphviz;
 @ISA = qw/Graph::Easy::Parser::Graphviz/;
 
@@ -84,6 +84,8 @@ sub reset
     push @{$g->{_vcg_color_map}}, $vcg_colors->[$i+1];
     }
 
+  $g->{_vcg_class_names} = {};
+
   # allow some temp. values during parsing
   $g->_allow_special_attributes(
     {
@@ -147,6 +149,14 @@ sub _match_optional_multi_line_comment
 
   # "/* * comment * */" or /* a */ /* b */ or ""
   qr#(?:(?:\s*/\*.*?\*/\s*)*|\s+)#;
+  }
+
+sub _match_classname
+  {
+  # Return a regexp that matches something like classname 1: "foo"
+  my $self = shift;
+
+  qr/^\s*classname\s([0-9]+)\s*:\s*"((\\"|[^"])*)"/;
   }
 
 sub _match_node
@@ -352,6 +362,7 @@ sub _build_match_stack
   {
   my $self = shift;
 
+  my $qr_cn    = $self->_match_classname();
   my $qr_node  = $self->_match_node();
   my $qr_cmt   = $self->_match_multi_line_comment();
   my $qr_ocmt  = $self->_match_optional_multi_line_comment();
@@ -400,6 +411,18 @@ sub _build_match_stack
       1;
       } );
 
+  # classname 1: "foo"
+  $self->_register_handler( $qr_cn,
+    sub {
+      my $self = shift;
+      my $class = $1; my $name = $2;
+
+      print STDERR "#  Found classname '$name' for class '$class'\n" if $self->{debug} > 1;
+
+      $self->{_graph}->{_vcg_class_names}->{$class} = $name;
+      1;
+      } );
+
   # node: { ... }
   $self->_register_handler( $qr_node,
     sub {
@@ -409,7 +432,7 @@ sub _build_match_stack
 
       my $name = $att->{title}; delete $att->{title};
 
-#      print STDERR "Found node with name $name\n";
+      print STDERR "#  Found node with name $name\n" if $self->{debug} > 1;
 
       my $node = $self->_new_node($self->{_graph}, $name, $self->{group_stack}, $att, []);
       $node->set_attributes ($att);
@@ -429,7 +452,7 @@ sub _build_match_stack
       my $from = $att->{source}; delete $att->{source};
       my $to = $att->{target}; delete $att->{target};
 
- #     print STDERR "Found edge ($type) from $from to $to\n";
+      print STDERR "#  Found edge ($type) from $from to $to\n" if $self->{debug} > 1;
 
       my $edge = $self->{_graph}->add_edge ($from, $to);
       $edge->set_attributes ($att);
@@ -446,6 +469,8 @@ sub _build_match_stack
       my $type = $1;
       my $name = $2;
       my $val = $3;
+
+      print STDERR "#  Found color definition $type $name $val\n" if $self->{debug} > 2;
 
       my $att = $self->{_graph}->_remap_attributes($type, { $name => $val }, $self->_remap(), 'noquote', undef, undef);
 
@@ -571,9 +596,6 @@ my $vcg_remap = {
     rmax => 'x-vcg-rmax',
     rmin => 'x-vcg-rmin',
 
-    # XXX TODO: use this to remap edge classes to real class names
-    classname => 'x-vcg-classname',
-
     splines => 'x-vcg-splines',
     focus => 'x-vcg-focus',
     hidden => 'x-vcg-hidden',
@@ -591,6 +613,8 @@ my $vcg_remap = {
     level => 'x-vcg-level',
     loc => 'x-vcg-loc',
     layout_algorithm => 'x-vcg-layout_algorithm',
+    # also allow this variant:
+    layoutalgorithm => 'x-vcg-layout_algorithm',
     layout_downfactor => 'x-vcg-layout_downfactor',
     layout_upfactor => 'x-vcg-layout_upfactor',
     layout_nearfactor => 'x-vcg-layout_nearfactor',
@@ -720,7 +744,8 @@ sub _edge_class_from_vcg
   # remap "1" to "edgeclass1" to create a valid class name
   my ($graph, $name, $class) = @_;
 
-  $class = 'edgeclass' . $class if $class !~ /^[a-zA-Z]/;
+  $class = $graph->{_vcg_class_names}->{$class} || ('edgeclass' . $class) if $class =~ /^[0-9]+\z/;
+  #$class = 'edgeclass' . $class if $class !~ /^[a-zA-Z]/;
 
   ('class', $class);
   }
@@ -805,6 +830,7 @@ sub _parser_cleanup
   $g->{_warn_on_unknown_attributes} = 0;	# reset to die again
 
   delete $g->{_vcg_color_map};
+  delete $g->{_vcg_class_names};
 
   $self;
   }

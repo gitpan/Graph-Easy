@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_vcg;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #############################################################################
 #############################################################################
@@ -152,14 +152,14 @@ sub _as_vcg
   if (keys %{$self->{_vcg_edge_classes}} > 0)
     {
     my $i = 1;
-    $class_names = "\n  classname: ";
+    $class_names = "\n";
     for my $ec (sort keys %{$self->{_vcg_edge_classes}})
       {
       $self->{_vcg_edge_classes}->{$ec} = $i;	# remember mapping
-      $class_names .= $i.":\"$ec\",";
+      $class_names .= "  classname $i: \"$ec\"\n";
       $i++;
       }
-    $class_names =~ s/,\z/\n/;		# remove last ","
+    #$class_names =~ s/,\z/\n/;		# remove last ","
     }
 
   # generate the class attributes first

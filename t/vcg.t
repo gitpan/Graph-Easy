@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 36;
+   plan tests => 44;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -177,4 +177,38 @@ is ($graph->node('B')->label(), 'foo\nbar\nbaz', 'label of B');
 # unquoted from \f064 to A
 is ($graph->node('A')->label(), 'A', 'label of A');
 
+#############################################################################
+# classname attribute
+
+$graph = $parser->from_text( <<EOG
+// test
+graph: {
+	infoname1: "test"
+	infoname2: "test"
+	classname 1: "classa"
+	classname 2: "classB"
+	node: { title: "A" }
+	node: { title: "B" }
+	edge: { sourcename: "A" targetname: "B" class:1 }
+	edge: { sourcename: "B" targetname: "A" class:2 }
+}
+EOG
+);
+
+is ($parser->error(), '', 'no error');
+
+is (ref($graph), 'Graph::Easy', 'Parsing worked');
+
+is (scalar $graph->nodes(), 2, 'two nodes');
+is (scalar $graph->edges(), 2, 'two edges');
+
+my $e = $graph->edge('A','B');
+
+is (ref($e), 'Graph::Easy::Edge', "got edge from A to B");
+is ($e->class(), 'edge.classa', 'classname 1 worked');
+
+$e = $graph->edge('B','A');
+
+is (ref($e), 'Graph::Easy::Edge', "got edge from B to A");
+is ($e->class(), 'edge.classb', 'classname 2 worked');
 

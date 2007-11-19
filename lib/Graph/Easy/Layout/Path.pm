@@ -216,7 +216,7 @@ sub _allowed_places
     push @good, $places->[$i + $_ -1] for (1..$step);
     } continue { $i += $step; }
 
-  print STDERR "#  left with " . scalar @good . " positions\n" if $self->{graph}->{debug};
+  print STDERR "#  left with " . ((scalar @good) / $step) . " position(s)\n" if $self->{graph}->{debug};
   @good;
   }
 

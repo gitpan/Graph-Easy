@@ -4,6 +4,7 @@
 ^Makefile\z
 ^Makefile.(old|bak)\z
 ^fun\z
+^[^\\\/]*\.pl
 pm_to_blib
 tmon.out
 ^todos[\\\/]

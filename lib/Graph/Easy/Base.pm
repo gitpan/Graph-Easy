@@ -207,7 +207,7 @@ sub warn
   else
     {
     require Carp;
-    Carp::carp($msg);
+    Carp::carp('Warning: ' . $msg);
     }
   }
 

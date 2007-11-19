@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.21';
+$VERSION = '0.22';
 
 use utf8;
 
@@ -1304,10 +1304,8 @@ sub _draw_border
  
 sub _draw_label
   {
-  # draw the node label into the framebuffer
-  my ($self, $fb, $x, $y) = @_;
-
-  my $shape = $self->attribute('shape');
+  # Draw the node label into the framebuffer
+  my ($self, $fb, $x, $y, $shape) = @_;
 
   if ($shape eq 'point')
     {
@@ -1384,7 +1382,7 @@ sub as_ascii
   ###########################################################################
   # "draw" the label into the framebuffer (e.g. the node/edge and the text)
 
-  $self->_draw_label($fb, $x, $y);
+  $self->_draw_label($fb, $x, $y, $shape);
   
   join ("\n", @$fb);
   }

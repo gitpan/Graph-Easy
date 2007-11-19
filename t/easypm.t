@@ -29,7 +29,7 @@ can_ok ("Graph::Easy", qw/
   svg_information
 
   add_edge
-  add_node
+  add_node add_anon_node
   merge_nodes
   del_node
   del_edge

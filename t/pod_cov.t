@@ -15,10 +15,12 @@ BEGIN
 
 SKIP:
   {
-  skip("Test::Pod::Coverage 1.08 required for testing POD coverage", $tests)
+  skip("Test::Pod::Coverage 1.08 and Pod::Coverage 0.19 required for testing POD coverage", $tests)
     unless do {
     eval "use Test::Pod::Coverage 1.08";
-    $@ ? 0 : 1;
+    my $r = ($@ ? 0 : 1);
+    eval "use Pod::Coverage 0.19";	# need this on newer Perls to avoid false-fails
+    $r & ($@ ? 0 : 1);			# only return true if we have both
     };
   for my $m (qw/
     Graph::Easy

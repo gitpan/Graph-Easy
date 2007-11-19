@@ -663,10 +663,14 @@ sub _astar_near_nodes
     {
     my ($x,$y) = ($tries[$i], $tries[$i+1]);
 
+    print STDERR "# $min_x,$min_y => $max_x,$max_y\n" if $self->{debug} > 2;
+
     # drop cells outside our working space:
     next if $x < $min_x || $x > $max_x || $y < $min_y || $y > $max_y;
 
     my $p = "$x,$y";
+    print STDERR "# examining pos $p\n" if $self->{debug} > 2;
+
     next if exists $closed->{$p};
 
     if (exists $cells->{$p} && ref($cells->{$p}) && $cells->{$p}->isa('Graph::Easy::Edge'))
@@ -1141,7 +1145,6 @@ sub _astar
     return if $tries++ > $max_tries;
 
     print STDERR "#  Smallest elem is weight ", $elem->[0], " at $elem->[1],$elem->[2]\n" if $self->{debug};
-    #my (undef, $val, $x,$y, $px,$py, $type, $do_stop) = @$elem;
     my ($val, $x,$y, $px,$py, $type, $do_stop) = @$elem;
 
     my $key = "$x,$y";
@@ -1176,6 +1179,7 @@ sub _astar
       
     # get list of potential positions we need to explore from the current one
     my @p = $self->_astar_near_nodes($x,$y, $cells, $open_by_pos, $closed, $min_x, $min_y, $max_x, $max_y);
+
     my $n = 0;
     while ($n < scalar @p)
       {
@@ -1228,7 +1232,11 @@ sub _astar
   $self->{stats}->{astar_steps} += $tries;
 
   # no more nodes to follow, so we couldn't find a path
-  return [] unless defined $elem;
+  if (!defined $elem)
+    {
+    print STDERR "# A* couldn't find a path\n" if $self->{debug};
+    return [];
+    }
 
   my $path = [];
   my ($cx,$cy) = ($elem->[1],$elem->[2]);

@@ -1,6 +1,6 @@
 
 # We need at least Perl 5.8.1 for proper Unicode support
-require 5.8.1;
+require 5.008001;
 use strict;
 
 # Load the Module::Install bundled in ./inc/

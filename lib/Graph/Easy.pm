@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.59';
+$VERSION = '0.60';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -901,6 +901,7 @@ sub _class_styles
   $indent = '' unless defined $indent;
   my $indent2 = $indent x 2; $indent2 = '  ' if $indent2 eq '';
 
+  my $class_list = { edge => {}, node => {}, group => {} };
   if (defined $overlay)
     {
     $a = {};
@@ -929,13 +930,14 @@ sub _class_styles
         {
         $acc->{$k} = $oc->{$k} unless exists $acc->{$k};
         }
+      $class_list->{$class} = {};
       }
     }
 
   my $id = $self->{id};
 
-  my $class_list = { edge => {}, node => {}, group => {} };
-  foreach my $primary (qw/edge node group/)
+  my @primaries = sort keys %$class_list;
+  foreach my $primary (@primaries)
     {
     my $cl = $class_list->{$primary};			# shortcut
     foreach my $class (sort keys %$a)
@@ -958,12 +960,15 @@ sub _class_styles
 
     my $c = $class; $c =~ s/\./_/g;			# node.city => node_city
 
-    next if $class eq 'graph' and $base eq '';
     next if $class eq 'group' and $groups == 0;
 
     my $css_txt = '';
     my $cls = '';
-    if ($class eq 'graph')
+    if ($class eq 'graph' && $base eq '')
+      {
+      $css_txt .= "$indent$class \{\n";			# for SVG
+      }
+    elsif ($class eq 'graph')
       {
       $css_txt .= "$indent$base\{\n";
       }
@@ -1827,6 +1832,19 @@ sub add_edge
   wantarray ? ($x,$y,$edge) : $edge;
   }
 
+sub add_anon_node
+  {
+  my ($self) = shift;
+
+  $self->warn('add_anon_node does not take argumens') if @_ > 0;
+
+  my $node = Graph::Easy::Node::Anon->new();
+
+  $self->add_node($node);
+
+  $node;
+  }
+
 sub add_node
   {
   my ($self,$x) = @_;
@@ -2220,7 +2238,7 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or via Graphviz
 
 	my $graph = Graph::Easy->new();
 
-	my $bonn = Graph::Easy->add_node('Bonn');
+	my $bonn = $graph->add_node('Bonn');
 	$bonn->set_attribute('border', 'solid 1px black')
 
 	my $berlin = $graph->add_node('Berlin');
@@ -2677,6 +2695,7 @@ X<transpose>
 =head2 add_node()
 
 	my $node = $graph->add_node( 'Node 1' );
+	# or if you already have a Graph::Easy::Node object:
 	$graph->add_node( $x );
 
 Add a single node X to the graph. C<$x> should be either a
@@ -2684,6 +2703,16 @@ C<Graph::Easy::Node> object, or a unique name for the node. Will do
 nothing if the node already exists in the graph.
 
 It returns an L<Graph::Easy::Node> object.
+
+=head2 add_anon_node()
+
+	my $anon_node = $graph->add_anon_node( );
+
+Creates a single, anonymous node and adds it to the graph, returning the
+C<Graph::Easy::Node::Anon> object.
+
+The created node is equal to one created via C< [ ] > in the Graph::Easy
+text description.
 
 =head2 add_nodes()
 
@@ -2863,7 +2892,7 @@ See also L<attribute()>.
 Just like L<raw_attribute()>, but only for colors, and returns them as hex,
 using the current colorscheme.
 
-If the attribute is not set on the object, returns undef;
+If the attribute is not set on the object, returns C<undef>.
 
 =head2 raw_attributes()
 

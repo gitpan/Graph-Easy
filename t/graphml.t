@@ -23,11 +23,12 @@ can_ok ('Graph::Easy', qw/
 #############################################################################
 my $graph = Graph::Easy->new();
 
-my $graphml = $graph->as_graphml();
 my $graphml_file = $graph->as_graphml_file();
+$graphml_file =~ s/\n.*<!--.*-->\n//;
 
-is ($graphml, $graphml_file, 'as_graphml and as_graphml_file are equal');
+_compare ($graph, $graphml_file, 'as_graphml and as_graphml_file are equal');
 
+my $graphml = $graph->as_graphml();
 like ($graphml, qr/<\?xml version="1.0" encoding="UTF-8"\?>/, 'as_graphml looks like xml');
 
 #############################################################################

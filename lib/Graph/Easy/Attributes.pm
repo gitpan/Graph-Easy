@@ -3282,9 +3282,9 @@ sub default_attribute
   $name = $att_aliases->{$name} if exists $att_aliases->{$name};
 
   # "x-foo-bar" is a custom attribute, so allow it always. The name must
-  # consist only of letters and hyphens, and end in a letter. Hyphens
-  # must be separated by letters. Custom attributes do not have a default.
-  return '' if $name =~ /^x-([a-z_]+-)*[a-z_]+\z/;
+  # consist only of letters and hyphens, and end in a letter or number.
+  # Hyphens must be separated by letters. Custom attributes do not have a default.
+  return '' if $name =~ /^x-([a-z_]+-)*[a-z_]+([0-9]*)\z/;
 
   # prevent ->{special}->{node} from springing into existance
   my $s = $attributes->{special}; $s = $s->{$class} if exists $s->{$class};
@@ -3339,7 +3339,7 @@ sub raw_attribute
 
   # create a fake entry for custom attributes
   $entry = [ '', undef, '', '', ATTR_STRING, '' ]
-    if $name =~ /^x-([a-z_]+-)*[a-z_]+\z/;
+    if $name =~ /^x-([a-z_]+-)*[a-z_]+([0-9]*)\z/;
 
   # Didn't found an entry:
   if (!ref($entry))
@@ -3373,7 +3373,7 @@ sub raw_attribute
     if $name eq 'background' && ref $self->{group};
 
   return $val if !defined $val || $val ne 'inherit' ||
-    $name =~ /^x-([a-z_]+-)*[a-z_]+\z/;
+    $name =~ /^x-([a-z_]+-)*[a-z_]+([0-9]*)\z/;
 
   # $val is defined, and "inherit" (and it is not a special attribute)
 
@@ -3555,7 +3555,7 @@ sub attribute
 
   # create a fake entry for custom attributes
   $entry = [ '', undef, '', '', ATTR_STRING, '' ]
-    if $name =~ /^x-([a-z_]+-)*[a-z_]+\z/;
+    if $name =~ /^x-([a-z_]+-)*[a-z_]+([0-9]*)\z/;
 
   # Didn't found an entry:
   if (!ref($entry))
@@ -3754,7 +3754,7 @@ sub validate_attribute
   # "x-foo-bar" is a custom attribute, so allow it always. The name must
   # consist only of letters and hyphens, and end in a letter. Hyphens
   # must be separated by letters.
-  return (undef, $name, $value) if $name =~ /^x-([a-z_]+-)*[a-z_]+\z/;
+  return (undef, $name, $value) if $name =~ /^x-([a-z_]+-)*[a-z_]+([0-9]*)\z/;
 
   $class = 'all' unless defined $class;
   $class =~ s/\..*\z//;		# remove subclasses

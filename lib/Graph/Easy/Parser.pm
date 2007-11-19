@@ -7,7 +7,7 @@ package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = '0.33';
+$VERSION = '0.34';
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
 use Scalar::Util qw/weaken/;
@@ -1315,6 +1315,33 @@ sub parse_error
     }
 
   $self->error($msg . ' at line ' . $self->{line_nr});
+  }
+
+sub _parser_cleanup
+  {
+  # After initial parsing, do a cleanup pass.
+  my ($self) = @_;
+
+  my $g = $self->{_graph};
+  
+  for my $n (values %{$g->{nodes}})
+    {
+    next if $n->{autosplit};
+    $self->warn("Node '" . $self->_quote($n->{name}) . "' has an offset but no origin")
+      if (($n->attribute('offset') ne '0,0') && $n->attribute('origin') eq '');
+    }
+
+  $self;
+  }
+
+sub _quote
+  {
+  # make a node name safe for error message output
+  my ($self,$n) = @_;
+
+  $n =~ s/'/\\'/g;
+
+  $n;
   }
 
 1;

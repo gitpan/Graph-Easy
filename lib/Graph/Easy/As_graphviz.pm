@@ -62,6 +62,7 @@ my $remap = {
     color => \&_remap_color,
     fill => \&_remap_color,
     gid => undef,
+    label => \&_graphviz_remap_label,
     labelpos => 'labelloc',
     output => undef,
     type => undef,
@@ -433,12 +434,14 @@ sub _graphviz_remap_arrow_style
 
 sub _graphviz_remap_label
   {
-  my ($self, $name, $style, $node) = @_;
+  my ($self, $name, $label, $node) = @_;
 
-  my $s = $style;
+  my $s = $label;
 
   # call label() to handle thinks like "autolabel: 15" properly
   $s = $node->label() if ref($node);
+
+  $s =~ s/(^|[^\\])\\c/$1\\n/g;		# \c => \n
 
   my $shape = 'rect';
   $shape = ($node->attribute('shape') || '') if ref($node);

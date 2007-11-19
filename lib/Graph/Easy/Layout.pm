@@ -720,7 +720,6 @@ sub _layout
   while (@todo > 0)			# all actions on stack done?
     {
     $step ++;
-    print STDERR "\n# Step $step: Score is $score\n" if $self->{debug};
 
     # pop one action and mark it as done
     my $action = shift @todo; push @done, $action;
@@ -825,7 +824,7 @@ sub _layout
       } 
 
     $score += $mod;
-    print STDERR "# Step $step: Score is $score\n" if $self->{debug};
+    print STDERR "# Step $step: Score is $score\n\n" if $self->{debug};
     }
 
     $self->{score} = $score;			# overall score
