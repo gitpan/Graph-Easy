@@ -81,6 +81,7 @@ t/cell.t
 t/chain.t
 t/class.t
 t/cluster.t
+t/copy.t			test copy() method
 t/custom.t
 t/delete.t			test deletion of nodes/edges
 t/dot/4_loose.dot
@@ -504,6 +505,7 @@ t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
 t/parser.t			general Parser tests
 t/parser_dot.t			general Parser::Graphviz tests
+t/parser_dot_html.t		Parser::Graphviz tests with HTML-like labels
 t/path.t
 t/pod.t				test the POD for correctness
 t/pod_cov.t			test the POD for covering all subroutines

@@ -26,8 +26,8 @@ my $vcg = $graph->as_vcg();
 my $vcg_file = $graph->as_vcg_file();
 
 # remove time stamp:
-$vcg =~ s/ at \d{4}//;
-$vcg_file =~ s/ at \d{4}//;
+$vcg =~ s/ at.*//;
+$vcg_file =~ s/ at.*//;
 is ($vcg, $vcg_file, 'as_vcg and as_vcg_file are equal');
 
 $graph->add_edge('A','B');

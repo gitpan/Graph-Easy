@@ -1257,16 +1257,11 @@ sub _correct_size
     }
   elsif ($self->{type} & EDGE_LABEL_CELL)
     {
-    my $border = $self->{edge}->attribute('border-style') || 'none';
-
+    # edges do not have borders
     my ($w,$h) = $self->dimensions(); $h-- unless $h == 0;
 
     $h += $self->{h};
     $w += $self->{w};
-    if ($border ne 'none')
-      {
-      $h += 2; $w += 2;
-      }
     $self->{w} = $w;
     $self->{h} = $h;
     }

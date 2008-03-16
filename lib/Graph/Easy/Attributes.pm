@@ -5,7 +5,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.30';
+$VERSION = '0.31';
 
 package Graph::Easy;
 
@@ -1923,6 +1923,8 @@ my $all_color_names = { };
     }
 }
 
+our $qr_custom_attribute = qr/^x-([a-z_0-9]+-)*[a-z_0-9]+\z/;
+
 sub color_names
   {
   $color_names;
@@ -2535,6 +2537,9 @@ sub split_border_attributes
   # split "1px solid black" or "red dotted" into style, width and color
   my ($self,$border) = @_;
 
+  # special case
+  return ('none', undef, undef) if $border eq '0';
+
   # extract style
   my $style;
   $border =~ 
@@ -2546,9 +2551,9 @@ sub split_border_attributes
   $border =~ s/(\d+(px|em|%))//g;
 
   my $width = $1 || '';
-  $width =~ s/\D+//g;                           # leave only digits
+  $width =~ s/[^0-9]+//g;				# leave only digits
 
-  $border =~ s/\s+//g;                          # rem unnec. spaces
+  $border =~ s/\s+//g;					# rem unnec. spaces
 
   # The left-over part must be a valid color. 
   my $color = $border;
@@ -2642,40 +2647,6 @@ my $attributes = {
      'rgb(255,0,0)',
      ATTR_COLOR,
      "[ Crimson ] { shape: circle; background: crimson; }\n -- Aqua Marine --> { background: #7fffd4; }\n [ Misty Rose ]\n  { background: white; fill: rgb(255,228,221); shape: ellipse; }",
-     ],
-
-    bordercolor => [
-     'The color of the L<border>. See the section about color names and values for reference.',
-     undef,
-     { default => '#000000' },
-     'rgb(255,255,0)',
-     ATTR_COLOR,
-     "node { border: black bold; }\n[ Black ]\n --> [ Red ]      { bordercolor: red; }\n --> [ Green ]    { bordercolor: green; }",
-     ],
-
-    borderstyle => [
-     'The style of the L<border>. The special styles "bold", "broad", "wide", "double-dash" and "bold-dash" will set and override the L<borderwidth>.',
-     [ qw/none solid dotted dashed dot-dash dot-dot-dash double wave bold bold-dash broad double-dash wide/ ],
-     { default => 'none', 'node.anon' => 'none', 'group.anon' => 'none', node => 'solid', group => 'dashed' },
-     'dotted',
-     undef,
-     "node { border: dotted; }\n[ Dotted ]\n --> [ Dashed ]      { borderstyle: dashed; }\n --> [ broad ]    { borderstyle: broad; }",
-     ],
-
-    borderwidth => [
-     'The width of the L<border>. Certain L<border>-styles will override the width.',
-     qr/^\d+(px|em)?\z/,
-     '1',
-     '2px',
-     ],
-
-    border => [
-     'The border. Can be any combination of L<borderstyle>, L<bordercolor> and L<borderwidth>.',
-     undef,
-     { default => 'none', 'node.anon' => 'none', 'group.anon' => 'none', node => 'solid 1px #000000', group => 'dashed 1px #000000' },
-     'dotted red',
-     undef,
-     "[ Normal ]\n --> [ Bold ]      { border: bold; }\n --> [ Broad ]     { border: broad; }\n --> [ Wide ]      { border: wide; }\n --> [ Bold-Dash ] { border: bold-dash; }",
      ],
 
     class => [
@@ -2873,6 +2844,40 @@ EOF
    },
 
   node => {
+    bordercolor => [
+     'The color of the L<border>. See the section about color names and values for reference.',
+     undef,
+     { default => '#000000' },
+     'rgb(255,255,0)',
+     ATTR_COLOR,
+     "node { border: black bold; }\n[ Black ]\n --> [ Red ]      { bordercolor: red; }\n --> [ Green ]    { bordercolor: green; }",
+     ],
+
+    borderstyle => [
+     'The style of the L<border>. The special styles "bold", "broad", "wide", "double-dash" and "bold-dash" will set and override the L<borderwidth>.',
+     [ qw/none solid dotted dashed dot-dash dot-dot-dash double wave bold bold-dash broad double-dash wide/ ],
+     { default => 'none', 'node.anon' => 'none', 'group.anon' => 'none', node => 'solid', group => 'dashed' },
+     'dotted',
+     undef,
+     "node { border: dotted; }\n[ Dotted ]\n --> [ Dashed ]      { borderstyle: dashed; }\n --> [ broad ]    { borderstyle: broad; }",
+     ],
+
+    borderwidth => [
+     'The width of the L<border>. Certain L<border>-styles will override the width.',
+     qr/^\d+(px|em)?\z/,
+     '1',
+     '2px',
+     ],
+
+    border => [
+     'The border. Can be any combination of L<borderstyle>, L<bordercolor> and L<borderwidth>.',
+     undef,
+     { default => 'none', 'node.anon' => 'none', 'group.anon' => 'none', node => 'solid 1px #000000', group => 'dashed 1px #000000' },
+     'dotted red',
+     undef,
+     "[ Normal ]\n --> [ Bold ]      { border: bold; }\n --> [ Broad ]     { border: broad; }\n --> [ Wide ]      { border: wide; }\n --> [ Bold-Dash ] { border: bold-dash; }",
+     ],
+
     basename => [
      "Controls the base name of an autosplit node. Ignored for all other nodes. Unless set, it is generated automatically from the node parts. Please see the section about <a href='hinting.html#autosplit'>autosplit</a> for reference.",
      undef,
@@ -2988,6 +2993,40 @@ EOF
   }, # node
 
   graph => {
+
+    bordercolor => [
+     'The color of the L<border>. See the section about color names and values for reference.',
+     undef,
+     { default => '#000000' },
+     'rgb(255,255,0)',
+     ATTR_COLOR,
+     "node { border: black bold; }\n[ Black ]\n --> [ Red ]      { bordercolor: red; }\n --> [ Green ]    { bordercolor: green; }",
+     ],
+
+    borderstyle => [
+     'The style of the L<border>. The special styles "bold", "broad", "wide", "double-dash" and "bold-dash" will set and override the L<borderwidth>.',
+     [ qw/none solid dotted dashed dot-dash dot-dot-dash double wave bold bold-dash broad double-dash wide/ ],
+     { default => 'none', 'node.anon' => 'none', 'group.anon' => 'none', node => 'solid', group => 'dashed' },
+     'dotted',
+     undef,
+     "node { border: dotted; }\n[ Dotted ]\n --> [ Dashed ]      { borderstyle: dashed; }\n --> [ broad ]    { borderstyle: broad; }",
+     ],
+
+    borderwidth => [
+     'The width of the L<border>. Certain L<border>-styles will override the width.',
+     qr/^\d+(px|em)?\z/,
+     '1',
+     '2px',
+     ],
+
+    border => [
+     'The border. Can be any combination of L<borderstyle>, L<bordercolor> and L<borderwidth>.',
+     undef,
+     { default => 'none', 'node.anon' => 'none', 'group.anon' => 'none', node => 'solid 1px #000000', group => 'dashed 1px #000000' },
+     'dotted red',
+     undef,
+     "[ Normal ]\n --> [ Bold ]      { border: bold; }\n --> [ Broad ]     { border: broad; }\n --> [ Wide ]      { border: wide; }\n --> [ Bold-Dash ] { border: bold-dash; }",
+     ],
 
     gid => [
 	"A unique ID for the graph. Usefull if you want to include two graphs into one HTML page.",
@@ -3134,6 +3173,40 @@ EOF
    }, # edge
 
   group => {
+    bordercolor => [
+     'The color of the L<border>. See the section about color names and values for reference.',
+     undef,
+     { default => '#000000' },
+     'rgb(255,255,0)',
+     ATTR_COLOR,
+     "node { border: black bold; }\n[ Black ]\n --> [ Red ]      { bordercolor: red; }\n --> [ Green ]    { bordercolor: green; }",
+     ],
+
+    borderstyle => [
+     'The style of the L<border>. The special styles "bold", "broad", "wide", "double-dash" and "bold-dash" will set and override the L<borderwidth>.',
+     [ qw/none solid dotted dashed dot-dash dot-dot-dash double wave bold bold-dash broad double-dash wide/ ],
+     { default => 'none', 'node.anon' => 'none', 'group.anon' => 'none', node => 'solid', group => 'dashed' },
+     'dotted',
+     undef,
+     "node { border: dotted; }\n[ Dotted ]\n --> [ Dashed ]      { borderstyle: dashed; }\n --> [ broad ]    { borderstyle: broad; }",
+     ],
+
+    borderwidth => [
+     'The width of the L<border>. Certain L<border>-styles will override the width.',
+     qr/^\d+(px|em)?\z/,
+     '1',
+     '2px',
+     ],
+
+    border => [
+     'The border. Can be any combination of L<borderstyle>, L<bordercolor> and L<borderwidth>.',
+     undef,
+     { default => 'none', 'node.anon' => 'none', 'group.anon' => 'none', node => 'solid 1px #000000', group => 'dashed 1px #000000' },
+     'dotted red',
+     undef,
+     "[ Normal ]\n --> [ Bold ]      { border: bold; }\n --> [ Broad ]     { border: broad; }\n --> [ Wide ]      { border: wide; }\n --> [ Bold-Dash ] { border: bold-dash; }",
+     ],
+
     nodeclass => [
       'The class into which all nodes of this group are put.',
       qr/^(|[a-zA-Z][a-zA-Z0-9_]*)\z/,
@@ -3284,7 +3357,7 @@ sub default_attribute
   # "x-foo-bar" is a custom attribute, so allow it always. The name must
   # consist only of letters and hyphens, and end in a letter or number.
   # Hyphens must be separated by letters. Custom attributes do not have a default.
-  return '' if $name =~ /^x-([a-z_]+-)*[a-z_]+([0-9]*)\z/;
+  return '' if $name =~ $qr_custom_attribute;
 
   # prevent ->{special}->{node} from springing into existance
   my $s = $attributes->{special}; $s = $s->{$class} if exists $s->{$class};
@@ -3339,7 +3412,7 @@ sub raw_attribute
 
   # create a fake entry for custom attributes
   $entry = [ '', undef, '', '', ATTR_STRING, '' ]
-    if $name =~ /^x-([a-z_]+-)*[a-z_]+([0-9]*)\z/;
+    if $name =~ $qr_custom_attribute;
 
   # Didn't found an entry:
   if (!ref($entry))
@@ -3555,7 +3628,7 @@ sub attribute
 
   # create a fake entry for custom attributes
   $entry = [ '', undef, '', '', ATTR_STRING, '' ]
-    if $name =~ /^x-([a-z_]+-)*[a-z_]+([0-9]*)\z/;
+    if $name =~ $qr_custom_attribute;
 
   # Didn't found an entry:
   if (!ref($entry))
@@ -3754,7 +3827,7 @@ sub validate_attribute
   # "x-foo-bar" is a custom attribute, so allow it always. The name must
   # consist only of letters and hyphens, and end in a letter. Hyphens
   # must be separated by letters.
-  return (undef, $name, $value) if $name =~ /^x-([a-z_]+-)*[a-z_]+([0-9]*)\z/;
+  return (undef, $name, $value) if $name =~ $qr_custom_attribute;
 
   $class = 'all' unless defined $class;
   $class =~ s/\..*\z//;		# remove subclasses
@@ -4028,6 +4101,7 @@ sub get_attributes
   {
   # Return all effective attributes on this object (graph/node/group/edge) as
   # an anonymous hash ref. This respects inheritance and default values.
+  # Does not return custom attributes, see get_custom_attributes().
   my $self = shift;
 
   $self->error("get_attributes() doesn't take arguments") if @_ > 0;
@@ -4043,6 +4117,31 @@ sub get_attributes
       my $val = $self->attribute($a);		# respect inheritance	
       $att->{$a} = $val if defined $val;
       }
+    }
+
+  $att;
+  }
+
+package Graph::Easy::Node;
+
+BEGIN
+  {
+  *custom_attributes = \&get_custom_attributes;
+  }
+
+sub get_custom_attributes
+  {
+  # Return all custom attributes on this object (graph/node/group/edge) as
+  # an anonymous hash ref.
+  my $self = shift;
+
+  $self->error("get_custom_attributes() doesn't take arguments") if @_ > 0;
+
+  my $att = {};
+
+  for my $key (keys %{$self->{att}})
+    {
+    $att->{$key} = $self->{att}->{$key};
     }
 
   $att;

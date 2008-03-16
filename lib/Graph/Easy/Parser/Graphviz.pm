@@ -5,7 +5,7 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 use Graph::Easy::Parser;
 @ISA = qw/Graph::Easy::Parser/;
 
@@ -1138,6 +1138,7 @@ my $remap = {
     'taillabel' => 'taillabel',
     'tailtarget' => 'x-dot-tailtarget',
     'tailtooltip' => 'tailtitle',
+    'weight' => 'x-dot-weight',
     },
 
   'graph' => {
@@ -1163,8 +1164,10 @@ my $remap = {
     'layersep' => 'x-dot-layersep',
     'levelsgap' => 'x-dot-levelsgap',
     'margin' => 'x-dot-margin',
+    'maxiter' => 'x-dot-maxiter',
     'mclimit' => 'x-dot-mclimit',
     'mindist' => 'x-dot-mindist',
+    'minquit' => 'x-dot-minquit',
     'mode' => 'x-dot-mode',
     'model' => 'x-dot-model',
     'nodesep' => 'x-dot-nodesep',
@@ -1179,6 +1182,7 @@ my $remap = {
     'pack' => 'x-dot-pack',
     'packmode' => 'x-dot-packmode',
     'page' => 'x-dot-page',
+    'pagedir' => 'x-dot-pagedir',
     'pencolor' => \&_from_graphviz_color,
     'quantum' => 'x-dot-quantum',
     'rankdir' => \&_from_graphviz_graph_rankdir,
@@ -1541,20 +1545,49 @@ sub _remap_attributes
 #############################################################################
 
 my $html_remap = {
-  'node' => {
-    'bgcolor' => 'fill',
-    },
   'table' => {
+    'align' => 'align',
+    'balign' => undef,
     'bgcolor' => 'fill',
+    'border' => 'border',
+    # XXX TODO
+    'cellborder' => 'border',
     'cellspacing' => undef,
     'cellpadding' => undef,
-    'cellborder' => 'border',
+    'fixedsize' => undef,
+    'height' => undef,
+    'href' => 'link',
+    'port' => undef,
+    'target' => undef,
+    'title' => 'title',
+    'tooltip' => 'title',
+    'valign' => undef,
+    'width' => undef,
+    },
+  'td' => {
+    'align' => 'align',
+    'balign' => undef,
+    'bgcolor' => 'fill',
+    'border' => 'border',
+    'cellspacing' => undef,
+    'cellpadding' => undef,
+    'colspan' => 'columns',
+    'fixedsize' => undef,
+    'height' => undef,
+    'href' => 'link',
+    'port' => undef,
+    'rowspan' => 'rows',
+    'target' => undef,
+    'title' => 'title',
+    'tooltip' => 'title',
+    'valign' => undef,
+    'width' => undef,
     },
   };
 
 sub _parse_html_attributes
   {
-  my ($self, $text, $qr) = @_;
+  my ($self, $text, $qr, $tag) = @_;
 
   # "<TD ...>" => " ..."
   $text =~ s/^$qr->{td_tag}//;
@@ -1571,7 +1604,9 @@ sub _parse_html_attributes
 
     $self->_unquote($value);
     $value = lc($value) if $name eq 'align';
-    $attr->{$name} = $value;
+    $self->error ("Unknown attribute '$name' in HTML-like label") unless exists $html_remap->{$tag}->{$name};
+    # filter out attributes we do not yet support
+    $attr->{$name} = $value if defined $html_remap->{$tag}->{$name};
     }
 
   $attr;
@@ -1588,7 +1623,7 @@ sub _html_per_table
 
 sub _html_per_node
   {
-  # take the HTML-like attributes found per TD and apply the to the node
+  # take the HTML-like attributes found per TD and apply them to the node
   my ($self, $attr, $node) = @_;
 
   my $c = $attr->{colspan} || 1;
@@ -1640,7 +1675,7 @@ sub _parse_html
 
   my $table_tag = $1 || ''; 
   $table_tag =~ /$qr->{table_tag}(.*?)>/;
-  my $table_attr = $self->_parse_html_attributes($1 || '',$qr);
+  my $table_attr = $self->_parse_html_attributes($1 || '', $qr, 'table');
 
 #  use Data::Dumper;
 #  print STDERR "# 3 HTML-like table-tag attributes are: ", Dumper($table_attr),"\n";
@@ -1675,6 +1710,7 @@ sub _parse_html
     my $first = 1;
     while ($row ne '')
       {
+      # remove one TD from the current row text
       $row =~ s/^($qr->{td})($qr->{text})$qr->{td_end}//;
       return $self->error ("Cannot parse HTML-like row: '$row'")
         unless defined $1;
@@ -1682,9 +1718,14 @@ sub _parse_html
       my $node_label = $2;
       my $attr_txt = $1;
 
+      # convert "<BR/>" etc. to line breaks
+      # XXX TODO apply here the default of BALIGN
+      $node_label =~ s/<BR\s*\/?>/\\n/g;
+
       my $node_name = $base_name . '.' . $idx;
 
       # if it doesn't exist, add it, otherwise retrieve node object to $node
+
       my $node = $graph->node($node_name);
       if (!defined $node)
 	{
@@ -1699,7 +1740,7 @@ sub _parse_html
       $node->set_attributes($table_attr);
 
       # parse the attributes and apply them to the node
-      $self->_html_per_node( $self->_parse_html_attributes($attr_txt,$qr), $node );
+      $self->_html_per_node( $self->_parse_html_attributes($attr_txt,$qr,'td'), $node );
 
 #     print STDERR "# Created $node_name\n";
  
@@ -1743,6 +1784,8 @@ sub _parse_html
     $y++;
     }
 
+  # return created nodes
+  @rc;
   }
 
 #############################################################################
@@ -1776,9 +1819,17 @@ sub _parser_cleanup
     if ($shape ne 'record' && $label =~ /^<\s*<.*>\z/)
       {
       print STDERR "# HTML-like label found: $label\n" if $self->{debug};
-      $self->_parse_html($n, $html_regexps);
+      my @nodes = $self->_parse_html($n, $html_regexps);
       # remove the temp. and spurious node
       $delete->{$n->{name}} = undef;
+      my @edges = $n->edges();
+      # reconnect the found edges to the new autosplit parts
+      for my $e (@edges)
+        {
+        # XXX TODO: connect to better suited parts based on flow?
+        $e->start_at($nodes[0]) if ($e->{from} == $n);
+        $e->end_at($nodes[0]) if ($e->{to} == $n);
+        }
       $g->del_node($n);
       next;
       }

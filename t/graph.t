@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 73;
+   plan tests => 72;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -43,7 +43,6 @@ is ($graph->edges(), 0, '0 edges');
 is ($graph->border_attribute('graph'), 'none', 'graph border is none');
 is ($graph->border_attribute('group'), 'dashed', 'group border is dashed 1px black');
 is ($graph->border_attribute('node'), 'solid', 'node border is solid 1px black');
-is ($graph->border_attribute('edge'), 'none', 'edge border is none');
 
 is (join (',', $graph->edges()), '', '0 edges');
 

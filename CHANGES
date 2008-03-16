@@ -1,5 +1,38 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2008-03-16 v0.61 Tels 2778 tests
+  * graph-easy:
+    + reject unknown input format specifications
+    + support --from_vcg and --from_gdl, too
+  * various POD fixes
+  * relax rules for custom attributes by also allowing digits anywhere
+  * fix bug #32206: Fix for as_vcg.t test failures when disk io is very slow
+  * fix bug #31958: Missing methods in Edge class
+    + add as_ascii() (and simplify it)
+    + add as_txt() stub (require Graph::Easy::As_txt and call _as_txt)
+    + add nodes()
+    + remove the to_nodes() and from_nodes() POD entries
+  * disallow border attributes on edges (it was ignored in all output formats)
+  * make it possible to call Graph::Easy->new('[A]->[B]');
+  * add: 
+    + $graph->copy() - clone the entire graph
+    + get_custom_attributes()
+    + merge_nodes() takes a third parameter: the string to join the label
+      of the second node to the label of the first node (thanx Brad Bowman!)
+  * Parser/Graphviz:
+    + handle "border: 0"
+    + handle graph attributes: maxiter, minquit and pagedir
+    + handle edge attribute: weight
+    + better parsing of attributes on HTML-like labels (no longer generates
+      bogus attribute names like "balign" and warns about unknown ones)
+    + convert <BR/> in HTML-like labels to line breaks
+    + re-connect edges between nodes with HTML-like labels to the generated
+      autosplit parts (formerly, these edges were simply lost)
+  * Parser/VGC:
+    + attributes like "node.color:" are valid for all following nodes only
+  * as_graphviz():
+    + suppress style and peripheries for borderwidth == 0
+
 2007-11-19 v0.60 Tels 2700 tests
   * Base:
     + prepend 'Warning: ' to warnings    

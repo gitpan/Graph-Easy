@@ -127,6 +127,8 @@ foreach my $f (sort {
     $txt = readfile($f_txt);
     }
 
+  $graph->debug(1);
+
  if (!
    is ($graph->as_txt(), $txt, "$f as_txt"))
    {

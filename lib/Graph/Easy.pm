@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.60';
+$VERSION = '0.61';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -44,6 +44,8 @@ BEGIN
   *_label_as_html = \&Graph::Easy::Node::_label_as_html;
   *_wrapped_label = \&Graph::Easy::Node::_wrapped_label;
   *get_color_attribute = \&color_attribute;
+  *get_custom_attributes = \&Graph::Easy::Node::get_custom_attributes;
+  *custom_attributes = \&Graph::Easy::Node::get_custom_attributes;
   $att_aliases = Graph::Easy::_att_aliases();
 
   # backwards compatibility
@@ -56,6 +58,22 @@ sub new
   {
   # override new() as to not set the {id}
   my $class = shift;
+
+  # called like "new->('[A]->[B]')":
+  if (@_ == 1 && !ref($_[0]))
+    {
+    require Graph::Easy::Parser;
+    my $parser = Graph::Easy::Parser->new();
+    my $self = eval { $parser->from_text($_[0]); };
+    if (!defined $self)
+      {
+      $self = Graph::Easy->new( fatal_errors => 0 );
+      $self->error( 'Error: ' . $parser->error() ||
+        'Unknown error while parsing initial text' );
+      $self->catch_errors( 0 );
+      }
+    return $self;
+    }
 
   my $self = bless {}, $class;
 
@@ -1924,13 +1942,78 @@ sub add_nodes
   }
 
 #############################################################################
-# merging
+#############################################################################
+# Cloning/merging of graphs and objects
+
+sub copy
+  {
+  # create a copy of this graph and return it as new graph
+  my $self = shift;
+
+  my $new = Graph::Easy->new();
+
+  # clone all the settings
+  for my $k (keys %$self)
+    {
+    $new->{$k} = $self->{$k} unless ref($self->{$k});
+    }
+
+  for my $g (keys %{$self->{groups}})
+    {
+    my $ng = $new->add_group($g);
+    # clone the attributes
+    $ng->{att} = $self->_clone( $self->{groups}->{$g}->{att} );
+    }
+  for my $n (values %{$self->{nodes}})
+    {
+    my $nn = $new->add_node($n->{name});
+    # clone the attributes
+    $nn->{att} = $self->_clone( $n->{att} );
+    # restore group membership for the node
+    $nn->add_to_group( $n->{group}->{name} ) if $n->{group};
+    }
+  for my $e (values %{$self->{edges}})
+    {
+    my $ne = $new->add_edge($e->{from}->{name}, $e->{to}->{name} );
+    # clone the attributes
+    $ne->{att} = $self->_clone( $e->{att} );
+    }
+  # clone the attributes
+  $new->{att} = $self->_clone( $self->{att});
+
+  $new;
+  }
+
+sub _clone
+  {
+  # recursively clone a data structure
+  my ($self,$in) = @_;
+
+  my $out = { };
+
+  for my $k (keys %$in)
+    {
+    if (ref($k) eq 'HASH')
+      {
+      $out->{$k} = $self->_clone($in->{$k});
+      }
+    elsif (ref($k))
+      {
+      $self->error("Can't clone $k");
+      }
+    else
+      {
+      $out->{$k} = $in->{$k};
+      }
+    }
+  $out;
+  }
 
 sub merge_nodes
   {
   # Merge two nodes, by dropping all connections between them, and then
   # drawing all connections from/to $B to $A, then drop $B
-  my ($self, $A, $B) = @_;
+  my ($self, $A, $B, $joiner) = @_;
 
   $A = $self->node($A) unless ref($A);
   $B = $self->node($B) unless ref($B);
@@ -1965,6 +2048,9 @@ sub merge_nodes
     delete $B->{edges}->{$edge->{id}};
     $A->{edges}->{$edge->{id}} = $edge;
     }
+
+  # should we join the label from B to A?
+  $A->set_attribute('label', $A->label() . $joiner . $B->label() ) if defined $joiner;
 
   $self->del_node($B);
 
@@ -2221,19 +2307,26 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or via Graphviz
 	
 	my $graph = Graph::Easy->new();
 
+	# make a fresh copy of the graph
+	my $new_graph = $graph->copy();
+
 	$graph->add_edge ('Bonn', 'Berlin');
 
 	# will not add it, since it already exists
 	$graph->add_edge_once ('Bonn', 'Berlin');
 
-	print $graph->as_ascii( );
-
-	# prints:
+	print $graph->as_ascii( ); 		# prints:
 
 	# +------+     +--------+
 	# | Bonn | --> | Berlin |
 	# +------+     +--------+
 
+	#####################################################
+	# alternatively, let Graph::Easy parse some text:
+
+	my $graph = Graph::Easy->new( '[Bonn] -> [Berlin]' );
+
+	#####################################################
 	# slightly more verbose way:
 
 	my $graph = Graph::Easy->new();
@@ -2252,11 +2345,11 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or via Graphviz
 
 	# adding edges with attributes:
 
-        my $edge = Graph::Easy::Edge->new();
+	my $edge = Graph::Easy::Edge->new();
 	$edge->set_attributes( {
-                label => 'train',
-                style => 'dotted',
-                color => 'red',
+		label => 'train',
+		style => 'dotted',
+		color => 'red',
 	} );
 
 	# now with the optional edge object
@@ -2268,7 +2361,9 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or via Graphviz
 	# complete HTML page (with CSS)
 	print $graph->as_html_file( );
 
-	# creating a graph from a textual description	
+	#####################################################
+	# creating a graph from a textual description
+
 	use Graph::Easy::Parser;
 	my $parser = Graph::Easy::Parser->new();
 
@@ -2572,6 +2667,12 @@ valid options:
 	strict			test attribute names for being valid, default: true
 	undirected		create an undirected graph, default: false
 
+=head2 copy()
+
+    my $copy = $graph->copy( );
+
+Create a copy of this graph and return it as a new Graph::Easy object.
+
 =head2 error()
 
 	my $error = $graph->error();
@@ -2755,12 +2856,29 @@ an edge from Node A to B:
 =head2 merge_nodes()
 
 	$graph->merge_nodes( $first_node, $second_node );
+	$graph->merge_nodes( $first_node, $second_node, $joiner );
 
 Merge two nodes. Will delete all connections between the two nodes, then
 move over any connection to/from the second node to the first, then delete
 the second node from the graph.
 
 Any attributes on the second node will be lost.
+
+If present, the optional C<< $joiner >> argument will be used to join
+the label of the second node to the label of the first node. If not
+present, the label of the second node will be dropped along with all
+the other attributes:
+
+	my $graph = Graph::Easy->new('[A]->[B]->[C]->[D]');
+
+	# this produces "[A]->[C]->[D]"
+	$graph->merge_nodes( 'A', 'B' );
+
+	# this produces "[A C]->[D]"
+	$graph->merge_nodes( 'A', 'C', ' ' );
+
+	# this produces "[A C \n D]", note single quotes on the third argument!
+	$graph->merge_nodes( 'A', 'C', ' \n ' );
 
 =head2 get_attribute()
 
@@ -2772,7 +2890,7 @@ Example:
 
 	my $color = $graph->attribute( 'node', 'color' );
 
-You can also call the various attribute related methods on members of the
+You can also call all the various attribute related methods on members of the
 graph directly, for instance:
 
 	$node->get_attribute('label');
@@ -2804,7 +2922,22 @@ Is an alias for L<color_attribute()>.
 Return all effective attributes on this object (graph/node/group/edge) as
 an anonymous hash ref. This respects inheritance and default values.
 
-See also L<raw_attributes()>.
+Note that this does not include custom attributes.
+
+See also L<get_custom_attributes> and L<raw_attributes()>.
+
+=head2 get_custom_attributes()
+
+	my $att = $object->get_custom_attributes();
+
+Return all the custom attributes on this object (graph/node/group/edge) as
+an anonymous hash ref.
+
+=head2 custom_attributes()
+
+	my $att = $object->custom_attributes();
+
+C<< custom_attributes() >> is an alias for L<< get_custom_attributes >>.
 
 =head2 raw_attributes()
 
@@ -3911,7 +4044,7 @@ Creating graphs should be easy even when the graphs are quite complex.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2008 by Tels L<http://bloodgate.com>
 
 X<tels>
 

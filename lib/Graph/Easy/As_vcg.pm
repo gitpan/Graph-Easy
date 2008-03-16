@@ -393,8 +393,11 @@ sub attributes_as_vcg
     }
 
   # borderstyle: double:
-  my $style = $self->attribute('borderstyle');
-  $a->{peripheries} = 2 if $style =~ /^double/;
+  if (!$self->isa('Graph::Easy::Edge'))
+    {
+    my $style = $self->attribute('borderstyle');
+    $a->{peripheries} = 2 if $style =~ /^double/;
+    }
 
   # For nodes with shape plaintext, set the fillcolor to the background of
   # the graph/group

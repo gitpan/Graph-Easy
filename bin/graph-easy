@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use Graph::Easy 0.58;
+use Graph::Easy 0.61;
 use Graph::Easy::Parser;
 
 my $help_requested = 0;
@@ -19,7 +19,7 @@ $help_requested = 1 if !ref($opt);
 # no error and --help was specified
 $help_requested = 2 if ref($opt) && $opt->{help} ne '';
 
-my $copyright = "Graph::Easy v$Graph::Easy::VERSION  (c) by Tels 2004-2007.  "
+my $copyright = "Graph::Easy v$Graph::Easy::VERSION  (c) by Tels 2004-2008.  "
 	       ."Released under the GPL 2.0 or later.\n\n";
 
 if (ref($opt) && $opt->{version} != 0)
@@ -78,7 +78,7 @@ $error = $graph->error() if $graph && $graph->error();
 die ("Parser error: " . $error) if $error && $parser->fatal_errors() != 0;
 
 #############################################################################
-# Generate the statistics if wanted:
+# If wanted, generate the statistics:
 
 if ($opt->{stats})
   {
@@ -161,6 +161,8 @@ sub get_options
     as_graphml => '',
     debug => 0,
     from_txt => '',
+    from_vcg => '',
+    from_gdl => '',
     from_graphviz => '',
     verbose => 0,
     version => 0,
@@ -208,6 +210,8 @@ sub get_options
 	"timeout=i" => \$opt->{timeout},
 	"stats" => \$opt->{stats},
 	"from_txt" => \$opt->{from_txt},
+	"from_vcg" => \$opt->{from_vcg},
+	"from_gdl" => \$opt->{from_gdl},
 	"from_graphviz" => \$opt->{from_graphviz},
 	);
     return unless $rc;
@@ -290,6 +294,7 @@ sub get_options
     $opt->{as} = 'graphviz';
     }
 
+  # convert "from_vcg" to "from=vcg"
   for my $format (qw/txt graphviz dot vcg gdl/)
     {
     $opt->{from} = $format if $opt->{"from_$format"};
@@ -297,6 +302,8 @@ sub get_options
     }
   $opt->{from} = 'graphviz' if $opt->{from} eq 'dot';
 
+  die ("Unknown input format '$opt->{from}'")
+	unless $opt->{from} =~ /^(vcg|gdl|graphviz|txt)\z/;
   $opt;
   }
 
@@ -359,7 +366,7 @@ Valid formats are:
     html	HTML
     svg		Scalable Vector Graphics
     graphviz    the DOT language
-    dot		n alias for "graphviz"
+    dot		alias for "graphviz"
     txt		Graph::Easy text
     vcg		VCG (Visualizing Compiler Graphs - a subset of GDL) text
     gdl		GDL (Graph Description Language) text
@@ -384,10 +391,17 @@ If not specified, the input format is auto-detected.
 
 You can also use B<ONE> argument of the form C<--from_dot>, etc.
 
+=item --debug=N
+
+Set the debug level (1..3). Warning, this will generate huge
+amounts of hard to understand output on STDERR. Example:
+
+    graph-easy input.txt --debug=2
+
 =item --parse
 
 Input will only be parsed, without any output generation.
-Usefull in combination with C<--debug=1> or C<--stats>. Example:
+Useful in combination with C<--debug=1> or C<--stats>. Example:
 
     graph-easy input.txt --parse --debug=1
 
@@ -443,7 +457,7 @@ The output can either be a dump of the graph in one of the following formats:
     GDL		 http://www.aisee.com/
     GraphML	 http://graphml.graphdrawing.org/
 
-In addition, C<Graph::Easy>> can also create layouts of graphs in
+In addition, C<Graph::Easy> can also create layouts of graphs in
 one of the following output formats:
 
     HTML   SVG	 ASCII	 BOXART
@@ -625,7 +639,7 @@ it under the terms of the GPL.
 See the LICENSE file of Graph::Easy for a copy of the GPL.
 
 This product includes color specifications and designs developed by Cynthia
-Brewer (http://colorbrewer.org/). See the LICENSE file for the full license
+Brewer (L<http://colorbrewer.org/>). See the LICENSE file for the full license
 text that applies to these color schemes.
 X<gpl>
 X<apache-style>
@@ -636,7 +650,7 @@ X<license>
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2008 by Tels L<http://bloodgate.com>
 
 =head1 SEE ALSO
 

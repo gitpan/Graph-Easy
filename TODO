@@ -22,7 +22,7 @@ Important short-term TODO:
 * [ a ] { label: a; } - remove the superflous label upon parsing
 
 * VCG/GDL
-  + debug, finish the attribute remapping and add test cases
+  + debug, finish the attribute remapping and add more test cases
   + implement support for \fn \fb \fI \fu \fB (bold underline etc.)
   + implement support for \f03 (colors)
   + implement support for \f- (hor line)
@@ -75,6 +75,7 @@ Recursive layouter:
     cause an error instead of a warning
   + autosplit nodes (record) lose their attributes, these need to
     be carried over from the temp. node.  
+  + parse nested tables
 
 * as_ascii:
   + better support for different shapes (circle, box, polygon etc)

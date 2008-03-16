@@ -37,13 +37,17 @@ sub _as_txt
       $att .= "  $atr: $out->{$atr};\n";
       }
 
-    my $border = $self->border_attribute($class) || '';
+    # edges do not have a border
+    if ($class !~ /^edge/)
+      {
+      my $border = $self->border_attribute($class) || '';
 
-    # 'solid 1px #000000' =~ /^solid/;
-    # 'solid 1px #000000' =~ /^solid 1px #000000/;
-    $border = '' if $self->default_attribute($class,'border') =~ /^$border/;
+      # 'solid 1px #000000' =~ /^solid/;
+      # 'solid 1px #000000' =~ /^solid 1px #000000/;
+      $border = '' if $self->default_attribute($class,'border') =~ /^$border/;
 
-    $att .= "  border: $border;\n" if $border ne '';
+      $att .= "  border: $border;\n" if $border ne '';
+      }
 
     if ($att ne '')
       {
@@ -276,25 +280,28 @@ sub attributes_as_txt
     $att .= "$atr: $new->{$atr}; ";
     }
 
-  my $border;
-  if (!exists $self->{autosplit})
+  if (!$self->isa_cell())
     {
-    $border = $self->border_attribute();
-    }
-  else
-    {
-    $border = Graph::Easy::_border_attribute(
+    my $border;
+    if (!exists $self->{autosplit})
+      {
+      $border = $self->border_attribute();
+      }
+    else
+      {
+      $border = Graph::Easy::_border_attribute(
 	$attributes->{borderstyle}||'',
 	$attributes->{borderwidth}||'',
 	$attributes->{bordercolor}||'');
+      }
+
+    # XXX TODO: should do this for all attributes, not only for border
+    # XXX TODO: this seems wrong anyway
+
+    # don't include default border
+    $border = '' if ref $g && $g->attribute($class,'border') eq $border;
+    $att .= "border: $border; " if $border ne '';
     }
-
-  # XXX TODO: should do this for all attributes, not only for border
-  # XXX TODO: this seems wrong anyway
-
-  # don't include default border
-  $border = '' if ref $g && $g->attribute($class,'border') eq $border;
-  $att .= "border: $border; " if $border ne '';
 
   # if we have a subclass, we probably need to include it
   my $c = '';
@@ -384,7 +391,7 @@ my $styles = {
   wave => '~~',
   };
 
-sub as_txt
+sub _as_txt
   {
   my $self = shift;
 

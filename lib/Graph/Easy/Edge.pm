@@ -7,7 +7,7 @@ package Graph::Easy::Edge;
 
 use Graph::Easy::Node;
 @ISA = qw/Graph::Easy::Node/;		# an edge is just a special node
-$VERSION = '0.30';
+$VERSION = '0.31';
 
 use strict;
 
@@ -324,6 +324,13 @@ sub to
   $self->{to};
   }
 
+sub nodes
+  {
+  my $self = shift;
+
+  ($self->{from}, $self->{to});
+  }
+
 sub start_at
   {
   # move the edge's start point from the current node to the given node
@@ -473,12 +480,35 @@ sub flip
   $self;
   }
 
+sub as_ascii
+  {
+  my ($self, $x,$y) = @_;
+
+  # invisible nodes, or very small ones
+  return '' if $self->{w} == 0 || $self->{h} == 0;
+
+  my $fb = $self->_framebuffer($self->{w}, $self->{h});
+
+  ###########################################################################
+  # "draw" the label into the framebuffer (e.g. the edge and the text)
+  $self->_draw_label($fb, $x, $y, '');
+
+  join ("\n", @$fb);
+  }
+
+sub as_txt
+  {
+  require Graph::Easy::As_ascii;
+
+  _as_txt(@_);
+  }
+
 1;
 __END__
 
 =head1 NAME
 
-Graph::Easy::Edge - An edge (a path from one node to another)
+Graph::Easy::Edge - An edge (a path connecting one ore more nodes)
 
 =head1 SYNOPSIS
 
@@ -555,24 +585,11 @@ label, or the empty string if the edge doesn't have a label.
 
 Returns the style of the edge, like 'solid', 'dotted', 'double', etc.
 
-=head2 to_nodes()
-
-	my @nodes = $edge->to_nodes();
-
-Return the nodes this edge connects to, as objects.
-
-=head2 from_nodes()
-
-	my @nodes = $edge->from_nodes();
-
-Return the nodes (that connections come from) as objects.
-
 =head2 nodes()
 
 	my @nodes = $edge->nodes();
 
-Return all the nodes connected (in either direction) by this edge
-as objects.
+Returns the source and target node that this edges connects as objects.
 
 =head2 bidirectional()
 
@@ -726,7 +743,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2008 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

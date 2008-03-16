@@ -1337,7 +1337,7 @@ sub _draw_label
 
 sub as_ascii
   {
-  # renders a node like:
+  # renders a node or edge like:
   # +--------+    ..........    ""
   # | A node | or : A node : or " --> "
   # +--------+    ..........    "" 

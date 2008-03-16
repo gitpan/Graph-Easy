@@ -36,6 +36,10 @@ can_ok ("Graph::Easy::Edge", qw/
   start_port end_port
   from to start_at
 
+  to from nodes
+
+  as_ascii
+  as_txt
   /);
   
 use Graph::Easy::Edge::Cell qw/EDGE_SHORT_E/;

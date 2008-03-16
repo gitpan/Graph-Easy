@@ -1,17 +1,18 @@
 #############################################################################
 # Represents one node in a Graph::Easy graph.
 #
-# (c) by Tels 2004-2007. Part of Graph::Easy.
+# (c) by Tels 2004-2008. Part of Graph::Easy.
 #############################################################################
 
 package Graph::Easy::Node;
 
-$VERSION = '0.37';
+$VERSION = '0.38';
 
 use Graph::Easy::Base;
 use Graph::Easy::Attributes;
 @ISA = qw/Graph::Easy::Base/;
 
+# to map "arrow-shape" to "arrowshape"
 my $att_aliases;
 
 use strict;
@@ -2316,7 +2317,22 @@ of the specific class the node is in, then this will be returned.
 Return all effective attributes on this object (graph/node/group/edge) as
 an anonymous hash ref. This respects inheritance and default values.
 
-See also L<raw_attributes()>.
+Note that this does not include custom attributes.
+
+See also L<get_custom_attributes> and L<raw_attributes()>.
+
+=head2 get_custom_attributes()
+
+	my $att = $object->get_custom_attributes();
+
+Return all the custom attributes on this object (graph/node/group/edge) as
+an anonymous hash ref.
+
+=head2 custom_attributes()
+
+    my $att = $object->custom_attributes();
+
+C<< custom_attributes() >> is an alias for L<< get_custom_attributes >>.
 
 =head2 raw_attributes()
 

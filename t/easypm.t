@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 135;
+   plan tests => 138;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -401,6 +401,20 @@ my $ge = Graph::Easy->new( undirected => 1 );
 is (ref($ge), 'Graph::Easy');
 is ($ge->attribute('type'), 'undirected', 'is undirected');
 is ($ge->is_undirected(), 1, 'is undirected');
+
+#############################################################################
+# merging nodes
+
+$graph = Graph::Easy->new('[A]->[B]->[C]->[D]');
+
+$graph->merge_nodes( 'A', 'B' );
+is ($graph->as_txt(), "[ A ] --> [ C ]\n[ C ] --> [ D ]\n", 'merge worked');
+
+$graph->merge_nodes( 'A', 'C', ' ' );
+is ($graph->as_txt(), "[ A ] { label: A C; }\n\n[ A ] --> [ D ]\n", 'merge worked');
+
+$graph->merge_nodes( 'A', 'D', ' \n ' );
+is ($graph->as_txt(), "[ A ] { label: A C \\n D; }\n\n", 'merge worked');
 
 1; # all tests done
 

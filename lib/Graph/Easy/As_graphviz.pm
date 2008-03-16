@@ -1,12 +1,12 @@
 #############################################################################
 # output the graph in dot-format text
 #
-# (c) by Tels 2004-2007.
+# (c) by Tels 2004-2008.
 #############################################################################
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.27';
+$VERSION = '0.28';
 
 #############################################################################
 #############################################################################
@@ -39,8 +39,6 @@ my $remap = {
     'align' => undef,
     'arrowstyle' => \&_graphviz_remap_arrow_style,
     'background' => undef,
-    'border' => undef,
-    'borderstyle' => undef,
     'color' => \&_graphviz_remap_edge_color,
     'end' => \&_graphviz_remap_port,
     'headtitle' => 'headtooltip',
@@ -322,11 +320,11 @@ sub _graphviz_remap_border_style
   my $shape = '';
   $shape = ($node->attribute('shape') || '') if ref($node);
 
-  $style = $node->attribute('borderstyle') unless defined $style;
- 
   # some shapes don't need a border:
   return (undef,undef) if $shape =~ /^(none|invisible|img|point)\z/;
 
+  $style = $node->attribute('borderstyle') unless defined $style;
+ 
   # valid styles are: solid dashed dotted bold invis
 
   $style = '' unless defined $style;
@@ -343,6 +341,10 @@ sub _graphviz_remap_border_style
   $style = 'setlinewidth(5)' if $style =~ /^broad/;
   $style = 'setlinewidth(11)' if $style =~ /^wide/;
 
+  # "solid 0px" => "none"
+  my $w = 0; $w = $node->attribute('borderwidth') if (ref($node) && $style ne 'none');
+  $style = 'none' if $w == 0;
+
   my @rc;
   if ($style eq 'none')
     {
@@ -356,7 +358,7 @@ sub _graphviz_remap_border_style
   # for graphviz v2.4 and up
   $style = 'filled' if $style eq 'solid';
   $style = 'filled,'.$style unless $style eq 'filled';
-  $style = 'rounded,'.$style if $shape eq 'rounded';
+  $style = 'rounded,'.$style if $shape eq 'rounded' && $style ne 'none';
 
   $style =~ s/,\z//;		# "rounded," => "rounded"
 
@@ -953,9 +955,13 @@ sub attributes_as_graphviz
     $a->{arrowtail} = 'none'; 
     }
 
-  # borderstyle: double:
-  my $style = $self->attribute('borderstyle');
-  $a->{peripheries} = 2 if $style =~ /^double/;
+  if (!$self->isa_cell())
+    {
+    # borderstyle: double:
+    my $style = $self->attribute('borderstyle');
+    my $w = $self->attribute('borderwidth');
+    $a->{peripheries} = 2 if $style =~ /^double/ && $w > 0;
+    }
 
   # For nodes with shape plaintext, set the fillcolor to the background of
   # the graph/group

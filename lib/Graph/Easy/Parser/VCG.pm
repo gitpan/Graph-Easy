@@ -5,7 +5,7 @@
 
 package Graph::Easy::Parser::VCG;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 use Graph::Easy::Parser::Graphviz;
 @ISA = qw/Graph::Easy::Parser::Graphviz/;
 
@@ -435,7 +435,13 @@ sub _build_match_stack
       print STDERR "#  Found node with name $name\n" if $self->{debug} > 1;
 
       my $node = $self->_new_node($self->{_graph}, $name, $self->{group_stack}, $att, []);
-      $node->set_attributes ($att);
+
+      # set attributes from scope
+      my $scope = $self->{scope_stack}->[-1] || {};
+      $node->set_attributes ($scope->{node}) if keys %{$scope->{node}} != 0;
+
+      # override with local attributes
+      $node->set_attributes ($att) if keys %$att != 0;
       1;
       } );
 
@@ -455,7 +461,14 @@ sub _build_match_stack
       print STDERR "#  Found edge ($type) from $from to $to\n" if $self->{debug} > 1;
 
       my $edge = $self->{_graph}->add_edge ($from, $to);
-      $edge->set_attributes ($att);
+
+      # set attributes from scope
+      my $scope = $self->{scope_stack}->[-1] || {};
+      $edge->set_attributes ($scope->{edge}) if keys %{$scope->{edge}} != 0;
+
+      # override with local attributes
+      $edge->set_attributes ($att) if keys %$att != 0;
+
       1;
       } );
 
@@ -474,7 +487,17 @@ sub _build_match_stack
 
       my $att = $self->{_graph}->_remap_attributes($type, { $name => $val }, $self->_remap(), 'noquote', undef, undef);
 
-      $self->{_graph}->set_attributes ($type, $att);
+      # store the attributes in the current scope
+      my $scope = $self->{scope_stack}->[-1];
+      $scope->{$type} = {} unless ref $scope->{$type};
+      my $s = $scope->{$type};
+
+      for my $k (keys %$att)
+        {
+        $s->{$k} = $att->{$k};
+        }
+
+      #$self->{_graph}->set_attributes ($type, $att);
       1;
       });
 
@@ -866,7 +889,7 @@ C<Graph::Easy::Parser::VCG> parses the text format from the VCG or GDL
 (Graph Description Language) use by tools like GCC and AiSee, and
 constructs a C<Graph::Easy> object from it.
 
-The resulting object can than be used to layout and output the graph
+The resulting object can then be used to layout and output the graph
 in various formats.
 
 =head2 Output
@@ -989,8 +1012,9 @@ L<Graph::Easy>, L<Graph::Write::VCG>.
 
 =head1 AUTHOR
 
-Copyright (C) 2005 - 2007 by Tels L<http://bloodgate.com>
+Copyright (C) 2005 - 2008 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 
 =cut
+

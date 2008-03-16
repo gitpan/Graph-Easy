@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 44;
+   plan tests => 45;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -63,6 +63,7 @@ graph: {
 edge.color: black
 node.textcolor: red
 	node: { title: "A" }
+node.textcolor: blue
 	node: { title: "B" }
 	edge: { sourcename: "A" targetname: "B" }
 }
@@ -80,7 +81,8 @@ for my $n ($graph->nodes())
 is ($nodes, "A, B, ", 'two nodes A and B');
 is (scalar $graph->edges(), 1, 'one edge');
 
-is ($graph->attribute('node','color'), 'red', 'textcolor red for nodes');
+is ($graph->node('A')->attribute('color'), 'red', 'textcolor red for A');
+is ($graph->node('B')->attribute('color'), 'blue', 'textcolor blue for B');
 
 #############################################################################
 

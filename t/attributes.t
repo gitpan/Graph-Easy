@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# Test the attribute system, especially gettin, setting attributes
+# Test the attribute system, especially getting, setting attributes
 # on objects and classes:
 
 use Test::More;
@@ -8,7 +8,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 120;
+   plan tests => 123;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Attributes") or die($@);
@@ -21,6 +21,33 @@ can_ok ("Graph::Easy", qw/
   color_value
   _remap_attributes
   valid_attribute
+  get_custom_attributes
+  raw_attributes
+  custom_attributes
+  /);
+
+can_ok ("Graph::Easy::Node", qw/
+  get_custom_attributes
+  raw_attributes
+  set_attribute
+  get_attribute
+  custom_attributes
+  /);
+
+can_ok ("Graph::Easy::Edge", qw/
+  get_custom_attributes
+  raw_attributes
+  set_attribute
+  get_attribute
+  custom_attributes
+  /);
+
+can_ok ("Graph::Easy::Group", qw/
+  get_custom_attributes
+  raw_attributes
+  set_attribute
+  get_attribute
+  custom_attributes
   /);
 
 #############################################################################
@@ -77,8 +104,8 @@ $att->no_fatal_errors(1);
 my $new_value = $att->valid_attribute( 'color', 'redbrownish' );
 is ($new_value, undef, 'color redbrownish is not valid');
 
-$new_value = $att->valid_attribute( 'border-color', 'redbrownish' );
-is ($new_value, undef, 'border-color redbrownish is not valid');
+$new_value = $att->valid_attribute( 'fill', 'redbrownish' );
+is ($new_value, undef, 'fill redbrownish is not valid');
 
 $new_value = $att->valid_attribute( 'border-shape', 'double' );
 is (ref($new_value), 'ARRAY', 'border-shape is not valied');

@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 150;
+   plan tests => 152;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -656,4 +656,21 @@ $bonn->set_attribute('label', 'bar\cbar');
 
 $grviz = $graph->as_graphviz();
 unlike ($grviz, qr/\\c/, "no \\c in output");
+
+#############################################################################
+# borderwidth == 0 overrides style
+
+$graph = Graph::Easy->new();
+($bonn,$berlin,$edge) = $graph->add_edge ('Bonn','Berlin');
+
+$bonn->set_attribute('borderstyle','dashed');
+$bonn->set_attribute('borderwidth','0');
+
+$berlin->set_attribute('borderstyle','double');
+$berlin->set_attribute('borderwidth','0');
+
+$grviz = $graph->as_graphviz();
+print $grviz;
+unlike ($grviz, qr/style=.*dashed/, "no dashed in output");
+unlike ($grviz, qr/peripheries/, "no peripheries in output");
 
