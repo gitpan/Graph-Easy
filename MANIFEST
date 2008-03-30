@@ -4,7 +4,6 @@ bench/stress.pl
 bench/test.dot
 bench/test.txt
 bin/graph-easy
-Build.PL
 CHANGES
 examples/as_ascii		parse text and output it as ASCII art
 examples/as_boxart		parse text and output it as box drawing using unicode
@@ -25,7 +24,6 @@ examples/syntax.pl
 examples/syntax.tpl		HTML template for syntax tests
 inc/Module/Install.pm
 inc/Module/Install/Base.pm
-inc/Module/Install/Build.pm
 inc/Module/Install/Can.pm
 inc/Module/Install/Fetch.pm
 inc/Module/Install/Makefile.pm
@@ -100,6 +98,7 @@ t/fun/0200.txt
 t/fun/biofuel.txt
 t/fun/geek_dating.txt
 t/fun/overview.txt
+t/gdl.t
 t/graph.t
 t/graphml.t
 t/graphviz.t
@@ -234,6 +233,7 @@ t/in/5_tree_joint.txt
 t/in/6_autosplit_class.txt
 t/in/6_chain_10_edges.txt
 t/in/6_chained.txt
+t/in/6_empty_row.txt
 t/in/6_fanout.txt
 t/in/6_group_align.txt
 t/in/6_joint.txt
@@ -273,6 +273,8 @@ t/in/dot/2_setlinewidth.dot
 t/in/dot/2_square_bracket_in_attr.dot
 t/in/dot/2_strict.dot
 t/in/dot/3_colors.dot
+t/in/dot/3_empty_record.dot
+t/in/dot/3_empty_record_LR.dot
 t/in/dot/3_graph_label_long.dot
 t/in/dot/3_ids.dot
 t/in/dot/3_invis.dot
@@ -296,6 +298,11 @@ t/in/dot/9_back.dot
 t/in/dot/9_edge_styles.dot
 t/in/dot/9_stacking.dot
 t/in/dot/9_tree.dot
+t/in/gdl/1_color_code.gdl
+t/in/gdl/2_bottom_to_top.gdl
+t/in/gdl/2_left_to_right.gdl
+t/in/gdl/2_right_to_left.gdl
+t/in/gdl/2_top_to_bottom.gdl
 t/in/README
 t/layers.t
 t/layout.t
@@ -437,6 +444,7 @@ t/out/5_tree_joint.txt
 t/out/6_autosplit_class.txt
 t/out/6_chain_10_edges.txt
 t/out/6_chained.txt
+t/out/6_empty_row.txt
 t/out/6_fanout.txt
 t/out/6_group_align.txt
 t/out/6_joint.txt
@@ -476,6 +484,8 @@ t/out/dot/2_setlinewidth.txt
 t/out/dot/2_square_bracket_in_attr.txt
 t/out/dot/2_strict.txt
 t/out/dot/3_colors.txt
+t/out/dot/3_empty_record.txt
+t/out/dot/3_empty_record_LR.txt
 t/out/dot/3_graph_label_long.txt
 t/out/dot/3_ids.txt
 t/out/dot/3_invis.txt
@@ -501,6 +511,11 @@ t/out/dot/9_edge_styles.txt
 t/out/dot/9_stacking.txt
 t/out/dot/9_tree.txt
 t/out/drop_result.txt
+t/out/gdl/1_color_code.txt
+t/out/gdl/2_bottom_to_top.txt
+t/out/gdl/2_left_to_right.txt
+t/out/gdl/2_right_to_left.txt
+t/out/gdl/2_top_to_bottom.txt
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
 t/parser.t			general Parser tests
@@ -661,6 +676,7 @@ t/txt/5_tree_joint.txt
 t/txt/6_autosplit_class.txt
 t/txt/6_chain_10_edges.txt
 t/txt/6_chained.txt
+t/txt/6_empty_row.txt
 t/txt/6_fanout.txt
 t/txt/6_group_align.txt
 t/txt/6_joint.txt
@@ -700,6 +716,8 @@ t/txt/dot/2_setlinewidth.txt
 t/txt/dot/2_square_bracket_in_attr.txt
 t/txt/dot/2_strict.txt
 t/txt/dot/3_colors.txt
+t/txt/dot/3_empty_record.txt
+t/txt/dot/3_empty_record_LR.txt
 t/txt/dot/3_graph_label_long.txt
 t/txt/dot/3_ids.txt
 t/txt/dot/3_invis.txt
@@ -724,6 +742,11 @@ t/txt/dot/9_back.txt
 t/txt/dot/9_edge_styles.txt
 t/txt/dot/9_stacking.txt
 t/txt/dot/9_tree.txt
+t/txt/gdl/1_color_code.txt
+t/txt/gdl/2_bottom_to_top.txt
+t/txt/gdl/2_left_to_right.txt
+t/txt/gdl/2_right_to_left.txt
+t/txt/gdl/2_top_to_bottom.txt
 t/use_class.t			test overriding classes in the Parser
 t/vcg.t				test Parser/VCG
 TODO

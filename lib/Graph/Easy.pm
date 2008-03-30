@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.61';
+$VERSION = '0.62';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -2299,7 +2299,7 @@ __END__
 
 =head1 NAME
 
-Graph::Easy - Render graphs as ASCII, HTML, SVG or via Graphviz
+Graph::Easy - Convert or render graphs (as ASCII, HTML, SVG or via Graphviz)
 
 =head1 SYNOPSIS
 
@@ -2361,31 +2361,6 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or via Graphviz
 	# complete HTML page (with CSS)
 	print $graph->as_html_file( );
 
-	#####################################################
-	# creating a graph from a textual description
-
-	use Graph::Easy::Parser;
-	my $parser = Graph::Easy::Parser->new();
-
-	my $graph = $parser->from_text(
-		"[ Bonn ] => [ Berlin ] \n".
-		"[ Bonn ] => [ Rostock ]"
-	);
-
-	print $graph->as_ascii( );
-
-	# Outputs something like:
-
-	# +------+       +---------+
-	# | Bonn |   --> | Rostock |
-	# +------+       +---------+
-	#   |
-	#   |
-	#   v
-	# +--------+
-	# | Berlin |
-	# +--------+
-
 	# Other possibilities:
 
 	# SVG (possible after you installed Graph::Easy::As_svg):
@@ -2397,14 +2372,17 @@ Graph::Easy - Render graphs as ASCII, HTML, SVG or via Graphviz
 	print $DOT $graphviz;
 	close $DOT;
 
-	# Please see also the graph-easy utility includedin Graph::Easy
+	# Please see also the command line utility 'graph-easy'
 
 =head1 DESCRIPTION
 
 C<Graph::Easy> lets you generate graphs consisting of various shaped
 nodes connected by edges (with optional labels).
 
-It works on a grid (manhattan layout), and thus the output is
+It can read and write graphs in a varity of formats, as well as render
+them via its own grid-based layouter.
+
+Since the layouter works on a grid (manhattan layout), the output is
 most usefull for flow charts, network diagrams, or hierarchy trees.
 
 X<graph>
@@ -2461,7 +2439,7 @@ This can be avoided by using C<add_edge_once()>:
 	my $edge = $graph->add_edge_once('Mainz','Ulm');
 	if (defined $edge)
 	  {
-	  # the first time the edge was added, so do something with it
+	  # the first time the edge was added, do something with it
 	  $edge->set_attribute('color','blue');
 	  }
 
@@ -2523,6 +2501,15 @@ Creates a Scalable Vector Graphics output.
 =item Graphviz
 
 Creates graphviz code that can be feed to 'dot', 'neato' or similiar programs.
+
+=item GraphML
+
+Creates a textual description of the graph in the GraphML format.
+
+=item GDL/VCG
+
+Creates a textual description of the graph in the VCG or GDL (Graph
+Description Language) format.
 
 =back
 
@@ -2603,6 +2590,8 @@ different possible edge styles.
 More examples at: L<http://bloodgate.com/perl/graph/>
 
 =head1 ANIMATION SUPPORT
+
+B<Note: Animations are not yet implemented!>
 
 It is possible to add animations to a graph. This is done by
 adding I<steps> via the pseudo-class C<step>:

@@ -8,7 +8,7 @@ use utf8;
 
 BEGIN
    {
-   plan tests => 125;
+   plan tests => 126;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Parser::Graphviz") or die($@);
@@ -342,3 +342,5 @@ node [ label="[U]" ]|0
 "&gt; &uuml; &euro; &nbsp; &lt; &amp; &;; &$;"|1,> ü € < & ; $
 #                                                              v--  non-breakable-space!
 "HTML" [label="&gt; &uuml; &euro; &nbsp; &lt; &amp; &;; &$;"]|1,> ü €   < & ; $,HTML
+# color with no leading 0:
+"node" [ color=".7 .2 1.2"]|1,node

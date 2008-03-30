@@ -69,7 +69,7 @@ SKIP:
 	ATTR_PORT|
 	ATTR_TYPE_SLOT|
     )\z/x ] };
-  pod_coverage_ok( "Graph::Easy", $trustme );
+  pod_coverage_ok( "Graph::Easy::Layout", $trustme );
 
   # Define the global CONSTANTS for internal usage
   $trustme = { trustme => [ qr/^(

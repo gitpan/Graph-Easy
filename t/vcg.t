@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 45;
+   plan tests => 52;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -53,7 +53,14 @@ for my $n ($graph->nodes())
 is ($nodes, "A, B, ", 'two nodes A and B');
 is (scalar $graph->edges(), 1, 'one edge');
 
-is ($graph->as_txt(), "[ A ] --> [ B ]\n", 'as_txt matches');
+is ($graph->as_txt(), <<EOF
+edge { arrowstyle: filled; }
+graph { flow: south; }
+node { align: left; }
+
+[ A ] --> [ B ]
+EOF
+, 'as_txt matches');
 
 #############################################################################
 
@@ -155,10 +162,12 @@ unlike ($vcg, qr/font:/, 'font => fontname');
 #############################################################################
 # Parsing multi-line labels and \fiXXX in strings
 
+# test that both "0x0c" and "\\f" are supported:
+
 $graph = $parser->from_text( <<EOG
 // test
 graph: {
-	node: { title: "A" label: "\\fi065" }
+	node: { title: "A" label: "i065" }
 	node: { 
 	title: "\\fi066" 
 	label: "foo
@@ -213,4 +222,58 @@ $e = $graph->edge('B','A');
 
 is (ref($e), 'Graph::Easy::Edge', "got edge from B to A");
 is ($e->class(), 'edge.classb', 'classname 2 worked');
+
+#############################################################################
+# flow => orientation
+
+$graph = Graph::Easy->new('graph { flow: right; } [A]->[B]');
+$graph->set_attribute('node','align','right');
+
+$vcg = $graph->as_vcg();
+
+like ($vcg, qr/orientation: "left_to_right"/, 'flow => orientation');
+like ($vcg, qr/node.textmode: "right_justify"/, 'node align => node.textmode');
+
+#############################################################################
+# class attributes
+
+$graph = $parser->from_text( <<EOG
+graph: {
+
+node.color: red
+edge.color: green
+
+node: { title: "A" }
+node: { title: "B" }
+edge: { source: "A" target: "B" }
+}
+EOG
+);
+
+$vcg = $graph->as_vcg();
+
+like ($vcg, qr/edge.*color: "green"/, 'edge color survived');
+like ($vcg, qr/node.*color: "red"/, 'node color survived');
+
+#############################################################################
+# node shapes: circle, trapeze etc.
+
+$graph = $parser->from_text( <<EOG
+graph: {
+
+node.shape: circle
+
+node: { title: "A" }
+node: { title: "B" shape: trapeze }
+node: { title: "C" invisible: yes }
+edge: { source: "A" target: "B" }
+}
+EOG
+);
+
+$vcg = $graph->as_vcg();
+
+like ($vcg, qr/node.*shape: "circle".*A/, 'A is circle');
+like ($vcg, qr/node.*shape: "trapeze".*B/, 'B is trapeze');
+like ($vcg, qr/node.*invisible: "yes".*C/, 'C is invisible');
 

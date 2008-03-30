@@ -9,7 +9,7 @@ use File::Spec;
 
 BEGIN
    {
-   plan tests => 134;
+   plan tests => 140;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy") or die($@);
@@ -48,12 +48,11 @@ is ($dot_parser->error(), '', 'no error yet');
 
 my $dir = File::Spec->catdir('in','dot');
 
-opendir DIR, $dir or die ("Cannot read dir 'in/dot': $!");
+opendir DIR, $dir or die ("Cannot read dir '$dir': $!");
 my @files = readdir(DIR); closedir(DIR);
 
 opendir DIR, 'dot' or die ("Cannot read dir 'dot': $!");
 push @files, readdir(DIR); closedir(DIR);
-
 
 binmode (STDERR, ':utf8') or die ("Cannot do binmode(':utf8') on STDERR: $!");
 binmode (STDOUT, ':utf8') or die ("Cannot do binmode(':utf8') on STDOUT: $!");

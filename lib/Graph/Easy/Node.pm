@@ -2189,6 +2189,14 @@ sub _update_boundaries
 
   my $cache = $parent->{cache};
   
+  $cache->{min_x} = $x if !defined $cache->{min_x} || $x < $cache->{min_x};
+  $cache->{min_y} = $y if !defined $cache->{min_y} || $y < $cache->{min_y};
+
+  $x = $x + ($self->{cx}||1) - 1;
+  $y = $y + ($self->{cy}||1) - 1;
+  $cache->{max_x} = $x if !defined $cache->{max_x} || $x > $cache->{max_x};
+  $cache->{max_y} = $y if !defined $cache->{max_y} || $y > $cache->{max_y};
+
   if (($parent->{debug}||0) > 1)
     {
     my $n = $self->{name}; $n = $self unless defined $n;
@@ -2197,14 +2205,6 @@ sub _update_boundaries
     print STDERR "Boundaries are now: " .
 		 "$cache->{min_x},$cache->{min_y} => $cache->{max_x},$cache->{max_y}\n";
     }
-
-  $cache->{min_x} = $x if !defined $cache->{min_x} || $x < $cache->{min_x};
-  $cache->{min_y} = $y if !defined $cache->{min_y} || $y < $cache->{min_y};
-
-  $x = $x + ($self->{cx}||1) - 1;
-  $y = $y + ($self->{cy}||1) - 1;
-  $cache->{max_x} = $x if !defined $cache->{max_x} || $x > $cache->{max_x};
-  $cache->{max_y} = $y if !defined $cache->{max_y} || $y > $cache->{max_y};
 
   $self;
   }

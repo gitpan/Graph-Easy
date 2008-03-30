@@ -100,6 +100,12 @@ sub reset
   # a hack to support multiline labels
   $self->{_in_vcg_multi_line_label} = 0;
 
+  # set some default attributes on the graph object, because GDL has
+  # some different defaults as Graph::Easy
+  $g->set_attribute('flow', 'south');
+  $g->set_attribute('edge', 'arrow-style', 'filled');
+  $g->set_attribute('node', 'align', 'left');
+
   $self;
   }
 
@@ -118,8 +124,10 @@ sub _unquote
   $name = '' unless defined $name;
 
   # "foo bar" => foo bar
-  $name =~ s/^"\s*//; 		# remove left-over quotes
-  $name =~ s/\s*"\z//; 
+  # we need to use "[ ]" here, because "\s" also matches 0x0c, and
+  # these color codes need to be kept intact:
+  $name =~ s/^"[ ]*//; 		# remove left-over quotes
+  $name =~ s/[ ]*"\z//; 
 
   # unquote special chars
   $name =~ s/\\([\[\(\{\}\]\)#"])/$1/g;
@@ -277,7 +285,7 @@ sub _clean_line
 
   if ($self->{_in_vcg_multi_line_label})
     {
-    if ($line =~ /\"\s*\z/)
+    if ($line =~ /\"[^\"]*\z/)
       {
       # '"\n'
       $self->{_in_vcg_multi_line_label} = 0;
@@ -291,12 +299,11 @@ sub _clean_line
       $line =~ s/([^\\])\"/$1\\\"/g;
       }
     }
-  # a line like 'label: "...\n' means a multi-line label
-  elsif ($line =~ /^label:\s+\"[^\"]+\z/)
+  # a line ending in 'label: "...\n' means a multi-line label
+  elsif ($line =~ /(^|\s)label:\s+\"[^\"]*\z/)
     {
     $self->{_in_vcg_multi_line_label} = 1;
-    # remove the match stack since we just wait for the end of the
-    # label
+    # swap out the match stack since we just wait for the end of the label
     $self->{_match_stack} = $self->{match_stack};
     delete $self->{match_stack};
     }
@@ -309,8 +316,9 @@ sub _line_insert
   # What to insert between two lines.
   my ($self) = @_;
 
+  print STDERR "in multiline\n" if $self->{_in_vcg_multi_line_label} && $self->{debug};
   # multiline labels => '\n'
-  return '\n' if $self->{_in_vcg_multi_line_label};
+  return '\\n' if $self->{_in_vcg_multi_line_label};
 
   # the default is ' '
   ' ';
@@ -485,7 +493,7 @@ sub _build_match_stack
 
       print STDERR "#  Found color definition $type $name $val\n" if $self->{debug} > 2;
 
-      my $att = $self->{_graph}->_remap_attributes($type, { $name => $val }, $self->_remap(), 'noquote', undef, undef);
+      my $att = $self->_remap_attributes( { $name => $val }, $type, $self->_remap());
 
       # store the attributes in the current scope
       my $scope = $self->{scope_stack}->[-1];
@@ -552,18 +560,18 @@ my $vcg_remap = {
     info1 => 'x-vcg-info1',
     info2 => 'x-vcg-info2',
     info3 => 'x-vcg-info3',
-    invisible => 'x-vcg-invisible',
+    invisible => \&_invisible_from_vcg,
     importance => 'x-vcg-importance',
     focus => 'x-vcg-focus',
     margin => 'x-vcg-margin',
-    textmode => 'x-vcg-textmode',
+    textmode => \&_textmode_from_vcg,
     textcolor => \&_node_color_from_vcg,
     color => \&_node_color_from_vcg,
     bordercolor => \&_node_color_from_vcg,
     level => 'rank',
-    horizontal_order => 'x-vcg-horizontal_order',
+    horizontal_order => \&_horizontal_order_from_vcg,
     shape => \&_vcg_node_shape,
-    vertical_order => 'x-vcg-vertical_order',
+    vertical_order => \&_vertical_order_from_vcg,
     },
 
   'edge' => {
@@ -624,6 +632,7 @@ my $vcg_remap = {
     hidden => 'x-vcg-hidden',
     horizontal_order => 'x-vcg-horizontal_order',
     iconfile => 'x-vcg-iconfile',
+    inport_sharing => \&_inport_sharing_from_vcg,
     importance => 'x-vcg-importance',
     ignore_singles => 'x-vcg-ignore_singles',
     invisible => 'x-vcg-invisible',
@@ -641,14 +650,15 @@ my $vcg_remap = {
     layout_downfactor => 'x-vcg-layout_downfactor',
     layout_upfactor => 'x-vcg-layout_upfactor',
     layout_nearfactor => 'x-vcg-layout_nearfactor',
-    layout_segments => 'x-vcg-layout_segments',
+    linear_segments => 'x-vcg-linear_segments',
     margin => 'x-vcg-margin',
-    manhattan_edges => 'x-vcg-manhattan_edges',
+    manhattan_edges => \&_manhattan_edges_from_vcg,
     near_edges => 'x-vcg-near_edges',
+    nearedges => 'x-vcg-nearedges',
     node_alignment => 'x-vcg-node_alignment',
-    port_sharing => 'x-vcg-port_sharing',
+    port_sharing => \&_port_sharing_from_vcg,
     priority_phase => 'x-vcg-priority_phase',
-    outport_sharing => 'x-vcg-outport_sharing',
+    outport_sharing => \&_outport_sharing_from_vcg,
     shape => 'x-vcg-shape',
     smanhattan_edges => 'x-vcg-smanhattan_edges',
     state => 'x-vcg-state',
@@ -657,7 +667,7 @@ my $vcg_remap = {
     spreadlevel => 'x-vcg-spreadlevel',
 
     title => 'label',
-    textmode => 'x-vcg-textmode',
+    textmode => \&_textmode_from_vcg,
     useractioncmd1 => 'x-vcg-useractioncmd1',
     useractioncmd2 => 'x-vcg-useractioncmd2',
     useractioncmd3 => 'x-vcg-useractioncmd3',
@@ -676,17 +686,19 @@ my $vcg_remap = {
     view => 'x-vcg-view',
     subgraph_labels => 'x-vcg-subgraph_labels',
     arrow_mode => 'x-vcg-arrow_mode',
+    arrowmode => 'x-vcg-arrowmode',
     crossing_optimization => 'x-vcg-crossing_optimization',
     crossing_phase2 => 'x-vcg-crossing_phase2',
     crossing_weight => 'x-vcg-crossing_weight',
     equal_y_dist => 'x-vcg-equal_y_dist',
+    equalydist => 'x-vcg-equalydist',
     finetuning => 'x-vcg-finetuning',
     fstraight_phase => 'x-vcg-fstraight_phase',
     straight_phase => 'x-vcg-straight_phase',
     import_sharing => 'x-vcg-import_sharing',
     late_edge_labels => 'x-vcg-late_edge_labels',
     treefactor => 'x-vcg-treefactor',
-    orientation => 'x-vcg-orientation',
+    orientation => \&_orientation_from_vcg,
 
     attraction => 'x-vcg-attraction',
     'border x' => 'x-vcg-border-x',
@@ -721,8 +733,9 @@ my $vcg_remap = {
     },
 
   'group' => {
-    hidden => 'x-vcg-hidden',
+    # graph attributes will be added here automatically
     title => \&_group_name_from_vcg,
+    status => 'x-vcg-status',
     },
 
   'all' => {
@@ -737,6 +750,16 @@ my $vcg_remap = {
     },
   };
 
+  {
+  # add all graph attributes to group, too
+  my $group = $vcg_remap->{group};
+  my $graph = $vcg_remap->{graph};
+  for my $k (keys %$graph)
+    {
+    $group->{$k} = $graph->{$k};
+    }
+  }
+
 sub _remap { $vcg_remap; }
 
 my $vcg_edge_color_remap = {
@@ -747,6 +770,66 @@ my $vcg_node_color_remap = {
   textcolor => 'color',
   color => 'fill',
   };
+
+sub _vertical_order_from_vcg
+  {
+  # remap "vertical_order: 5" to "rank: 5"
+  my ($graph, $name, $value) = @_;
+
+  my $rank = $value;
+  # insert a really really high rank
+  $rank = '1000000' if $value eq 'maxdepth';
+
+  # save the original value, too
+  ('x-vcg-vertical_order', $value, 'rank', $rank);
+  }
+
+sub _horizontal_order_from_vcg
+  {
+  # remap "horizontal_order: 5" to "rank: 5"
+  my ($graph, $name, $value) = @_;
+
+  my $rank = $value;
+  # insert a really really high rank
+  $rank = '1000000' if $value eq 'maxdepth';
+
+  # save the original value, too
+  ('x-vcg-horizontal_order', $value, 'rank', $rank);
+  }
+
+sub _invisible_from_vcg
+  {
+  # remap "invisible: yes" to "shape: invisible"
+  my ($graph, $name, $value) = @_;
+
+  return (undef,undef) if $value ne 'yes';
+
+  ('shape', 'invisible');
+  }
+
+sub _manhattan_edges_from_vcg
+  {
+  # remap "manhattan_edges: yes" for graphs
+  my ($graph, $name, $value) = @_;
+
+  if ($value eq 'yes')
+    {
+    $graph->set_attribute('edge','start','front');
+    $graph->set_attribute('edge','end','back');
+    }
+  # store the value for proper VCG output
+  ('x-vcg-' . $name, $value);
+  }
+
+sub _textmode_from_vcg
+  {
+  # remap "textmode: left_justify" to "align: left;"
+  my ($graph, $name, $align) = @_;
+
+  $align =~ s/_.*//;	# left_justify => left	
+
+  ('align', lc($align));
+  }
 
 sub _edge_color_from_vcg
   {
@@ -773,6 +856,50 @@ sub _edge_class_from_vcg
   ('class', $class);
   }
 
+my $vcg_orientation = {
+  top_to_bottom => 'south',
+  bottom_to_top => 'north',
+  left_to_right => 'east',
+  right_to_left => 'west',
+  };
+
+sub _orientation_from_vcg
+  {
+  my ($graph, $name, $value) = @_;
+
+  ('flow', $vcg_orientation->{$value} || 'south');
+  }
+
+sub _port_sharing_from_vcg
+  {
+  # if we see this, add autojoin/autosplit
+  my ($graph, $name, $value) = @_;
+
+  $value = ($value =~ /yes/i) ? 'yes' : 'no';
+ 
+  ('autojoin', $value, 'autosplit', $value);
+  }
+
+sub _inport_sharing_from_vcg
+  {
+  # if we see this, add autojoin/autosplit
+  my ($graph, $name, $value) = @_;
+
+  $value = ($value =~ /yes/i) ? 'yes' : 'no';
+ 
+  ('autojoin', $value);
+  }
+
+sub _outport_sharing_from_vcg
+  {
+  # if we see this, add autojoin/autosplit
+  my ($graph, $name, $value) = @_;
+
+  $value = ($value =~ /yes/i) ? 'yes' : 'no';
+ 
+  ('autosplit', $value);
+  }
+
 sub _node_color_from_vcg
   {
   # remap "darkyellow" to "rgb(128 128 0)"
@@ -789,6 +916,12 @@ my $shapes = {
   rhomb => 'diamond',
   triangle => 'triangle',
   ellipse => 'ellipse',
+  circle => 'circle',
+  hexagon => 'hexagon',
+  trapeze => 'trapezium',
+  uptrapeze => 'invtrapezium',
+  lparallelogram => 'invparallelogram',
+  rparallelogram => 'parallelogram',
   };
 
 sub _vcg_node_shape
@@ -824,20 +957,34 @@ sub _remap_attributes
   {
   my ($self, $att, $object, $r) = @_;
 
+#  print STDERR "# Remapping attributes\n";
+#    use Data::Dumper; print Dumper($att);
+
   # handle the "colorentry 00" entries:
   for my $key (keys %$att)
     {
-    if ($key =~ /^colorentry ([0-9]+)/)
+    if ($key =~ /^colorentry\s+([0-9]{1,2})/)
       {
       # put the color into the current color map
       $self->_vcg_color_map_entry($1, $att->{$key});
-      delete $att->{$key}; 
+      delete $att->{$key};
+      next; 
       }
-    elsif ($att->{$key} =~ /\\fi[0-9]{3}/)
-      {
-      # remap \fi065 to 'A'
-      $att->{$key} =~ s/\\fi([0-9]{3})/ decode('iso-8859-1', chr($1)); /eg;
-      }
+
+    # remap \fi065 to 'A'
+    $att->{$key} =~ s/(\x0c|\\f)i([0-9]{3})/ decode('iso-8859-1', chr($2)); /eg;
+
+    # XXX TDOO: support inline colorations
+    # remap \f65 to ''
+    $att->{$key} =~ s/(\x0c|\\f)([0-9]{2})//g;
+
+    # remap \c09 to color 09: TODO for now remove
+    $att->{$key} =~ s/(\x0c|\\f)([0-9]{2})//g;
+
+    # XXX TODO: support real hor lines
+    # insert a fake <HR>
+    $att->{$key} =~ s/(\x0c|\\f)-/\\c ---- \\n /g;
+
     }
   $self->SUPER::_remap_attributes($att,$object,$r);
   }

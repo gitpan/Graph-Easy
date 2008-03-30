@@ -7,7 +7,7 @@ package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
 use Scalar::Util qw/weaken/;
@@ -160,15 +160,32 @@ sub _register_attribute_handler
         # for Graphviz, stray attributes always apply to the parent
         $stack = $self->{group_stack};
 
-        $object = $self->{group_stack}->[-1];
+        $object = $stack->[-1] if ref $stack;
         if (!defined $object)
           {
-          $object = $self->{_graph};
-          $stack = [ $self->{_graph} ];
+          # try the scope stack next:
+          $stack = $self->{scope_stack};
+	  $object = $self->{_graph};
+          if (!$stack || @$stack <= 1)
+	    {
+	    $object = $self->{_graph};
+	    $stack = [ $self->{_graph} ];
+	    }
           }
         }
       my ($a, $max_idx) = $self->_parse_attributes($1||'', $object);
       return undef if $self->{error};	# wrong attributes or empty stack?
+
+      if (ref($stack->[-1]) eq 'HASH')
+	{
+	# stack is a scope stack
+	# XXX TODO: Find out wether the attribute goes to graph, node or edge
+	for my $k (keys %$a)
+	  {
+	  $stack->[-1]->{graph}->{$k} = $a->{$k};
+	  }
+	return 1;
+	}
 
       print STDERR "max_idx = $max_idx, stack contains ", join (" , ", @$stack),"\n"
 	if $self->{debug} && $self->{debug} > 1;
@@ -521,9 +538,7 @@ sub _clean_line
   # remove comment at end of line (but leave \# alone):
   $line =~ s/(:[^\\]|)$self->{qr_comment}.*/$1/;
 
-  # collapse white space at start
-  $line =~ s/^\s+/ /;
-  # remove white space at end
+  # remove white space at end (but not at the start, to keep "  ||" intact
   $line =~ s/\s+\z//;
 
 #  print STDERR "# at line '$line' stack: ", join(",",@{ $self->{stack}}),"\n";
@@ -592,7 +607,7 @@ sub from_text
     $graph->use_class($o, $uc->{$o}) unless $o eq 'graph';	# group, node and edge
     }
 
-  my @lines = split /\n/, $txt;
+  my @lines = split /(\r\n|\n|\r)/, $txt;
 
   my $backbuffer = '';	# left over fragments to be combined with next line
 
@@ -613,7 +628,7 @@ sub from_text
   LINE:
   while (@lines > 0 || $backbuffer ne '')
     {
-    # only accumulate more text if we didnt handle a fragment
+    # only accumulate more text if we didn't handle a fragment
     if (@lines > 0 && $handled == 0)
       {
       $self->{line_nr}++;
@@ -623,14 +638,14 @@ sub from_text
       next if $curline =~ $qr_comment;
 
       # convert tabs to spaces (the regexps don't expect tabs)
-      # and remove any \x0d
-      $curline =~ tr/\t\x0d/ /d;
+      $curline =~ tr/\t/ /d;
 
       # combine backbuffer, what to insert between two lines and next line:
       $line = $backbuffer . $self->_line_insert() . $self->_clean_line($curline);
       }
 
   print STDERR "# Line is '$line'\n" if $self->{debug} && $self->{debug} > 2;
+  print STDERR "#  Backbuffer is '$backbuffer'\n" if $self->{debug} && $self->{debug} > 2;
 
     $handled = 0;
 #debug my $count = 0;
@@ -643,7 +658,7 @@ sub from_text
       $self->{replace} = '';	# as default just remove the matched text
       my ($pattern, $handler, $replace) = @$entry;
 
-  print STDERR "# Matching against $pattern\n" if $self->{debug} && $self->{debug} > 2;
+  print STDERR "# Matching against $pattern\n" if $self->{debug} && $self->{debug} > 3;
 
       if ($line =~ $pattern)
         {
@@ -671,9 +686,15 @@ sub from_text
 
     # stop at the very last line
     last LINE if $handled == 0 && @lines == 0;
+
+    # stop at parsing errors
+    last LINE if $self->{error};
     }
 
   $self->error("'$backbuffer' not recognized by " . ref($self)) if $backbuffer ne '';
+
+  # if something was left on the stack, file ended unexpectedly
+  $self->parse_error(7) if !$self->{error} && $self->{scope_stack} && @{$self->{scope_stack}} > 0;
 
   return undef if $self->{error} && $self->{fatal_errors};
 
@@ -905,13 +926,15 @@ sub _autosplit_node
       $remaining .= '|' 
       }
 
+    print STDERR "# Parser: Found autosplit part '$part'\n" if $graph->{debug};
+
     my $class = $uc->{node};
     if ($allow_empty && $part eq ' ')
       {
       # create an empty node with no border
       $class .= "::Empty";
       }
-    elsif ($part =~ /^0x20{2,}\z/)
+    elsif ($part =~ /^[ ]{2,}\z/)
       {
       # create an empty node with border
       $part = ' ';
@@ -1256,10 +1279,8 @@ sub _parse_attributes
     my $name = $1;
     my $v = $2; $v = '' unless defined $v;	# for special attributes w/o value
 
-    my $val = $self->_unquote_attribute($name,$v);
-
-    # store
-    $out->{$name} = $val;
+    # unquote and store
+    $out->{$name} = $self->_unquote_attribute($name,$v);
     }
 
   if ($self->{debug} && $self->{debug} > 1)
@@ -1307,6 +1328,11 @@ sub parse_error
 	if $msg_nr == 4;								# 4
   $msg = "Error in attribute: basename not allowed for non-autosplit nodes"
 	if $msg_nr == 5;								# 5
+  # for graphviz parsing
+  $msg = "Error: Already seen graph start"
+	if $msg_nr == 6;								# 6
+  $msg = "Error: Expected '}', but found file end"
+	if $msg_nr == 7;								# 7
 
   my $i = 1;
   foreach my $p (@_)

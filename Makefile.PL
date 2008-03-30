@@ -6,9 +6,6 @@ use strict;
 # Load the Module::Install bundled in ./inc/
 use inc::Module::Install;
 
-# The name of your distribution
-name		'Graph-Easy';
-
 # Get most of the details from the primary module
 all_from	'lib/Graph/Easy.pm';
 

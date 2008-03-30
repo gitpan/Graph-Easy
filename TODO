@@ -13,6 +13,9 @@ Important short-term TODO:
   + anon nodes lose their " " label
   + border-width is wrongly dropped
   + t/in/dot/9_edge_styles.dot is wrong
+  + nodes with HTML-like labels lose their outer shape (the label itself
+    can have a border on the TABLE, as well as the node outside
+    as well as the individual TD elements)
 * Combining table cells goes wrong if there is a "hole" in a row
   of cells. We need to gather them with their coordinates and only
   combine cells that are next to each other.
@@ -27,6 +30,14 @@ Important short-term TODO:
   + implement support for \f03 (colors)
   + implement support for \f- (hor line)
   + implement full color-remapping support (in both directions)
+  + support subgraphs
+  + support regions
+  + support for "node.shape: circle" etc.
+  + support "nearedges:no" 
+  + generally handle all attribute names without "_", too
+  + add support for "anchor"
+  + GDL has portsharing only as attributes for the top graph, while
+    in Graph::Easy this attribute can be set for each edge
 
 * layouter:
   + head/tail label/title and link are currently ignored
@@ -57,6 +68,11 @@ Recursive layouter:
   + attributes should be always checked against the default attribute and
     output if necessary, to make setting attributes in classes work -
     currently doing edge { color: blue; } will be ignored
+  + finish HTML-like labels (esp. with borders)
+ These things seem to be actually not possible in Graphviz:
+  + border-styles: wave, dot-dot-dash and dot-dash
+  + edge-styles: wave, dot-dot-dash and dot-dash
+  + text-styles: underline, overline, strike-through, italic and bold
 
 * Parser/Graphviz:
   + see also the section CAVEATS in Graph::Easy::Parser::Graphviz
@@ -108,10 +124,6 @@ Recursive layouter:
   (we might put these "invisible" nodes into a different "cells" field,
    which will be rendered, but not queried for path finding etc)
 
-* use "shape: record" and label="{ { 00 | 01 | 02 } | { 10 | 112 | 12 } }" to
-  implement auto-split nodes in graphviz (including <port>'s and rerouting
-  edges to the ports), or use HTML labels
-
 Output:
 
 * selfloop edges should counter the general flow:
@@ -137,10 +149,6 @@ Output:
 * as_txt(): 
   + output of node clusters and node chains is not optimal
   + links between groups are missing
-* as_graphviz(): (these things seem to be actually not possible in Graphviz)
-  + border-styles: wave, dot-dot-dash and dot-dash
-  + edge-styles: wave, dot-dot-dash and dot-dash
-  + text-styles: underline, overline, strike-through, italic and bold
 * as_ascii() and others: grow cells around point-shaped nodes to intrude:
 
 	...........................

@@ -60,7 +60,7 @@ sub no_fatal_errors
 
   $self->{fatal_errors} = ($_[1] ? 1 : 0) if @_ > 0;
 
-  $self->{fatal_errors} || 0;
+  ~ ($self->{fatal_errors} || 0);
   }
 
 sub fatal_errors
@@ -77,8 +77,8 @@ sub error
   my $self = shift;
 
   # If we switched to a temp. Graphviz parser, then set the error on the
-  # original parser object instead:
-  return $self->{_old_self}->error(@_) if ref($self->{_old_self});
+  # original parser object, too:
+  $self->{_old_self}->error(@_) if ref($self->{_old_self});
 
   # if called on a member on a graph, call error() on the graph itself:
   return $self->{graph}->error(@_) if ref($self->{graph});

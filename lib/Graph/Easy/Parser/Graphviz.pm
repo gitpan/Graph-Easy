@@ -5,7 +5,7 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 use Graph::Easy::Parser;
 @ISA = qw/Graph::Easy::Parser/;
 
@@ -656,7 +656,7 @@ sub _new_scope
     {
     my $old_scope = $self->{scope_stack}->[-1];
 
-    # make a copy of the old scope's attribtues
+    # make a copy of the old scope's attributes
     for my $t (keys %$old_scope)
       {
       next if $t =~ /^_/;
@@ -704,6 +704,7 @@ sub _add_group_match
     sub
       {
       my $self = shift;
+      print STDERR "# Parser: Creating new scope\n" if $self->{debug};
       $self->_new_scope();
       # forget the left side
       $self->{left_edge} = undef;
@@ -725,6 +726,8 @@ sub _add_group_match
         print STDERR "# Parser: end subcluster '$self->{group_stack}->[-1]->{name}'\n" if $self->{debug};
         pop @{$self->{group_stack}};
         }
+      else { print STDERR "# Parser: end scope\n" if $self->{debug}; }
+
       1;
       }, 
     sub
@@ -813,6 +816,7 @@ sub _build_match_stack
     sub 
       {
       my $self = shift;
+      return $self->parse_error(6) if @{$self->{scope_stack}} > 0; 
       $self->{_graphviz_graph_name} = $3; 
       $self->_new_scope(1);
       $self->{_graph}->set_attribute('type','undirected') if lc($2) eq 'graph';
@@ -824,6 +828,7 @@ sub _build_match_stack
     sub 
       {
       my $self = shift;
+      return $self->parse_error(6) if @{$self->{scope_stack}} > 0; 
       $self->{_graphviz_graph_name} = 'unnamed'; 
       $self->_new_scope(1);
       $self->{_graph}->set_attribute('type','undirected') if lc($2) ne 'di';
@@ -1146,7 +1151,7 @@ my $remap = {
     'K' => 'x-dot-k',
     'bb' => 'x-dot-bb',
     'center' => 'x-dot-center',
-    # will be handles automatically:
+    # will be handled automatically:
     'charset' => undef,
     'clusterrank' => 'x-dot-clusterrank',
     'compound' => 'x-dot-compound',
@@ -1242,7 +1247,7 @@ my $rankdir = {
 
 sub _from_graphviz_graph_rankdir
   {
-  my ($self, $name, $dir) = @_;
+  my ($self, $name, $dir, $object) = @_;
 
   my $d = $rankdir->{$dir} || 'east';
 
@@ -1793,7 +1798,7 @@ sub _parse_html
 sub _parser_cleanup
   {
   # After initial parsing, do cleanup, e.g. autosplit nodes with shape record,
-  # re-connect edges to the parts etc.
+  # parse HTML-like labels, re-connect edges to the parts etc.
   my ($self) = @_;
 
   print STDERR "# Parser cleanup pass\n" if $self->{debug};
@@ -1843,16 +1848,19 @@ sub _parser_cleanup
 	{
 	$att->{basename} = $n->{name};
 	}
-      # XXX TODO: autosplit needs to handle nesing like "{}".
+      # XXX TODO: autosplit needs to handle nesting like "{}".
 
       # Replace "{ ... | ... |  ... }" with "...|| ... || ...." as a cheat
       # to fix some common cases
       if ($label =~ /^\s*\{[^\{\}]+\}\s*\z/)
 	{
         $label =~ s/[\{\}]//g;	# {..|..} => ..|..
-        $label =~ s/\|/\|\|/g	# ..|.. => ..||..
-	  # if the graph flows left->right or right->left
+        # if flow up/down:    {A||B} => "[ A||  ||  B ]"
+        $label =~ s/\|/\|\|  /g	# ..|.. => ..||  ..
 	  if ($graph_flow =~ /^(east|west)/);
+        # if flow left/right: {A||B} => "[ A|  |B ]"
+        $label =~ s/\|\|/\|  \|/g	# ..|.. => ..|  |..
+	  if ($graph_flow =~ /^(north|south)/);
 	}
       my @rc = $self->_autosplit_node($g, $label, $att, 0 );
       my $group = $n->group();

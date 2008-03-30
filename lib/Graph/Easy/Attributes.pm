@@ -2149,7 +2149,7 @@ sub color_as_hex
 
   my $qr_num = qr/\s*
 	((?:[0-9]{1,3}%?) |		# 12%, 10, 2 etc
-	 (?:[0-9]\.[0-9]{1,5}) )		# 0.1, 2.5 etc
+	 (?:[0-9]?\.[0-9]{1,5}) )	# .1, 0.1, 2.5 etc
     /x;
 
   # rgb(255,100%,1.0) => '#ffffff'
@@ -2691,7 +2691,7 @@ my $attributes = {
     ],
 
     fill => [
-     "The fill color, e.g. the color inside the shape. For the graph, this is the background color for the label. For edges, the color inside the arrow shape. See also L<background>. See the section about color names and values for reference.",
+     "The fill color, e.g. the color inside the shape. For the graph, this is the background color for the label. For edges, defines the color inside the arrow shape. See also L<background>. See the section about color names and values for reference.",
      undef,
      { default => 'white', graph => 'inherit', edge => 'inherit', group => '#a0d0ff', 
 	'group.anon' => 'white', 'node.anon' => 'inherit' },
@@ -3085,7 +3085,7 @@ EOF
      ],
 
     arrowstyle => [
-      'The style of the arrow. Open arrows are vee-shaped and the bit inside the arrow has the color of the L<background>. Closed arrows are triangle shaped, with a background-color fill. Filled arrows are closed, too, but use the L<fill> color for the inside. An C<arrowstyle> of none creates undirected edges just like "[A] -- [B]" would do.',
+      'The style of the arrow. Open arrows are vee-shaped and the bit inside the arrow has the color of the L<background>. Closed arrows are triangle shaped, with a background-color fill. Filled arrows are closed, too, but use the L<fill> color for the inside. If the fill color is not set, the L<color> attribute will be used instead. An C<arrowstyle> of none creates undirected edges just like "[A] -- [B]" would do.',
       [ qw/none open closed filled/ ],
       'open',
       'closed',
@@ -3336,6 +3336,22 @@ sub border_attribute
   Graph::Easy::_border_attribute($style, $width, $color);
   }
 
+sub _unknown_attribute
+  {
+  # either just warn, or raise an error for unknown attributes
+  my ($self, $name, $class) = @_;
+
+  if ($self->{_warn_on_unknown_attributes})
+    {
+    $self->warn("Ignoring unknown attribute '$name' for class $class") 
+    }
+  else
+    {
+    $self->error("Error in attribute: '$name' is not a valid attribute name for a $class");
+    }
+  return;
+  }
+
 sub default_attribute
   {
   # Return the default value for the attribute.
@@ -3367,13 +3383,7 @@ sub default_attribute
 		$attributes->{$base_class}->{$name};
 
   # Didn't found an entry:
-  if (!ref($entry))
-    {
-    $self->warn("Ignoring unknown attribute '$name' for class $class") 
-      if $self->{_warn_on_unknown_attributes};
-    $self->error("Error: '$name' is not a valid attribute for $class");
-    return;
-    }
+  return $self->_unknown_attribute($name,$class) unless ref($entry);
 
   # get the default attribute from the entry
   my $def = $entry->[ ATTR_DEFAULT_SLOT ]; my $val = $def;
@@ -3415,13 +3425,7 @@ sub raw_attribute
     if $name =~ $qr_custom_attribute;
 
   # Didn't found an entry:
-  if (!ref($entry))
-    {
-    $self->warn("Ignoring unknown attribute '$name' for class $class") 
-      if $self->{_warn_on_unknown_attributes};
-    $self->error("Error: '$name' is not a valid attribute for $class");
-    return;
-    }
+  return $self->_unknown_attribute($name,$class) unless ref($entry);
 
   my $type = $entry->[ ATTR_TYPE_SLOT ] || ATTR_STRING;
 
@@ -3631,13 +3635,7 @@ sub attribute
     if $name =~ $qr_custom_attribute;
 
   # Didn't found an entry:
-  if (!ref($entry))
-    {
-    $self->warn("Ignoring unknown attribute '$name' for class $class") 
-      if $self->{_warn_on_unknown_attributes};
-    $self->error("Error: '$name' is not a valid attribute for $class");
-    return;
-    }
+  return $self->_unknown_attribute($name,$class) unless ref($entry);
 
   my $type = $entry->[ ATTR_TYPE_SLOT ] || ATTR_STRING;
 
@@ -3842,13 +3840,7 @@ sub validate_attribute
 	      $attributes->{all}->{$name} || $attributes->{$class}->{$name};
 
   # Didn't found an entry:
-  if (!ref($entry))
-    {
-    $self->warn("Ignoring unknown attribute '$name' for class $class") 
-      if $self->{_warn_on_unknown_attributes};
-    $self->error("Error in attribute: '$name' is not a valid attribute name for a $class");
-    return (1,undef,undef);				# return error
-    }
+  return (1,undef,$self->_unknown_attribute($name,$class)) unless ref($entry);
 
   my $check = $entry->[ATTR_MATCH_SLOT];
   my $type = $entry->[ATTR_TYPE_SLOT] || ATTR_STRING;
@@ -4080,13 +4072,7 @@ sub raw_attributes
 		$attributes->{$base_class}->{$name};
 
     # Didn't found an entry:
-    if (!ref($entry))
-      {
-      $self->warn("Ignoring unknown attribute '$name' for class $class") 
-        if $self->{_warn_on_unknown_attributes};
-      $self->error("Error: '$name' is not a valid attribute for $class");
-      return;
-      }
+    return $self->_unknown_attribute($name,$class) unless ref($entry);
   
     my $type = $entry->[ ATTR_TYPE_SLOT ] || ATTR_STRING;
 

@@ -1,12 +1,11 @@
 #############################################################################
 # Output the graph as VCG or GDL text.
 #
-# (c) by Tels 2004-2007.
 #############################################################################
 
 package Graph::Easy::As_vcg;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 #############################################################################
@@ -17,7 +16,7 @@ use strict;
 
 my $vcg_remap = {
   node => {
-    align => undef,
+    align => \&_vcg_remap_align,
     autolabel => undef,
     autolink => undef,
     autotitle => undef,
@@ -39,7 +38,7 @@ my $vcg_remap = {
     rank => 'level',
     rotate => undef,
     rows => undef,
-    shape => undef,
+    shape => \&_vcg_remap_shape,
     size => undef,
     textstyle => undef,
     textwrap => undef,
@@ -76,7 +75,8 @@ my $vcg_remap = {
     title => undef, 
     },
   graph => {
-    flow => undef,
+    align => \&_vcg_remap_align,
+    flow => \&_vcg_remap_flow,
     label => 'title',
     type => undef,
     },
@@ -106,13 +106,79 @@ sub _remap_custom_vcg_attributes
   ($name,$value);
   }
 
+my $vcg_shapes = {
+  rect => 'box',
+  diamond => 'rhomb',
+  triangle => 'triangle',
+  invtriangle => 'triangle',
+  ellipse => 'ellipse',
+  circle => 'circle',
+  hexagon => 'hexagon',
+  trapezium => 'trapeze',
+  invtrapezium => 'uptrapeze',
+  invparallelogram => 'lparallelogram',
+  parallelogram => 'rparallelogram',
+  };
+
+sub _vcg_remap_shape
+  {
+  my ($self, $name, $shape) = @_;
+
+  return ('invisible','yes') if $shape eq 'invisible';
+
+  ('shape', $vcg_shapes->{$shape} || 'box');
+  }
+
 sub _vcg_remap_align
   {
   my ($self, $name, $style) = @_;
 
-  my $s = lc(substr($style,0,1));		# 'l', 'r', or 'c'
+  # center => center, left => left_justify, right => right_justify
+  $style .= '_justify' unless $style eq 'center';
 
-  ('labeljust', $s);
+  ('textmode', $style);
+  }
+
+my $vcg_flow = {
+  'south' => 'top_to_bottom',
+  'north' => 'bottom_to_top',
+  'down' => 'top_to_bottom',
+  'up' => 'bottom_to_top',
+  'east' => 'left_to_right',
+  'west' => 'right_to_left',
+  'right' => 'left_to_right',
+  'left' => 'right_to_left',
+  };
+
+sub _vcg_remap_flow
+  {
+  my ($self, $name, $style) = @_;
+
+  ('orientation', $vcg_flow->{$style} || 'top_to_bottom');
+  }
+
+sub _class_attributes_as_vcg
+  {
+  # convert a hash with attribute => value mappings to a string
+  my ($self, $a, $class) = @_;
+
+
+  my $att = '';
+  $class = '' if $class eq 'graph';
+  $class .= '.' if $class ne '';
+  
+  # create the attributes as text:
+  for my $atr (sort keys %$a)
+    {
+    my $v = $a->{$atr};
+    $v =~ s/"/\\"/g;            # '2"' => '2\"'
+    $v = '"' . $v . '"' unless $v =~ /^[0-9]+\z/;       # 1, "1a"
+    $att .= "  $class$atr: $v\n";
+    }
+  $att =~ s/,\s$//;             # remove last ","
+
+  $att = "\n$att" unless $att eq '';
+  $att;
   }
 
 #############################################################################
@@ -159,7 +225,6 @@ sub _as_vcg
       $class_names .= "  classname $i: \"$ec\"\n";
       $i++;
       }
-    #$class_names =~ s/,\z/\n/;		# remove last ","
     }
 
   # generate the class attributes first
@@ -178,15 +243,14 @@ sub _as_vcg
   # name for invisible helper nodes
   $self->{_vcg_invis_id} = 'joint0';
 
-  my $atts =  $self->{att};
-  # It is not possible to set attributes for groups in the DOT language that way
+  my $atts = $self->{att};
+  # insert the class attributes
   for my $class (qw/edge graph node/)
     {
     next if $class =~ /\./;		# skip subclasses
 
-    # XXX TODO
-#    my $out = $self->_remap_attributes( $class, $atts->{$class}, $vcg_remap, 'noquote');
-#    $txt .= $self->_att_as_vcg($out);
+    my $out = $self->_remap_attributes( $class, $atts->{$class}, $vcg_remap, 'noquote');
+    $txt .= $self->_class_attributes_as_vcg($out, $class);
     }
 
   $txt .= "\n" if $txt ne '';		# insert newline
@@ -311,6 +375,7 @@ sub _as_vcg
     delete $n->{_p};
     }
   delete $self->{_vcg_invis};		# invisible helper nodes for joints
+  delete $self->{_vcg_invis_id};	# invisible helper node name
   delete $self->{_vcg_edge_classes};
 
   $txt .  "\n}\n";			# close the graph
@@ -464,7 +529,7 @@ __END__
 
 =head1 NAME
 
-Graph::Easy::As_vcg - Generate VCG description from graph object
+Graph::Easy::As_vcg - Generate VCG/GDL text from Graph::Easy object
 
 =head1 SYNOPSIS
 
@@ -495,7 +560,8 @@ This prints something like this:
 =head1 DESCRIPTION
 
 C<Graph::Easy::As_vcg> contains just the code for converting a
-L<Graph::Easy|Graph::Easy> object to a VCG textual description.
+L<Graph::Easy|Graph::Easy> object to either a VCG 
+or GDL textual description.
 
 Note that the generated format is compatible to C<GDL> aka I<Graph
 Description Language>.
@@ -510,7 +576,7 @@ L<Graph::Easy>, L<http://rw4.cs.uni-sb.de/~sander/html/gsvcg1.html>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004-2007 by Tels L<http://bloodgate.com>
+Copyright (C) 2004-2008 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

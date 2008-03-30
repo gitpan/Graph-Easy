@@ -1,12 +1,11 @@
 #############################################################################
 # output the graph in dot-format text
 #
-# (c) by Tels 2004-2008.
 #############################################################################
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.28';
+$VERSION = '0.29';
 
 #############################################################################
 #############################################################################
@@ -443,7 +442,20 @@ sub _graphviz_remap_label
   # call label() to handle thinks like "autolabel: 15" properly
   $s = $node->label() if ref($node);
 
-  $s =~ s/(^|[^\\])\\c/$1\\n/g;		# \c => \n
+  if (ref($node))
+    {
+    # remap all "\n" and "\c" to either "\l" or "\r", depending on align
+    my $align = $node->attribute('align');
+    my $next_line = '\n';
+    # the align of the line-ends counts for the line _before_ them, so
+    # add one more to fix the last line
+    $next_line = '\l', $s .= '\l' if $align eq 'left';
+    $next_line = '\r', $s .= '\r' if $align eq 'right';
+
+    $s =~ s/(^|[^\\])\\n/$1$next_line/g;	# \n => align
+    }
+
+  $s =~ s/(^|[^\\])\\c/$1\\n/g;			# \c => \n (for center)
 
   my $shape = 'rect';
   $shape = ($node->attribute('shape') || '') if ref($node);
@@ -532,8 +544,8 @@ sub _generate_group_edge
     $to = $v;
     }
 
-  my $other = $to->as_graphviz_txt();
-  my $first = $from->as_graphviz_txt();
+  my $other = $to->_graphviz_point();
+  my $first = $from->_graphviz_point();
 
   $e->{_p} = undef;				# mark as processed
 
@@ -590,8 +602,8 @@ sub _generate_edge
   # attributes for invisible helper nodes
   my $inv = ' [ label="",shape=none,style=filled,height=0,width=0 ]';
 
-  my $other = $e->{to}->as_graphviz_txt();
-  my $first = $e->{from}->as_graphviz_txt();
+  my $other = $e->{to}->_graphviz_point();
+  my $first = $e->{from}->_graphviz_point();
 
   my $edge_att = $e->attributes_as_graphviz();
   my $txt = '';
@@ -805,6 +817,10 @@ sub _as_graphviz
     # output nodes (w/ or w/o attributes) in that group
     for my $n ($group->sorted_nodes())
       {
+      # skip nodes that are relativ to others (these are done as part
+      # of the HTML-like label of their parent)
+      next if $n->{origin};
+
       my $att = $n->attributes_as_graphviz();
       $n->{_p} = undef;			# mark as processed
       $txt .= $indent . $n->as_graphviz_txt() . $att . "\n";
@@ -828,6 +844,9 @@ sub _as_graphviz
   for my $n (sort { $a->{name} cmp $b->{name} } values %{$self->{nodes}})
     {
     next if exists $n->{_p};
+    # skip nodes that are relativ to others (these are done as part
+    # of the HTML-like label of their parent)
+    next if $n->{origin};
     my $att = $n->attributes_as_graphviz($root);
     if ($att ne '')
       {
@@ -841,6 +860,7 @@ sub _as_graphviz
 
   my @nodes = $self->sorted_nodes();
 
+  # output the edges
   foreach my $n (@nodes)
     {
     my @out = $n->successors();
@@ -848,7 +868,7 @@ sub _as_graphviz
     if ((@out == 0) && ( (scalar $n->predecessors() || 0) == 0))
       {
       # single node without any connections (unless already output)
-      $txt .= "  " . $first . "\n" unless exists $n->{_p};
+      $txt .= "  " . $first . "\n" unless exists $n->{_p} || $n->{origin};
       }
     # for all outgoing connections
     foreach my $other (reverse @out)
@@ -939,6 +959,14 @@ sub attributes_as_graphviz
   delete $a->{label} if !$self->isa('Graph::Easy::Edge') &&		# not an edge
 	exists $a->{label} && $a->{label} eq $self->{name};
 
+  # generate HTML-like labels for nodes with children, but do so only
+  # for the node which is not itself a child
+  if (!$self->{origin} && $self->{children} && keys %{$self->{children}} > 0)
+    {
+    #print "Generating HTML-like label for $self->{name}\n";
+    $a->{label} = $self->_html_like_label();
+    }
+
   # bidirectional and undirected edges
   if ($self->{bidirectional})
     {
@@ -1025,14 +1053,63 @@ sub attributes_as_graphviz
   $att;
   }
 
-sub _as_html_like
+sub _html_like_label
   {
   # Generate a HTML-like label from one node with its relative children
   my ($self) = @_;
 
-  my $rc = $self->_do_place(0,0, { cells => {}, cache => {} } );
+  my $cells = {};
+  my $rc = $self->_do_place(0,0, { cells => $cells, cache => {} } );
 
-  my $html = '<>';
+  # <TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0"><TR><TD>Name2</TD></TR><TR><TD
+  # ALIGN ="LEFT" BALIGN="LEFT" PORT="E4">Somewhere<BR/>test1<BR>test</TD></TR></TABLE>
+
+  my $label = '<<TABLE BORDER="0"><TR>';
+
+  my $old_y = 0; my $old_x = 0;
+  # go through all children, and sort them by Y then X coordinate
+  my @cells = ();
+  for my $cell (sort {
+	my ($ax,$ay) = split /,/,$a;
+	my ($bx,$by) = split /,/,$b;
+	$ay <=> $by or $ax <=> $bx; } keys %$cells )
+    {
+    #print "cell $cell\n";
+    my ($x,$y) = split /,/, $cell;
+    if ($y > $old_y)
+      {
+      $label .= '</TR><TR>'; $old_x = 0;
+      }
+    my $n = $cells->{$cell};
+    my $l = $n->label();
+    $l =~ s/\\n/<BR\/>/g;
+    my $portname = $n->{autosplit_portname};
+    $portname = $n->label() unless defined $portname;
+    $portname =~ s/\"/\\"/g;			# quote "
+    # store the nodename:portname combination for edges
+    $n->{_graphviz_portname} = $self->{name} . ':' . $portname;
+    if (($x - $old_x) > 1)
+      {
+      # need some spacers
+      $label .= '<TD BORDER="0" COLSPAN="' . ($x - $old_x) . '"></TD>';
+      } 
+    $label .= '<TD BORDER="1" PORT="' . $portname . '">' . $l . '</TD>';
+    $old_y = $y; $old_x = $x;
+    }
+
+  # return "<<TABLE.... /TABLE>>"
+  $label . '</TR></TABLE>>';
+  }
+
+sub _graphviz_point
+  {
+  # return the node as the target/source of an edge
+  # either "name", or "name:port"
+  my ($n) = @_;
+
+  return $n->{_graphviz_portname} if exists $n->{_graphviz_portname};
+
+  $n->as_graphviz_txt();
   }
 
 sub as_graphviz_txt
@@ -1097,7 +1174,7 @@ L<Graph::Easy>, L<Graph::Easy::Parser::Graphviz>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2008 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

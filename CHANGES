@@ -1,5 +1,46 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2008-03-30 v0.62 Tels 2813 tests
+  * graph-easy:
+    + better error handling, now dies on errors in the input text
+  * added the following options to graph-easy:
+    + --jpg, --ps, --bmp etc.: support a lot more formats for dot
+    + --renderer: set the program to render PNG, JPG etc. output
+      (to change "dot" to "neato" etc.)
+  * Parser:
+    + fix autosplitting nodes with "empty" parts like "|  |"
+      (was also broken in DOT parsing as the same code was used)
+    + don't remove spaces at front of lines to support "\n  || B" 
+  * Parser/Graphviz:
+    + detect missing "}" at end of file
+    + bail out if "digraph {" is found twice in the input
+    + better parsing of attributes in scopes (inside "{" and "}")
+    + support ".7" (no leading zero) in color notation
+    + fix parsing of shape=record labels like "{A||B}"
+  * Parser/VCG (also for GDL):
+    + "layout_segments" is actually "linear_segments"
+    + support "status" attribute for subgraphs
+    + support "textmode" attribute for nodes
+    + support "orientation" attribute on graphs
+    + support "invisible" on nodes
+    + handle "colorentry  7: ..." (more than one space)
+    + port_sharing, inport_sharing and outport_sharing => autojoin/autosplit
+    + fix attribute remapping to go through custom filter
+    + strip out \\f- (hor line), \\f01 (colors) for now until we can
+      support them for real
+    + improve detection of multi-line labels
+    + better support for node shapes
+    + handle both "0x0c" (aka ^L) and \\f in input
+  * as_vcg()/as_gdl():
+    + remap flow to orientation for graph flows
+    + remap align to textmode
+    + output class attributes for edges/nodes
+    + support "invisible" nodes
+  * as_graphviz():
+    + handle "align" attribute on nodes properly
+  * unify error handling for unknown attributes
+  * remove Build.PL support (updated Module::Build to 0.71)
+
 2008-03-16 v0.61 Tels 2778 tests
   * graph-easy:
     + reject unknown input format specifications
