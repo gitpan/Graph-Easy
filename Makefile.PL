@@ -1,6 +1,6 @@
 
-# We need at least Perl 5.8.1 for proper Unicode support
-require 5.008001;
+# We need at least Perl 5.8.2 for proper Unicode support
+require 5.008002;
 use strict;
 
 # Load the Module::Install bundled in ./inc/
@@ -10,9 +10,9 @@ use inc::Module::Install;
 all_from	'lib/Graph/Easy.pm';
 
 requires	'Scalar::Util'	=> 1.13;
-requires	'perl'		=> 5.008001;
+requires	'perl'		=> 5.008002;
 
-recommends	'Graph::Easy::As_svg'	=> 0.22;
+recommends	'Graph::Easy::As_svg'	=> 0.23;
 
 build_requires	'Test::More'	=> 0.62;
 

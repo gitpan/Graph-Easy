@@ -461,7 +461,7 @@ sub _find_node_place
     my @shared_nodes;
     @shared_nodes = $from->nodes_sharing_start($s_p,@ss_p) if defined $s_p && @ss_p > 0;
 
-    print STDERR "# $src_node->{name} shares an edge start with ", scalar @shared_nodes, " other nodes\n"
+    print STDERR "# Edge from '$src_node->{name}' shares an edge start with ", scalar @shared_nodes, " other nodes\n"
 	if $self->{debug};
 
     if (@shared_nodes > 1)
@@ -508,7 +508,7 @@ sub _find_node_place
 
     @shared_nodes = $to->nodes_sharing_end($s_p,@ss_p) if defined $s_p && @ss_p > 0;
 
-    print STDERR "# $src_node->{name} shares an edge end with ", scalar @shared_nodes, " other nodes\n"
+    print STDERR "# Edge from '$src_node->{name}' shares an edge end with ", scalar @shared_nodes, " other nodes\n"
 	if $self->{debug};
 
     if (@shared_nodes > 1)
@@ -726,7 +726,7 @@ sub _trace_path
   # find a free way from $src to $dst (both need to be placed beforehand)
   my ($self, $src, $dst, $edge) = @_;
 
-  print STDERR "# Finding path from $src->{name} to $dst->{name}\n" if $self->{debug};
+  print STDERR "# Finding path from '$src->{name}' to '$dst->{name}'\n" if $self->{debug};
   print STDERR "# src: $src->{x}, $src->{y} dst: $dst->{x}, $dst->{y}\n" if $self->{debug};
 
   my $coords = $self->_find_path ($src, $dst, $edge);

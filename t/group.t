@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 59;
+   plan tests => 64;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Group") or die($@);
@@ -68,9 +68,12 @@ my $second = Graph::Easy::Node->new( name => 'second' );
 
 $group->add_node($first);
 is (scalar $group->nodes(), 1, 'one node in group');
+is ($first->attribute('group'), $group->name(), 'node has group attribute set');
 
 $group->add_nodes($first, $second);
 is (scalar $group->nodes(), 2, 'two nodes in group');
+is ($second->attribute('group'), $group->name(), 'node has group attribute set');
+is ($second->{group}, $group, 'add_nodes() worked');
 
 is ($group->as_txt(), <<HERE
 ( Group \\#0
@@ -174,8 +177,10 @@ is ($group->nodes(), 2, '2 nodes in group');
 is ($group->edges(), 0, '0 edges going from/to group');
 is ($group->edges_within(), 1, '1 edge in group');
 
+is ($A->attribute('group'), $group->name(), 'group attribute got added');
 $graph->del_node($A);
 
+is ($A->attribute('group'), '', 'group attribute got deleted');
 is ($group->nodes(), 1, '1 node in group');
 is ($group->edges(), 0, '0 edges in group');
 

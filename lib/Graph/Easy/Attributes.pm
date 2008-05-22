@@ -5,7 +5,7 @@
 
 package Graph::Easy::Attributes;
 
-$VERSION = '0.31';
+$VERSION = '0.32';
 
 package Graph::Easy;
 
@@ -14,6 +14,9 @@ use utf8;		# for examples like "Fähre"
 
 # to make it easier to remember the attribute names:
 my $att_aliases = {
+  'auto-label' => 'autolabel',
+  'auto-link' => 'autolink',
+  'auto-title' => 'autotitle',
   'arrow-style' => 'arrowstyle',
   'arrow-shape' => 'arrowshape',
   'border-color' => 'bordercolor',
@@ -4171,7 +4174,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2008 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

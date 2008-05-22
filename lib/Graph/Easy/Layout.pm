@@ -1,12 +1,12 @@
 #############################################################################
 # Layout directed graphs on a flat plane. Part of Graph::Easy.
 #
-# (c) by Tels 2004-2007.
+# (c) by Tels 2004-2008.
 #############################################################################
 
 package Graph::Easy::Layout;
 
-$VERSION = '0.28';
+$VERSION = '0.29';
 
 #############################################################################
 #############################################################################
@@ -721,6 +721,14 @@ sub _layout
     {
     $step ++;
 
+    if ($self->{debug} && ($step % 1)==0)
+      {
+      my ($nodes,$e_nodes,$edges,$e_edges) = $self->_count_done_things();
+      print STDERR "# Done $nodes nodes and $edges edges.\n";
+      #$self->{debug} = 2 if $nodes > 243;
+      return if ($nodes > 230);
+      }
+
     # pop one action and mark it as done
     my $action = shift @todo; push @done, $action;
 
@@ -830,34 +838,42 @@ sub _layout
     $self->{score} = $score;			# overall score
 
 #  if ($tries == 0)
-     {
-      # count placed nodes
-      my $nodes = 0;
-      my $i = 1;
-      for my $n (sort values %{$self->{nodes}})
-        {
-        $nodes++ if defined $n->{x};
-        }
-      my $edges = 0;
-      $i = 1;
-      for my $e (values %{$self->{edges}})
-        {
-        $edges++ if scalar @{$e->{cells}} > 0 && !exists $e->{_todo};
-        }
-      my $e_nodes = scalar keys %{$self->{nodes}};
-      my $e_edges = scalar keys %{$self->{edges}};
-      if  ( ($nodes != $e_nodes) ||
-            ($edges != $e_edges) )
-        {
-        $self->warn( "Layouter could only place $nodes nodes/$edges edges out of $e_nodes/$e_edges - giving up");
-        }
-      else
-        {
-        $self->_optimize_layout();
-        }
+    {
+    my ($nodes,$e_nodes,$edges,$e_edges) = $self->_count_done_things();
+    if  ( ($nodes != $e_nodes) ||
+          ($edges != $e_edges) )
+      {
+      $self->warn( "Layouter could only place $nodes nodes/$edges edges out of $e_nodes/$e_edges - giving up");
       }
-
+     else
+      {
+      $self->_optimize_layout();
+      }
+    }
     # all things on the stack were done, or we encountered an error
+  }
+
+sub _count_done_things
+  {
+  my $self = shift;
+
+  # count placed nodes
+  my $nodes = 0;
+  my $i = 1;
+  for my $n (values %{$self->{nodes}})
+    {
+    $nodes++ if defined $n->{x};
+    }
+  my $edges = 0;
+  $i = 1;
+  # count fully routed edges
+  for my $e (values %{$self->{edges}})
+    {
+    $edges++ if scalar @{$e->{cells}} > 0 && !exists $e->{_todo};
+    }
+  my $e_nodes = scalar keys %{$self->{nodes}};
+  my $e_edges = scalar keys %{$self->{edges}};
+  return ($nodes,$e_nodes,$edges,$e_edges);
   }
 
 my $size_name = {
@@ -1044,7 +1060,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2008 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 

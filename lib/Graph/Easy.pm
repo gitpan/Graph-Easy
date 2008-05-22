@@ -5,7 +5,7 @@
 
 package Graph::Easy;
 
-use 5.008001;
+use 5.008002;
 use Graph::Easy::Base;
 use Graph::Easy::Attributes;
 use Graph::Easy::Edge;
@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.62';
+$VERSION = '0.63';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -516,13 +516,13 @@ sub add_edge_once
   return undef if ref($edge);
 
   # turn plaintext scalars into objects 
-  $x = $self->{nodes}->{$x} unless ref $x;
-  $y = $self->{nodes}->{$y} unless ref $y;
+  my $x1 = $self->{nodes}->{$x} unless ref $x;
+  my $y1 = $self->{nodes}->{$y} unless ref $y;
 
   # nodes do exist => maybe the edge also exists
-  if (ref($x) && ref($y))
+  if (ref($x1) && ref($y1))
     {
-    my @ids = $x->edges_to($y);
+    my @ids = $x1->edges_to($y1);
 
     return undef if @ids;	# found already one edge?
     }
@@ -984,7 +984,7 @@ sub _class_styles
     my $cls = '';
     if ($class eq 'graph' && $base eq '')
       {
-      $css_txt .= "$indent$class \{\n";			# for SVG
+      $css_txt .= "${indent}.$class \{\n";			# for SVG
       }
     elsif ($class eq 'graph')
       {
@@ -1007,7 +1007,8 @@ sub _class_styles
       next if $att =~ $skip || $att eq 'border';
 
       # do not specify attributes for the entire graph (only for the label)
-      next if $class eq 'graph' && $att =~ /^(color|font|fontsize|align|fill)\z/;
+      # $base ne '' skips this rule for SVG output
+      next if $class eq 'graph' && $base ne '' && $att =~ /^(color|font|fontsize|align|fill)\z/;
 
       $done++;						# how many did we really?
       my $val = $a->{$class}->{$att};

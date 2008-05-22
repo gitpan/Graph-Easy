@@ -521,18 +521,18 @@ sub _match_html_regexps
   my $qr = 
   {
     # BORDER="2"
-    attribute 	=> qr/\s*([A-Z]+)\s*=\s*"((?:\\"|[^"])*)"/,
+    attribute 	=> qr/\s*([A-Za-z]+)\s*=\s*"((?:\\"|[^"])*)"/,
     # BORDER="2" COLSPAN="2"
-    attributes 	=> qr/(?:\s+(?:[A-Z]+)\s*=\s*"(?:\\"|[^"])*")*/,
+    attributes 	=> qr/(?:\s+(?:[A-Za-z]+)\s*=\s*"(?:\\"|[^"])*")*/,
     text	=> qr/.*?/,
-    tr		=> qr/\s*<TR>/,
-    tr_end	=> qr/\s*<\/TR>/,
-    td		=> qr/\s*<TD[^>]*>/,
-    td_tag	=> qr/\s*<TD\s*/,
-    td_end	=> qr/\s*<\/TD>/,
-    table	=> qr/\s*<TABLE[^>]*>/,
-    table_tag	=> qr/\s*<TABLE\s*/,
-    table_end	=> qr/\s*<\/TABLE>/,
+    tr		=> qr/\s*<TR>/i,
+    tr_end	=> qr/\s*<\/TR>/i,
+    td		=> qr/\s*<TD[^>]*>/i,
+    td_tag	=> qr/\s*<TD\s*/i,
+    td_end	=> qr/\s*<\/TD>/i,
+    table	=> qr/\s*<TABLE[^>]*>/i,
+    table_tag	=> qr/\s*<TABLE\s*/i,
+    table_end	=> qr/\s*<\/TABLE>/i,
   };
   $qr->{row} = qr/$qr->{tr}(?:$qr->{td}$qr->{text}$qr->{td_end})*$qr->{tr_end}/;
 
@@ -1685,7 +1685,9 @@ sub _parse_html
 #  use Data::Dumper;
 #  print STDERR "# 3 HTML-like table-tag attributes are: ", Dumper($table_attr),"\n";
 
-  my $base_name = $self->_get_cluster_name('html');
+  # generate the base name from the actual graphviz node name to allow links to
+  # it
+  my $base_name = $n->{name};
 
   my $class = $self->{use_class}->{node};
 
@@ -1725,7 +1727,16 @@ sub _parse_html
 
       # convert "<BR/>" etc. to line breaks
       # XXX TODO apply here the default of BALIGN
-      $node_label =~ s/<BR\s*\/?>/\\n/g;
+      $node_label =~ s/<BR\s*\/?>/\\n/gi;
+
+      # if the font covers the entire node, set "font" attribute
+      my $font_face = undef;
+      if ($node_label =~ /^[ ]*<FONT FACE="([^"]+)">(.*)<\/FONT>[ ]*\z/i)
+        {
+        $node_label = $2; $font_face = $1;
+        }
+      # XXX TODO if not, allow inline font changes
+      $node_label =~ s/<FONT[^>]+>(.*)<\/FONT>/$1/ig;
 
       my $node_name = $base_name . '.' . $idx;
 
@@ -1743,6 +1754,8 @@ sub _parse_html
 
       # apply the default attributes from the table
       $node->set_attributes($table_attr);
+      # if found a global font attribute, override the font attribute with it
+      $node->set_attribute('font',$font_face) if defined $font_face;
 
       # parse the attributes and apply them to the node
       $self->_html_per_node( $self->_parse_html_attributes($attr_txt,$qr,'td'), $node );
@@ -1960,11 +1973,16 @@ sub _parser_cleanup
 	  # get the first node matching the base
 	  for my $na (@nodes)
 	    {
+	    #print STDERR "# evaluating $na ($na->{name} $na->{autosplit_basename}) ($base)\n";
 	    next unless exists $na->{autosplit_basename};
 	    next unless $na->{autosplit_basename} eq $base;
 	    # cache result
 	    $node_cache->{"$base:$port"} = $na;
 	    $node = $na;
+	    }
+	  if (!defined $node)
+	    {
+	    return $self->error("Cannot find autosplit node for $base:$port on edge $e->{id}");
 	    }
           $p = $port_remap->{substr($port,0,1)};		# ne => n => north
 	  }

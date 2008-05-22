@@ -10,7 +10,7 @@ use Graph::Easy;
 use Scalar::Util qw/weaken/;
 
 @ISA = qw/Graph::Easy::Node Graph::Easy/;
-$VERSION = '0.21';
+$VERSION = '0.22';
 
 use strict;
 
@@ -24,8 +24,8 @@ sub _init
   $self->{name} = 'Group #'. $self->{id};
   $self->{class} = 'group';
   $self->{_cells} = {};				# the Group::Cell objects
-  $self->{cx} = 1;
-  $self->{cy} = 1;
+#  $self->{cx} = 1;
+#  $self->{cy} = 1;
 
   foreach my $k (keys %$args)
     {
@@ -133,6 +133,9 @@ sub add_node
   # register ourselves with the member
   $n->{group} = $self;
 
+  # set the proper attribute (for layout)
+  $n->{att}->{group} = $self->{name};
+
   $self;
   }
 
@@ -165,6 +168,9 @@ sub add_member
 
   # register ourselves with the member
   $n->{group} = $self;
+
+  # set the proper attribute (for layout)
+  $n->{att}->{group} = $self->{name};
 
   $self;
   }
@@ -204,6 +210,7 @@ sub del_node
 
   delete $self->{nodes}->{ $n->{name} };
   delete $n->{group};			# unregister us
+  delete $n->{att}->{group};		# delete the group attribute
 
   # find all edges that mention this node and drop them from the group
   my $edges = $self->{edges_within};
@@ -228,12 +235,15 @@ sub add_nodes
       }
     $self->{nodes}->{ $n->{name} } = $n;
 
+    # set the proper attribute (for layout)
+    $n->{att}->{group} = $self->{name};
+
 #   XXX TODO TEST!
 #    # if defined attribute "nodeclass", put our nodes into that class
 #    $n->sub_class($self->{att}->{nodeclass}) if exists $self->{att}->{nodeclass};
-#
-#    # register ourselves with the member
-#    $n->{group} = $self;
+
+    # register ourselves with the member
+    $n->{group} = $self;
     }
   $self;
   }

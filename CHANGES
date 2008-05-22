@@ -1,5 +1,43 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2008-05-22 v0.63 Tels 2895 tests
+  * require Perl v5.8.2 (it fails badly on 5.8.1; due to hash order?)
+  * add examples/wikicrawl.pl - thanx integral from forum.xkcd.com!
+  * Parser/Graphviz:
+    + HTML-like attributes can also appear in lower-case
+    + generate the base name for HTML-like nodes from the actual name,
+      this allows things like "11 [ label=<<..>> ]\n 11:e -> 1" to work
+    + try to handle <font> tags inside HTML-like labels
+  * graph-easy: 
+    + change default timeout to 240 seconds
+    + --version also prints Perl and Graph::Easy::As_svg versions
+    + handle UTF-8 output when piping to graphviz renders
+  * Base:
+    + fix main_class() (caused lost group attributes in graphviz output)
+  * Group:
+    + class for inner cells is "group gi", not "groupgi"
+    + adding a node to a group via add_node() or add_member() also sets
+      the "group" attribute on that node
+    + add_nodes() correctly registers nodes with the group
+  * Node:
+    + add get_raw_attribute() as alias for raw_attribute()
+  * Attributes: also accept "auto-title", "auto-link" and "auto-label"
+  * _class_styles: fix graph class attribute output for SVG
+  * Layout:
+    + A*: when we can't find a path, warn and continue gracefully
+    + A*: raise max. number of tries from 50_000 to 2_000_000
+    + make Heap do binary search upon insert, instead of sort upon extract,
+      this makes complex layouts much faster because the A* algorithm does
+      no longer spent 90% of its time to manage the heap
+    + streamline _astar_distance() to be 50% faster
+  * as_graphviz():
+    + quote "name":"portname" for HTML-like nodes
+    + properly output arrows on bidirectional edges that join/split
+      (aka no more arrow heads on the invisible helper node)
+    + put invisible helper nodes for join/split edges into the subcluster
+      if both from/to are in the same cluster
+    + fix output of spacer TDs in HTML-like labels for relative nodes
+
 2008-03-30 v0.62 Tels 2813 tests
   * graph-easy:
     + better error handling, now dies on errors in the input text

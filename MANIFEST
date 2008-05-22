@@ -22,6 +22,7 @@ examples/html.pl
 examples/parse			parser for tests
 examples/syntax.pl
 examples/syntax.tpl		HTML template for syntax tests
+examples/wikicrawl.pl		Crawl Wikipedia and create a graph from the article links
 inc/Module/Install.pm
 inc/Module/Install/Base.pm
 inc/Module/Install/Can.pm
@@ -107,6 +108,7 @@ t/group/0010.txt
 t/group/0131.txt
 t/group/0230.txt
 t/gv.t
+t/heap.t
 t/html.t			HTML output
 t/in/0_empty_group.txt
 t/in/0_empty_groups.txt

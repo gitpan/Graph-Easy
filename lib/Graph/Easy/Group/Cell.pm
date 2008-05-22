@@ -99,7 +99,7 @@ sub _init
   my ($self,$args) = @_;
   
   $self->{class} = 'group';
-  $self->{cell_class} = 'gi';
+  $self->{cell_class} = ' gi';
   $self->{name} = '';
   
   $self->{x} = 0;

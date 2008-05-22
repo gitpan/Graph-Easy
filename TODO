@@ -5,10 +5,13 @@ See Graph::Easy under LIMITATIONS for some hot topics. In addition:
 
 Important short-term TODO:
 
+* sort_sub is no longer used in Heap, but the Layouter uses it (find out why)
+
 * add for edges:
   + weight,
   + taillabel, taillink, tailtitle, headlabel, headlink, headtitle
     (or should these be startlabel, endlabel etc.?)
+  + a method to set the direction to bidirectional/undirected
 * graphviz parsing roundtrip:
   + anon nodes lose their " " label
   + border-width is wrongly dropped
@@ -32,7 +35,6 @@ Important short-term TODO:
   + implement full color-remapping support (in both directions)
   + support subgraphs
   + support regions
-  + support for "node.shape: circle" etc.
   + support "nearedges:no" 
   + generally handle all attribute names without "_", too
   + add support for "anchor"
@@ -194,6 +196,7 @@ Rendering/Layout:
   + compact (the default, what it is now)
   + none (no background, no border, no label)
 * add attribute "opacity" to set alpha channel on entire objects more easily
+* add attribute "shrink" (yes, no) to nodes to make them as compact as poss.
 
 General:
 

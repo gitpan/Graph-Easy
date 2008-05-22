@@ -5,7 +5,7 @@
 
 package Graph::Easy::Base;
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 use strict;
 
@@ -257,6 +257,8 @@ sub class
   # return our full class name like "node.subclass" or "node"
   my $self = shift;
 
+  $self->error("class() method does not take arguments") if @_ > 0;
+
   $self->{class} =~ /\.(.*)/;
 
   return $self->{class} if defined $1;
@@ -287,7 +289,7 @@ sub main_class
   {
   my $self = shift;
 
-  $self->{class} =~ /^(.+)(\.|\z)/;	# extract first part
+  $self->{class} =~ /^(.+?)(\.|\z)/;	# extract first part
 
   $1;
   }

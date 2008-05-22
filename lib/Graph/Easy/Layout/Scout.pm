@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.24';
+$VERSION = '0.25';
 
 #############################################################################
 #############################################################################
@@ -424,8 +424,6 @@ sub _init
   my ($self,$args) = @_;
 
   $self->{_heap} = [ ];
-  # if false, the elements on the heap are guaranteed to be in order
-  $self->{_dirty} = 0;
 
   $self;
   }
@@ -448,7 +446,7 @@ sub add
     #print STDERR "# $elem->[0] is smaller then first elem $heap->[0]->[0] (with ", scalar @$heap," elems on heap)\n";
     unshift @$heap, $elem;
     }
-  # bigger than last elem?
+  # bigger than or equal to last elem?
   elsif ($elem->[0] > $heap->[-1]->[0])
     {
     #print STDERR "# $elem->[0] is bigger then last elem $heap->[-1]->[0] (with ", scalar @$heap," elems on heap)\n";
@@ -456,46 +454,67 @@ sub add
     }
   else
     {
-    # just put it on the end and mark the heap as dirty
-    push @$heap, $elem;
-    $self->{_dirty} = 1;
+    # insert the elem at the right position
+
+    # if we have less than X elements, use linear search
+    my $el = $elem->[0];
+    if (scalar @$heap < 10)
+      {
+      my $i = 0;
+      for my $e (@$heap)
+        {
+        if ($e->[0] > $el)
+          {
+          splice (@$heap, $i, 0, $elem);		# insert $elem
+          return undef;
+          }
+        $i++;
+        }
+      # else, append at the end
+      push @$heap, $elem;
+      }
+    else
+      {
+      # use binary search
+      my $l = 0; my $r = scalar @$heap;
+      while (($r - $l) > 2)
+        {
+        my $m = int((($r - $l) / 2) + $l);
+#        print "l=$l r=$r m=$m el=$el heap=$heap->[$m]->[0]\n";
+        if ($heap->[$m]->[0] <= $el)
+          {
+          $l = $m;
+          }
+        else
+          {
+          $r = $m;
+          }
+        }
+      while ($l < @$heap)
+        {
+        if ($heap->[$l]->[0] > $el)
+          {
+          splice (@$heap, $l, 0, $elem);		# insert $elem
+          return undef;
+          }
+        $l++;
+        }
+      # else, append at the end
+      push @$heap, $elem;
+      }
     }
   undef;
   }
 
 sub elements
   {
-  my ($self) = @_;
-
-  @{$self->{_heap}};
+  scalar @{$_[0]->{_heap}};
   }
 
 sub extract_top
   {
   # remove and return the top elemt
-  my ($self) = @_;
-
-  my $heap = $self->{_heap};
-
-  return shift @$heap if @$heap <= 1;
-
-  if ($self->{_dirty})
-    {
-    # heap is dirty, so sort it and mark it as clean:
-    if ($self->{_sort})
-      {
-      my $sort = $self->{_sort};
-      @$heap = sort $sort @$heap;
-      }
-    else
-      {
-      @$heap = sort { $a->[0] <=> $b->[0] } @$heap;
-      }
-    $self->{_dirty} = 0;
-    }
-
-  # return the top element from the heap
-  shift @$heap;
+  shift @{$_[0]->{_heap}};
   }
 
 sub delete
@@ -566,15 +585,15 @@ sub _astar_modifier
 sub _astar_distance
   {
   # calculate the manhattan distance between x1,y1 and x2,y2
-  my ($x1,$y1,$x2,$y2) = @_;
+#  my ($x1,$y1,$x2,$y2) = @_;
 
-  my $dx = abs($x2 - $x1);
-  my $dy = abs($y2 - $y1);
+  my $dx = abs($_[2] - $_[0]);
+  my $dy = abs($_[3] - $_[1]);
 
-  # plus 1 because we need to go around one corner if $dx != $dy
-  my $add = 1; $add = 0 if $dx == 0 || $dy == 0;
+  # plus 1 because we need to go around one corner if $dx != 0 && $dx != 0
+  $dx++ if $dx != 0 && $dy != 0;
 
-  $dx + $dy + $add; 
+  $dx + $dy;
   }
 
 my $edge_type = {
@@ -624,7 +643,7 @@ sub _astar_edge_type
 sub _astar_near_nodes
   {
   # return possible next nodes from $nx,$ny
-  my ($self, $nx, $ny, $cells, $open_by_pos, $closed, $min_x, $min_y, $max_x, $max_y) = @_;
+  my ($self, $nx, $ny, $cells, $closed, $min_x, $min_y, $max_x, $max_y) = @_;
 
   my @places = ();
 
@@ -932,7 +951,7 @@ sub _find_path_astar
     # more than one edge share the same end port, and one of the others was
     # already placed
 
-    print STDERR "#  edge from $edge->{from}->{name} to $edge->{to}->{name} shares end port with ",
+    print STDERR "#  edge from '$edge->{from}->{name}' to '$edge->{to}->{name}' shares end port with ",
 	scalar @shared, " other edge(s)\n" if $self->{debug};
 
     # if there is one of the already-placed edges running alongside the src
@@ -974,7 +993,7 @@ sub _find_path_astar
     # More than one edge share the same start port, and one of the others was
     # already placed, so we just run along until we catch it up with a joint:
 
-    print STDERR "#  edge from $edge->{from}->{name} to $edge->{to}->{name} shares start port with ",
+    print STDERR "#  edge from '$edge->{from}->{name}' to '$edge->{to}->{name}' shares start port with ",
 	scalar @shared, " other edge(s)\n" if $self->{debug};
 
     # if there is one of the already-placed edges running alongside the src
@@ -1078,7 +1097,7 @@ sub _astar
   my ($min_x, $min_y, $max_x, $max_y) = $self->_astar_boundaries();
 
   # Max. steps to prevent endless searching in case of bugs like endless loops.
-  my $tries = 0; my $max_tries = 50000;
+  my $tries = 0; my $max_tries = 2000000;
 
   # count how many times we did A*
   $self->{stats}->{astar}++;
@@ -1102,7 +1121,7 @@ sub _astar
 
     # For each start point, calculate the distance to each stop point, then use
     # the smallest as value:
-    my ($lowest_x, $lowest_y);
+    my $lowest_x = $stop[0]; my $lowest_y = $stop[1];
     my $lowest = _astar_distance($sx,$sy, $stop[0], $stop[1]);
     for (my $u = $per_field; $u < $stop; $u += $per_field)
       {
@@ -1111,6 +1130,7 @@ sub _astar
       $lowest = $dist if $dist < $lowest;
       }
 
+
     # add a penalty for crossings
     my $malus = 0; $malus = 30 if $t != 0;
     $malus += _astar_modifier($px,$py, $sx, $sy, $sx, $sy);
@@ -1118,7 +1138,7 @@ sub _astar
 
     my $o = $malus + $bias + $lowest;
     print STDERR "#   adding open pos $sx,$sy ($o = $malus + $bias + $lowest) at ($lowest_x,$lowest_y)\n"
-	 if $self->{debug};
+	 if $self->{debug} > 1;
 
     # The cost to reach the starting node is obviously 0. That means that there is
     # a tie between going down/up if both possibilities are equal likely. We insert
@@ -1142,9 +1162,14 @@ sub _astar
     $stats->{astar_steps}++ if $self->{debug};
 
     # hard limit on number of steps todo
-    return if $tries++ > $max_tries;
+    if ($tries++ > $max_tries)
+      {
+      $self->warn("A* reached maximum number of tries ($max_tries), giving up."); 
+      return [];
+      }
 
-    print STDERR "#  Smallest elem is weight ", $elem->[0], " at $elem->[1],$elem->[2]\n" if $self->{debug};
+    print STDERR "#  Smallest elem from ", $open->elements(), 
+	" elems is: weight=", $elem->[0], " at $elem->[1],$elem->[2]\n" if $self->{debug} > 1;
     my ($val, $x,$y, $px,$py, $type, $do_stop) = @$elem;
 
     my $key = "$x,$y";
@@ -1165,9 +1190,9 @@ sub _astar
 	  {
 	  $closed->{$key}->[6] = $stop[$i+3];
 	  $closed->{$key}->[7] = $stop[$i+4];
-          print STDERR "#  Reached stop position $x,$y (lx,ly $stop[$i+3], $stop[$i+4])\n" if $self->{debug};
+          print STDERR "#  Reached stop position $x,$y (lx,ly $stop[$i+3], $stop[$i+4])\n" if $self->{debug} > 1;
 	  }
-        elsif ($self->{debug}) {
+        elsif ($self->{debug} > 1) {
           print STDERR "#  Reached stop position $x,$y\n";
           }
         last STEP;
@@ -1178,7 +1203,7 @@ sub _astar
       unless defined $x && defined $y;
       
     # get list of potential positions we need to explore from the current one
-    my @p = $self->_astar_near_nodes($x,$y, $cells, $open_by_pos, $closed, $min_x, $min_y, $max_x, $max_y);
+    my @p = $self->_astar_near_nodes($x,$y, $cells, $closed, $min_x, $min_y, $max_x, $max_y);
 
     my $n = 0;
     while ($n < scalar @p)
@@ -1217,7 +1242,7 @@ sub _astar
         $lowest_distance = $d if $d < $lowest_distance; 
         }
 
-      print STDERR "#   Opening pos $nx,$ny ($lowest_distance + $lg)\n" if $self->{debug};
+      print STDERR "#   Opening pos $nx,$ny ($lowest_distance + $lg)\n" if $self->{debug} > 1;
 
       # open new position into OPEN
       $open->add( [ $lowest_distance + $lg, $nx, $ny, $x, $y, undef ] );
@@ -1234,7 +1259,7 @@ sub _astar
   # no more nodes to follow, so we couldn't find a path
   if (!defined $elem)
     {
-    print STDERR "# A* couldn't find a path\n" if $self->{debug};
+    print STDERR "# A* couldn't find a path after $max_tries steps.\n" if $self->{debug};
     return [];
     }
 
@@ -1319,7 +1344,7 @@ sub _astar
       $type += _astar_edge_type($px, $py, $cx, $cy, $lx,$ly);
       }
 
-    print STDERR "#  Following back from $lx,$ly over $cx,$cy to $px,$py\n" if $self->{debug};
+    print STDERR "#  Following back from $lx,$ly over $cx,$cy to $px,$py\n" if $self->{debug} > 1;
 
     if ($px == $lx && $py == $ly && ($cx != $lx || $cy != $ly))
       {

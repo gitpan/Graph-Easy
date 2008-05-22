@@ -1,11 +1,11 @@
 ---
-abstract: 'Render graphs as ASCII, HTML, SVG or via Graphviz'
+abstract: 'Convert or render graphs (as ASCII, HTML, SVG or via Graphviz)'
 author:
   - 'Tels <nospam-abuse@bloodgate.com>'
 build_requires:
   Test::More: 0.62
 distribution_type: module
-generated_by: Module::Install version 0.68
+generated_by: 'Module::Install version 0.71'
 license: gpl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.3.html
@@ -19,8 +19,8 @@ no_index:
     - inc
     - t
 recommends:
-  Graph::Easy::As_svg: 0.22
+  Graph::Easy::As_svg: 0.23
 requires:
   Scalar::Util: 1.13
-  perl: 5.8.1
-version: 0.62
+  perl: 5.008002
+version: 0.63

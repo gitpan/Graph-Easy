@@ -5,7 +5,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.29';
+$VERSION = '0.30';
 
 #############################################################################
 #############################################################################
@@ -573,8 +573,13 @@ sub _insert_edge_attribute
 
   return '[ $new_att ]' if $att eq '';		# '' => '[ ]'
 
+  # remove any potential old attribute with the same name
+  my $att_name = $new_att; $att_name =~ s/=.*//;
+  $att =~ s/$att_name=("[^"]+"|[^\s]+)//;
+  
   # insert the new attribute at the end
   $att =~ s/\s?\]/,$new_att ]/;
+
   $att;
   }
 
@@ -599,8 +604,8 @@ sub _generate_edge
 
   my $invis = $self->{_graphviz_invis};
 
-  # attributes for invisible helper nodes
-  my $inv = ' [ label="",shape=none,style=filled,height=0,width=0 ]';
+  # attributes for invisible helper nodes (the color will be filled in from the edge color)
+  my $inv       = ' [ label="",shape=none,style=filled,height=0,width=0,fillcolor="';
 
   my $other = $e->{to}->_graphviz_point();
   my $first = $e->{from}->_graphviz_point();
@@ -609,7 +614,9 @@ sub _generate_edge
   my $txt = '';
 
   my $modify_edge = 0;
-  my $suppress = ($self->{_flip_edges} ? 'arrowtail=none' : 'arrowhead=none');;
+  my $suppress_start = (!$self->{_flip_edges} ? 'arrowtail=none' : 'arrowhead=none');
+  my $suppress_end   = ( $self->{_flip_edges} ? 'arrowtail=none' : 'arrowhead=none');
+  my $suppress;
 
   # if the edge has a shared start/end port
   if ($e->has_ports())
@@ -625,6 +632,7 @@ sub _generate_edge
       my $sp = $e->port('start');
       my $key = "$e->{from}->{name},start,$sp";
       my $invis_id = $invis->{$key};
+      $suppress = $suppress_start;
       if (!defined $invis_id)
 	{
 	# create the invisible helper node
@@ -633,21 +641,30 @@ sub _generate_edge
 	$invis_id = $self->{_graphviz_invis_id}++;
 
 	# output the helper node
-	$txt .= $indent . "$invis_id$inv\n";
-        my $e_att = $self->_insert_edge_attribute($edge_att,$suppress);
-        $e_att = $self->_suppress_edge_attribute($e_att,'label');
+	my $e_color = $e->color_attribute('color');
+	$txt .= $indent . "$invis_id$inv$e_color\" ]\n";
+	my $e_att = $self->_insert_edge_attribute($edge_att,$suppress_end);
+	$e_att = $self->_suppress_edge_attribute($e_att,'label');
+	my $before = ''; my $after = ''; my $i = $indent;
+	if ($e->{group})
+	  {
+	  $before = $indent . 'subgraph "cluster' . $e->{group}->{id} . "\" {\n";
+	  $after = $indent . "}\n";
+	  $i = $indent . $indent;
+	  }
 	if ($self->{_flip_edges})
 	  {
-	  $txt .= $indent . "$invis_id $self->{_edge_type} $first$e_att\n";
+	  $txt .= $before . $i . "$invis_id $self->{_edge_type} $first$e_att\n" . $after;
 	  }
 	else
 	  {
-	  $txt .= $indent . "$first $self->{_edge_type} $invis_id$e_att\n";
+	  $txt .= $before . $i . "$first $self->{_edge_type} $invis_id$e_att\n" . $after;
 	  }
 	$invis->{$key} = $invis_id;		# mark as created
 	}
       # "joint0" etc
       $first = $invis_id;
+      $modify_edge++;
       }
 
     ($side,@port) = $e->port('end');
@@ -658,6 +675,7 @@ sub _generate_edge
       my $ep = $e->port('end');
       my $key = "$e->{to}->{name},end,$ep";
       my $invis_id = $invis->{$key};
+      $suppress = $suppress_end;
 
       if (!defined $invis_id)
 	{
@@ -666,15 +684,24 @@ sub _generate_edge
 	$self->{_graphviz_invis_id}++ while (defined $self->node($self->{_graphviz_invis_id}));
 	$invis_id = $self->{_graphviz_invis_id}++;
 
+        my $e_att = $self->_insert_edge_attribute($edge_att,$suppress_start);
 	# output the helper node
-	$txt .= $indent . "$invis_id$inv\n";
+	my $e_color = $e->color_attribute('color');
+	$txt .= $indent . "$invis_id$inv$e_color\" ]\n";
+	my $before = ''; my $after = ''; my $i = $indent;
+	if ($e->{group})
+	  {
+	  $before = $indent . 'subgraph "cluster' . $e->{group}->{id} . "\" {\n";
+	  $after = $indent . "}\n";
+	  $i = $indent . $indent;
+	  }
 	if ($self->{_flip_edges})
 	  {
-	  $txt .= $indent . "$other $self->{_edge_type} $invis_id$edge_att\n";
+	  $txt .= $before . $i . "$other $self->{_edge_type} $invis_id$e_att\n" . $after;
 	  }
 	else
 	  {
-	  $txt .= $indent . "$invis_id $self->{_edge_type} $other$edge_att\n";
+	  $txt .= $before . $i . "$invis_id $self->{_edge_type} $other$e_att\n" . $after;
 	  }
 	$invis->{$key} = $invis_id;			# mark as output
 	}
@@ -965,6 +992,8 @@ sub attributes_as_graphviz
     {
     #print "Generating HTML-like label for $self->{name}\n";
     $a->{label} = $self->_html_like_label();
+    # avoid the outer border
+    $a->{style} = 'none';
     }
 
   # bidirectional and undirected edges
@@ -1085,16 +1114,18 @@ sub _html_like_label
     $l =~ s/\\n/<BR\/>/g;
     my $portname = $n->{autosplit_portname};
     $portname = $n->label() unless defined $portname;
+    my $name = $self->{name};
     $portname =~ s/\"/\\"/g;			# quote "
-    # store the nodename:portname combination for edges
-    $n->{_graphviz_portname} = $self->{name} . ':' . $portname;
-    if (($x - $old_x) > 1)
+    $name =~ s/\"/\\"/g;			# quote "
+    # store the "nodename:portname" combination for potential edges
+    $n->{_graphviz_portname} = '"' . $name . '":"' . $portname . '"';
+    if (($x - $old_x) > 0)
       {
       # need some spacers
       $label .= '<TD BORDER="0" COLSPAN="' . ($x - $old_x) . '"></TD>';
       } 
     $label .= '<TD BORDER="1" PORT="' . $portname . '">' . $l . '</TD>';
-    $old_y = $y; $old_x = $x;
+    $old_y = $y + $n->{cy}; $old_x = $x + $n->{cx};
     }
 
   # return "<<TABLE.... /TABLE>>"

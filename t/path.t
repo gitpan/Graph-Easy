@@ -5,17 +5,16 @@ use strict;
 
 BEGIN
    {
-   plan tests => 6;
+   plan tests => 7;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Layout") or die($@);
+   use_ok ("Graph::Easy") or die($@);
    };
 
 can_ok ("Graph::Easy", qw/
   _path_is_clear
   /);
-
-use Graph::Easy;
 
 my $path = [
   0,0,0,

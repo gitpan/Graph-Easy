@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use Graph::Easy 0.62;
+use Graph::Easy 0.63;
 use Graph::Easy::Parser;
 
 my $help_requested = 0;
@@ -30,6 +30,13 @@ my $copyright = "Graph::Easy v$Graph::Easy::VERSION  (c) by Tels 2004-2008.  "
 if (ref($opt) && $opt->{version} != 0)
   {
   print $copyright;
+  print "Running under Perl v$]";
+  eval { require Graph::Easy::As_svg; };
+  if (defined $Graph::Easy::As_svg::VERSION)
+    {
+    print " and using Graph::Easy::As_svg v$Graph::Easy::As_svg::VERSION";
+    }
+  print ".\n\n";
   exit 2;
   }
 
@@ -132,7 +139,7 @@ if (! $opt->{parse})
       }
     }
 
-  $graph->timeout(abs($opt->{timeout} || 120));
+  $graph->timeout(abs($opt->{timeout} || 240));
   my $FILE = $opt->{output};
   print $FILE $graph->$method();
 
@@ -172,7 +179,7 @@ sub get_options
     version => 0,
     parse => 0,
     stats => 0,
-    timeout => 120,
+    timeout => 240,
     renderer => 'dot',
   };
   # insert the ones from @external
@@ -289,7 +296,7 @@ sub get_options
       # do not clobber the output file if we cannot read the input
       return unless ref $opt->{input} || -R $opt->{input};
 
-      open $opt->{output}, ">$file" or die ("Cannot write to $file: $!");
+      open $opt->{output}, ">", $file or die ("Cannot write to $file: $!");
       }
     else
       {
@@ -297,6 +304,7 @@ sub get_options
       my $file_save = $file;
       $file_save =~ s/["'\|;]//g;	# remove potentially unsafe characters
       open $opt->{output}, "|$opt->{renderer} -T$opt->{as} -o \"$file_save\"" or die ("Cannot open pipe to dot: $!");
+      binmode $opt->{output}, ':utf8';
       }
     }
     
@@ -339,7 +347,7 @@ Convert between graph formats and layout/render graphs:
 
 	echo "[ Bonn ] - car -> [ Berlin ]" | graph-easy
 	graph-easy --input=graph.dot --as_ascii
-	graph-easy --html --output=graph.html graph.txt
+	graph-easy --html --output=mygraph.html graph.txt
 	graph-easy graph.txt graph.svg
 	graph-easy graph.txt --as_dot | dot -Tpng -o graph.png
 	graph-easy graph.txt --png
@@ -452,6 +460,8 @@ finish in this time, it will be aborted. Example:
     graph-easy input.txt --timeout=500
 
 Conversion to DOT, VCG/GDL, GraphML or plain text ignores the timeout.
+
+The default is 240 seconds (4 minutes).
 
 =item --verbose
 

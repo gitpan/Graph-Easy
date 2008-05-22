@@ -2121,6 +2121,7 @@ BEGIN
   *get_attributes = \&Graph::Easy::get_attributes;
   *get_attribute = \&Graph::Easy::attribute;
   *raw_attribute = \&Graph::Easy::raw_attribute;
+  *get_raw_attribute = \&Graph::Easy::raw_attribute;
   *raw_color_attribute = \&Graph::Easy::raw_color_attribute;
   *raw_attributes = \&Graph::Easy::raw_attributes;
   *raw_attributes = \&Graph::Easy::raw_attributes;
@@ -2421,7 +2422,7 @@ using the current colorscheme.
 
 Is an alias for L<color_attribute()>.
 
-=head2 raw_attribute()
+=head2 raw_attribute(), get_raw_attribute()
 
 	my $value = $object->raw_attribute( $name );
 
