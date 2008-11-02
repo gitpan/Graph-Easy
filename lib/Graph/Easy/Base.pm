@@ -24,16 +24,12 @@ sub new
   {
   # Create a new object. This is a generic routine that is inherited
   # by many other things like Edge, Cell etc.
-  my $class = shift;
+  my $self = bless { id => _new_id() }, shift;
 
   my $args = $_[0];
   $args = { name => $_[0] } if ref($args) ne 'HASH' && @_ == 1;
   $args = { @_ } if ref($args) ne 'HASH' && @_ > 1;
  
-  my $self = bless {}, $class;
-
-  $self->{id} = _new_id();
-
   $self->_init($args);
   }
 
@@ -211,6 +207,23 @@ sub warn
     }
   }
 
+sub _croak
+  {
+  my ($self, $msg, $level) = @_;
+  $level = 1 unless defined $level;
+
+  require Carp;
+  if (ref($self) && $self->{debug})
+    {
+    $Carp::CarpLevel = $level;			# don't report Base itself
+    Carp::confess($msg);
+    }
+  else
+    {
+    Carp::croak($msg);
+    }
+  }
+ 
 #############################################################################
 # class management
 
@@ -294,23 +307,6 @@ sub main_class
   $1;
   }
 
-sub _croak
-  {
-  my ($self, $msg, $level) = @_;
-  $level = 1 unless defined $level;
-
-  require Carp;
-  if (ref($self) && $self->{debug})
-    {
-    $Carp::CarpLevel = $level;			# don't report Base itself
-    Carp::confess($msg);
-    }
-  else
-    {
-    Carp::croak($msg);
-    }
-  }
- 
 1;
 __END__
 
@@ -477,7 +473,7 @@ L<Graph::Easy>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>.
+Copyright (C) 2004 - 2008 by Tels L<http://bloodgate.com>.
 
 See the LICENSE file for more details.
 

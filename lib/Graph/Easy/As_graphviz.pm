@@ -5,7 +5,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.30';
+$VERSION = '0.31';
 
 #############################################################################
 #############################################################################
@@ -992,8 +992,8 @@ sub attributes_as_graphviz
     {
     #print "Generating HTML-like label for $self->{name}\n";
     $a->{label} = $self->_html_like_label();
-    # avoid the outer border
-    $a->{style} = 'none';
+    # make Graphviz avoid the outer border
+    $a->{shape} = 'none';
     }
 
   # bidirectional and undirected edges

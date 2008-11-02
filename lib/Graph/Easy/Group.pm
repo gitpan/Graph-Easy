@@ -109,6 +109,9 @@ sub set_attribute
 
 sub shape
   {
+  my ($self) = @_;
+
+  # $self->{att}->{shape} || $self->attribute('shape');
   '';
   }
 
@@ -122,8 +125,11 @@ sub add_node
 
   if (!ref($n) || !$n->isa("Graph::Easy::Node"))
     {
-    require Carp;
-    Carp::confess("Cannot add non node-object $n to group '$self->{name}'");
+    if (!ref($self->{graph}))
+      {
+      return $self->error("Cannot add non node-object $n to group '$self->{name}'");
+      }
+    $n = $self->{graph}->add_node($n);
     }
   $self->{nodes}->{ $n->{name} } = $n;
 
@@ -136,7 +142,17 @@ sub add_node
   # set the proper attribute (for layout)
   $n->{att}->{group} = $self->{name};
 
-  $self;
+  # Register the nodes and the edge with our graph object
+  # and weaken the references. Be carefull to not needlessly
+  # override and weaken again an already existing reference, this
+  # is an O(N) operation in most Perl versions, and thus very slow.
+
+  # If the node does not belong to a graph yet or belongs to another
+  # graph, add it to our own graph:
+  weaken($n->{graph} = $self->{graph}) unless
+	$n->{graph} && $self->{graph} && $n->{graph} == $self->{graph};
+
+  $n;
   }
 
 sub add_member
@@ -146,18 +162,13 @@ sub add_member
  
   if (!ref($n) || !$n->isa("Graph::Easy::Node"))
     {
-    require Carp;
-    Carp::confess("Cannot add non node-object $n to group '$self->{name}'");
+    if (!ref($self->{graph}))
+      {
+      return $self->error("Cannot add non node-object $n to group '$self->{name}'");
+      }
+    $n = $self->{graph}->add_node($n);
     }
-  if ($n->isa("Graph::Easy::Edge"))
-    {
-    # for an edge, we move both the start/end node into this group
-    $self->add_node($n->{from});
-    $self->add_node($n->{to});
-    # the edge itself will be added later during to the layout stage
-    return $self->_add_edge($n);
-    }
-
+  return $self->_add_edge($n) if $n->isa("Graph::Easy::Edge");
   return $self->add_group($n) if $n->isa('Graph::Easy::Group');
 
   $self->{nodes}->{ $n->{name} } = $n;
@@ -172,7 +183,17 @@ sub add_member
   # set the proper attribute (for layout)
   $n->{att}->{group} = $self->{name};
 
-  $self;
+  # Register the nodes and the edge with our graph object
+  # and weaken the references. Be carefull to not needlessly
+  # override and weaken again an already existing reference, this
+  # is an O(N) operation in most Perl versions, and thus very slow.
+
+  # If the node does not belong to a graph yet or belongs to another
+  # graph, add it to our own graph:
+  weaken($n->{graph} = $self->{graph}) unless
+	$n->{graph} && $self->{graph} && $n->{graph} == $self->{graph};
+
+  $n;
   }
 
 sub del_member
@@ -226,13 +247,19 @@ sub add_nodes
   {
   my $self = shift;
 
-  foreach my $n (@_)
+  # make a copy in case of scalars
+  my @arg = @_;
+  foreach my $n (@arg)
     {
-    if (!ref($n) || $n->isa('Graph::Easy::Group'))
+    if (!ref($n) && !ref($self->{graph}))
       {
-      require Carp;
-      Carp::confess("Cannot add non-object or group $n as node to group '$self->{name}'");
+      return $self->error("Cannot add non node-object $n to group '$self->{name}'");
       }
+    return $self->error("Cannot add group-object $n to group '$self->{name}'")
+      if $n->isa('Graph::Easy::Group');
+
+    $n = $self->{graph}->add_node($n) unless ref($n);
+
     $self->{nodes}->{ $n->{name} } = $n;
 
     # set the proper attribute (for layout)
@@ -244,8 +271,20 @@ sub add_nodes
 
     # register ourselves with the member
     $n->{group} = $self;
+
+    # Register the nodes and the edge with our graph object
+    # and weaken the references. Be carefull to not needlessly
+    # override and weaken again an already existing reference, this
+    # is an O(N) operation in most Perl versions, and thus very slow.
+
+    # If the node does not belong to a graph yet or belongs to another
+    # graph, add it to our own graph:
+    weaken($n->{graph} = $self->{graph}) unless
+	$n->{graph} && $self->{graph} && $n->{graph} == $self->{graph};
+
     }
-  $self;
+
+  @arg;
   }
 
 #############################################################################
@@ -269,8 +308,7 @@ sub _add_edge
 
   if (!ref($e) || !$e->isa("Graph::Easy::Edge"))
     {
-    require Carp;
-    Carp::confess("Cannot add non edge-object $e to group '$self->{name}'");
+    return $self->error("Cannot add non edge-object $e to group '$self->{name}'");
     }
   $self->{edges_within}->{ $e->{id} } = $e;
 
@@ -278,10 +316,44 @@ sub _add_edge
   my $edge_class = $self->attribute('edgeclass');
   $e->sub_class($edge_class) if $edge_class ne '';
 
+  # XXX TODO: inline
+  $self->add_node($e->{from});
+  $self->add_node($e->{to});
+
   # register us, but don't do weaken() if the ref was already set
   weaken($e->{group} = $self) unless defined $e->{group} && $e->{group} == $self;
 
-  $self;
+  $e;
+  }
+
+sub add_edge
+  {
+  # Add an edge to the graph of this group, then register it with this group.
+  my ($self,$from,$to) = @_;
+
+  my $g = $self->{graph};
+  return $self->error("Cannot add edge to group '$self->{name}' without graph")
+    unless defined $g;
+
+  my $edge = $g->add_edge($from,$to);
+
+  $self->_add_edge($edge);
+  }
+
+sub add_edge_once
+  {
+  # Add an edge to the graph of this group, then register it with this group.
+  my ($self,$from,$to) = @_;
+
+  my $g = $self->{graph};
+  return $self->error("Cannot non edge to group '$self->{name}' without graph")
+    unless defined $g;
+
+  my $edge = $g->add_edge_once($from,$to);
+  # edge already exists => so fetch it
+  $edge = $g->edge($from,$to) unless defined $edge;
+
+  $self->_add_edge($edge);
   }
 
 #############################################################################
@@ -541,7 +613,8 @@ specified value.
 	$group->add_member($node);
 	$group->add_member($group);
 
-Add the specified object to this group.
+Add the specified object to this group and returns this member. If the
+passed argument is a scalar, will treat it as a node name.
 
 Note that each object can only be a member of one group at a time.
 
@@ -549,19 +622,23 @@ Note that each object can only be a member of one group at a time.
 
 	$group->add_node($node);
 
-Add the specified node to this group.
+Add the specified node to this group and returns this node.
 
 Note that each object can only be a member of one group at a time.
 
-=head2 add_edge()
+=head2 add_edge(), add_edge_once()
 
 	$group->add_edge($edge);		# Graph::Easy::Edge
 	$group->add_edge($from, $to);		# Graph::Easy::Node or
 						# Graph::Easy::Group
 	$group->add_edge('From', 'To');		# Scalars
 
-Moves the nodes involved in this edge to the group. If the two nodes
-do not exist in the parent graph yet, they are created there.
+If passed an Graph::Easy::Edge object, moves the nodes involved in
+this edge to the group.
+
+if passed two nodes, adds these nodes to the graph (unless they already
+exist) and adds an edge between these two nodes. See L<add_edge_once()>
+to avoid creating multiple edges.
 
 This method works only on groups that are part of a graph.
 
@@ -574,7 +651,7 @@ the target and the destination node are a member of the same group.
 	my $inner = $group->add_group('Group name');
 	my $nested = $group->add_group($group);
 
-Add a group as subgroup to this group.
+Add a group as subgroup to this group and returns this group.
 
 =head2 del_member()
 
@@ -599,7 +676,7 @@ Delete the specified edge from this group.
 
 	$group->add_nodes($node, $node2, ... );
 
-Add all the specified nodes to this group.
+Add all the specified nodes to this group and returns them as a list.
 
 =head2 nodes()
 
@@ -613,18 +690,20 @@ Returns a list of all node objects that belong to this group.
 
 Returns a list of all edge objects that lead to or from this group.
 
-Note: This does not return edges between nodes that are inside the group.
+Note: This does B<not> return edges between nodes that are inside the group,
+for this see L<edges_within()>.
 
 =head2 edges_within()
 
 	my @edges_within = $group->edges_within();
 
-Returns a list of all edge objects that are I<inside> this group. Edges
-are automatically considered I<inside> a group if their starting and
-ending node both are in the same group.
+Returns a list of all edge objects that are I<inside> this group, in arbitrary
+order. Edges are automatically considered I<inside> a group if their starting
+and ending node both are in the same group.
 
-Note: This does not return edges between this group and other groups,
-nor edges between this group and nodes outside this group.
+Note: This does B<not> return edges between this group and other groups,
+nor edges between this group and nodes outside this group, for this see
+L<edges()>.
 
 =head2 groups()
 
@@ -739,7 +818,7 @@ L<Graph::Easy>, L<Graph::Easy::Node>, L<Graph::Easy::Manual>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2008 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for more details.
 

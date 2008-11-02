@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.63';
+$VERSION = '0.64';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -50,6 +50,9 @@ BEGIN
 
   # backwards compatibility
   *is_simple_graph = \&is_simple;
+
+  # compatibility to Graph
+  *vertices = \&nodes;
   }
 
 #############################################################################
@@ -416,7 +419,7 @@ sub seed
 
 sub nodes
   {
-  # return all nodes as objects
+  # return all nodes as objects, in scalar context their count
   my ($self) = @_;
 
   my $n = $self->{nodes};
@@ -1880,6 +1883,7 @@ sub add_node
     if ref($x) && ref($x->{graph}) && $x->{graph} != $self;
 
   my $no = $self->{nodes};
+  # already exists?
   return $no->{$n} if exists $no->{$n};
 
   my $uc = $self->{use_class};
@@ -1919,22 +1923,25 @@ sub add_nodes
       if ref($x) && ref($x->{graph}) && $x->{graph} != $self;
 
     my $no = $self->{nodes};
-    return $no->{$n} if exists $no->{$n};
+    # this one already exists
+    next if exists $no->{$n};
 
     my $uc = $self->{use_class};
-    $x = $uc->{node}->new( $x ) unless ref $x;
+    # make it work with read-only scalars:
+    my $xx = $x;
+    $xx = $uc->{node}->new( $x ) unless ref $x;
 
     # store the node
-    $no->{$n} = $x;
+    $no->{$n} = $xx;
 
     # Register the nodes and the edge with our graph object
     # and weaken the references. Be carefull to not needlessly
     # override and weaken again an already existing reference, this
     # is an O(N) operation in most Perl versions, and thus very slow.
 
-    weaken($x->{graph} = $self) unless ref($x->{graph});
+    weaken($xx->{graph} = $self) unless ref($xx->{graph});
 
-    push @rc, $x;
+    push @rc, $xx;
     }
 
   $self->{score} = undef;			# invalidate last layout
@@ -2272,6 +2279,90 @@ sub use_class
   $self->{use_class}->{$object} = $class;
 
   $self;  
+  }
+
+#############################################################################
+#############################################################################
+# Support for Graph interface to make Graph::Maker happy:
+
+sub add_vertex
+  {
+  my ($self,$x) = @_;
+  
+  $self->add_node($x);
+  $self;
+  }
+
+sub add_vertices
+  {
+  my ($self) = shift;
+  
+  $self->add_nodes(@_);
+  $self;
+  }
+
+sub add_path
+  {
+  my ($self) = shift;
+
+  my $first = shift;
+
+  while (@_)
+    {
+    my $second = shift;
+    $self->add_edge($first, $second );
+    $first = $second; 
+    }
+  $self;
+  }
+
+sub add_cycle
+  {
+  my ($self) = shift;
+
+  my $first = shift; my $a = $first;
+
+  while (@_)
+    {
+    my $second = shift;
+    $self->add_edge($first, $second );
+    $first = $second; 
+    }
+  # complete the cycle
+  $self->add_edge($first, $a);
+  $self;
+  }
+
+sub has_edge
+  {
+  # return true if at least one edge between X and Y exists
+  my ($self, $x, $y) = @_;
+
+  # turn plaintext scalars into objects 
+  $x = $self->{nodes}->{$x} unless ref $x;
+  $y = $self->{nodes}->{$y} unless ref $y;
+
+  # node does not exist => edge does not exist
+  return 0 unless ref($x) && ref($y);
+
+  scalar $x->edges_to($y) ? 1 : 0;
+  }
+
+sub set_vertex_attribute
+  {
+  my ($self, $node, $name, $value) = @_;
+
+  $node = $self->add_node($node);
+  $node->set_attribute($name,$value);
+
+  $self;
+  }
+
+sub get_vertex_attribute
+  {
+  my ($self, $node, $name) = @_;
+
+  $self->node($node)->get_attribute($name);
   }
 
 #############################################################################
@@ -3909,6 +4000,66 @@ for examples and details.
 
 Returns the animation of C<$graph> as a graph describing the flow of the
 animation. Usefull for debugging animation flows.
+
+=head2 add_cycle()
+
+	$graph->add_cycle('A','B','C');		# A -> B -> C -> A
+
+Compatibility method for Graph, adds the edges between each node
+and back from the last node to the first. Returns the graph.
+
+=head2 add_path()
+
+	$graph->add_path('A','B','C');		# A -> B -> C
+
+Compatibility method for Graph, adds the edges between each node.
+Returns the graph.
+
+=head2 add_vertex()
+
+	$graph->add_vertex('A');
+
+Compatibility method for Graph, adds the node and returns the graph.
+
+=head2 add_vertices()
+
+	$graph->add_vertices('A','B');
+
+Compatibility method for Graph, adds these nodes and returns the graph.
+
+=head2 has_edge()
+
+	$graph->has_edge('A','B');
+
+Compatibility method for Graph, returns true if at least one edge between
+A and B exists.
+
+=head2 vertices()
+
+Compatibility method for Graph, returns in scalar context the number
+of nodes this graph has, in list context a (arbitrarily sorted) list
+of node objects.
+
+=head2 set_vertex_attribute()
+
+	$graph->set_vertex_attribute( 'A', 'fill', '#deadff' );
+
+Compatibility method for Graph, set the named vertex attribute.
+
+Please note that this routine will only accept Graph::Easy attribute
+names and values. If you want to attach custom attributes, you need to
+start their name with 'x-':
+
+	$graph->set_vertex_attribute( 'A', 'x-foo', 'bar' );
+
+=head2 get_vertex_attribute()
+
+	my $fill = $graph->get_vertex_attribute( 'A', 'fill' );
+
+Compatibility method for Graph, get the named vertex attribute.
+
+Please note that this routine will only accept Graph::Easy attribute
+names. See L<set_vertex_attribute()>.
 
 =head1 EXPORT
 

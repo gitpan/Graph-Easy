@@ -5,11 +5,12 @@ author:
 build_requires:
   Test::More: 0.62
 distribution_type: module
-generated_by: 'Module::Install version 0.71'
+generated_by: 'Module::Install version 0.77'
 license: gpl
 meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.3.html
-  version: 1.3
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+module_name: Graph::Easy
 name: Graph-Easy
 no_index:
   directory:
@@ -18,9 +19,10 @@ no_index:
     - todos
     - inc
     - t
+    - examples
 recommends:
   Graph::Easy::As_svg: 0.23
 requires:
   Scalar::Util: 1.13
   perl: 5.008002
-version: 0.63
+version: 0.64

@@ -271,8 +271,11 @@ sub get_options
     $opt->{output} = $opt->{input} unless defined $opt->{output};
     # set some default output name, so the replace works correctly
     $opt->{output} = 'graph.txt' if ref($opt->{input});
-    # example.txt => example.png
-    $opt->{output} =~ s/\.(txt|dot|vcg|gdl|graphml|$external)\z/.$opt->{as}/;
+    # two-step process to fix bug #37534 - overwrites input with no extension
+    # example.txt => example
+    $opt->{output} =~ s/\.(txt|dot|vcg|gdl|graphml|$external)\z//;
+    # example => example.png
+    $opt->{output} .= ".$opt->{as}";
     }
   if (!defined $opt->{output})
     {

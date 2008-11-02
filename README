@@ -14,7 +14,7 @@ that is human readable and maintainable, or parsed from Graphviz code.
 For instance this input:
 
 	[ Bonn ] -> [ Berlin ]
-	[ Berlin -> [ Frankfurt ] { border: 1px dotted black; }
+	[ Berlin ] -> [ Frankfurt ] { border: 1px dotted black; }
 	[ Frankfurt ] -> [ Dresden ]
 	[ Berlin ] ..> [ Potsdam ]
 	[ Potsdam ] => [ Cottbus ]

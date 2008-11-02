@@ -29,7 +29,6 @@ inc/Module/Install/Can.pm
 inc/Module/Install/Fetch.pm
 inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
-inc/Module/Install/Scripts.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 INSTALL
@@ -100,8 +99,10 @@ t/fun/biofuel.txt
 t/fun/geek_dating.txt
 t/fun/overview.txt
 t/gdl.t
+t/graph-maker.t
 t/graph.t
 t/graphml.t
+t/graphml_yed.t
 t/graphviz.t
 t/group.t
 t/group/0010.txt

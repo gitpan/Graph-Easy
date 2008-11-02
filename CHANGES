@@ -1,5 +1,27 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2008-08-10 v0.64 Tels 2933 tests
+  * fix bug #37534 - overwrites input without warning (Thanx C. Khan!)
+  * fix bug #37566 - Graphviz (v2.16) output broken (Thanx C. Khan!)
+  * fix bug #37842 - typo in README (Thanx Craig Sparks!)
+  * fix add_nodes(), would return instead of skipping existing nodes
+  * as_graphml:
+    + fix #36533: GraphML end tag (Thanx Thiago M. Venancio!)
+    + fix indent and endtag of groups (Thanx Thiago M. Venancio!)
+    + properly escape special characters in group/graph names
+    + add format => 'yED' to output as yED compatible (Thanx to
+      Thiago M. Venancio for requesting and testing this!)
+  * Groups:
+    + nodes added to the group are also put into the same graph as the group
+    + add_node('A') etc. (add with non-object) works now
+    + add_node('A') returns node, not group
+    + add_edge('A','B) and add_edge_once('A','B') work now
+  * Graph::Easy:
+    + add compatibility methods to mimick the interface of Graph:
+	add_edges, add_cycle, add_path, add_vertices, add_vertex,
+	set_vertex_attribute, and has_edge
+      (Thanx to Matt Spear for requesting this!)
+
 2008-05-22 v0.63 Tels 2895 tests
   * require Perl v5.8.2 (it fails badly on 5.8.1; due to hash order?)
   * add examples/wikicrawl.pl - thanx integral from forum.xkcd.com!

@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 64;
+   plan tests => 72;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Easy::Group") or die($@);
@@ -222,4 +222,42 @@ my @suc = $group->successors();
 
 is (scalar @suc, 1, 'one successor');
 is ($suc[0], $bonn, 'group => bonn');
+
+#############################################################################
+# add_node('Bonn'), add_member('Bonn','Berlin') etc.
+
+$graph = Graph::Easy->new();
+
+$group = $graph->add_group('group');
+$bonn = $group->add_node('Bonn');
+
+is (ref($bonn), 'Graph::Easy::Node', "add_node('Bonn') works for groups");
+
+($bonn,$berlin) = $group->add_nodes('Bonn','Berlin');
+
+is (ref($bonn), 'Graph::Easy::Node', "add_nodes('Bonn') works for groups");
+is ($bonn->name(), 'Bonn', "add_nodes('Bonn') works for groups");
+is (ref($berlin), 'Graph::Easy::Node', "add_nodes('Berlin') works for groups");
+is ($berlin->name(), 'Berlin', "add_nodes('Berlin') works for groups");
+
+# add_edge()
+my $edge = $group->add_edge('Bonn','Kassel');
+
+my $kassel = $graph->node('Kassel');
+
+is (ref($kassel), 'Graph::Easy::Node', "add_edge('Bonn','Kassel') works for groups");
+
+# add_edge_once()
+
+$edge = $group->add_edge_once('Bonn','Kassel');
+
+my @edges = $graph->edges('Bonn','Kassel');
+is (scalar @edges, 1, 'one edge from Bonn => Kassel');
+
+# add_edge() twice
+
+$edge = $group->add_edge('Bonn','Kassel');
+
+@edges = $graph->edges('Bonn','Kassel');
+is (scalar @edges, 2, 'two edges from Bonn => Kassel');
 

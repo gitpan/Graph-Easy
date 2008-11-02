@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# Some basic GraphML tests
+# Some basic GraphML tests with the format=yED 
 
 use Test::More;
 use strict;
@@ -23,12 +23,12 @@ can_ok ('Graph::Easy', qw/
 #############################################################################
 my $graph = Graph::Easy->new();
 
-my $graphml_file = $graph->as_graphml_file();
+my $graphml_file = $graph->as_graphml_file( format => 'yED' );
 $graphml_file =~ s/\n.*<!--.*-->\n//;
 
 _compare ($graph, $graphml_file, 'as_graphml and as_graphml_file are equal');
 
-my $graphml = $graph->as_graphml();
+my $graphml = $graph->as_graphml( format => 'yED' );
 like ($graphml, qr/<\?xml version="1.0" encoding="UTF-8"\?>/, 'as_graphml looks like xml');
 
 #############################################################################
@@ -194,20 +194,21 @@ sub _compare
   {
   my ($graph, $result, $name) = @_;
 
-  my $graphml = $graph->as_graphml();
+  my $graphml = $graph->as_graphml( { format => 'yED' } );
   $graphml =~ s/\n.*<!--.*-->\n//;
 
   $result = <<EOR
 <?xml version="1.0" encoding="UTF-8"?>
 <graphml xmlns="http://graphml.graphdrawing.org/xmlns/graphml"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:y="http://www.yworks.com/xml/graphml"
     xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns/graphml
-     http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+     http://www.yworks.com/xml/schema/graphml/1.0/ygraphml.xsd">
 
 EOR
   . $result unless $result =~ /<\?xml/;
 
-  if (!is ($graphml, $result, $name))
+  if (!is ($result, $graphml, $name))
     {
     eval { require Test::Differences; };
     if (defined $Test::Differences::VERSION)

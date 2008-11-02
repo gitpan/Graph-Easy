@@ -1,10 +1,11 @@
 #############################################################################
 # Output an Graph::Easy object as GraphML text
 #
+#############################################################################
 
 package Graph::Easy::As_graphml;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 #############################################################################
 #############################################################################
@@ -73,18 +74,47 @@ sub _graphml_attr_keys
   $txt;
   }
 
+# yED example:
+
+# <data key="d0">
+#  <y:ShapeNode>
+#    <y:Geometry height="30.0" width="30.0" x="277.0" y="96.0"/>
+#    <y:Fill color="#FFCC00" transparent="false"/>
+#    <y:BorderStyle color="#000000" type="line" width="1.0"/>
+#    <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.701171875" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="11.0" x="9.5" y="5.6494140625">1</y:NodeLabel>
+#    <y:Shape type="ellipse"/>
+#   </y:ShapeNode>
+# </data>
+
 sub _as_graphml
   {
-  my ($self) = @_;
+  my $self = shift;
+
+  my $args = $_[0];
+  $args = { name => $_[0] } if ref($args) ne 'HASH' && @_ == 1;
+  $args = { @_ } if ref($args) ne 'HASH' && @_ > 1;
+  
+  $args->{format} = 'graph-easy' unless defined $args->{format};
+
+  if ($args->{format} !~ /^(graph-easy|Graph::Easy|yED)\z/i)
+    {
+    return $self->error("Format '$args->{format}' not understood by as_graphml.");
+    }
+  my $format = $args->{format};
 
   # Convert the graph to a textual representation - does not need layout().
 
+  my $schema = "http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd";
+  $schema = "http://www.yworks.com/xml/schema/graphml/1.0/ygraphml.xsd" if $format eq 'yED';
+  my $y_schema = '';
+  $y_schema = "\n    xmlns:y=\"http://www.yworks.com/xml/graphml\"" if $format eq 'yED';
+
   my $txt = <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
-<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
-     http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns/graphml"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"##Y##
+    xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns/graphml
+     ##SCHEMA##">
 
   <!-- Created by Graph::Easy v##VERSION## at ##DATE## -->
 
@@ -93,6 +123,8 @@ EOF
 	  
   $txt =~ s/##DATE##/scalar localtime()/e;
   $txt =~ s/##VERSION##/$Graph::Easy::VERSION/;
+  $txt =~ s/##SCHEMA##/$schema/;
+  $txt =~ s/##Y##/$y_schema/;
 
   # <key id="d0" for="node" attr.name="color" attr.type="string">
   #   <default>yellow</default>
@@ -108,6 +140,13 @@ EOF
       ."\n    <default>##default##</default>\n"
       ."  </key>\n";
   my $tpl_no_default = '  <key id="##id##" for="##class##" attr.name="##name##" attr.type="##type##"/>'."\n";
+
+  # for yED:
+  # <key for="node" id="d0" yfiles.type="nodegraphics"/>
+  # <key attr.name="description" attr.type="string" for="node" id="d1"/>
+  # <key for="edge" id="d2" yfiles.type="edgegraphics"/>
+  # <key attr.name="description" attr.type="string" for="edge" id="d3"/>
+  # <key for="graphml" id="d4" yfiles.type="resources"/>
 
   # we need to remember the mapping between attribute name and ID:
   my $ids = {};
@@ -146,7 +185,7 @@ EOF
   my @groups = $self->groups_within(0);
   foreach my $g (@groups)
     {
-    $txt .= $g->as_graphml($indent,$ids);			# marks nodes as processed if nec.
+    $txt .= $g->as_graphml($indent.'  ',$ids);			# marks nodes as processed if nec.
     }
  
   $indent = '    ';		
@@ -175,7 +214,7 @@ EOF
       }
     }
 
-  $txt .= "  </graph>\n<graphml>\n";
+  $txt .= "  </graph>\n</graphml>\n";
   $txt;
   }
 
@@ -225,15 +264,15 @@ sub as_graphml
   {
   my ($self, $indent, $ids) = @_;
 
-  my $txt = $indent . '<graph id="' . $self->{name} . '" edgedefault="' .
+  my $txt = $indent . '<graph id="' . $self->_safe_xml($self->{name}) . '" edgedefault="' .
 	$self->{graph}->type() . "\">\n";
   $txt .= $self->{graph}->_attributes_as_graphml($self, $indent, $ids->{graph});
 
-  foreach my $n (@{$self->{nodes}})
+  foreach my $n (values %{$self->{nodes}})
     {
     my @out = $n->sorted_successors();
 
-    $txt .= $n->as_graphml($indent, $ids); 		# <node id="..." ...>
+    $txt .= $n->as_graphml($indent.'  ', $ids); 		# <node id="..." ...>
 
     # for all outgoing connections
     foreach my $other (@out)
@@ -242,7 +281,7 @@ sub as_graphml
       my @edges = $n->edges_to($other);
       for my $edge (sort { $a->{id} <=> $b->{id} } @edges)
         {
-        $txt .= $edge->as_graphml($indent,$ids);
+        $txt .= $edge->as_graphml($indent.'  ',$ids);
         }
       $txt .= "\n" if @edges > 0;
       }
@@ -256,6 +295,10 @@ sub as_graphml
     }
 
   # XXX TODO: edges from/to this group
+
+  # close this group
+  $txt .= $indent . "</graph>";
+
   $txt;
   }
 
@@ -336,7 +379,7 @@ L<Graph::Easy>, L<http://graphml.graphdrawing.org/>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2007 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2008 by Tels L<http://bloodgate.com>
 
 See the LICENSE file for information.
 
