@@ -1,3 +1,4 @@
+.MANIFEST.swp
 bench/bench.pl
 bench/serie.pl
 bench/stress.pl
@@ -34,7 +35,6 @@ inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 INSTALL
 lib/Graph/Easy.pm
-lib/Graph/Easy.pm.orig
 lib/Graph/Easy/As_ascii.pm
 lib/Graph/Easy/As_graphml.pm
 lib/Graph/Easy/As_graphviz.pm
@@ -55,7 +55,6 @@ lib/Graph/Easy/Layout/Path.pm
 lib/Graph/Easy/Layout/Repair.pm
 lib/Graph/Easy/Layout/Scout.pm
 lib/Graph/Easy/Node.pm
-lib/Graph/Easy/Node.pm.orig
 lib/Graph/Easy/Node/Anon.pm
 lib/Graph/Easy/Node/Cell.pm
 lib/Graph/Easy/Node/Empty.pm
