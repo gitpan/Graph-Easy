@@ -1,11 +1,15 @@
 ---
 abstract: 'Convert or render graphs (as ASCII, HTML, SVG or via Graphviz)'
 author:
+  - '- 2008 by Tels L<http://bloodgate.com>'
   - 'Tels <nospam-abuse@bloodgate.com>'
 build_requires:
+  ExtUtils::MakeMaker: 6.42
   Test::More: 0.62
+configure_requires:
+  ExtUtils::MakeMaker: 6.42
 distribution_type: module
-generated_by: 'Module::Install version 0.77'
+generated_by: 'Module::Install version 0.95'
 license: gpl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -14,15 +18,15 @@ module_name: Graph::Easy
 name: Graph-Easy
 no_index:
   directory:
-    - examples
     - bench
-    - todos
+    - examples
     - inc
     - t
-    - examples
 recommends:
   Graph::Easy::As_svg: 0.23
 requires:
   Scalar::Util: 1.13
   perl: 5.008002
-version: 0.64
+resources:
+  license: http://opensource.org/licenses/gpl-license.php
+version: 0.65

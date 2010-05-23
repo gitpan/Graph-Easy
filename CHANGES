@@ -1,5 +1,19 @@
 Revision history for Graph::Easy (formerly known as Graph::Simple):
 
+2010-05-23 v0.65 Shlomi Fish 2933 tests
+  * Partial fix to bug #27663
+    + Fix the name of the function in the code excerpt of as_graphviz()
+    + Mark as_graphviz() and as_graphviz() as for internal use.
+    + Make sure to indicate that one needs to load Graph::Easy::As_graphviz
+      beforehand.
+  * Fix for https://rt.cpan.org/Ticket/Display.html?id=48657
+    + Specify what the default timeout is in the POD of Graph::Easy.
+    + Thanks to MTHURN for reporting it.
+  * Fix for https://rt.cpan.org/Ticket/Display.html?id=51820
+    + Changed C<..> to C<< ... >>> for correct POD rendering.
+  * Applied patch from https://rt.cpan.org/Ticket/Display.html?id=57777
+    + Spelling errors.
+
 2008-08-10 v0.64 Tels 2933 tests
   * fix bug #37534 - overwrites input without warning (Thanx C. Khan!)
   * fix bug #37566 - Graphviz (v2.16) output broken (Thanx C. Khan!)

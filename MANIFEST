@@ -5,65 +5,68 @@ bench/test.dot
 bench/test.txt
 bin/graph-easy
 CHANGES
-examples/as_ascii		parse text and output it as ASCII art
-examples/as_boxart		parse text and output it as box drawing using unicode
-examples/as_boxart_html		parse text and output it as standalone HTML page with box drawing
-examples/as_graphviz		parse text and output as graphviz
-examples/as_html		parse text and output it as standalone HTML page
-examples/as_svg			parse text and output as standalone SVG
-examples/as_txt			parse text and output as text again
+examples/as_ascii
+examples/as_boxart
+examples/as_boxart_html
+examples/as_graphviz
+examples/as_html
+examples/as_svg
+examples/as_txt
 examples/ascii.pl
-examples/base.css		needed for the output of syntax.pl
+examples/base.css
 examples/common.pl
-examples/complex.txt		a complex example
+examples/complex.txt
 examples/fun.tpl
-examples/history.txt		test-graph for version comparisations
+examples/history.txt
 examples/html.pl
-examples/parse			parser for tests
+examples/parse
 examples/syntax.pl
-examples/syntax.tpl		HTML template for syntax tests
-examples/wikicrawl.pl		Crawl Wikipedia and create a graph from the article links
+examples/syntax.tpl
+examples/wikicrawl.pl
 inc/Module/Install.pm
 inc/Module/Install/Base.pm
 inc/Module/Install/Can.pm
 inc/Module/Install/Fetch.pm
 inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
+inc/Module/Install/Scripts.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 INSTALL
 lib/Graph/Easy.pm
-lib/Graph/Easy/As_ascii.pm	generate ASCII art
+lib/Graph/Easy.pm.orig
+lib/Graph/Easy/As_ascii.pm
 lib/Graph/Easy/As_graphml.pm
-lib/Graph/Easy/As_graphviz.pm	generate graphviz text
-lib/Graph/Easy/As_txt.pm	generate textual description
+lib/Graph/Easy/As_graphviz.pm
+lib/Graph/Easy/As_txt.pm
 lib/Graph/Easy/As_vcg.pm
-lib/Graph/Easy/Attributes.pm	define and check attributes
-lib/Graph/Easy/Base.pm		OO base class
-lib/Graph/Easy/Edge.pm		an edge
-lib/Graph/Easy/Edge/Cell.pm	a cell during rendering the edge
-lib/Graph/Easy/Group.pm		a group of modes
-lib/Graph/Easy/Group/Anon.pm	an anonymous (aka nameless) group
+lib/Graph/Easy/Attributes.pm
+lib/Graph/Easy/Base.pm
+lib/Graph/Easy/Edge.pm
+lib/Graph/Easy/Edge/Cell.pm
+lib/Graph/Easy/Group.pm
+lib/Graph/Easy/Group/Anon.pm
 lib/Graph/Easy/Group/Cell.pm
-lib/Graph/Easy/Layout.pm	actual layout routines
-lib/Graph/Easy/Layout/Chain.pm	a chain of nodes
+lib/Graph/Easy/Layout.pm
+lib/Graph/Easy/Layout/Chain.pm
 lib/Graph/Easy/Layout/Force.pm
-lib/Graph/Easy/Layout/Grid.pm	prepare layout
-lib/Graph/Easy/Layout/Path.pm	path management
-lib/Graph/Easy/Layout/Repair.pm	group cells splicing/repair code
-lib/Graph/Easy/Layout/Scout.pm	pathfinding (including A*)
+lib/Graph/Easy/Layout/Grid.pm
+lib/Graph/Easy/Layout/Path.pm
+lib/Graph/Easy/Layout/Repair.pm
+lib/Graph/Easy/Layout/Scout.pm
 lib/Graph/Easy/Node.pm
-lib/Graph/Easy/Node/Anon.pm	an anonymous node
+lib/Graph/Easy/Node.pm.orig
+lib/Graph/Easy/Node/Anon.pm
 lib/Graph/Easy/Node/Cell.pm
-lib/Graph/Easy/Node/Empty.pm	empty parts of a cluster
-lib/Graph/Easy/Parser.pm	parse textual descriptions
-lib/Graph/Easy/Parser/Graphviz.pm	parse dot/graphviz text
+lib/Graph/Easy/Node/Empty.pm
+lib/Graph/Easy/Parser.pm
+lib/Graph/Easy/Parser/Graphviz.pm
 lib/Graph/Easy/Parser/VCG.pm
 LICENSE
 Makefile.PL
-MANIFEST
-MANIFEST.SKIP			enable "make manifest"		
-META.yml			Module meta-data
+MANIFEST			This list of files
+MANIFEST.SKIP
+META.yml
 README
 SIGNATURE
 t/anon.t
@@ -79,16 +82,16 @@ t/cell.t
 t/chain.t
 t/class.t
 t/cluster.t
-t/copy.t			test copy() method
+t/copy.t
 t/custom.t
-t/delete.t			test deletion of nodes/edges
+t/delete.t
 t/dot/4_loose.dot
 t/drop.t
 t/easypm.t
 t/edge.t
 t/edge_cell.t
 t/fb.t
-t/fun/0000.txt			fun with graph examples
+t/fun/0000.txt
 t/fun/0010.txt
 t/fun/0011.txt
 t/fun/0020.txt
@@ -110,7 +113,7 @@ t/group/0131.txt
 t/group/0230.txt
 t/gv.t
 t/heap.t
-t/html.t			HTML output
+t/html.t
 t/in/0_empty_group.txt
 t/in/0_empty_groups.txt
 t/in/10_repair.txt
@@ -519,17 +522,17 @@ t/out/gdl/2_bottom_to_top.txt
 t/out/gdl/2_left_to_right.txt
 t/out/gdl/2_right_to_left.txt
 t/out/gdl/2_top_to_bottom.txt
-t/parse_att.t			test parsing attributes
-t/parse_edge.t			test parsing edges
-t/parser.t			general Parser tests
-t/parser_dot.t			general Parser::Graphviz tests
-t/parser_dot_html.t		Parser::Graphviz tests with HTML-like labels
+t/parse_att.t
+t/parse_edge.t
+t/parser.t
+t/parser_dot.t
+t/parser_dot_html.t
 t/path.t
-t/pod.t				test the POD for correctness
-t/pod_cov.t			test the POD for covering all subroutines
-t/re_layout.t			test forcing a relayout/recalc
-t/split.t			[ A | B | C ] || [ D | E | F ] tests
-t/stress/0001.txt		stress-testing the layouter
+t/pod.t
+t/pod_cov.t
+t/re_layout.t
+t/split.t
+t/stress/0001.txt
 t/stress/0002.txt
 t/stress/0003.txt
 t/stress/0004.txt
@@ -541,7 +544,7 @@ t/stress/0012.txt
 t/stress/0020.txt
 t/stress/anon.txt
 t/stress/drop.txt
-t/syntax/0000.txt		syntax tests for the parser
+t/syntax/0000.txt
 t/syntax/0001.txt
 t/syntax/0002.txt
 t/syntax/0003.txt
@@ -568,8 +571,8 @@ t/syntax/0131.txt
 t/syntax/0140.txt
 t/syntax/0150.txt
 t/syntax/0160.txt
-t/syntax/0170.txt		edges with labels
-t/syntax/0171.txt		edges with attributes
+t/syntax/0170.txt
+t/syntax/0171.txt
 t/syntax/0180.txt
 t/syntax/0190.txt
 t/syntax/0200.txt
@@ -750,6 +753,6 @@ t/txt/gdl/2_bottom_to_top.txt
 t/txt/gdl/2_left_to_right.txt
 t/txt/gdl/2_right_to_left.txt
 t/txt/gdl/2_top_to_bottom.txt
-t/use_class.t			test overriding classes in the Parser
-t/vcg.t				test Parser/VCG
+t/use_class.t
+t/vcg.t
 TODO
