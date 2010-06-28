@@ -17,7 +17,7 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.67';
+$VERSION = '0.68';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
@@ -2424,7 +2424,7 @@ Graph::Easy - Convert or render graphs (as ASCII, HTML, SVG or via Graphviz)
 	my $graph = Graph::Easy->new();
 
 	my $bonn = $graph->add_node('Bonn');
-	$bonn->set_attribute('border', 'solid 1px black')
+	$bonn->set_attribute('border', 'solid 1px black');
 
 	my $berlin = $graph->add_node('Berlin');
 
