@@ -23,6 +23,7 @@ examples/parse
 examples/syntax.pl
 examples/syntax.tpl
 examples/wikicrawl.pl
+foo
 inc/Module/Install.pm
 inc/Module/Install/Base.pm
 inc/Module/Install/Can.pm
@@ -60,6 +61,7 @@ lib/Graph/Easy/Node/Empty.pm
 lib/Graph/Easy/Parser.pm
 lib/Graph/Easy/Parser/Graphviz.pm
 lib/Graph/Easy/Parser/VCG.pm
+lib/Graph/Easy/Util.pm
 LICENSE
 Makefile.PL
 MANIFEST			This list of files
@@ -600,6 +602,8 @@ t/txt/2_cluster_2.txt
 t/txt/2_cluster_3.txt
 t/txt/2_dot.txt
 t/txt/2_dot_dot_dash.txt
+t/txt/2_edges.txt
+t/txt/2_flow.txt
 t/txt/2_graph_label.txt
 t/txt/2_group.txt
 t/txt/2_group_labelpos.txt
@@ -608,11 +612,16 @@ t/txt/2_group_no_border.txt
 t/txt/2_invisible_left.txt
 t/txt/2_invisible_right.txt
 t/txt/2_label.txt
+t/txt/2_label_align.txt
 t/txt/2_list_attr.txt
+t/txt/2_long_labels.txt
 t/txt/2_newlines.txt
+t/txt/2_selfloop.txt
+t/txt/2_selfloop_flow_down.txt
 t/txt/2_split_bug.txt
 t/txt/2_wrap.txt
 t/txt/2_zeros.txt
+t/txt/2nodes.txt
 t/txt/3_autosplit_hang.txt
 t/txt/3_cache_bug.txt
 t/txt/3_cluster.txt
@@ -622,9 +631,11 @@ t/txt/3_edge_labels_from_class.txt
 t/txt/3_edge_repair.txt
 t/txt/3_edge_start.txt
 t/txt/3_empty_group.txt
+t/txt/3_flow.txt
 t/txt/3_group_align_center.txt
 t/txt/3_inherit.txt
 t/txt/3_invisible_both.txt
+t/txt/3_joining.txt
 t/txt/3_joint.txt
 t/txt/3_joint_short.txt
 t/txt/3_list_attr.txt
@@ -632,7 +643,11 @@ t/txt/3_lists.txt
 t/txt/3_nodes_5_edges.txt
 t/txt/3_selfloop.txt
 t/txt/3_selfloop_flip.txt
+t/txt/3_selfloop_flow_down.txt
+t/txt/3_selfloop_flow_left.txt
+t/txt/3_selfloop_flow_up.txt
 t/txt/3_split_attribute.txt
+t/txt/3nodes.txt
 t/txt/4_2x2nodes.txt
 t/txt/4_att.txt
 t/txt/4_autosplit_class.txt
@@ -649,6 +664,7 @@ t/txt/4_cross_split.txt
 t/txt/4_cross_split_hor.txt
 t/txt/4_edge_cross.txt
 t/txt/4_edge_labels.txt
+t/txt/4_edge_types.txt
 t/txt/4_endless_loop.txt
 t/txt/4_endless_loop_2.txt
 t/txt/4_flow.txt
@@ -663,10 +679,13 @@ t/txt/4_near.txt
 t/txt/4_node_edge.txt
 t/txt/4_nodes_5_edges.txt
 t/txt/4_nodes_6_edges.txt
+t/txt/4_nodes_edge.txt
 t/txt/4groups.txt
 t/txt/4groups_class.txt
+t/txt/4nodes.txt
 t/txt/5_arrow_styles.txt
 t/txt/5_flow.txt
+t/txt/5_group_repair.txt
 t/txt/5_group_split.txt
 t/txt/5_joint.txt
 t/txt/5_joint_bug2.txt

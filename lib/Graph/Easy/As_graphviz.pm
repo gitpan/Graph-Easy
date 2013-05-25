@@ -14,6 +14,8 @@ package Graph::Easy;
 
 use strict;
 
+use Graph::Easy::Util qw(ord_values);
+
 my $remap = {
   node => {
     'align' => undef,
@@ -482,7 +484,7 @@ sub _att_as_graphviz
   my ($self, $out) = @_;
 
   my $att = '';
-  for my $atr (keys %$out)
+  for my $atr (sort keys %$out)
     {
     my $v = $out->{$atr};
     $v =~ s/\n/\\n/g;
@@ -512,6 +514,8 @@ sub _att_as_graphviz
   $att;
   }
 
+use Graph::Easy::Util qw(first_kv);
+
 sub _generate_group_edge
   {
   # Given an edge (from/to at least one group), generate the graphviz code
@@ -527,8 +531,8 @@ sub _generate_group_edge
   if ($from->isa('Graph::Easy::Group'))
     {
     # find an arbitray node inside the group
-    my ($n, $v) = each %{$from->{nodes}};
-    
+        my ($n, $v) = first_kv($from->{nodes});
+
     $a = 'ltail="cluster' . $from->{id}.'"';	# ltail=cluster0
     $from = $v;
     }
@@ -538,8 +542,8 @@ sub _generate_group_edge
   if ($to->isa('Graph::Easy::Group'))
     {
     # find an arbitray node inside the group
-    my ($n, $v) = each %{$to->{nodes}};
-    
+    my ($n, $v) = first_kv($to->{nodes});
+
     $b = 'lhead="cluster' . $to->{id}.'"';	# lhead=cluster0
     $to = $v;
     }
@@ -725,7 +729,7 @@ sub _order_group
   {
   my ($self,$group) = @_;
   $group->{_order}++;
-  for my $sg (values %{$group->{groups}})
+  for my $sg (ord_values( $group->{groups}))
 	{
 		$self->_order_group($sg);
 	}
@@ -745,7 +749,7 @@ sub _as_graphviz_group
     my $indent = '  ' x ($group->{_order});
     $txt .= $indent."subgraph \"cluster$group->{id}\" {\n${indent}label=\"$name\";\n";
 
-	for my $sg (values %{$group->{groups}})
+	for my $sg (ord_values ( $group->{groups} ))
 	{
 		#print '--'.$sg->{name}."\n";
 		$txt .= $self->_as_graphviz_group($sg,$indent);
@@ -755,9 +759,9 @@ sub _as_graphviz_group
     my $copy = {};
     my $attribs = $group->get_attributes();
 
-    for my $a (keys %$attribs)
+    for my $key (sort keys %$attribs)
       {
-      $copy->{$a} = $attribs->{$a};
+      $copy->{$key} = $attribs->{$key};
       }
     # set some defaults
     $copy->{'borderstyle'} = 'solid' unless defined $copy->{'borderstyle'};
@@ -795,7 +799,7 @@ sub _as_graphviz_group
       }
 
     # output node connections in this group
-    for my $e (values %{$group->{edges}})
+    for my $e (ord_values $group->{edges})
       {
       next if exists $e->{_p};
       $txt .= $self->_generate_edge($e, $indent);
@@ -886,7 +890,7 @@ sub _as_graphviz
   $self->_edges_into_groups() if $groups > 0;
 
   # output the groups (aka subclusters)
-  for my $group (values %{$self->{groups}})
+  for my $group (ord_values $self->{groups})
   {
    $self->_order_group($group);
   }
@@ -944,7 +948,7 @@ sub _as_graphviz
 
   # insert now edges between groups (clusters/subgraphs)
 
-  foreach my $e (values %{$self->{edges}})
+  foreach my $e (ord_values $self->{edges})
     {
     $txt .= $self->_generate_group_edge($e, '  ') 
      if $e->{from}->isa('Graph::Easy::Group') ||
@@ -952,7 +956,7 @@ sub _as_graphviz
     }
 
   # clean up
-  for my $n ( values %{$self->{nodes}}, values %{$self->{edges}})
+  for my $n ( ord_values( $self->{nodes}), ord_values( $self->{edges} ))
     {
     delete $n->{_p};
     }

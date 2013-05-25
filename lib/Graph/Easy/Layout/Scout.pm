@@ -729,7 +729,7 @@ sub _astar_boundaries
   $max_x = -10000000;
   $max_y = -10000000;
 
-  for my $c (keys %$cells)
+  for my $c (sort keys %$cells)
     {
     my ($x,$y) = split /,/, $c;
     $min_x = $x if $x < $min_x;
@@ -771,6 +771,8 @@ my $prev_fields =
   EDGE_S_E() => [ 0,-1, EDGE_E_N_S, -1,0, EDGE_S_E_W ],
   EDGE_S_W() => [ 0,-1, EDGE_W_N_S, +1,0, EDGE_S_E_W ],
   };
+
+use Graph::Easy::Util qw(ord_values);
 
 sub _get_joints
   { 
@@ -815,7 +817,7 @@ sub _get_joints
  
   my @R;
   # convert hash to array
-  for my $s (values %{$cells})
+  for my $s (ord_values ( $cells ))
     {
     push @R, @$s;
     }

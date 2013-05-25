@@ -13,6 +13,8 @@ use strict;
 use utf8;
 use constant NO_MULTIPLES => 1;
 
+use Graph::Easy::Util qw(ord_values);
+
 sub _init
   {
   my $self = shift;
@@ -657,12 +659,12 @@ sub _new_scope
     my $old_scope = $self->{scope_stack}->[-1];
 
     # make a copy of the old scope's attributes
-    for my $t (keys %$old_scope)
+    for my $t (sort keys %$old_scope)
       {
       next if $t =~ /^_/;
       my $s = $old_scope->{$t};
       $scope->{$t} = {} unless ref $scope->{$t}; my $sc = $scope->{$t};
-      for my $k (keys %$s)
+      for my $k (sort keys %$s)
         {
 	# skip things like "_is_group"
         $sc->{$k} = $s->{$k} unless $k =~ /^_/;
@@ -859,7 +861,7 @@ sub _build_match_stack
 	my $scope = $self->{scope_stack}->[-1];
         $scope->{$type} = {} unless ref $scope->{$type};
 	my $s = $scope->{$type};
-	for my $k (keys %$att)
+	for my $k (sort keys %$att)
 	  {
           $s->{$k} = $att->{$k}; 
 	  }
@@ -1905,7 +1907,7 @@ sub _parser_cleanup
       # part of the autosplit node (dot seems to render them arbitrarily
       # on the autosplit node):
 
-      for my $e (values %{$n->{edges}})
+      for my $e (ord_values( $n->{edges} ))
 	{
         $e->start_at($rc[0]) if $e->{from} == $n;
         $e->end_at($rc[0]) if $e->{to} == $n;

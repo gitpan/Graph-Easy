@@ -92,11 +92,11 @@ is ($e->label(), 'train', 'add_edge($n,$n2,"label") works');
 #############################################################################
 # as_txt() (simple nodes)
 
-is ( $graph->as_txt(), <<HERE
+is ( $graph->as_txt(), <<'HERE',
 [ Frankfurt a. M. ] -- train --> [ Bonn ]
 [ Bonn ] --> [ Berlin ]
 HERE
-, 'as_txt() for 3 nodes with 2 edges');
+'as_txt() for 3 nodes with 2 edges');
 
 my $schweinfurt = Graph::Easy::Node->new( name => 'Schweinfurt' );
 $graph->add_edge ($schweinfurt, $bonn);
@@ -104,19 +104,19 @@ $graph->add_edge ($schweinfurt, $bonn);
 is ($graph->nodes (), 4, '4 nodes');
 is ($graph->edges (), 3, '3 edges');
 
-is ( $graph->as_txt(), <<HERE
+is ( $graph->as_txt(), <<'HERE',
 [ Frankfurt a. M. ] -- train --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]
 [ Bonn ] --> [ Berlin ]
 HERE
-, 'as_txt() for 4 nodes with 3 edges');
+'as_txt() for 4 nodes with 3 edges');
 
 #############################################################################
 # as_txt() (nodes with attributes)
 
 $bonn->set_attribute('class', 'cities');
 
-is ( $graph->as_txt(), <<HERE
+is ( $graph->as_txt(), <<'HERE'
 [ Bonn ] { class: cities; }
 
 [ Frankfurt a. M. ] -- train --> [ Bonn ]
@@ -135,7 +135,7 @@ is ($bonn->border_attribute(), 'none', 'border set to none');
 
 # border is second-to-last, class is the last attribute:
 
-is ( $graph->as_txt(), <<HERE
+is ( $graph->as_txt(), <<'HERE'
 [ Berlin ] { color: blue; }
 [ Bonn ] { color: red; border: none; class: cities; }
 
@@ -179,7 +179,7 @@ is ($graph->border_attribute('node'), 'solid 2px blue', 'border set on class nod
 # node "border: solid 2px blue" because these are not the defaults (color/width changed
 # means we also get the style explicitely)
 
-is ( $graph->as_txt(), <<HERE
+is ( $graph->as_txt(), <<'HERE'
 graph { border: dashed; }
 node { border: solid 2px blue; }
 

@@ -15,6 +15,8 @@ use Scalar::Util qw/weaken/;
 use strict;
 use constant NO_MULTIPLES => 1;
 
+use Graph::Easy::Util qw(ord_values);
+
 sub _init
   {
   my ($self,$args) = @_;
@@ -23,7 +25,7 @@ sub _init
   $self->{debug} = 0;
   $self->{fatal_errors} = 1;
   
-  foreach my $k (keys %$args)
+  foreach my $k (sort keys %$args)
     {
     if ($k !~ /^(debug|fatal_errors)\z/)
       {
@@ -180,7 +182,7 @@ sub _register_attribute_handler
 	{
 	# stack is a scope stack
 	# XXX TODO: Find out wether the attribute goes to graph, node or edge
-	for my $k (keys %$a)
+	for my $k (sort keys %$a)
 	  {
 	  $stack->[-1]->{graph}->{$k} = $a->{$k};
 	  }
@@ -602,7 +604,7 @@ sub from_text
   my $uc = $self->{use_class};
 
   # instruct the graph to use the custom classes, too
-  for my $o (keys %$uc)
+  for my $o (sort keys %$uc)
     {
     $graph->use_class($o, $uc->{$o}) unless $o eq 'graph';	# group, node and edge
     }
@@ -1350,7 +1352,7 @@ sub _parser_cleanup
 
   my $g = $self->{_graph};
   
-  for my $n (values %{$g->{nodes}})
+  for my $n (ord_values ( $g->{nodes} ))
     {
     next if $n->{autosplit};
     $self->warn("Node '" . $self->_quote($n->{name}) . "' has an offset but no origin")

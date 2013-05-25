@@ -157,7 +157,7 @@ good_css($graph);
 
 $graph->set_attributes ('node.cities', { color => '#0000ff' } );
 
-good_css($graph, 
+good_css($graph,
   'table.graph42 .node_cities',
   'table.graph42 .node,table.graph42 .node_anon,table.graph42 .node_cities'
   );
@@ -193,7 +193,7 @@ node.cities { color: #0000ff; }
 [ Frankfurt ] --> [ Dresden ]
 [ Potsdam ] --> [ Cottbus ]
 HERE
-, 'with empty group Cities'); 
+, 'with empty group Cities');
 
 $node->add_to_group($group);
 
@@ -214,7 +214,7 @@ node.cities { color: #0000ff; }
 [ Frankfurt ] --> [ Dresden ]
 [ Potsdam ] --> [ Cottbus ]
 HERE
-, 'with empty group Cities'); 
+, 'with empty group Cities');
 
 
 #############################################################################
