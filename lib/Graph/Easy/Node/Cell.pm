@@ -7,10 +7,13 @@ package Graph::Easy::Node::Cell;
 
 use Graph::Easy::Node;
 
-@ISA = qw/Graph::Easy::Node/;
-$VERSION = '0.10';
-
 use strict;
+use warnings;
+
+use vars qw(@ISA $VERSION);
+
+@ISA = qw/Graph::Easy::Node/;
+$VERSION = '0.74';
 
 #############################################################################
 

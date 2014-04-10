@@ -1,0 +1,62 @@
+{
+   "abstract" : "Convert or render graphs (as ASCII, HTML, SVG or via Graphviz)",
+   "author" : [],
+   "dynamic_config" : 1,
+   "generated_by" : "Module::Build version 0.4205",
+   "keywords" : [
+      "generation",
+      "graph",
+      "graphviz",
+      "text generation",
+      "text"
+   ],
+   "license" : [
+      "gpl_1"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Graph-Easy",
+   "no_index" : {
+      "directory" : [
+         "examples",
+         "bench",
+         "todos"
+      ]
+   },
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "Test::More" : "0.62"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "Module::Build" : "0.36"
+         }
+      },
+      "runtime" : {
+         "recommends" : {
+            "Graph::Easy::As_svg" : "0.23"
+         },
+         "requires" : {
+            "Scalar::Util" : "1.13",
+            "perl" : "v5.8.2",
+            "strict" : "0",
+            "vars" : "0",
+            "warnings" : "0"
+         }
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "license" : [
+         "http://www.gnu.org/licenses/old-licenses/gpl-1.0.txt"
+      ],
+      "repository" : {
+         "url" : "https://bitbucket.org/shlomif/perl-graph-easy"
+      }
+   },
+   "version" : "0.74"
+}

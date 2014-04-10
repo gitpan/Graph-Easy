@@ -5,11 +5,12 @@
 
 package Graph::Easy::Parser::VCG;
 
-$VERSION = '0.06';
+$VERSION = '0.74';
 use Graph::Easy::Parser::Graphviz;
 @ISA = qw/Graph::Easy::Parser::Graphviz/;
 
 use strict;
+use warnings;
 use utf8;
 use constant NO_MULTIPLES => 1;
 use Encode qw/decode/;

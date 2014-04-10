@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Scout;
 
-$VERSION = '0.25';
+$VERSION = '0.74';
 
 #############################################################################
 #############################################################################
@@ -14,6 +14,7 @@ $VERSION = '0.25';
 package Graph::Easy;
 
 use strict;
+use warnings;
 use Graph::Easy::Node::Cell;
 use Graph::Easy::Edge::Cell qw/
   EDGE_SHORT_E EDGE_SHORT_W EDGE_SHORT_N EDGE_SHORT_S

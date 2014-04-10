@@ -5,7 +5,7 @@
 
 package Graph::Easy::As_graphviz;
 
-$VERSION = '0.31';
+$VERSION = '0.74';
 
 #############################################################################
 #############################################################################
@@ -13,6 +13,7 @@ $VERSION = '0.31';
 package Graph::Easy;
 
 use strict;
+use warnings;
 
 use Graph::Easy::Util qw(ord_values);
 

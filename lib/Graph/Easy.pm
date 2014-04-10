@@ -17,10 +17,11 @@ use Graph::Easy::Node::Anon;
 use Graph::Easy::Node::Empty;
 use Scalar::Util qw/weaken/;
 
-$VERSION = '0.73';
+$VERSION = '0.74';
 @ISA = qw/Graph::Easy::Base/;
 
 use strict;
+use warnings;
 my $att_aliases;
 
 use Graph::Easy::Util qw(ord_values);

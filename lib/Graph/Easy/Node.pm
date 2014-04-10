@@ -6,7 +6,7 @@
 
 package Graph::Easy::Node;
 
-$VERSION = '0.38';
+$VERSION = '0.74';
 
 use Graph::Easy::Base;
 use Graph::Easy::Attributes;
@@ -18,6 +18,7 @@ use Graph::Easy::Util qw(ord_values);
 my $att_aliases;
 
 use strict;
+use warnings;
 use constant isa_cell => 0;
 
 sub _init

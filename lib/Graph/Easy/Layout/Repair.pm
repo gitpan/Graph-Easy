@@ -7,7 +7,7 @@
 
 package Graph::Easy::Layout::Repair;
 
-$VERSION = '0.08';
+$VERSION = '0.74';
 
 #############################################################################
 #############################################################################
@@ -16,6 +16,7 @@ $VERSION = '0.08';
 package Graph::Easy;
 
 use strict;
+use warnings;
 
 use Graph::Easy::Util qw(ord_values);
 

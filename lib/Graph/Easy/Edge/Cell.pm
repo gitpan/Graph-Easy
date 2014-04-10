@@ -6,6 +6,7 @@
 package Graph::Easy::Edge::Cell;
 
 use strict;
+use warnings;
 use Graph::Easy::Edge;
 use Graph::Easy::Attributes;
 require Exporter;
@@ -13,7 +14,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Easy::Edge/;
 
-$VERSION = '0.29';
+$VERSION = '0.74';
 
 use Scalar::Util qw/weaken/;
 
@@ -1313,7 +1314,7 @@ our @ISA = qw/Graph::Easy::Node::Cell/;
 
 #use vars qw/$VERSION/;
 
-our $VERSION = '0.02';
+our $VERSION = '0.74';
 
 use constant isa_cell => 1;
 

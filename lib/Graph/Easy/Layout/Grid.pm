@@ -6,7 +6,7 @@
 
 package Graph::Easy::Layout::Grid;
 
-$VERSION = '0.07';
+$VERSION = '0.74';
 
 #############################################################################
 #############################################################################
@@ -14,6 +14,7 @@ $VERSION = '0.07';
 package Graph::Easy;
 
 use strict;
+use warnings;
 
 use Graph::Easy::Util qw(ord_values);
 

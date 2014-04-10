@@ -5,7 +5,7 @@
 
 package Graph::Easy::As_graphml;
 
-$VERSION = '0.03';
+$VERSION = '0.74';
 
 #############################################################################
 #############################################################################
@@ -13,6 +13,7 @@ $VERSION = '0.03';
 package Graph::Easy;
 
 use strict;
+use warnings;
 
 use Graph::Easy::Attributes;
 

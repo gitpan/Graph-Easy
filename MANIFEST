@@ -4,6 +4,8 @@ bench/stress.pl
 bench/test.dot
 bench/test.txt
 bin/graph-easy
+Build
+Build.PL
 CHANGES
 examples/as_ascii
 examples/as_boxart
@@ -23,16 +25,7 @@ examples/parse
 examples/syntax.pl
 examples/syntax.tpl
 examples/wikicrawl.pl
-foo
-inc/Module/Install.pm
-inc/Module/Install/Base.pm
-inc/Module/Install/Can.pm
-inc/Module/Install/Fetch.pm
-inc/Module/Install/Makefile.pm
-inc/Module/Install/Metadata.pm
-inc/Module/Install/Scripts.pm
-inc/Module/Install/Win32.pm
-inc/Module/Install/WriteAll.pm
+inc/Test/Run/Builder.pm
 INSTALL
 lib/Graph/Easy.pm
 lib/Graph/Easy/As_ascii.pm
@@ -68,7 +61,7 @@ MANIFEST			This list of files
 MANIFEST.SKIP
 META.yml
 README
-SIGNATURE
+scripts/bump-version-number.pl
 t/anon.t
 t/anon_group.t
 t/as_txt.t
@@ -773,3 +766,4 @@ t/txt/gdl/2_top_to_bottom.txt
 t/use_class.t
 t/vcg.t
 TODO
+META.json

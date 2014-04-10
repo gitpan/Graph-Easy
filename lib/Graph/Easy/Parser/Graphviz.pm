@@ -5,11 +5,13 @@
 
 package Graph::Easy::Parser::Graphviz;
 
-$VERSION = '0.17';
+$VERSION = '0.74';
 use Graph::Easy::Parser;
 @ISA = qw/Graph::Easy::Parser/;
 
 use strict;
+use warnings;
+
 use utf8;
 use constant NO_MULTIPLES => 1;
 

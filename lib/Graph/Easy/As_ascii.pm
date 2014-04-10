@@ -6,7 +6,7 @@
 
 package Graph::Easy::As_ascii;
 
-$VERSION = '0.22';
+$VERSION = '0.74';
 
 use utf8;
 
@@ -16,6 +16,7 @@ use utf8;
 package Graph::Easy::Edge::Cell;
 
 use strict;
+use warnings;
 
 my $edge_styles = [ 
   {

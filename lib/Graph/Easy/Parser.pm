@@ -7,12 +7,13 @@ package Graph::Easy::Parser;
 
 use Graph::Easy;
 
-$VERSION = '0.35';
+$VERSION = '0.74';
 use Graph::Easy::Base;
 @ISA = qw/Graph::Easy::Base/;
 use Scalar::Util qw/weaken/;
 
 use strict;
+use warnings;
 use constant NO_MULTIPLES => 1;
 
 use Graph::Easy::Util qw(ord_values);

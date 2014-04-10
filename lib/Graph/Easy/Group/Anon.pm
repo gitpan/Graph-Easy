@@ -6,9 +6,10 @@
 package Graph::Easy::Group::Anon;
 
 use Graph::Easy::Group;
+use warnings;
 
 @ISA = qw/Graph::Easy::Group/;
-$VERSION = '0.02';
+$VERSION = '0.74';
 
 use strict;
 

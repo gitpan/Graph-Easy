@@ -10,9 +10,10 @@ use Graph::Easy;
 use Scalar::Util qw/weaken/;
 
 @ISA = qw/Graph::Easy::Node Graph::Easy/;
-$VERSION = '0.22';
+$VERSION = '0.74';
 
 use strict;
+use warnings;
 
 use Graph::Easy::Util qw(ord_values);
 
